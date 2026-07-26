@@ -54,7 +54,19 @@ run {
 dependencies {
     implementation(projects.core.common)
 
-    // `api` so :app sees the React Native types without depending on the npm layout itself.
-    api("com.facebook.react:react-android:$reactNativeVersion")
-    api("com.facebook.hermes:hermes-android:$hermesVersion")
+    // `implementation`, not `api`: React Native types must not reach :app's own code. The only
+    // thing this module exposes is a Kotlin facade — see the containment gate in
+    // docs/superpowers/plans/m0-findings.md.
+    implementation("com.facebook.react:react-android:$reactNativeVersion")
+    runtimeOnly("com.facebook.hermes:hermes-android:$hermesVersion")
+
+    // ...with one hole that has to exist. RNGP generates PackageList.java *into :app* and adds it to
+    // :app's source set, and that generated file references ReactNativeHost, ReactPackage and
+    // MainPackageConfig. Without React Native on :app's compile classpath those types erase and
+    // javac fails with a baffling "reference to PackageList is ambiguous".
+    //
+    // compileOnlyApi puts React Native on consumers' *compile* classpath only; the runtime copy
+    // still arrives through `implementation` above. The containment gate is unaffected because it
+    // scans source directories, not build/generated — generated build glue is not implementation.
+    compileOnlyApi("com.facebook.react:react-android:$reactNativeVersion")
 }
