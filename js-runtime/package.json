@@ -1,0 +1,28 @@
+{
+  "name": "tsundoku-js-runtime",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
+  "dependencies": {
+    "react": "19.2.8",
+    "react-native": "0.86.0"
+  },
+  "//hermes-compiler": [
+    "Transitive dependency of react-native, promoted to a direct one because pnpm's isolated",
+    "node_modules only symlinks direct deps and the React Native Gradle plugin looks for hermesc at",
+    "the literal path node_modules/hermes-compiler/hermesc/%OS-BIN%/ (PathUtils.kt:243).",
+    "The version MUST equal HERMES_V1_VERSION_NAME in",
+    "node_modules/react-native/sdks/hermes-engine/version.properties — js-runtime/build.gradle.kts",
+    "fails the build if they diverge."
+  ],
+  "devDependencies": {
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-android": "20.2.0",
+    "@react-native/babel-preset": "0.86.0",
+    "@react-native/gradle-plugin": "0.86.0",
+    "@react-native/metro-config": "0.86.0",
+    "hermes-compiler": "250829098.0.14",
+    "@types/react": "19.2.17",
+    "typescript": "5.9.2"
+  }
+}

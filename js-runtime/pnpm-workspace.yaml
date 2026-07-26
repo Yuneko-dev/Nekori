@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@react-native/gradle-plugin@0.86.0': patches/@react-native__gradle-plugin@0.86.0.patch

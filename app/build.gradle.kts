@@ -15,6 +15,28 @@ plugins {
     alias(libs.plugins.aboutLibraries)
     alias(libs.plugins.androidx.baselineProfile)
     alias(libs.plugins.kotlin.serialization)
+
+    // Only the application module gets JS bundling, autolinking and resource handling — applying
+    // this plugin to a library module registers codegen and nothing else (ReactPlugin.kt:63-105).
+    id("com.facebook.react")
+}
+
+// The npm root is js-runtime/, not the Gradle root, so every path the plugin would normally infer
+// has to be stated. See docs/superpowers/plans/2026-07-27-m0-rn-brownfield-spike.md.
+react {
+    val jsRuntime = rootProject.layout.projectDirectory.dir("js-runtime")
+
+    root.set(jsRuntime)
+    reactNativeDir.set(jsRuntime.dir("node_modules/react-native"))
+    codegenDir.set(jsRuntime.dir("node_modules/@react-native/codegen"))
+    cliFile.set(jsRuntime.file("node_modules/react-native/cli.js"))
+    entryFile.set(jsRuntime.file("src/index.ts"))
+
+    // Bundle for debug builds too. The default leaves debug variants expecting a Metro dev server;
+    // this app has no React UI to hot-reload, so shipping the bundle keeps the device standalone.
+    debuggableVariants.set(emptyList<String>())
+
+    autolinkLibrariesWithApp()
 }
 
 if (Config.includeTelemetry) {
@@ -230,6 +252,7 @@ dependencies {
     implementation(projects.sourceLocal)
     implementation(projects.data)
     implementation(projects.domain)
+    implementation(projects.jsRuntime)
     implementation(projects.presentationCore)
     implementation(projects.presentationWidget)
     implementation(projects.telemetry)

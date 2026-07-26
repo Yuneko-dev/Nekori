@@ -21,6 +21,21 @@ plugins {
     alias(mihonx.plugins.spotless)
 }
 
+// React Native ships against OkHttp 4.x while the rest of the app is on 5.x. OkHttp 5 keeps the
+// `okhttp3` package and stays binary compatible, so pin the whole group to one version rather than
+// letting Gradle's conflict resolution pick per-configuration. LNReader does the same thing for the
+// same reason (`lnreader/android/build.gradle:26-33`).
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.squareup.okhttp3") {
+                useVersion(libs.versions.okhttp.get())
+                because("React Native pulls OkHttp 4.x; the app is on 5.x")
+            }
+        }
+    }
+}
+
 val buildLogic: IncludedBuild = gradle.includedBuild("build-logic")
 tasks {
     listOf("clean", "spotlessApply", "spotlessCheck").forEach { task ->
