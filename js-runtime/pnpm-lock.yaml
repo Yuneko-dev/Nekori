@@ -13,6 +13,9 @@ importers:
 
   .:
     dependencies:
+      '@babel/runtime':
+        specifier: 7.29.7
+        version: 7.29.7
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -27,6 +30,9 @@ importers:
         specifier: 20.2.0
         version: 20.2.0
       '@react-native/babel-preset':
+        specifier: 0.86.0
+        version: 0.86.0(@babel/core@7.29.7)
+      '@react-native/codegen':
         specifier: 0.86.0
         version: 0.86.0(@babel/core@7.29.7)
       '@react-native/gradle-plugin':

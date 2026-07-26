@@ -3,7 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
+  "codegenConfig": {
+    "name": "TsundokuJsRuntimeSpec",
+    "type": "modules",
+    "jsSrcsDir": "specs",
+    "android": {
+      "javaPackageName": "eu.kanade.tachiyomi.jsruntime.spec"
+    }
+  },
   "dependencies": {
+    "@babel/runtime": "7.29.7",
     "react": "19.2.8",
     "react-native": "0.86.0"
   },
@@ -19,6 +28,7 @@
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native/babel-preset": "0.86.0",
+    "@react-native/codegen": "0.86.0",
     "@react-native/gradle-plugin": "0.86.0",
     "@react-native/metro-config": "0.86.0",
     "hermes-compiler": "250829098.0.14",

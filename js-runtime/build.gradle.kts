@@ -3,10 +3,23 @@ import java.util.Properties
 plugins {
     alias(mihonx.plugins.android.library)
     alias(mihonx.plugins.spotless)
+
+    // In a library module this registers TurboModule codegen and nothing else — bundling,
+    // autolinking and resources are gated behind `com.android.application` (ReactPlugin.kt:63-105).
+    id("com.facebook.react")
 }
 
 android {
     namespace = "eu.kanade.tachiyomi.jsruntime"
+}
+
+react {
+    // Defaults assume the standard layout. For a library the plugin defaults `jsRootDir` to `../`,
+    // which here is the repo root; the specs live in this module.
+    root.set(layout.projectDirectory)
+    reactNativeDir.set(layout.projectDirectory.dir("node_modules/react-native"))
+    codegenDir.set(layout.projectDirectory.dir("node_modules/@react-native/codegen"))
+    jsRootDir.set(layout.projectDirectory)
 }
 
 /**

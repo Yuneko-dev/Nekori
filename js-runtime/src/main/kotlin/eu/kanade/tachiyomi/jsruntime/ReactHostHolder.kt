@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
 
@@ -82,6 +83,13 @@ internal class ReactHostHolder(
             // reach a packager that this setup deliberately does not run — the JS bundle is compiled
             // into the APK for every variant (`debuggableVariants = emptyList()`).
             useDevSupport = false,
+            // The default is `{ throw it }`, which rethrows on React Native's own thread and takes
+            // the process down with SIGABRT. For a headless runtime that is wrong twice over: there
+            // is no UI to protect, and a JavaScript fault should surface as a failed call, not as an
+            // app crash. Pending calls are failed instead.
+            exceptionHandler = { error ->
+                logcat(LogPriority.ERROR, error) { "React Native reported an unhandled exception" }
+            },
         )
 
         val task = reactHost.start()

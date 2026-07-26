@@ -21,6 +21,13 @@ plugins {
     id("com.facebook.react")
 }
 
+// `:app` is included before `:js-runtime` in settings.gradle.kts, so Gradle evaluates it first. The
+// React Native plugin's afterEvaluate walks `rootProject.allprojects { configurations.all { … } }`,
+// which finalizes :js-runtime's Android DSL before that project is evaluated — and applying
+// `com.facebook.react` there then fails with "too late to call finalizeDsl". Evaluating the library
+// first keeps the two applications in the right order.
+evaluationDependsOn(":js-runtime")
+
 // The npm root is js-runtime/, not the Gradle root, so every path the plugin would normally infer
 // has to be stated. See docs/superpowers/plans/2026-07-27-m0-rn-brownfield-spike.md.
 react {
