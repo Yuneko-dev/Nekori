@@ -33,6 +33,9 @@ export interface Spec extends TurboModule {
   /** Cryptographically secure bytes for the Web Crypto getRandomValues polyfill. */
   getRandomBase64(byteLength: number): string;
 
+  /** Current value of Settings > Advanced > Default user agent string. */
+  getUserAgent(): string;
+
   loadPluginStorage(pluginId: string): Promise<string>;
 
   applyPluginStorageMutation(pluginId: string, mutationJson: string): Promise<void>;

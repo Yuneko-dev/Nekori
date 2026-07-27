@@ -15,11 +15,12 @@ import java.security.SecureRandom
  *
  * Codegen runs once in `:app`, where its C++ registration is linked into `libappmodules.so`.
  * Generating the Java base class again in this library creates a duplicate class that debug D8
- * tolerates but release R8 rejects. This implementation therefore declares the three generated
- * method signatures directly; instrumented bridge tests exercise the complete contract.
+ * tolerates but release R8 rejects. This implementation therefore declares the generated method
+ * signatures directly; instrumented bridge tests exercise the complete contract.
  */
 internal class NativeHostApiModule(
     reactContext: ReactApplicationContext,
+    private val userAgentProvider: () -> String,
 ) : ReactContextBaseJavaModule(reactContext), TurboModule {
 
     private val pluginStorage = PluginStorage(reactContext)
@@ -64,6 +65,10 @@ internal class NativeHostApiModule(
             .also(SECURE_RANDOM::nextBytes)
             .let { Base64.encodeToString(it, Base64.NO_WRAP) }
     }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    @DoNotStrip
+    fun getUserAgent(): String = userAgentProvider()
 
     @ReactMethod
     @DoNotStrip

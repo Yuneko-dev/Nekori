@@ -9,6 +9,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -29,11 +30,15 @@ import uy.kohesive.injekt.api.get
 class JsRuntimeBridgeTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val networkClient by lazy { Injekt.get<NetworkHelper>().client }
+    private val networkHelper by lazy { Injekt.get<NetworkHelper>() }
+    private val networkClient by lazy { networkHelper.client }
+
+    private fun createRuntime() =
+        JsRuntime(context, networkClient, networkHelper::defaultUserAgentProvider)
 
     @Test
     fun startReturnsOnlyWhenJavaScriptHasSubscribed() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         runtime.start()
 
@@ -44,7 +49,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun callsIntoJavaScriptAndGetsTheResultBack() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         val json = runtime.call("sum", """{"a":2,"b":40}""")
 
@@ -54,7 +59,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun javaScriptThrowBecomesKotlinException() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         try {
             runtime.call("boom", """{"message":"plugin exploded"}""")
@@ -67,7 +72,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun unknownMethodFailsLoudly() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         try {
             runtime.call("noSuchMethod", "{}")
@@ -82,7 +87,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun concurrentCallsDoNotCrossWires() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         // Each call carries its own id. A single shared continuation, a last-request-wins bug, or a
         // non-atomic pending mutation all show up here as answers landing on the wrong caller, and
@@ -97,7 +102,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun evaluatesLoadedPluginExpressionsByRuntimeKey() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         val code = """
             exports.default = {
               id: 'compat.test',
@@ -132,7 +137,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun secureRandomFillsTheRequestedBuffer() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         val result = runtime.call("secureRandom.sample", """{"size":32}""")
 
@@ -147,7 +152,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun pluginModuleSurfaceUsesRealBrowserLibraries() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         val code = """
             const cheerio = require('cheerio');
             const htmlparser2 = require('htmlparser2');
@@ -213,8 +218,128 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun pluginUtilsUseTheCurrentDefaultUserAgent() = runBlocking {
+        val expected = networkHelper.defaultUserAgentProvider()
+        val runtime = createRuntime()
+        val code = """
+            const { getUserAgent } = require('@libs/utils');
+            exports.default = {
+              id: 'user-agent.test',
+              name: 'User agent test',
+              version: '1',
+              site: 'https://example.invalid',
+              probe: () => getUserAgent(),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"user-agent.test","code":${quote(code)}}""")
+
+        assertEquals(
+            quote(expected),
+            runtime.call(
+                "plugin.eval",
+                """{"id":"user-agent.test","expression":"plugin.probe()"}""",
+            ),
+        )
+    }
+
+    @Test
+    fun pluginCookieModuleUsesTheSharedAndroidCookieStore() = runBlocking {
+        val runtime = createRuntime()
+        val suffix = System.nanoTime().toString()
+        val pluginId = "cookie.test.$suffix"
+        val url = "https://cookie-$suffix.example.invalid/"
+        val code = """
+            const cookies = require('@libs/cookie');
+            exports.default = {
+              id: '$pluginId',
+              name: 'Cookie test',
+              version: '1',
+              site: '$url',
+              probe: async () => {
+                const fromResponse = await cookies.setFromResponse(
+                  '$url',
+                  'responseCookie=responseValue; Path=/',
+                );
+                const fromObject = await cookies.set(
+                  '$url',
+                  {
+                    name: 'objectCookie',
+                    value: 'objectValue',
+                    path: '/',
+                    secure: true,
+                    sameSite: 'lax',
+                    maxAge: 60,
+                  },
+                );
+                await cookies.flush();
+                const stored = await cookies.get('$url');
+                const storedAsArray = await cookies.getAsArray('$url');
+                return {
+                  fromResponse,
+                  fromObject,
+                  responseValue: stored.responseCookie?.value,
+                  objectValue: stored.objectCookie?.value,
+                  arrayValues: storedAsArray.map(cookie => cookie.value).sort().join(','),
+                  header: await cookies.getCookieHeader('$url'),
+                  fullApi: [
+                    cookies.getAll,
+                    cookies.getAllAsArray,
+                    cookies.clearAll,
+                    cookies.clearAllStores,
+                    cookies.clearByName,
+                    cookies.getAsArray,
+                    cookies.getCookieHeader,
+                    cookies.getFromResponse,
+                    cookies.removeSessionCookies,
+                  ].every(value => typeof value === 'function'),
+                };
+              },
+              cleanup: async () => {
+                await cookies.setFromResponse(
+                  '$url',
+                  'responseCookie=; Path=/; Max-Age=0',
+                );
+                await cookies.setFromResponse(
+                  '$url',
+                  'objectCookie=; Path=/; Max-Age=0',
+                );
+              },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"$pluginId","code":${quote(code)}}""")
+        try {
+            val result = runtime.call(
+                "plugin.eval",
+                """{"id":"$pluginId","expression":"plugin.probe()"}""",
+            )
+
+            assertTrue(result, result.contains("\"fromResponse\":true"))
+            assertTrue(result, result.contains("\"fromObject\":true"))
+            assertTrue(result, result.contains("\"responseValue\":\"responseValue\""))
+            assertTrue(result, result.contains("\"objectValue\":\"objectValue\""))
+            assertTrue(result, result.contains("\"arrayValues\":\"objectValue,responseValue\""))
+            assertTrue(result, result.contains("responseCookie=responseValue"))
+            assertTrue(result, result.contains("objectCookie=objectValue"))
+            assertTrue(result, result.contains("\"fullApi\":true"))
+
+            val sharedCookies = networkHelper.cookieJar.get(url.toHttpUrl()).associate { it.name to it.value }
+            assertEquals("responseValue", sharedCookies["responseCookie"])
+            assertEquals("objectValue", sharedCookies["objectCookie"])
+        } finally {
+            runCatching {
+                runtime.call(
+                    "plugin.eval",
+                    """{"id":"$pluginId","expression":"plugin.cleanup()"}""",
+                )
+            }
+        }
+    }
+
+    @Test
     fun pluginStoragePersistsAndStaysPluginScoped() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         val pluginId = "storage.test.${System.nanoTime()}"
         val secondPluginId = "$pluginId.other"
 
@@ -262,7 +387,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun pluginSettingWritesThroughThePluginStorageContract() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         val pluginId = "settings.test.${System.nanoTime()}"
         val code = """
             const { storage } = require('@libs/storage');
@@ -301,7 +426,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun cloudflareCdpIsDeferredAndUnknownModulesFailLoudly() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         val deferredCode = """
             const webview = require('@libs/webview');
             exports.default = {
@@ -344,7 +469,7 @@ class JsRuntimeBridgeTest {
 
     @Test
     fun cancellingACallDrainsItAndIgnoresTheLateAnswer() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
         runtime.start()
         val before = runtime.pendingCallCount()
 

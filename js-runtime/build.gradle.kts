@@ -58,6 +58,7 @@ dependencies {
     // thing this module exposes is a Kotlin facade — see the containment gate in
     // docs/superpowers/plans/m0-findings.md.
     implementation("com.facebook.react:react-android:$reactNativeVersion")
+    implementation("androidx.webkit:webkit:1.16.0")
     runtimeOnly("com.facebook.hermes:hermes-android:$hermesVersion")
 
     // ...with one hole that has to exist. RNGP generates PackageList.java *into :app* and adds it to

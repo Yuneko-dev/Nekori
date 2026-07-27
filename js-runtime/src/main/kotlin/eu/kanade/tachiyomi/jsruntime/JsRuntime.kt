@@ -27,6 +27,7 @@ enum class JsRuntimeState {
 class JsRuntime(
     context: Context,
     networkClient: OkHttpClient,
+    userAgentProvider: () -> String,
 ) {
 
     init {
@@ -35,7 +36,7 @@ class JsRuntime(
 
     private val host = ReactHostHolder(
         context,
-        listOf(JsRuntimePackage()),
+        listOf(JsRuntimePackage(userAgentProvider)),
     )
 
     val state: JsRuntimeState

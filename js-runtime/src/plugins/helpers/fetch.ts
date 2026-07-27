@@ -1,6 +1,8 @@
 import { Buffer } from "buffer";
 import { parse as parseProto } from "protobufjs";
 
+import { getUserAgent } from "./nativeHost";
+
 type FetchInit = {
   headers?: Record<string, string> | Headers;
   method?: string;
@@ -16,9 +18,7 @@ const makeInit = (init?: FetchInit) => {
     "Sec-Fetch-Mode": "cors",
     "Accept-Encoding": "gzip, deflate",
     "Cache-Control": "max-age=0",
-    // ! Todo: getUserAgent()
-    "User-Agent":
-      "Mozilla/5.0 (Linux; Android 15; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.138 Mobile Safari/537.36",
+    "User-Agent": getUserAgent(),
   };
   if (init?.headers) {
     if (init.headers instanceof Headers) {

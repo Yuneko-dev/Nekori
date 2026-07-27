@@ -23,11 +23,15 @@ import uy.kohesive.injekt.api.get
 class JsRuntimeTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val networkClient by lazy { Injekt.get<NetworkHelper>().client }
+    private val networkHelper by lazy { Injekt.get<NetworkHelper>() }
+    private val networkClient by lazy { networkHelper.client }
+
+    private fun createRuntime() =
+        JsRuntime(context, networkClient, networkHelper::defaultUserAgentProvider)
 
     @Test
     fun startsHermesAndEvaluatesTheBundle() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         runtime.start()
 
@@ -39,7 +43,7 @@ class JsRuntimeTest {
 
     @Test
     fun startIsIdempotentUnderConcurrency() = runBlocking {
-        val runtime = JsRuntime(context, networkClient)
+        val runtime = createRuntime()
 
         // Must not start a second instance or re-apply the feature-flag overrides, which throw on a
         // second call.
@@ -50,9 +54,9 @@ class JsRuntimeTest {
 
     @Test
     fun separateInstancesShareOneProcessWideRuntime() = runBlocking {
-        JsRuntime(context, networkClient).start()
+        createRuntime().start()
 
-        val second = JsRuntime(context, networkClient)
+        val second = createRuntime()
         second.start()
 
         assertEquals(JsRuntimeState.JS_READY, second.state)

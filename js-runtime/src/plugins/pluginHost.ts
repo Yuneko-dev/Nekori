@@ -16,7 +16,6 @@ import {
   gcmsiv,
 } from "@noble/ciphers/aes.js";
 import { bytesToUtf8, utf8ToBytes } from "@noble/ciphers/utils.js";
-// import CookieManager from "@preeternal/react-native-cookie-manager";
 import { load } from "cheerio";
 import dayjs from "dayjs";
 import {
@@ -32,8 +31,10 @@ import {
   solveCloudflareTurnstileAPI,
 } from "./helpers/cloudflareStore";
 import { defaultCover } from "./helpers/constants";
+import CookieManager from "./helpers/cookie";
 import { fetchApi, fetchFile, fetchProto, fetchText } from "./helpers/fetch";
 import { isUrlAbsolute } from "./helpers/isAbsoluteUrl";
+import { getUserAgent } from "./helpers/nativeHost";
 import {
   NovelStatus,
   Plugin,
@@ -123,26 +124,9 @@ const packages: Record<string, unknown> = {
     encodeHtmlEntities,
     decodeHtmlEntities,
     NodeCrypto,
-    // ! Todo
-    getUserAgent: () => "",
+    getUserAgent,
   },
-  // ! todo: implement cookie support
-  "@libs/cookie": {
-    set: () => null,
-    setFromResponse: () => null,
-    get: () => null,
-    flush: () => null,
-    removeSessionCookies: () => null,
-  },
-  /*
-    '@libs/cookie': {
-    set: CookieManager.set,
-    setFromResponse: CookieManager.setFromResponse,
-    get: CookieManager.get,
-    flush: CookieManager.flush,
-    removeSessionCookies: CookieManager.removeSessionCookies,
-  },
-  */
+  "@libs/cookie": CookieManager,
   "@libs/pluginMetadata": {
     ContentWarning: PluginContentWarning,
     ContentType: PluginContentType,
@@ -194,8 +178,7 @@ export async function initPlugin(
       );
     }
 
-    /**
-     if (!plugin.imageRequestInit) {
+    if (!plugin.imageRequestInit) {
       plugin.imageRequestInit = {
         headers: { "User-Agent": getUserAgent() },
       };
@@ -212,7 +195,6 @@ export async function initPlugin(
         plugin.imageRequestInit.headers["User-Agent"] = getUserAgent();
       }
     }
-     */
 
     const pluginNormalize = normalizeLoadedPluginMetadata(plugin);
 

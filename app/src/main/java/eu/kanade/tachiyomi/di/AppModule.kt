@@ -134,7 +134,10 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { LibrarySettingsCache(app) }
 
         addSingletonFactory { NetworkHelper(app, get()) }
-        addSingletonFactory { JsRuntime(app, get<NetworkHelper>().client) }
+        addSingletonFactory {
+            val networkHelper = get<NetworkHelper>()
+            JsRuntime(app, networkHelper.client, networkHelper::defaultUserAgentProvider)
+        }
 
         addSingletonFactory<SourceManager> { AndroidSourceManager(get()) }
         addSingletonFactory { ExtensionManager(app) }

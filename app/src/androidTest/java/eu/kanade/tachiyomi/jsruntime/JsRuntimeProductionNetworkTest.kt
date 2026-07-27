@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.jsruntime
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,8 +18,9 @@ import java.net.ServerSocket
 @RunWith(AndroidJUnit4::class)
 class JsRuntimeProductionNetworkTest {
 
-    private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val networkClient by lazy { Injekt.get<NetworkHelper>().client }
+    private val networkHelper by lazy { Injekt.get<NetworkHelper>() }
+    private val networkClient by lazy { networkHelper.client }
+    private val runtime by lazy { Injekt.get<JsRuntime>() }
 
     @Test
     fun pluginFetchUsesProductionNetworkHelperClient() = runBlocking {
@@ -27,8 +28,16 @@ class JsRuntimeProductionNetworkTest {
             val response = async(Dispatchers.IO) {
                 server.accept().use { socket ->
                     val request = socket.getInputStream().bufferedReader()
-                    while (!request.readLine().isNullOrEmpty()) {
-                        // Consume the request headers before replying.
+                    request.readLine()
+                    val headers = buildMap {
+                        while (true) {
+                            val line = request.readLine()
+                            if (line.isNullOrEmpty()) break
+                            put(
+                                line.substringBefore(':').lowercase(),
+                                line.substringAfter(':').trim(),
+                            )
+                        }
                     }
                     socket.getOutputStream().bufferedWriter().use { output ->
                         output.write(
@@ -39,10 +48,10 @@ class JsRuntimeProductionNetworkTest {
                                 "<p>production-client</p>",
                         )
                     }
+                    headers
                 }
             }
 
-            val runtime = JsRuntime(context, networkClient)
             assertSame(networkClient, reactNativeNetworkingClient())
 
             runtime.call("plugin.load", """{"id":"network.test","code":${quote(PLUGIN_SOURCE)}}""")
@@ -51,7 +60,8 @@ class JsRuntimeProductionNetworkTest {
                 """{"id":"network.test","path":"http://127.0.0.1:${server.localPort}/chapter"}""",
             )
 
-            response.await()
+            val requestHeaders = response.await()
+            assertEquals(networkHelper.defaultUserAgentProvider(), requestHeaders["user-agent"])
             assertTrue(result, result.contains("production-client"))
         }
     }
