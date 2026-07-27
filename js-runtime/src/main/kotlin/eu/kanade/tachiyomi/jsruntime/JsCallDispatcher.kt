@@ -41,8 +41,17 @@ internal object JsCallDispatcher {
     @Volatile
     private var module: NativeHostApiModule? = null
 
-    @Volatile
-    private var jsReady = CompletableDeferred<Unit>()
+    /**
+     * Created once and never replaced.
+     *
+     * An earlier version reset this in [detach], reasoning that a torn-down instance invalidates the
+     * signal. React Native invalidates and recreates the TurboModule during startup, so the reset ran
+     * *after* JavaScript had already called `ready()` — leaving `awaitReady` waiting on a fresh
+     * deferred that nothing would ever complete, and every call timing out at 15 s while the JS logs
+     * showed a bootstrap that had plainly succeeded. React Native is a process-wide singleton here
+     * ([ReactHostHolder]); a genuine instance teardown means restarting the process.
+     */
+    private val jsReady = CompletableDeferred<Unit>()
 
     val isJsReady: Boolean get() = jsReady.isCompleted
 
@@ -54,10 +63,6 @@ internal object JsCallDispatcher {
     fun detach(module: NativeHostApiModule) {
         if (this.module === module) {
             this.module = null
-            // A new instance means a new JS context, so the old readiness signal is stale. Failing
-            // the in-flight calls is better than leaving them suspended against a dead runtime.
-            failAll("React Native instance was torn down")
-            jsReady = CompletableDeferred()
         }
     }
 
@@ -130,11 +135,4 @@ internal object JsCallDispatcher {
 
     /** Visible for tests: no call may outlive its answer. */
     fun pendingCount(): Int = pending.size
-
-    private fun failAll(reason: String) {
-        val ids = pending.keys.toList()
-        ids.forEach { id ->
-            pending.remove(id)?.resumeWithException(IllegalStateException(reason))
-        }
-    }
 }

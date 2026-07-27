@@ -12,7 +12,10 @@
 // during bundle evaluation, and the only symptom is that `ready()` never arrives.
 import 'react-native/Libraries/Core/InitializeCore';
 
+import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
+
 import { registerHandler, startBridge } from './bridge/nativeHost';
+import { getPlugin, initPlugin } from './plugins/pluginHost';
 
 declare const global: { __TSUNDOKU_JS_READY__?: boolean };
 
@@ -31,9 +34,55 @@ registerHandler('boom', (args) => {
 // a call that is abandoned must not leak its continuation.
 registerHandler('never', () => new Promise<never>(() => {}));
 
-startBridge();
+registerHandler('plugin.load', (args) => {
+  const { id, code } = args as { id: string; code: string };
+  const plugin = initPlugin(id, code);
+  return { id: plugin.id, name: plugin.name, version: plugin.version, site: plugin.site };
+});
 
-global.__TSUNDOKU_JS_READY__ = true;
+registerHandler('plugin.popularNovels', async (args) => {
+  const { id, page } = args as { id: string; page: number };
+  const plugin = getPlugin(id);
+  const novels = await plugin.popularNovels(page, {
+    showLatestNovels: false,
+    // Not `undefined`. Plugins dereference their own declared filters — Báo Mới reads
+    // `filters.page.value` — so the host is expected to materialize the plugin's defaults, each of
+    // which already carries a `value`. M1's filter system has to do this properly; passing
+    // `undefined` is what LNReader's type signature allows and what real plugins crash on.
+    filters: plugin.filters,
+  });
+  return { novels };
+});
+
+registerHandler('plugin.searchNovels', async (args) => {
+  const { id, query, page } = args as { id: string; query: string; page: number };
+  return { novels: await getPlugin(id).searchNovels(query, page) };
+});
+
+registerHandler('plugin.parseNovel', async (args) => {
+  const { id, path } = args as { id: string; path: string };
+  return { novel: await getPlugin(id).parseNovel(path) };
+});
+
+registerHandler('plugin.parsePage', async (args) => {
+  const { id, path, page } = args as { id: string; path: string; page: string };
+  return { page: await getPlugin(id).parsePage(path, page) };
+});
+
+registerHandler('plugin.parseChapter', async (args) => {
+  const { id, path } = args as { id: string; path: string };
+  const html = await getPlugin(id).parseChapter(path);
+  // The chapter body can be hundreds of KB; the spike only needs to know it arrived and is HTML.
+  return { length: html.length, head: html.slice(0, 120) };
+});
+
+AppRegistry.registerHeadlessTask('TsundokuJsRuntime', () => async () => {
+  startBridge();
+  global.__TSUNDOKU_JS_READY__ = true;
+  console.log('[tsundoku] headless JS runtime started');
+  await new Promise<never>(() => {});
+});
+
 console.log('[tsundoku] js runtime evaluated');
 
 export {};

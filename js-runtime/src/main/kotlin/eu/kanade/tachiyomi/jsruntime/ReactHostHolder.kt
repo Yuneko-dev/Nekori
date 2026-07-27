@@ -3,8 +3,11 @@ package eu.kanade.tachiyomi.jsruntime
 import android.content.Context
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactHost
+import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.jstasks.HeadlessJsTaskContext
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +100,20 @@ internal class ReactHostHolder(
         check(completed) { "React Native did not start within $START_TIMEOUT_SECONDS s" }
         task.getError()?.let { throw IllegalStateException("React Native failed to start", it) }
 
+        withContext(Dispatchers.Main.immediate) {
+            val reactContext = checkNotNull(reactHost.currentReactContext) {
+                "React Native started without creating a ReactContext"
+            }
+            HeadlessJsTaskContext.getInstance(reactContext).startTask(
+                HeadlessJsTaskConfig(
+                    taskKey = HEADLESS_TASK_KEY,
+                    data = Arguments.createMap(),
+                    timeout = 0,
+                    isAllowedInForeground = true,
+                ),
+            )
+        }
+
         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
         logcat { "React Native started in $elapsedMs ms" }
 
@@ -105,6 +122,7 @@ internal class ReactHostHolder(
 
     private companion object {
         const val JS_MAIN_MODULE_PATH = "src/index"
+        const val HEADLESS_TASK_KEY = "TsundokuJsRuntime"
         const val START_TIMEOUT_SECONDS = 30L
 
         val mutex = Mutex()

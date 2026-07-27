@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.jsruntime
 
 import android.content.Context
+import com.facebook.react.shell.MainReactPackage
 
 /**
  * Lifecycle of the JavaScript runtime.
@@ -25,7 +26,10 @@ enum class JsRuntimeState {
  */
 class JsRuntime(context: Context) {
 
-    private val host = ReactHostHolder(context, listOf(JsRuntimePackage()))
+    private val host = ReactHostHolder(
+        context,
+        listOf(MainReactPackage(), JsRuntimePackage()),
+    )
 
     val state: JsRuntimeState
         get() = when {

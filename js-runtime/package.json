@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@babel/runtime": "7.29.7",
+    "cheerio": "1.0.0-rc.12",
     "react": "19.2.8",
     "react-native": "0.86.0"
   },
@@ -25,14 +26,15 @@
     "fails the build if they diverge."
   ],
   "devDependencies": {
+    "@babel/plugin-transform-export-namespace-from": "8.0.1",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native/babel-preset": "0.86.0",
     "@react-native/codegen": "0.86.0",
     "@react-native/gradle-plugin": "0.86.0",
     "@react-native/metro-config": "0.86.0",
-    "hermes-compiler": "250829098.0.14",
     "@types/react": "19.2.17",
+    "hermes-compiler": "250829098.0.14",
     "typescript": "5.9.2"
   }
 }
