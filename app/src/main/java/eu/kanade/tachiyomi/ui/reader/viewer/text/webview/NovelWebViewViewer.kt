@@ -21,6 +21,8 @@ import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -28,6 +30,9 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
@@ -81,6 +86,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import logcat.logcat
+import okhttp3.Request
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.injectLazy
@@ -93,6 +99,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         const val ID_EDIT_MODE_STYLE = "edit-mode-style"
         const val SEEK_ECHO_SUPPRESS_MS = 350L
         const val AUTO_SCROLL_START_VERIFY_MS = 400L
+        val IMAGE_URL_REGEX = Regex("\\.(?:avif|gif|jpe?g|png|svg|webp)$", RegexOption.IGNORE_CASE)
         const val AUTO_SCROLL_MAX_START_ATTEMPTS = 3
 
         const val TTS_TEXT_EXTRACTION_JS = """
@@ -134,6 +141,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var loadingIndicator: ReaderProgressIndicator? = null
     private val preferences: ReaderPreferences by injectLazy()
     private val libraryPreferences: tachiyomi.domain.library.service.LibraryPreferences by injectLazy()
+    private val networkHelper: NetworkHelper by injectLazy()
     private val contentPipeline = ContentPipeline(preferences)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -663,14 +671,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
-                    request: android.webkit.WebResourceRequest?,
-                ): android.webkit.WebResourceResponse? {
+                    request: WebResourceRequest?,
+                ): WebResourceResponse? {
                     val url = request?.url?.toString() ?: return null
                     styler.interceptFont(url)?.let { return it }
                     val fallbackChapterId =
                         currentPage?.chapter?.chapter?.id ?: currentChapters?.currChapter?.chapter?.id
                     val fallbackLoader = activity.viewModel.state.value.viewerChapters?.currChapter?.pageLoader
                     imageCache.intercept(url, fallbackChapterId, fallbackLoader)?.let { return it }
+                    interceptPluginImage(request)?.let { return it }
                     return super.shouldInterceptRequest(view, request)
                 }
 
@@ -1494,6 +1503,39 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         is eu.kanade.tachiyomi.jsplugin.source.JsSource -> source.baseUrl.takeIf { it.isNotBlank() }
         is eu.kanade.tachiyomi.source.online.HttpSource -> source.baseUrl.takeIf { it.isNotBlank() }
         else -> null
+    }
+
+    private fun interceptPluginImage(request: WebResourceRequest): WebResourceResponse? {
+        val source = activity.viewModel.getSource() as? JsSource ?: return null
+        val url = request.url.toString()
+        if (request.isForMainFrame || !url.startsWith("http")) return null
+        val acceptsImages = request.requestHeaders.entries.any { (name, value) ->
+            name.equals("Accept", ignoreCase = true) && "image/" in value
+        }
+        val looksLikeImage = IMAGE_URL_REGEX.containsMatchIn(request.url.path.orEmpty())
+        if (!acceptsImages && !looksLikeImage) return null
+
+        return runCatching {
+            val init = source.currentImageRequestInit()
+            val networkRequest = Request.Builder().apply {
+                url(url)
+                request.requestHeaders.forEach { (name, value) -> header(name, value) }
+                applyJsImageRequestInit(init)
+            }.build()
+            val response = networkHelper.client.newCall(networkRequest).execute()
+            val responseBody = response.body
+            val contentType = responseBody.contentType()
+            WebResourceResponse(
+                contentType?.let { "${it.type}/${it.subtype}" } ?: "application/octet-stream",
+                contentType?.charset()?.name() ?: "UTF-8",
+                response.code,
+                response.message.ifBlank { "OK" },
+                response.headers.toMultimap().mapValues { (_, values) -> values.joinToString(", ") },
+                responseBody.byteStream(),
+            )
+        }.onFailure {
+            logcat(LogPriority.WARN) { "Failed to load plugin image $url: ${it.message}" }
+        }.getOrNull()
     }
 
     private fun toAbsoluteChapterUrl(chapterPath: String?): String =

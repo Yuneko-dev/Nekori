@@ -1,7 +1,5 @@
 import type { Spec } from '../../../specs/NativeHostApi';
 
-// ! Todo: localStorage/sessionStorage
-
 type StoredValue = {
   created: number;
   expires?: number;
@@ -11,7 +9,12 @@ type StoredValue = {
 type StorageMutation =
   | { type: 'set'; key: string; value: string }
   | { type: 'delete'; key: string }
-  | { type: 'clear' };
+  | { type: 'clear' }
+  | {
+      type: 'webStorage';
+      localStorage: string;
+      sessionStorage: string;
+    };
 
 type Snapshot = {
   database: Record<string, string>;
@@ -23,8 +26,8 @@ type PluginStorageContext = {
   pluginId: string;
   values: Map<string, StoredValue>;
   mutations: StorageMutation[];
-  localStorage: unknown;
-  sessionStorage: unknown;
+  localStorage: Record<string, string>;
+  sessionStorage: Record<string, string>;
 };
 
 const contexts = new Map<string, PluginStorageContext>();
@@ -33,12 +36,22 @@ function nativeHostApi(): Spec {
   return require('../../../specs/NativeHostApi').default as Spec;
 }
 
-function parseSnapshot(value: string): unknown {
+function parseSnapshot(value: string): Record<string, string> {
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return Object.fromEntries(
+        Object.entries(parsed).map(([key, item]) => [key, String(item)]),
+      );
+    }
   } catch {
-    return {};
+    // Fall through to an empty Web Storage snapshot.
   }
+  return {};
 }
 
 function parseStoredValue(value: string): StoredValue {
@@ -161,6 +174,22 @@ export async function setPluginStorageValue(
     storage: { set(storageKey: string, storedValue: unknown): void };
   };
   module.storage.set(key, value);
+  await flushPluginStorage(runtimeKey);
+}
+
+export async function setPluginWebStorage(
+  runtimeKey: string,
+  localStorage: Record<string, string>,
+  sessionStorage: Record<string, string>,
+): Promise<void> {
+  const state = context(runtimeKey);
+  state.localStorage = localStorage;
+  state.sessionStorage = sessionStorage;
+  state.mutations.push({
+    type: 'webStorage',
+    localStorage: JSON.stringify(localStorage),
+    sessionStorage: JSON.stringify(sessionStorage),
+  });
   await flushPluginStorage(runtimeKey);
 }
 

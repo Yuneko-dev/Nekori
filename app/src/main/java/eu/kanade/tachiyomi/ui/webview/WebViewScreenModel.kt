@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.net.toUri
 import cafe.adriel.voyager.core.model.StateScreenModel
 import eu.kanade.presentation.more.stats.StatsScreenState
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.openInBrowser
@@ -22,10 +23,12 @@ class WebViewScreenModel(
     private val network: NetworkHelper = Injekt.get(),
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
 
+    private val source = sourceId?.let(sourceManager::get)
+
     var headers = emptyMap<String, String>()
 
     init {
-        sourceId?.let { sourceManager.get(it) as? HttpSource }?.let { source ->
+        (source as? HttpSource)?.let { source ->
             try {
                 headers = source.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }
             } catch (e: Exception) {
@@ -33,6 +36,13 @@ class WebViewScreenModel(
             }
         }
         headers = headers.withDefaultUserAgent(network.defaultUserAgentProvider())
+    }
+
+    suspend fun usesPluginWebStorage(): Boolean =
+        (source as? JsSource)?.usesWebStorage() == true
+
+    fun savePluginWebStorage(snapshotJson: String) {
+        (source as? JsSource)?.saveWebStorageSnapshot(snapshotJson)
     }
 
     fun shareWebpage(context: Context, url: String) {

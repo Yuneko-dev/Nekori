@@ -22,6 +22,7 @@ import {
   flushPluginStorage,
   getPluginStorageValue,
   setPluginStorageValue,
+  setPluginWebStorage,
 } from './plugins/helpers/storage';
 import {
   evaluatePlugin,
@@ -89,6 +90,8 @@ registerHandler('plugin.load', async args => {
     name: plugin.name,
     version: plugin.version,
     site: plugin.site,
+    webStorageUtilized: plugin.webStorageUtilized === true,
+    imageRequestInit: plugin.imageRequestInit,
   };
 });
 
@@ -131,6 +134,21 @@ registerHandler('plugin.storageSet', async args => {
     value: unknown;
   };
   await setPluginStorageValue(key ?? id, storageKey, value);
+  return null;
+});
+
+registerHandler('plugin.webStorageSet', async args => {
+  const { id, key, localStorage, sessionStorage } = args as {
+    id: string;
+    key?: string;
+    localStorage: Record<string, string>;
+    sessionStorage: Record<string, string>;
+  };
+  await setPluginWebStorage(
+    key ?? id,
+    localStorage ?? {},
+    sessionStorage ?? {},
+  );
   return null;
 });
 

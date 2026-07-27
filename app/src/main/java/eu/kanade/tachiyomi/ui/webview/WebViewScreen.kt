@@ -1,6 +1,11 @@
 package eu.kanade.tachiyomi.ui.webview
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -24,6 +29,11 @@ class WebViewScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val screenModel = rememberScreenModel { WebViewScreenModel(sourceId) }
+        var saveWebStorage by remember { mutableStateOf(false) }
+
+        LaunchedEffect(screenModel) {
+            saveWebStorage = screenModel.usesPluginWebStorage()
+        }
 
         WebViewScreenContent(
             onNavigateUp = { navigator.pop() },
@@ -34,6 +44,8 @@ class WebViewScreen(
             onShare = { screenModel.shareWebpage(context, it) },
             onOpenInBrowser = { screenModel.openInBrowser(context, it) },
             onClearCookies = screenModel::clearCookies,
+            saveWebStorage = saveWebStorage,
+            onWebStorageSnapshot = screenModel::savePluginWebStorage,
         )
     }
 }

@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import coil3.imageLoader
+import eu.kanade.tachiyomi.jsplugin.source.JsImageRequestInit
+import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,6 +58,7 @@ class ChapterImageEmbedder(
         html: String,
         baseUrl: String?,
         tmpDir: com.hippo.unifile.UniFile? = null,
+        imageRequestInit: JsImageRequestInit? = null,
     ): String = withContext(Dispatchers.IO) {
         if (!novelDownloadPreferences.downloadChapterImages().get()) {
             return@withContext html
@@ -76,7 +79,7 @@ class ChapterImageEmbedder(
             }
             try {
                 val absoluteUrl = resolveUrl(imageUrl, baseUrl)
-                val imageResponse = downloadAndEncodeImage(absoluteUrl)
+                val imageResponse = downloadAndEncodeImage(absoluteUrl, imageRequestInit)
 
                 if (imageResponse != null) {
                     val (imageBytes, mimeType) = imageResponse
@@ -185,7 +188,10 @@ class ChapterImageEmbedder(
     /**
      * Download an image and encode it as base64 data URI.
      */
-    private suspend fun downloadAndEncodeImage(url: String): Pair<ByteArray, String>? = withContext(Dispatchers.IO) {
+    private suspend fun downloadAndEncodeImage(
+        url: String,
+        imageRequestInit: JsImageRequestInit?,
+    ): Pair<ByteArray, String>? = withContext(Dispatchers.IO) {
         try {
             var imageBytes: ByteArray? = null
             var mimeType = "image/jpeg"
@@ -218,10 +224,15 @@ class ChapterImageEmbedder(
             }
 
             if (imageBytes == null) {
-                val request = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .build()
+                val request = Request.Builder().apply {
+                    url(url)
+                    imageRequestInit?.headers?.forEach { (name, value) -> header(name, value) }
+                    if (imageRequestInit == null) {
+                        header("User-Agent", networkHelper.defaultUserAgentProvider())
+                    } else {
+                        applyJsImageRequestInit(imageRequestInit)
+                    }
+                }.build()
 
                 val response = client.newCall(request).execute()
                 response.use { resp ->

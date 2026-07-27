@@ -32,7 +32,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
-import okhttp3.Headers
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -57,6 +56,10 @@ class JsSource(
     private val hermesRuntimeKey = "${plugin.id}@${System.identityHashCode(this)}"
 
     @Volatile private var isLoadedInHermes = false
+
+    @Volatile private var imageRequestInit = JsImageRequestInit()
+
+    @Volatile private var webStorageUtilized = false
 
     // Chapter list may aggregate parseNovel + N parsePage calls; re-deriving it would refetch every page.
     private val chaptersCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
@@ -160,20 +163,6 @@ class JsSource(
     val iconUrl: String = plugin.iconUrl
     val version: String = plugin.version
 
-    fun getCoverRequestHeaders(coverUrl: String?): Headers {
-        return try {
-            // Return default referer header for cover images.
-            // Plugins can override via imageRequestInit or headers properties if needed.
-            Headers.Builder()
-                .set("Referer", "$baseUrl/")
-                .build()
-        } catch (_: Exception) {
-            Headers.Builder()
-                .set("Referer", "$baseUrl/")
-                .build()
-        }
-    }
-
     /** Unload this plugin's Hermes context while keeping the process-wide runtime alive. */
     suspend fun releaseRuntime() {
         hermesLoadMutex.withLock {
@@ -215,19 +204,68 @@ class JsSource(
                 put("code", jsCode)
             }.toString()
             val loadedPlugin = hermesRuntime.call("plugin.load", payload)
-            val runtimeSite = runCatching {
-                json.parseToJsonElement(loadedPlugin)
-                    .jsonObject["site"]
-                    ?.jsonPrimitive
-                    ?.content
-                    ?.trim()
-                    ?.trimEnd('/')
-            }.getOrNull()
-            if (!runtimeSite.isNullOrBlank()) {
-                baseUrl = runtimeSite
-            }
+            applyRuntimeMetadata(json.parseToJsonElement(loadedPlugin).jsonObject)
             isLoadedInHermes = true
         }
+    }
+
+    suspend fun getImageRequestInit(): JsImageRequestInit {
+        ensureLoadedInHermes()
+        return imageRequestInit
+    }
+
+    fun currentImageRequestInit(): JsImageRequestInit = imageRequestInit
+
+    suspend fun usesWebStorage(): Boolean {
+        ensureLoadedInHermes()
+        return webStorageUtilized
+    }
+
+    fun saveWebStorageSnapshot(snapshotJson: String) {
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching {
+                ensureLoadedInHermes()
+                val snapshot = json.parseToJsonElement(decodeJsonStringIfQuoted(snapshotJson)).jsonObject
+                val payload = buildJsonObject {
+                    put("id", pluginId)
+                    put("key", hermesRuntimeKey)
+                    put("localStorage", snapshot["localStorage"] as? JsonObject ?: JsonObject(emptyMap()))
+                    put("sessionStorage", snapshot["sessionStorage"] as? JsonObject ?: JsonObject(emptyMap()))
+                }.toString()
+                hermesRuntime.call("plugin.webStorageSet", payload)
+            }.onFailure {
+                logcat(LogPriority.ERROR, it) { "[$pluginId] Could not save WebView storage" }
+            }
+        }
+    }
+
+    private fun applyRuntimeMetadata(metadata: JsonObject) {
+        metadata["site"]
+            ?.jsonPrimitive
+            ?.content
+            ?.trim()
+            ?.trimEnd('/')
+            ?.takeIf { it.isNotBlank() }
+            ?.let { baseUrl = it }
+
+        webStorageUtilized = metadata["webStorageUtilized"]?.jsonPrimitive?.booleanOrNull == true
+        val requestInit = metadata["imageRequestInit"] as? JsonObject
+        val headers = (requestInit?.get("headers") as? JsonObject)
+            ?.mapValues { (_, value) -> value.jsonPrimitive.content }
+            .orEmpty()
+        imageRequestInit = JsImageRequestInit(
+            method = requestInit?.get("method")?.jsonPrimitive?.content,
+            headers = headers,
+            body = requestInit?.get("body")?.jsonPrimitive?.content,
+        )
+    }
+
+    private suspend fun refreshRuntimeMetadata() {
+        val metadata = executePluginMethod(
+            "({ site: plugin.site, webStorageUtilized: plugin.webStorageUtilized === true, " +
+                "imageRequestInit: plugin.imageRequestInit })",
+        )
+        applyRuntimeMetadata(json.parseToJsonElement(metadata).jsonObject)
     }
 
     suspend fun resolveUrl(path: String, isNovel: Boolean = false): String {
@@ -270,6 +308,7 @@ class JsSource(
             put("value", value)
         }.toString()
         hermesRuntime.call("plugin.storageSet", payload)
+        refreshRuntimeMetadata()
     }
 
     /**
@@ -643,6 +682,93 @@ class JsSource(
                             // Set text/summary AFTER addPreference so onSetInitialValue doesn't override
                             pref.text = storedText
                             pref.summary = storedText
+                        }
+                        "Select" -> {
+                            val options = settingObj["options"]?.jsonArray
+                                ?.mapNotNull { it as? JsonObject }
+                                ?.mapNotNull { option ->
+                                    val value = option["value"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                                    val optionLabel = option["label"]?.jsonPrimitive?.content ?: value
+                                    optionLabel to value
+                                }
+                                .orEmpty()
+                            if (options.isEmpty()) return@forEach
+
+                            val allowedValues = options.map { it.second }.toSet()
+                            val defaultValue = settingObj["value"]?.jsonPrimitive?.content
+                                ?.takeIf(allowedValues::contains)
+                                ?: options.first().second
+                            val selectedValue = storedValue?.jsonPrimitive?.content
+                                ?.takeIf(allowedValues::contains)
+                                ?: defaultValue
+                            val pref = androidx.preference.ListPreference(screen.context).apply {
+                                isPersistent = false
+                                this.key = key
+                                title = label
+                                entries = options.map { it.first }.toTypedArray()
+                                entryValues = options.map { it.second }.toTypedArray()
+                                setDefaultValue(defaultValue)
+                                summaryProvider = androidx.preference.ListPreference.SimpleSummaryProvider.getInstance()
+                                setOnPreferenceChangeListener { _, newValue ->
+                                    val value = newValue.toString()
+                                    applicationScope.launch(Dispatchers.IO) {
+                                        runCatching { setPluginSetting(key, JsonPrimitive(value)) }
+                                            .onFailure {
+                                                logcat(LogPriority.ERROR, it) {
+                                                    "[$pluginId] Could not save setting '$key'"
+                                                }
+                                            }
+                                    }
+                                    true
+                                }
+                            }
+                            screen.addPreference(pref)
+                            pref.value = selectedValue
+                        }
+                        "CheckboxGroup" -> {
+                            val options = settingObj["options"]?.jsonArray
+                                ?.mapNotNull { it as? JsonObject }
+                                ?.mapNotNull { option ->
+                                    val value = option["value"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                                    val optionLabel = option["label"]?.jsonPrimitive?.content ?: value
+                                    optionLabel to value
+                                }
+                                .orEmpty()
+                            if (options.isEmpty()) return@forEach
+
+                            val allowedValues = options.map { it.second }.toSet()
+                            val defaultValues = (settingObj["value"] as? JsonArray)
+                                ?.mapNotNull { it.jsonPrimitive.content.takeIf(allowedValues::contains) }
+                                ?.toSet()
+                                .orEmpty()
+                            val selectedValues = (storedValue as? JsonArray)
+                                ?.mapNotNull { it.jsonPrimitive.content.takeIf(allowedValues::contains) }
+                                ?.toSet()
+                                ?: defaultValues
+                            val pref = androidx.preference.MultiSelectListPreference(screen.context).apply {
+                                isPersistent = false
+                                this.key = key
+                                title = label
+                                entries = options.map { it.first }.toTypedArray()
+                                entryValues = options.map { it.second }.toTypedArray()
+                                setDefaultValue(defaultValues)
+                                setOnPreferenceChangeListener { _, newValue ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val values = (newValue as? Set<String>).orEmpty()
+                                    applicationScope.launch(Dispatchers.IO) {
+                                        runCatching {
+                                            setPluginSetting(key, JsonArray(values.map(::JsonPrimitive)))
+                                        }.onFailure {
+                                            logcat(LogPriority.ERROR, it) {
+                                                "[$pluginId] Could not save setting '$key'"
+                                            }
+                                        }
+                                    }
+                                    true
+                                }
+                            }
+                            screen.addPreference(pref)
+                            pref.values = selectedValues
                         }
                     }
                 }

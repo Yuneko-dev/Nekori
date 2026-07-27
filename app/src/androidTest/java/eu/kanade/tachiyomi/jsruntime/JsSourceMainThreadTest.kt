@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.jsruntime
 
+import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.PreferenceManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -123,6 +125,33 @@ class JsSourceMainThreadTest {
         assertEquals("/works/123", details.title)
     }
 
+    @Test
+    fun exposesEveryLnReaderFilterType() = runBlocking {
+        val filters = createSource().getFilterListAsync()
+
+        assertTrue(filters.any { it is JsSource.JsTextFilter })
+        assertTrue(filters.any { it is JsSource.JsSelectFilter })
+        assertTrue(filters.any { it is JsSource.JsCheckboxGroup })
+        assertTrue(filters.any { it is JsSource.JsSwitchFilter })
+        assertTrue(filters.any { it is JsSource.JsTriStateGroup })
+    }
+
+    @Test
+    fun exposesSelectAndCheckboxGroupPluginSettings() = runBlocking {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val screen = PreferenceManager(context).createPreferenceScreen(context)
+
+        createSource().setupPreferenceScreenAsync(screen)
+
+        instrumentation.runOnMainSync {
+            val select = screen.findPreference<ListPreference>("quality")
+            val groups = screen.findPreference<MultiSelectListPreference>("genres")
+            assertEquals("high", select?.value)
+            assertEquals(setOf("action"), groups?.values)
+        }
+    }
+
     private fun createSource() =
         JsSource(
             InstalledJsPlugin(
@@ -142,10 +171,48 @@ class JsSourceMainThreadTest {
                       version: '1',
                       site: 'https://example.com',
                       filters: {
-                        query: { type: 'TextInput', label: 'Query', value: '' },
+                        query: { type: 'Text', label: 'Query', value: '' },
+                        category: {
+                          type: 'Picker',
+                          label: 'Category',
+                          value: 'all',
+                          options: [{ label: 'All', value: 'all' }],
+                        },
+                        genres: {
+                          type: 'Checkbox',
+                          label: 'Genres',
+                          value: ['action'],
+                          options: [{ label: 'Action', value: 'action' }],
+                        },
+                        completed: { type: 'Switch', label: 'Completed', value: false },
+                        tags: {
+                          type: 'XCheckbox',
+                          label: 'Tags',
+                          value: { include: [], exclude: [] },
+                          options: [{ label: 'Fantasy', value: 'fantasy' }],
+                        },
                       },
                       pluginSettings: {
                         enabled: { type: 'Switch', label: 'Enabled', value: true },
+                        username: { type: 'Text', label: 'Username', value: '' },
+                        quality: {
+                          type: 'Select',
+                          label: 'Quality',
+                          value: 'high',
+                          options: [
+                            { label: 'High', value: 'high' },
+                            { label: 'Low', value: 'low' },
+                          ],
+                        },
+                        genres: {
+                          type: 'CheckboxGroup',
+                          label: 'Genres',
+                          value: ['action'],
+                          options: [
+                            { label: 'Action', value: 'action' },
+                            { label: 'Fantasy', value: 'fantasy' },
+                          ],
+                        },
                       },
                     };
                 """.trimIndent(),

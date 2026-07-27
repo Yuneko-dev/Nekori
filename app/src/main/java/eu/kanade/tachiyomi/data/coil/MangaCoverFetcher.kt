@@ -14,6 +14,8 @@ import coil3.request.Options
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher.Companion.USE_CUSTOM_COVER_KEY
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -36,6 +38,7 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.injectLazy
 import java.io.File
 import java.io.IOException
+import eu.kanade.tachiyomi.source.Source as ReaderSource
 
 /**
  * A [Fetcher] that fetches cover image for [Manga] object.
@@ -54,7 +57,7 @@ class MangaCoverFetcher(
     private val coverFileLazy: Lazy<File?>,
     private val customCoverFileLazy: Lazy<File>,
     private val diskCacheKeyLazy: Lazy<String>,
-    private val sourceLazy: Lazy<HttpSource?>,
+    private val sourceLazy: Lazy<ReaderSource?>,
     private val callFactoryLazy: Lazy<Call.Factory>,
     private val imageLoader: ImageLoader,
 ) : Fetcher {
@@ -178,13 +181,19 @@ class MangaCoverFetcher(
     }
 
     private suspend fun executeNetworkRequest(): Response {
-        val client = sourceLazy.value?.client ?: callFactoryLazy.value
+        val source = sourceLazy.value
+        val client = (source as? HttpSource)?.client ?: callFactoryLazy.value
         // Cover thumbnails only ever load while some screen is actually showing them (Browse,
         // Library, Updates, etc.) - background jobs never render Compose UI, so they never reach
         // this fetcher. Bypassing rate limiting here matches the same interactive-vs-background
         // reasoning as MangaScreenModel's fetches, just applied to a shared, screen-agnostic
         // fetcher instead of a single call site.
-        val host = sourceLazy.value?.baseUrl?.toHttpUrlOrNull()?.host
+        val baseUrl = when (source) {
+            is HttpSource -> source.baseUrl
+            is JsSource -> source.baseUrl
+            else -> null
+        }
+        val host = baseUrl?.toHttpUrlOrNull()?.host
         val response = InteractiveRateLimitBypass.bypassing(host) { client.newCall(newRequest()).await() }
         if (!response.isSuccessful && response.code != HTTP_NOT_MODIFIED) {
             response.close()
@@ -193,13 +202,15 @@ class MangaCoverFetcher(
         return response
     }
 
-    private fun newRequest(): Request {
+    private suspend fun newRequest(): Request {
+        val source = sourceLazy.value
+        val jsRequestInit = (source as? JsSource)?.getImageRequestInit()
         val request = Request.Builder().apply {
             url(url!!)
 
-            val sourceHeaders = sourceLazy.value?.headers
-            if (sourceHeaders != null) {
-                headers(sourceHeaders)
+            when (source) {
+                is HttpSource -> headers(source.headers)
+                is JsSource -> jsRequestInit?.let { applyJsImageRequestInit(it) }
             }
         }
 
@@ -326,7 +337,7 @@ class MangaCoverFetcher(
                 coverFileLazy = lazy { coverCache.getCoverFile(data.thumbnailUrl) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.id) },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
-                sourceLazy = lazy { sourceManager.get(data.source) as? HttpSource },
+                sourceLazy = lazy { sourceManager.get(data.source) },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
             )
@@ -348,7 +359,7 @@ class MangaCoverFetcher(
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.mangaId) },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
-                sourceLazy = lazy { sourceManager.get(data.sourceId) as? HttpSource },
+                sourceLazy = lazy { sourceManager.get(data.sourceId) },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,
             )

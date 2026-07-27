@@ -700,7 +700,8 @@ class Downloader(
                     ?: (download.source as? HttpSource)?.baseUrl
                     ?: (download.source as? JsSource)?.baseUrl
                 val embedder = ChapterImageEmbedder()
-                embedder.processHtml(page.text!!, baseUrl, tmpDir)
+                val imageRequestInit = (download.source as? JsSource)?.getImageRequestInit()
+                embedder.processHtml(page.text!!, baseUrl, tmpDir, imageRequestInit)
             } else {
                 page.text!!
             }

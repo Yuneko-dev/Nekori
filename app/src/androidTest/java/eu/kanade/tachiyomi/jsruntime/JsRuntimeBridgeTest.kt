@@ -466,6 +466,63 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun pluginWebStorageSnapshotsPersistAndRefreshTheLoadedModule() = runBlocking {
+        val runtime = createRuntime()
+        val pluginId = "web-storage.test.${System.nanoTime()}"
+        val code = """
+            const { localStorage, sessionStorage } = require('@libs/storage');
+            exports.default = {
+              id: '$pluginId',
+              name: 'Web storage test',
+              version: '1',
+              site: 'https://example.invalid',
+              webStorageUtilized: true,
+              imageRequestInit: {
+                method: 'POST',
+                headers: { Referer: 'https://example.invalid/' },
+                body: 'image=1',
+              },
+              read: () => ({
+                local: localStorage.get(),
+                session: sessionStorage.get(),
+              }),
+            };
+        """.trimIndent()
+
+        val loaded = runtime.call("plugin.load", """{"id":"$pluginId","code":${quote(code)}}""")
+        assertTrue(loaded, loaded.contains("\"webStorageUtilized\":true"))
+        assertTrue(loaded, loaded.contains("\"method\":\"POST\""))
+        assertTrue(loaded, loaded.contains("\"Referer\":\"https://example.invalid/\""))
+        runtime.call(
+            "plugin.webStorageSet",
+            """
+                {
+                  "id":"$pluginId",
+                  "localStorage":{"token":"local"},
+                  "sessionStorage":{"nonce":"session"}
+                }
+            """.trimIndent(),
+        )
+        assertEquals(
+            """{"local":{"token":"local"},"session":{"nonce":"session"}}""",
+            runtime.call(
+                "plugin.eval",
+                """{"id":"$pluginId","expression":"plugin.read()"}""",
+            ),
+        )
+
+        runtime.call("plugin.unload", """{"id":"$pluginId"}""")
+        runtime.call("plugin.load", """{"id":"$pluginId","code":${quote(code)}}""")
+        assertEquals(
+            """{"local":{"token":"local"},"session":{"nonce":"session"}}""",
+            runtime.call(
+                "plugin.eval",
+                """{"id":"$pluginId","expression":"plugin.read()"}""",
+            ),
+        )
+    }
+
+    @Test
     fun pluginSettingWritesThroughThePluginStorageContract() = runBlocking {
         val runtime = createRuntime()
         val pluginId = "settings.test.${System.nanoTime()}"

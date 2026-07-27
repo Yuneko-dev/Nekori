@@ -6,9 +6,15 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import eu.kanade.presentation.webview.WebViewScreenContent
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
@@ -58,9 +64,10 @@ class WebViewActivity : BaseActivity() {
         assistUrl = url
 
         var headers = emptyMap<String, String>()
-        (sourceManager.get(intent.extras!!.getLong(SOURCE_KEY)) as? HttpSource)?.let { source ->
+        val source = sourceManager.get(intent.extras!!.getLong(SOURCE_KEY))
+        (source as? HttpSource)?.let { httpSource ->
             try {
-                headers = source.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }
+                headers = httpSource.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to build headers" }
             }
@@ -68,6 +75,11 @@ class WebViewActivity : BaseActivity() {
         headers = headers.withDefaultUserAgent(network.defaultUserAgentProvider())
 
         setComposeContent {
+            var saveWebStorage by remember { mutableStateOf(false) }
+            LaunchedEffect(source) {
+                saveWebStorage = (source as? JsSource)?.usesWebStorage() == true
+            }
+
             WebViewScreenContent(
                 onNavigateUp = { finish() },
                 initialTitle = intent.extras?.getString(TITLE_KEY),
@@ -77,6 +89,10 @@ class WebViewActivity : BaseActivity() {
                 onShare = this::shareWebpage,
                 onOpenInBrowser = this::openInBrowser,
                 onClearCookies = this::clearCookies,
+                saveWebStorage = saveWebStorage,
+                onWebStorageSnapshot = { snapshot ->
+                    (source as? JsSource)?.saveWebStorageSnapshot(snapshot)
+                },
             )
         }
     }

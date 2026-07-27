@@ -41,6 +41,10 @@ internal class PluginStorage(context: Context) {
                     preferences.all.keys
                         .filter { it.startsWith(prefix) }
                         .forEach { editor.remove(it) }
+                "webStorage" -> {
+                    editor.putString("${pluginId}_LocalStorage", mutation.getString("localStorage"))
+                    editor.putString("${pluginId}_SessionStorage", mutation.getString("sessionStorage"))
+                }
                 else -> error("Unknown plugin storage mutation: ${mutation.getString("type")}")
             }
         }

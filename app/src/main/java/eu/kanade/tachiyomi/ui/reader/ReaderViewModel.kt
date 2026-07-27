@@ -1654,8 +1654,11 @@ class ReaderViewModel @JvmOverloads constructor(
             val embedder = eu.kanade.tachiyomi.util.chapter.ChapterImageEmbedder()
             val baseUrl =
                 (s as? eu.kanade.tachiyomi.source.online.HttpSource)?.baseUrl
+                    ?: (s as? eu.kanade.tachiyomi.jsplugin.source.JsSource)?.baseUrl
                     ?: chapter.url.takeIf { it.startsWith("http") }
-            val processedHtml = embedder.processHtml(htmlContent, baseUrl, tmpDir)
+            val imageRequestInit =
+                (s as? eu.kanade.tachiyomi.jsplugin.source.JsSource)?.getImageRequestInit()
+            val processedHtml = embedder.processHtml(htmlContent, baseUrl, tmpDir, imageRequestInit)
 
             val targetFile = tmpDir.createFile("001.html") ?: return
             targetFile.openOutputStream().bufferedWriter().use { it.write(processedHtml) }

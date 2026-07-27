@@ -28,6 +28,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +78,8 @@ fun WebViewScreenContent(
     onClearCookies: (String) -> Unit,
     headers: Map<String, String> = emptyMap(),
     onUrlChange: (String) -> Unit = {},
+    saveWebStorage: Boolean = false,
+    onWebStorageSnapshot: (String) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -98,6 +101,17 @@ fun WebViewScreenContent(
     var currentUrl by remember { mutableStateOf(url) }
     var showCloudflareHelp by remember { mutableStateOf(false) }
     var isActive by remember { mutableStateOf(true) }
+    val currentSaveWebStorage by rememberUpdatedState(saveWebStorage)
+    val currentOnWebStorageSnapshot by rememberUpdatedState(onWebStorageSnapshot)
+
+    fun captureWebStorage(webView: WebView?) {
+        if (!currentSaveWebStorage || webView == null) return
+        webView.evaluateJavascript(WEB_STORAGE_SNAPSHOT_SCRIPT) { result ->
+            if (!result.isNullOrBlank() && result != "null") {
+                currentOnWebStorageSnapshot(result)
+            }
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose { isActive = false }
@@ -115,6 +129,7 @@ fun WebViewScreenContent(
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                captureWebStorage(view)
                 scope.launch {
                     val html = view.getHtml()
                     showCloudflareHelp = "window._cf_chl_opt" in html || "Ray ID is" in html
@@ -210,13 +225,12 @@ fun WebViewScreenContent(
         return webView
     }
 
-    val popState = remember<() -> Unit> {
-        {
-            if (windowStack.size == 1) {
-                onNavigateUp()
-            } else {
-                windowStack.pop()
-            }
+    val popState: () -> Unit = {
+        captureWebStorage(currentWindow.webView)
+        if (windowStack.size == 1) {
+            onNavigateUp()
+        } else {
+            windowStack.pop()
         }
     }
 
@@ -229,7 +243,7 @@ fun WebViewScreenContent(
                     AppBar(
                         title = currentWindow.state.pageTitle ?: initialTitle,
                         subtitle = currentUrl,
-                        navigateUp = onNavigateUp,
+                        navigateUp = popState,
                         navigationIcon = Icons.Outlined.Close,
                         actions = {
                             AppBarActions(
@@ -345,6 +359,7 @@ fun WebViewScreenContent(
                     }
                 },
                 onDispose = { webView ->
+                    captureWebStorage(webView)
                     val window = windowStack.items.find { it.webView == webView }
                     if (window == null) {
                         // If we couldn't find any window on the stack that owns this WebView, it means that we can
@@ -372,3 +387,20 @@ fun WebViewScreenContent(
         }
     }
 }
+
+private const val WEB_STORAGE_SNAPSHOT_SCRIPT = """
+    (() => {
+      const copy = storage => {
+        const result = {};
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          result[key] = storage.getItem(key);
+        }
+        return result;
+      };
+      return JSON.stringify({
+        localStorage: copy(window.localStorage),
+        sessionStorage: copy(window.sessionStorage),
+      });
+    })()
+"""
