@@ -32,6 +32,7 @@ class WebViewScreenModel(
                 logcat(LogPriority.ERROR, e) { "Failed to build headers" }
             }
         }
+        headers = headers.withDefaultUserAgent(network.defaultUserAgentProvider())
     }
 
     fun shareWebpage(context: Context, url: String) {
@@ -53,3 +54,10 @@ class WebViewScreenModel(
         }
     }
 }
+
+internal fun Map<String, String>.withDefaultUserAgent(userAgent: String): Map<String, String> =
+    if (keys.any { it.equals("user-agent", ignoreCase = true) }) {
+        this
+    } else {
+        this + ("user-agent" to userAgent)
+    }

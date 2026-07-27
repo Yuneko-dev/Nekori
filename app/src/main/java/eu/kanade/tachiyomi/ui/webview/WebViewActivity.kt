@@ -65,6 +65,7 @@ class WebViewActivity : BaseActivity() {
                 logcat(LogPriority.ERROR, e) { "Failed to build headers" }
             }
         }
+        headers = headers.withDefaultUserAgent(network.defaultUserAgentProvider())
 
         setComposeContent {
             WebViewScreenContent(

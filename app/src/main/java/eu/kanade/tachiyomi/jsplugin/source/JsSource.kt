@@ -284,9 +284,78 @@ class JsSource(
     // CatalogueSource implementation
 
     override suspend fun getPopularManga(page: Int): MangasPage = withContext(Dispatchers.IO) {
-        try {
+        val currentResult =
+            executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })")
+        val parsed = parseMangasPage(currentResult, page)
+        inferHasNextPage(
+            currentPage = page,
+            current = parsed,
+            methodCallForPage = { probePage ->
+                "plugin.popularNovels($probePage, { showLatestNovels: false, filters: plugin.filters })"
+            },
+        )
+    }
+
+    override suspend fun getLatestUpdates(page: Int): MangasPage = withContext(Dispatchers.IO) {
+        val currentResult =
+            executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: true, filters: plugin.filters })")
+        val parsed = parseMangasPage(currentResult, page)
+        inferHasNextPage(
+            currentPage = page,
+            current = parsed,
+            methodCallForPage = { probePage ->
+                "plugin.popularNovels($probePage, { showLatestNovels: true, filters: plugin.filters })"
+            },
+        )
+    }
+
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = withContext(
+        Dispatchers.IO,
+    ) {
+        val escapedQuery = escapeJsString(query)
+
+        // Determine if non-default filters are present
+        val hasActiveFilters = filters.isNotEmpty() && filters.any { filter ->
+            when (filter) {
+                is JsSelectFilter -> filter.state != 0
+                is JsCheckboxGroup -> filter.selectedValues().isNotEmpty()
+                is JsTriStateGroup -> filter.includedValues().isNotEmpty() || filter.excludedValues().isNotEmpty()
+                is JsSwitchFilter -> filter.state
+                is JsTextFilter -> filter.state.isNotBlank()
+                is Filter.CheckBox -> filter.state
+                is Filter.Text -> filter.state.isNotBlank()
+                else -> false
+            }
+        }
+
+        if (query.isNotBlank()) {
+            // Use searchNovels for text search
+            val currentResult = executeBrowseMethod("plugin.searchNovels('$escapedQuery', $page)")
+            val parsed = parseMangasPage(currentResult, page)
+            inferHasNextPage(
+                currentPage = page,
+                current = parsed,
+                methodCallForPage = { probePage -> "plugin.searchNovels('$escapedQuery', $probePage)" },
+            )
+        } else if (hasActiveFilters) {
+            // Use popularNovels with user-modified filters
+            val filtersJs = convertFiltersToJs(filters)
             val currentResult =
-                executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })")
+                executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: $filtersJs })")
+            val parsed = parseMangasPage(currentResult, page)
+            inferHasNextPage(
+                currentPage = page,
+                current = parsed,
+                methodCallForPage = { probePage ->
+                    "plugin.popularNovels($probePage, { showLatestNovels: false, filters: $filtersJs })"
+                },
+            )
+        } else {
+            // Default to popular with plugin's original filters
+            val currentResult =
+                executeBrowseMethod(
+                    "plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })",
+                )
             val parsed = parseMangasPage(currentResult, page)
             inferHasNextPage(
                 currentPage = page,
@@ -295,90 +364,6 @@ class JsSource(
                     "plugin.popularNovels($probePage, { showLatestNovels: false, filters: plugin.filters })"
                 },
             )
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Error in getPopularManga for ${plugin.name}" }
-            MangasPage(emptyList(), false)
-        }
-    }
-
-    override suspend fun getLatestUpdates(page: Int): MangasPage = withContext(Dispatchers.IO) {
-        try {
-            val currentResult =
-                executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: true, filters: plugin.filters })")
-            val parsed = parseMangasPage(currentResult, page)
-            inferHasNextPage(
-                currentPage = page,
-                current = parsed,
-                methodCallForPage = { probePage ->
-                    "plugin.popularNovels($probePage, { showLatestNovels: true, filters: plugin.filters })"
-                },
-            )
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Error in getLatestUpdates for ${plugin.name}" }
-            MangasPage(emptyList(), false)
-        }
-    }
-
-    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = withContext(
-        Dispatchers.IO,
-    ) {
-        try {
-            val escapedQuery = escapeJsString(query)
-
-            // Determine if non-default filters are present
-            val hasActiveFilters = filters.isNotEmpty() && filters.any { filter ->
-                when (filter) {
-                    is JsSelectFilter -> filter.state != 0
-                    is JsCheckboxGroup -> filter.selectedValues().isNotEmpty()
-                    is JsTriStateGroup -> filter.includedValues().isNotEmpty() || filter.excludedValues().isNotEmpty()
-                    is JsSwitchFilter -> filter.state
-                    is JsTextFilter -> filter.state.isNotBlank()
-                    is Filter.CheckBox -> filter.state
-                    is Filter.Text -> filter.state.isNotBlank()
-                    else -> false
-                }
-            }
-
-            if (query.isNotBlank()) {
-                // Use searchNovels for text search
-                val currentResult = executeBrowseMethod("plugin.searchNovels('$escapedQuery', $page)")
-                val parsed = parseMangasPage(currentResult, page)
-                inferHasNextPage(
-                    currentPage = page,
-                    current = parsed,
-                    methodCallForPage = { probePage -> "plugin.searchNovels('$escapedQuery', $probePage)" },
-                )
-            } else if (hasActiveFilters) {
-                // Use popularNovels with user-modified filters
-                val filtersJs = convertFiltersToJs(filters)
-                val currentResult =
-                    executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: $filtersJs })")
-                val parsed = parseMangasPage(currentResult, page)
-                inferHasNextPage(
-                    currentPage = page,
-                    current = parsed,
-                    methodCallForPage = { probePage ->
-                        "plugin.popularNovels($probePage, { showLatestNovels: false, filters: $filtersJs })"
-                    },
-                )
-            } else {
-                // Default to popular with plugin's original filters
-                val currentResult =
-                    executeBrowseMethod(
-                        "plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })",
-                    )
-                val parsed = parseMangasPage(currentResult, page)
-                inferHasNextPage(
-                    currentPage = page,
-                    current = parsed,
-                    methodCallForPage = { probePage ->
-                        "plugin.popularNovels($probePage, { showLatestNovels: false, filters: plugin.filters })"
-                    },
-                )
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Error in getSearchManga for ${plugin.name}" }
-            MangasPage(emptyList(), false)
         }
     }
 

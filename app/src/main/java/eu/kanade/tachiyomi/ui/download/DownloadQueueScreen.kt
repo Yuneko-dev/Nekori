@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.download
 
-import android.view.LayoutInflater
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +44,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,29 +53,20 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.ViewCompat
-import androidx.core.view.updatePadding
-import androidx.recyclerview.widget.LinearLayoutManager
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.DropdownMenu
-import eu.kanade.presentation.components.NestedMenuItem
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.translation.TranslationService
-import eu.kanade.tachiyomi.databinding.DownloadListBinding
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -85,7 +74,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import kotlin.math.roundToInt
 
 private enum class DownloadQueueFilter {
     All,
@@ -98,9 +86,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val scope = rememberCoroutineScope()
         val screenModel = rememberScreenModel { DownloadQueueScreenModel() }
-        val mangaList by screenModel.state.collectAsState()
         val novelList by screenModel.novelState.collectAsState()
         val pausedGroups by screenModel.pausedNovelMangaIds.collectAsState()
         val titleMaxLines by screenModel.titleMaxLines.collectAsState()
@@ -111,39 +97,9 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
         val translationQueue by translationService.queueState.collectAsState()
         val currentTranslatingChapterId by translationService.currentTranslatingChapterId.collectAsState()
 
-        var selectedTab by remember { mutableStateOf(initialTab.coerceIn(0, 2)) }
+        var selectedTab by remember { mutableStateOf(initialTab.coerceIn(0, 1)) }
         var filterMode by remember { mutableStateOf(DownloadQueueFilter.All) }
         val canReorder = filterMode == DownloadQueueFilter.All
-
-        val filteredMangaList by remember(mangaList, filterMode) {
-            derivedStateOf {
-                if (filterMode == DownloadQueueFilter.All) return@derivedStateOf mangaList
-
-                mangaList.mapNotNull { header ->
-                    val filteredDownloads = header.subItems
-                        .map { it.download }
-                        .filter {
-                            when (filterMode) {
-                                DownloadQueueFilter.Active ->
-                                    it.status == Download.State.DOWNLOADING ||
-                                        it.status == Download.State.QUEUE
-                                DownloadQueueFilter.Errors -> it.status == Download.State.ERROR
-                                DownloadQueueFilter.All -> true
-                            }
-                        }
-
-                    if (filteredDownloads.isEmpty()) return@mapNotNull null
-
-                    DownloadHeaderItem(
-                        id = header.id,
-                        name = header.name,
-                        size = filteredDownloads.size,
-                    ).apply {
-                        addSubItems(0, filteredDownloads.map { DownloadItem(it, this) })
-                    }
-                }
-            }
-        }
 
         val filteredNovelList by remember(novelList, filterMode) {
             derivedStateOf {
@@ -158,16 +114,12 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
             }
         }
 
-        val mangaCount by remember {
-            derivedStateOf { mangaList.sumOf { it.subItems.size } }
-        }
         val novelCount by remember {
             derivedStateOf { novelList.sumOf { it.totalChapters } }
         }
 
         val tabs = listOf(
             "${stringResource(TDMR.strings.label_novels)} ($novelCount)",
-            "${stringResource(TDMR.strings.label_manga)} ($mangaCount)",
             "${stringResource(TDMR.strings.label_translations)} (${translationQueue.size})",
         )
 
@@ -214,7 +166,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        if (selectedTab == 2) {
+                        if (selectedTab == 1) {
                             val translationActions = buildList {
                                 if (translationProgress.isRunning && !translationProgress.isCancelling) {
                                     add(
@@ -259,9 +211,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                 }
                             }
                             AppBarActions(translationActions.toList())
-                        } else if ((selectedTab == 1 && filteredMangaList.isNotEmpty()) ||
-                            (selectedTab == 0 && filteredNovelList.isNotEmpty())
-                        ) {
+                        } else if (filteredNovelList.isNotEmpty()) {
                             var sortExpanded by remember { mutableStateOf(false) }
                             var filterExpanded by remember { mutableStateOf(false) }
                             val onDismissRequest = { sortExpanded = false }
@@ -297,161 +247,47 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                 expanded = sortExpanded && canReorder,
                                 onDismissRequest = onDismissRequest,
                             ) {
-                                if (selectedTab == 0) {
-                                    // Novel queue sorts (series-level)
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(text = stringResource(TDMR.strings.action_order_by_progress))
-                                        },
-                                        onClick = {
-                                            val order = novelList
-                                                .sortedByDescending { it.overallProgress }
-                                                .map { it.mangaId }
-                                            screenModel.reorderNovelQueueByGroupOrder(order)
-                                            onDismissRequest()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(text = stringResource(TDMR.strings.action_order_by_total_chapters))
-                                        },
-                                        onClick = {
-                                            val order = novelList
-                                                .sortedByDescending { it.totalChapters }
-                                                .map { it.mangaId }
-                                            screenModel.reorderNovelQueueByGroupOrder(order)
-                                            onDismissRequest()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(text = stringResource(TDMR.strings.action_order_by_extension))
-                                        },
-                                        onClick = {
-                                            val order = novelList
-                                                .sortedWith(
-                                                    compareBy<NovelDownloadItem>(
-                                                        { it.sourceName.lowercase() },
-                                                        { it.mangaTitle.lowercase() },
-                                                    ),
-                                                )
-                                                .map { it.mangaId }
-                                            screenModel.reorderNovelQueueByGroupOrder(order)
-                                            onDismissRequest()
-                                        },
-                                    )
-                                } else {
-                                    NestedMenuItem(
-                                        text = {
-                                            Text(text = stringResource(MR.strings.action_order_by_upload_date))
-                                        },
-                                        children = { closeMenu ->
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_newest)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.chapterDateUpload },
-                                                        true,
-                                                    )
-                                                    closeMenu()
-                                                },
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = stringResource(TDMR.strings.action_order_by_progress))
+                                    },
+                                    onClick = {
+                                        val order = novelList
+                                            .sortedByDescending { it.overallProgress }
+                                            .map { it.mangaId }
+                                        screenModel.reorderNovelQueueByGroupOrder(order)
+                                        onDismissRequest()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = stringResource(TDMR.strings.action_order_by_total_chapters))
+                                    },
+                                    onClick = {
+                                        val order = novelList
+                                            .sortedByDescending { it.totalChapters }
+                                            .map { it.mangaId }
+                                        screenModel.reorderNovelQueueByGroupOrder(order)
+                                        onDismissRequest()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = stringResource(TDMR.strings.action_order_by_extension))
+                                    },
+                                    onClick = {
+                                        val order = novelList
+                                            .sortedWith(
+                                                compareBy<NovelDownloadItem>(
+                                                    { it.sourceName.lowercase() },
+                                                    { it.mangaTitle.lowercase() },
+                                                ),
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_oldest)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.chapterDateUpload },
-                                                        false,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                        },
-                                    )
-                                    NestedMenuItem(
-                                        text = {
-                                            Text(text = stringResource(MR.strings.action_order_by_chapter_number))
-                                        },
-                                        children = { closeMenu ->
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_asc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.chapterNumber },
-                                                        false,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_desc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.chapterNumber },
-                                                        true,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                        },
-                                    )
-
-                                    NestedMenuItem(
-                                        text = {
-                                            Text(text = stringResource(TDMR.strings.action_order_by_progress))
-                                        },
-                                        children = { closeMenu ->
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_desc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.progress },
-                                                        true,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_asc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.progress },
-                                                        false,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                        },
-                                    )
-
-                                    NestedMenuItem(
-                                        text = {
-                                            Text(text = stringResource(TDMR.strings.action_order_by_extension))
-                                        },
-                                        children = { closeMenu ->
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_asc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.source.name.lowercase() },
-                                                        false,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(MR.strings.action_desc)) },
-                                                onClick = {
-                                                    screenModel.reorderQueue(
-                                                        { it.download.source.name.lowercase() },
-                                                        true,
-                                                    )
-                                                    closeMenu()
-                                                },
-                                            )
-                                        },
-                                    )
-                                }
+                                            .map { it.mangaId }
+                                        screenModel.reorderNovelQueueByGroupOrder(order)
+                                        onDismissRequest()
+                                    },
+                                )
                             }
 
                             AppBarActions(
@@ -505,8 +341,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                     },
                     expanded = fabExpanded,
                     modifier = Modifier.animateFloatingActionButton(
-                        visible = (selectedTab == 1 && mangaList.isNotEmpty()) ||
-                            (selectedTab == 0 && novelList.isNotEmpty()),
+                        visible = selectedTab == 0 && novelList.isNotEmpty(),
                         alignment = Alignment.BottomEnd,
                     ),
                 )
@@ -523,30 +358,19 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                     }
                 }
 
-                if ((selectedTab == 1 && filteredMangaList.isEmpty()) ||
-                    (selectedTab == 0 && filteredNovelList.isEmpty()) ||
-                    (selectedTab == 2 && translationQueue.isEmpty() && !translationProgress.isRunning)
+                if ((selectedTab == 0 && filteredNovelList.isEmpty()) ||
+                    (selectedTab == 1 && translationQueue.isEmpty() && !translationProgress.isRunning)
                 ) {
                     EmptyScreen(
-                        stringRes = if (selectedTab == 2) {
+                        stringRes = if (selectedTab == 1) {
                             MR.strings.pref_translation_status_idle
                         } else {
                             MR.strings.information_no_downloads
                         },
                     )
                 } else {
-                    val density = LocalDensity.current
-                    val layoutDirection = LocalLayoutDirection.current
-                    val left = with(density) {
-                        contentPadding.calculateLeftPadding(layoutDirection).toPx().roundToInt()
-                    }
-                    val right = with(density) {
-                        contentPadding.calculateRightPadding(layoutDirection).toPx().roundToInt()
-                    }
-                    val bottom = with(density) { contentPadding.calculateBottomPadding().toPx().roundToInt() }
-
                     Box(modifier = Modifier.nestedScroll(nestedScrollConnection)) {
-                        if (selectedTab == 2) {
+                        if (selectedTab == 1) {
                             TranslationQueueContent(
                                 progress = translationProgress,
                                 isPaused = translationPaused,
@@ -555,47 +379,6 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                 onMoveMangaToTop = translationService::moveMangaToFront,
                                 onRemoveAllForManga = translationService::dequeueAllForManga,
                                 onRemoveTask = translationService::dequeue,
-                            )
-                        } else if (selectedTab == 1) {
-                            AndroidView(
-                                modifier = Modifier.fillMaxWidth(),
-                                factory = { context ->
-                                    screenModel.controllerBinding =
-                                        DownloadListBinding.inflate(LayoutInflater.from(context))
-                                    screenModel.adapter = DownloadAdapter(screenModel.listener)
-                                    screenModel.controllerBinding.root.adapter = screenModel.adapter
-                                    screenModel.adapter?.isHandleDragEnabled = canReorder
-                                    screenModel.controllerBinding.root.layoutManager =
-                                        LinearLayoutManager(context)
-
-                                    ViewCompat.setNestedScrollingEnabled(
-                                        screenModel.controllerBinding.root,
-                                        true,
-                                    )
-
-                                    scope.launchUI {
-                                        screenModel.getDownloadStatusFlow()
-                                            .collect(screenModel::onStatusChange)
-                                    }
-                                    scope.launchUI {
-                                        screenModel.getDownloadProgressFlow()
-                                            .collect(screenModel::onUpdateDownloadedPages)
-                                    }
-
-                                    screenModel.controllerBinding.root
-                                },
-                                update = {
-                                    screenModel.controllerBinding.root
-                                        .updatePadding(
-                                            left = left,
-                                            top = 0,
-                                            right = right,
-                                            bottom = bottom,
-                                        )
-
-                                    screenModel.adapter?.isHandleDragEnabled = canReorder
-                                    screenModel.adapter?.updateDataSet(filteredMangaList)
-                                },
                             )
                         } else {
                             androidx.compose.foundation.lazy.LazyColumn(

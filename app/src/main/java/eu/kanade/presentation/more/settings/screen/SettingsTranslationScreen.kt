@@ -77,7 +77,7 @@ object SettingsTranslationScreen : SearchableSettings {
                         title = stringResource(MR.strings.pref_translation_queue),
                         subtitle = queueStatusText,
                         onClick = {
-                            navigator.push(eu.kanade.tachiyomi.ui.download.DownloadQueueScreen(initialTab = 2))
+                            navigator.push(eu.kanade.tachiyomi.ui.download.DownloadQueueScreen(initialTab = 1))
                         },
                     ),
                 ),
