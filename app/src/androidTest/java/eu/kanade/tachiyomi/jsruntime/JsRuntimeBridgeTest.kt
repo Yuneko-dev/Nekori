@@ -136,6 +136,86 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun missingParsePageFailsWithTheOptionalMethodContract() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'optional-page.test',
+              name: 'Optional page test',
+              version: '1',
+              site: 'https://example.invalid',
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"optional-page.test","code":${quote(code)}}""")
+
+        try {
+            runtime.call(
+                "plugin.parsePage",
+                """{"id":"optional-page.test","path":"/novel","page":"2"}""",
+            )
+            fail("Expected a plugin without parsePage to reject")
+        } catch (e: JsRuntimeException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("does not implement parsePage"))
+        }
+    }
+
+    @Test
+    fun resolveUrlReadsAGetterSiteAtCallTime() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            let selectedDomain = 'https://first.invalid';
+            exports.default = {
+              id: 'getter-site.test',
+              name: 'Getter site test',
+              version: '1',
+              get site() { return selectedDomain; },
+              selectDomain: value => { selectedDomain = value; },
+              resolveUrl(path, isNovel) {
+                return this.site + (isNovel ? '/novel' : '') + path;
+              },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"getter-site.test","code":${quote(code)}}""")
+        runtime.call(
+            "plugin.eval",
+            """{"id":"getter-site.test","expression":"plugin.selectDomain('https://second.invalid')"}""",
+        )
+
+        assertEquals(
+            """{"url":"https://second.invalid/novel/book"}""",
+            runtime.call(
+                "plugin.resolveUrl",
+                """{"id":"getter-site.test","path":"/book","isNovel":true}""",
+            ),
+        )
+    }
+
+    @Test
+    fun resolveUrlFallsBackToTheCurrentGetterSite() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'fallback-site.test',
+              name: 'Fallback site test',
+              version: '1',
+              get site() { return 'https://fallback.invalid/'; },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"fallback-site.test","code":${quote(code)}}""")
+
+        assertEquals(
+            """{"url":"https://fallback.invalid/book"}""",
+            runtime.call(
+                "plugin.resolveUrl",
+                """{"id":"fallback-site.test","path":"/book","isNovel":true}""",
+            ),
+        )
+    }
+
+    @Test
     fun secureRandomFillsTheRequestedBuffer() = runBlocking {
         val runtime = createRuntime()
 

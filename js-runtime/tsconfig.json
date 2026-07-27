@@ -1,0 +1,13 @@
+{
+  "extends": "@react-native/typescript-config",
+  "include": ["src/**/*.ts", "specs/**/*.ts"],
+  "exclude": ["node_modules", "build", "patches"],
+  "compilerOptions": {
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "target": "ES2022",
+    "types": ["react-native", "node"]
+  }
+}

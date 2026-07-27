@@ -1,0 +1,4 @@
+node_modules
+build
+patches
+src/plugins/modules/node-html-markdown

@@ -1,9 +1,4 @@
 import {
-  NodeHtmlMarkdown,
-  PostProcessResult,
-  TranslatorCollection,
-} from "./modules/node-html-markdown";
-import {
   aeskw,
   aeskwp,
   aessiv,
@@ -14,43 +9,46 @@ import {
   ecb,
   gcm,
   gcmsiv,
-} from "@noble/ciphers/aes.js";
-import { bytesToUtf8, utf8ToBytes } from "@noble/ciphers/utils.js";
-import { load } from "cheerio";
-import dayjs from "dayjs";
+} from '@noble/ciphers/aes.js';
+import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
+import { Buffer } from 'buffer';
+import { load } from 'cheerio';
+import NodeCrypto from 'crypto-browserify';
+import dayjs from 'dayjs';
 import {
   decode as decodeHtmlEntities,
   encode as encodeHtmlEntities,
-} from "html-entities";
-import { Parser } from "htmlparser2";
-import { decode, encode } from "urlencode";
+} from 'html-entities';
+import { Parser } from 'htmlparser2';
+import { decode, encode } from 'urlencode';
 
-import { createVolumePage, VOLUME_PAGE_MARKER } from "./helpers/chapterPage";
+import { createVolumePage, VOLUME_PAGE_MARKER } from './helpers/chapterPage';
 import {
   solveCloudflareAPI,
   solveCloudflareTurnstileAPI,
-} from "./helpers/cloudflareStore";
-import { defaultCover } from "./helpers/constants";
-import CookieManager from "./helpers/cookie";
-import { fetchApi, fetchFile, fetchProto, fetchText } from "./helpers/fetch";
-import { isUrlAbsolute } from "./helpers/isAbsoluteUrl";
-import { getUserAgent } from "./helpers/nativeHost";
+} from './helpers/cloudflareStore';
+import { defaultCover } from './helpers/constants';
+import CookieManager from './helpers/cookie';
+import { fetchApi, fetchFile, fetchProto, fetchText } from './helpers/fetch';
+import { isUrlAbsolute } from './helpers/isAbsoluteUrl';
+import { getUserAgent } from './helpers/nativeHost';
+import {
+  hydratePluginStorage,
+  removePluginStorageContext,
+  storageModule,
+} from './helpers/storage';
+import {
+  NodeHtmlMarkdown,
+  PostProcessResult,
+  TranslatorCollection,
+} from './modules/node-html-markdown';
 import {
   NovelStatus,
   Plugin,
   PluginContentType,
   PluginContentWarning,
-  PluginItem,
-} from "./types";
-import { FilterTypes } from "./types/filterTypes";
-import { Buffer } from "buffer";
-import NodeCrypto from "crypto-browserify";
-
-import {
-  hydratePluginStorage,
-  removePluginStorageContext,
-  storageModule,
-} from "./helpers/storage";
+} from './types';
+import { FilterTypes } from './types/filterTypes';
 
 const contentWarningValues = new Set<number>([
   PluginContentWarning.UNSPECIFIED,
@@ -64,7 +62,7 @@ const contentTypeValues = new Set<string>(Object.values(PluginContentType));
 const normalizePluginContentWarning = (
   contentWarning: unknown,
 ): PluginContentWarning => {
-  return typeof contentWarning === "number" &&
+  return typeof contentWarning === 'number' &&
     contentWarningValues.has(contentWarning)
     ? contentWarning
     : PluginContentWarning.UNSPECIFIED;
@@ -73,16 +71,10 @@ const normalizePluginContentWarning = (
 const normalizePluginContentType = (
   contentType: unknown,
 ): PluginContentType => {
-  return typeof contentType === "string" && contentTypeValues.has(contentType)
+  return typeof contentType === 'string' && contentTypeValues.has(contentType)
     ? (contentType as PluginContentType)
     : PluginContentType.NOVEL;
 };
-
-const normalizePluginMetadata = (plugin: PluginItem): PluginItem => ({
-  ...plugin,
-  contentWarning: normalizePluginContentWarning(plugin.contentWarning),
-  contentType: normalizePluginContentType(plugin.contentType),
-});
 
 const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
   plugin.contentWarning = normalizePluginContentWarning(plugin.contentWarning);
@@ -100,22 +92,22 @@ const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
  * configurations, and every LNReader plugin is fetched as source at runtime.
  */
 const packages: Record<string, unknown> = {
-  "@libs/novelStatus": { NovelStatus },
-  "@libs/filterInputs": { FilterTypes },
-  "@libs/defaultCover": { defaultCover },
-  "@libs/fetch": { fetchApi, fetchFile, fetchProto, fetchText },
-  "@libs/isAbsoluteUrl": { isUrlAbsolute },
-  "@libs/aes": { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
+  '@libs/novelStatus': { NovelStatus },
+  '@libs/filterInputs': { FilterTypes },
+  '@libs/defaultCover': { defaultCover },
+  '@libs/fetch': { fetchApi, fetchFile, fetchProto, fetchText },
+  '@libs/isAbsoluteUrl': { isUrlAbsolute },
+  '@libs/aes': { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
   htmlparser2: { Parser },
   cheerio: { load },
   dayjs: dayjs,
   urlencode: { encode, decode },
-  "node-html-markdown": {
+  'node-html-markdown': {
     NodeHtmlMarkdown,
     PostProcessResult,
     TranslatorCollection,
   },
-  "@libs/utils": {
+  '@libs/utils': {
     createVolumePage,
     VOLUME_PAGE_MARKER,
     utf8ToBytes,
@@ -126,12 +118,12 @@ const packages: Record<string, unknown> = {
     NodeCrypto,
     getUserAgent,
   },
-  "@libs/cookie": CookieManager,
-  "@libs/pluginMetadata": {
+  '@libs/cookie': CookieManager,
+  '@libs/pluginMetadata': {
     ContentWarning: PluginContentWarning,
     ContentType: PluginContentType,
   },
-  "@libs/webview": {
+  '@libs/webview': {
     solveCloudflare: solveCloudflareAPI,
     solveCloudflareTurnstile: solveCloudflareTurnstileAPI,
   },
@@ -141,7 +133,7 @@ const plugins = new Map<string, Plugin>();
 
 function makeRequire(runtimeKey: string): (name: string) => unknown {
   return (name: string) => {
-    if (name === "@libs/storage") {
+    if (name === '@libs/storage') {
       return storageModule(runtimeKey);
     }
     const module = packages[name];
@@ -162,8 +154,8 @@ export async function initPlugin(
   await hydratePluginStorage(pluginId, runtimeKey);
   try {
     const plugin = Function(
-      "require",
-      "module",
+      'require',
+      'module',
       `const exports = module.exports = {};
       ${rawCode};
       return exports.default`,
@@ -180,7 +172,7 @@ export async function initPlugin(
 
     if (!plugin.imageRequestInit) {
       plugin.imageRequestInit = {
-        headers: { "User-Agent": getUserAgent() },
+        headers: { 'User-Agent': getUserAgent() },
       };
     } else {
       if (!plugin.imageRequestInit.headers) {
@@ -188,11 +180,11 @@ export async function initPlugin(
       }
 
       const hasUserAgent = Object.keys(plugin.imageRequestInit.headers).some(
-        (header) => header.toLowerCase() === "user-agent",
+        header => header.toLowerCase() === 'user-agent',
       );
 
       if (!hasUserAgent) {
-        plugin.imageRequestInit.headers["User-Agent"] = getUserAgent();
+        plugin.imageRequestInit.headers['User-Agent'] = getUserAgent();
       }
     }
 
@@ -214,19 +206,29 @@ export function getPlugin(runtimeKey: string): Plugin {
   return plugin;
 }
 
+export function resolvePluginUrl(
+  runtimeKey: string,
+  path: string,
+  isNovel?: boolean,
+): string {
+  const plugin = getPlugin(runtimeKey);
+  if (isUrlAbsolute(path)) {
+    return path;
+  }
+  if (plugin.resolveUrl) {
+    return plugin.resolveUrl(path, isNovel);
+  }
+
+  return `${plugin.site.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
 export async function evaluatePlugin(
   runtimeKey: string,
   expression: string,
-  siteOverride?: string,
 ): Promise<unknown> {
   const plugin = getPlugin(runtimeKey);
-  if (siteOverride) {
-    plugin.site = siteOverride;
-    // @ts-expect-error what is this?
-    plugin.sourceSite = siteOverride;
-  }
   const result = Function(
-    "plugin",
+    'plugin',
     `return (${expression});`,
   )(plugin) as unknown;
   return Promise.resolve(result);

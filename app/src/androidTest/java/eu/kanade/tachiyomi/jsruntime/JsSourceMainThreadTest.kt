@@ -6,6 +6,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +46,45 @@ class JsSourceMainThreadTest {
         }
 
         assertTrue("Main-thread plugin settings setup took ${elapsedMillis}ms", elapsedMillis < 1_000)
+    }
+
+    @Test
+    fun runtimeGetterSiteReplacesMissingRepositoryMetadata() = runBlocking {
+        val source = JsSource(
+            InstalledJsPlugin(
+                plugin = JsPlugin(
+                    id = "getter-site.source.test",
+                    name = "Getter site source test",
+                    site = "",
+                    lang = "English",
+                    version = "1",
+                    url = "https://example.com/plugin.js",
+                    iconUrl = "",
+                ),
+                code = """
+                    exports.default = {
+                      id: 'getter-site.source.test',
+                      name: 'Getter site source test',
+                      version: '1',
+                      get site() { return 'https://selected.invalid/'; },
+                      parseNovel: async path => ({
+                        name: path,
+                        path,
+                        chapters: [],
+                      }),
+                      resolveUrl: (path, isNovel) =>
+                        'https://selected.invalid' + (isNovel ? '/novel' : '') + path,
+                    };
+                """.trimIndent(),
+                installedVersion = "1",
+                repositoryUrl = "https://example.com/plugins.json",
+            ),
+        )
+
+        source.getMangaDetails(SManga.create().apply { url = "/book" })
+
+        assertEquals("https://selected.invalid", source.baseUrl)
+        assertEquals("https://selected.invalid/novel/book", source.resolveUrl("/book", isNovel = true))
     }
 
     private fun createSource() =

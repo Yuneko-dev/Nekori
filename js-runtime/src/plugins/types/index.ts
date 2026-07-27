@@ -1,15 +1,15 @@
-import { Filters, FilterToValues } from "./filterTypes";
+import { Filters, FilterToValues } from './filterTypes';
 
 export interface TextSetting {
   value: string;
   label: string;
-  type?: "Text";
+  type?: 'Text';
 }
 
 export interface SwitchSetting {
   value: boolean;
   label: string;
-  type: "Switch";
+  type: 'Switch';
 }
 
 export interface SelectOption {
@@ -20,7 +20,7 @@ export interface SelectOption {
 export interface SelectSetting {
   value: string;
   label: string;
-  type: "Select";
+  type: 'Select';
   options: SelectOption[];
 }
 
@@ -32,7 +32,7 @@ export interface CheckboxOption {
 export interface CheckboxGroupSetting {
   value: string[];
   label: string;
-  type: "CheckboxGroup";
+  type: 'CheckboxGroup';
   options: CheckboxOption[];
 }
 
@@ -63,13 +63,13 @@ export interface ChapterItem {
 }
 
 export enum NovelStatus {
-  Unknown = "Unknown",
-  Ongoing = "Ongoing",
-  Completed = "Completed",
-  Licensed = "Licensed",
-  PublishingFinished = "Publishing Finished",
-  Cancelled = "Cancelled",
-  OnHiatus = "On Hiatus",
+  Unknown = 'Unknown',
+  Ongoing = 'Ongoing',
+  Completed = 'Completed',
+  Licensed = 'Licensed',
+  PublishingFinished = 'Publishing Finished',
+  Cancelled = 'Cancelled',
+  OnHiatus = 'On Hiatus',
 }
 
 export enum PluginContentWarning {
@@ -80,10 +80,10 @@ export enum PluginContentWarning {
 }
 
 export enum PluginContentType {
-  NOVEL = "novel",
-  IMAGE = "image",
-  VIDEO = "video",
-  MIXED = "mixed",
+  NOVEL = 'novel',
+  IMAGE = 'image',
+  VIDEO = 'video',
+  MIXED = 'mixed',
 }
 
 export interface SourceNovel extends NovelItem {

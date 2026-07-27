@@ -18,7 +18,6 @@ export function registerHandler(method: string, handler: Handler): void {
  * "[runtime not ready]: 'NativeHostApi' could not be found".
  */
 function nativeHostApi(): Spec {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('../../specs/NativeHostApi').default as Spec;
 }
 

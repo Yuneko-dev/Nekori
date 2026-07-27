@@ -18,12 +18,18 @@ import './polyfills/textEncoding';
 import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
 import { registerHandler, startBridge } from './bridge/nativeHost';
-import { evaluatePlugin, getPlugin, initPlugin, removePlugin } from './plugins/pluginHost';
 import {
   flushPluginStorage,
   getPluginStorageValue,
   setPluginStorageValue,
 } from './plugins/helpers/storage';
+import {
+  evaluatePlugin,
+  getPlugin,
+  initPlugin,
+  removePlugin,
+  resolvePluginUrl,
+} from './plugins/pluginHost';
 
 declare const global: {
   __TSUNDOKU_JS_READY__?: boolean;
@@ -31,12 +37,12 @@ declare const global: {
 };
 
 // M0 spike handlers. Task 8 replaces these with the real plugin surface.
-registerHandler('sum', (args) => {
+registerHandler('sum', args => {
   const { a, b } = args as { a: number; b: number };
   return { result: a + b };
 });
 
-registerHandler('boom', (args) => {
+registerHandler('boom', args => {
   const { message } = args as { message: string };
   throw new Error(message);
 });
@@ -45,7 +51,7 @@ registerHandler('boom', (args) => {
 // a call that is abandoned must not leak its continuation.
 registerHandler('never', () => new Promise<never>(() => {}));
 
-registerHandler('secureRandom.sample', (args) => {
+registerHandler('secureRandom.sample', args => {
   const { size } = args as { size: number };
   const backing = new Uint8Array(size + 8);
   const first = new Uint8Array(backing.buffer, 4, size);
@@ -67,36 +73,40 @@ registerHandler('secureRandom.sample', (args) => {
   return {
     size,
     sameObject: returned === first,
-    prefixUntouched: backing.slice(0, 4).every((value) => value === 0),
-    suffixUntouched: backing.slice(size + 4).every((value) => value === 0),
+    prefixUntouched: backing.slice(0, 4).every(value => value === 0),
+    suffixUntouched: backing.slice(size + 4).every(value => value === 0),
     different: first.some((value, index) => value !== second[index]),
     floatError,
     quotaError,
   };
 });
 
-registerHandler('plugin.load', async (args) => {
+registerHandler('plugin.load', async args => {
   const { id, code, key } = args as { id: string; code: string; key?: string };
   const plugin = await initPlugin(id, code, key);
-  return { id: plugin.id, name: plugin.name, version: plugin.version, site: plugin.site };
+  return {
+    id: plugin.id,
+    name: plugin.name,
+    version: plugin.version,
+    site: plugin.site,
+  };
 });
 
-registerHandler('plugin.eval', async (args) => {
-  const { id, key, expression, siteOverride } = args as {
+registerHandler('plugin.eval', async args => {
+  const { id, key, expression } = args as {
     id: string;
     key?: string;
     expression: string;
-    siteOverride?: string;
   };
   const runtimeKey = key ?? id;
   try {
-    return await evaluatePlugin(runtimeKey, expression, siteOverride);
+    return await evaluatePlugin(runtimeKey, expression);
   } finally {
     await flushPluginStorage(runtimeKey);
   }
 });
 
-registerHandler('plugin.unload', async (args) => {
+registerHandler('plugin.unload', async args => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;
   await flushPluginStorage(runtimeKey);
@@ -104,12 +114,16 @@ registerHandler('plugin.unload', async (args) => {
   return null;
 });
 
-registerHandler('plugin.storageGet', (args) => {
-  const { id, key, storageKey } = args as { id: string; key?: string; storageKey: string };
+registerHandler('plugin.storageGet', args => {
+  const { id, key, storageKey } = args as {
+    id: string;
+    key?: string;
+    storageKey: string;
+  };
   return getPluginStorageValue(key ?? id, storageKey);
 });
 
-registerHandler('plugin.storageSet', async (args) => {
+registerHandler('plugin.storageSet', async args => {
   const { id, key, storageKey, value } = args as {
     id: string;
     key?: string;
@@ -120,7 +134,7 @@ registerHandler('plugin.storageSet', async (args) => {
   return null;
 });
 
-registerHandler('plugin.popularNovels', async (args) => {
+registerHandler('plugin.popularNovels', async args => {
   const { id, page } = args as { id: string; page: number };
   const plugin = getPlugin(id);
   const novels = await plugin.popularNovels(page, {
@@ -134,22 +148,45 @@ registerHandler('plugin.popularNovels', async (args) => {
   return { novels };
 });
 
-registerHandler('plugin.searchNovels', async (args) => {
-  const { id, query, page } = args as { id: string; query: string; page: number };
+registerHandler('plugin.searchNovels', async args => {
+  const { id, query, page } = args as {
+    id: string;
+    query: string;
+    page: number;
+  };
   return { novels: await getPlugin(id).searchNovels(query, page) };
 });
 
-registerHandler('plugin.parseNovel', async (args) => {
+registerHandler('plugin.parseNovel', async args => {
   const { id, path } = args as { id: string; path: string };
   return { novel: await getPlugin(id).parseNovel(path) };
 });
 
-registerHandler('plugin.parsePage', async (args) => {
-  const { id, path, page } = args as { id: string; path: string; page: string };
-  return { page: await getPlugin(id).parsePage(path, page) };
+registerHandler('plugin.parsePage', async args => {
+  const { id, key, path, page } = args as {
+    id: string;
+    key?: string;
+    path: string;
+    page: string;
+  };
+  const plugin = getPlugin(key ?? id);
+  if (!plugin.parsePage) {
+    throw new Error(`Plugin "${id}" does not implement parsePage`);
+  }
+  return { page: await plugin.parsePage(path, page) };
 });
 
-registerHandler('plugin.parseChapter', async (args) => {
+registerHandler('plugin.resolveUrl', args => {
+  const { id, key, path, isNovel } = args as {
+    id: string;
+    key?: string;
+    path: string;
+    isNovel?: boolean;
+  };
+  return { url: resolvePluginUrl(key ?? id, path, isNovel) };
+});
+
+registerHandler('plugin.parseChapter', async args => {
   const { id, path } = args as { id: string; path: string };
   const html = await getPlugin(id).parseChapter(path);
   // The chapter body can be hundreds of KB; the spike only needs to know it arrived and is HTML.

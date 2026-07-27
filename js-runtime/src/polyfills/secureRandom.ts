@@ -20,7 +20,7 @@ declare const global: {
 function nativeHostApi(): Spec {
   // Resolved lazily for the same reason as the command bridge: module-scope resolution runs before
   // React Native has populated the TurboModule registry.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   return require('../../specs/NativeHostApi').default as Spec;
 }
 
@@ -39,13 +39,19 @@ function getRandomValues<T extends RandomValuesArray>(array: T): T {
     throw error;
   }
   if (array.byteLength > 65_536) {
-    const error = new Error('getRandomValues cannot fill more than 65536 bytes');
+    const error = new Error(
+      'getRandomValues cannot fill more than 65536 bytes',
+    );
     error.name = 'QuotaExceededError';
     throw error;
   }
 
   const binary = atob(nativeHostApi().getRandomBase64(array.byteLength));
-  const target = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+  const target = new Uint8Array(
+    array.buffer,
+    array.byteOffset,
+    array.byteLength,
+  );
   for (let index = 0; index < binary.length; index += 1) {
     target[index] = binary.charCodeAt(index);
   }

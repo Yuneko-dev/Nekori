@@ -1,7 +1,7 @@
-import { Buffer } from "buffer";
-import { parse as parseProto } from "protobufjs";
+import { Buffer } from 'buffer';
+import { parse as parseProto } from 'protobufjs';
 
-import { getUserAgent } from "./nativeHost";
+import { getUserAgent } from './nativeHost';
 
 type FetchInit = {
   headers?: Record<string, string> | Headers;
@@ -12,18 +12,18 @@ type FetchInit = {
 
 const makeInit = (init?: FetchInit) => {
   const defaultHeaders = {
-    Connection: "keep-alive",
-    Accept: "*/*",
-    "Accept-Language": "*",
-    "Sec-Fetch-Mode": "cors",
-    "Accept-Encoding": "gzip, deflate",
-    "Cache-Control": "max-age=0",
-    "User-Agent": getUserAgent(),
+    Connection: 'keep-alive',
+    Accept: '*/*',
+    'Accept-Language': '*',
+    'Sec-Fetch-Mode': 'cors',
+    'Accept-Encoding': 'gzip, deflate',
+    'Cache-Control': 'max-age=0',
+    'User-Agent': getUserAgent(),
   };
   if (init?.headers) {
     if (init.headers instanceof Headers) {
-      if (!init.headers.get("User-Agent") && defaultHeaders["User-Agent"]) {
-        init.headers.set("User-Agent", defaultHeaders["User-Agent"]);
+      if (!init.headers.get('User-Agent') && defaultHeaders['User-Agent']) {
+        init.headers.set('User-Agent', defaultHeaders['User-Agent']);
       }
     } else {
       init.headers = {
@@ -77,7 +77,7 @@ export const fetchText = async (
       fr.readAsText(blob, encoding);
     });
   } catch {
-    return "";
+    return '';
   }
 };
 
@@ -91,11 +91,11 @@ export const fetchFile = async (
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = String(reader.result ?? "");
-      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+      const dataUrl = String(reader.result ?? '');
+      resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
     };
     reader.onerror = () =>
-      reject(reader.error ?? new Error("Could not read response body"));
+      reject(reader.error ?? new Error('Could not read response body'));
     reader.readAsDataURL(blob);
   });
 };
@@ -104,7 +104,7 @@ interface ProtoRequestInit {
   // merged .proto file
   proto: string;
   requestType: string;
-  requestData?: any;
+  requestData?: Record<string, unknown>;
   responseType: string;
 }
 
@@ -120,27 +120,26 @@ export const fetchProto = async (
   init = makeInit(init);
   const root = parseProto(config.proto).root;
   const requestType = root.lookupType(config.requestType);
-  const validationError = requestType.verify(config.requestData);
+  const requestData = config.requestData ?? {};
+  const validationError = requestType.verify(requestData);
   if (validationError) {
     throw new Error(`Invalid ${config.requestType}: ${validationError}`);
   }
 
-  const payload = requestType
-    .encode(requestType.create(config.requestData))
-    .finish();
+  const payload = requestType.encode(requestType.create(requestData)).finish();
   const frame = Buffer.allocUnsafe(payload.length + 5);
   frame[0] = 0;
   frame.writeUInt32BE(payload.length, 1);
   frame.set(payload, 5);
 
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/grpc-web+proto");
-  headers.set("X-Binary-Base64", "true");
+  headers.set('Content-Type', 'application/grpc-web+proto');
+  headers.set('X-Binary-Base64', 'true');
   const response = await fetch(url, {
     ...init,
-    method: "POST",
+    method: 'POST',
     headers,
-    body: frame.toString("base64"),
+    body: frame.toString('base64'),
   });
   if (!response.ok) {
     throw new Error(`fetchProto failed: HTTP ${response.status}`);
@@ -158,11 +157,11 @@ export const fetchProto = async (
       0;
     offset += 5;
     if (offset + length > bytes.length) {
-      throw new Error("Truncated gRPC-web response frame");
+      throw new Error('Truncated gRPC-web response frame');
     }
     if ((flags & 0x80) === 0) {
       if ((flags & 0x01) !== 0) {
-        throw new Error("Compressed gRPC-web frames are not supported");
+        throw new Error('Compressed gRPC-web frames are not supported');
       }
       const responseType = root.lookupType(config.responseType);
       const decoded = responseType.decode(
@@ -177,5 +176,5 @@ export const fetchProto = async (
     }
     offset += length;
   }
-  throw new Error("gRPC-web response contained no data frame");
+  throw new Error('gRPC-web response contained no data frame');
 };

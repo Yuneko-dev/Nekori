@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Preeternal
 
-import { Platform } from "react-native";
+import { Platform } from 'react-native';
 
 import CookieManagerNative, {
   type Cookie,
-  type CookieSameSite,
   type Cookies,
-} from "../../../specs/NativeCookieManager";
+  type CookieSameSite,
+} from '../../../specs/NativeCookieManager';
 
-export type IOSCookieStore = "foundation" | "webKit" | "both";
+export type IOSCookieStore = 'foundation' | 'webKit' | 'both';
 
 export type RemoveSessionCookiesOptions = {
   iosCookieStore?: IOSCookieStore;
@@ -18,12 +18,12 @@ export type RemoveSessionCookiesOptions = {
 const removeSessionCookies = (
   options: RemoveSessionCookiesOptions = {},
 ): Promise<boolean> => {
-  switch (options.iosCookieStore ?? "both") {
-    case "foundation":
+  switch (options.iosCookieStore ?? 'both') {
+    case 'foundation':
       return CookieManagerNative.removeSessionCookies(true, false);
-    case "webKit":
+    case 'webKit':
       return CookieManagerNative.removeSessionCookies(false, true);
-    case "both":
+    case 'both':
       return CookieManagerNative.removeSessionCookies(true, true);
     default:
       return Promise.reject(
@@ -49,7 +49,7 @@ const CookieManager = {
   clearByName: (url: string, name: string, useWebKit = false) =>
     CookieManagerNative.clearByName(url, name, useWebKit),
   flush: () =>
-    Platform.OS === "android" ? CookieManagerNative.flush() : Promise.resolve(),
+    Platform.OS === 'android' ? CookieManagerNative.flush() : Promise.resolve(),
   removeSessionCookies,
   setFromResponse: (url: string, cookie: string) =>
     CookieManagerNative.setFromResponse(url, cookie),
@@ -60,5 +60,5 @@ const CookieManager = {
   getFromResponse: (url: string) => CookieManagerNative.getFromResponse(url),
 };
 
-export type { Cookie, CookieSameSite, Cookies };
+export type { Cookie, Cookies, CookieSameSite };
 export default CookieManager;

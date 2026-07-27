@@ -63,6 +63,7 @@ import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.feature.migration.config.MigrationConfigScreen
@@ -118,6 +119,8 @@ class MangaScreen(
                     withIOContext {
                         assistUrl = getMangaUrl(screenModel.manga, screenModel.source)
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) { "Failed to get manga URL" }
                 }
@@ -139,18 +142,24 @@ class MangaScreen(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             },
             onWebViewClicked = {
-                openMangaInWebView(
-                    navigator,
-                    screenModel.manga,
-                    screenModel.source,
-                )
+                scope.launch {
+                    openMangaInWebView(
+                        navigator,
+                        screenModel.manga,
+                        screenModel.source,
+                    )
+                }
+                Unit
             }.takeIf { hasWebViewSupport },
             onWebViewLongClicked = {
-                copyMangaUrl(
-                    context,
-                    screenModel.manga,
-                    screenModel.source,
-                )
+                scope.launch {
+                    copyMangaUrl(
+                        context,
+                        screenModel.manga,
+                        screenModel.source,
+                    )
+                }
+                Unit
             }.takeIf { hasWebViewSupport },
             onTrackingClicked = {
                 if (!successState.hasLoggedInTrackers) {
@@ -177,7 +186,10 @@ class MangaScreen(
             },
             onCoverClicked = screenModel::showCoverDialog,
             onShareClicked = {
-                shareManga(context, screenModel.manga, screenModel.source)
+                scope.launch {
+                    shareManga(context, screenModel.manga, screenModel.source)
+                }
+                Unit
             }.takeIf { hasWebViewSupport },
             onDownloadActionClicked = screenModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
             onEditCategoryClicked = screenModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
@@ -434,18 +446,23 @@ class MangaScreen(
         context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
     }
 
-    private fun getMangaUrl(manga_: Manga?, source_: Source?): String? {
+    private suspend fun getMangaUrl(manga_: Manga?, source_: Source?): String? {
         val manga = manga_ ?: return null
         val source = source_ ?: return null
 
         return try {
-            source.getMangaUrlOrNull(manga.toSManga())
+            when (source) {
+                is JsSource -> source.resolveUrl(manga.url, isNovel = true)
+                else -> source.getMangaUrlOrNull(manga.toSManga())
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun openMangaInWebView(navigator: Navigator, manga_: Manga?, source_: Source?) {
+    private suspend fun openMangaInWebView(navigator: Navigator, manga_: Manga?, source_: Source?) {
         getMangaUrl(manga_, source_)?.let { url ->
             navigator.push(
                 WebViewScreen(
@@ -457,12 +474,14 @@ class MangaScreen(
         }
     }
 
-    private fun shareManga(context: Context, manga_: Manga?, source_: Source?) {
+    private suspend fun shareManga(context: Context, manga_: Manga?, source_: Source?) {
         try {
             getMangaUrl(manga_, source_)?.let { url ->
                 val intent = url.toUri().toShareIntent(context, type = "text/plain")
                 context.startActivity(intent)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             context.toast(e.message)
         }
@@ -526,7 +545,7 @@ class MangaScreen(
     /**
      * Copy Manga URL to Clipboard
      */
-    private fun copyMangaUrl(context: Context, manga_: Manga?, source_: Source?) {
+    private suspend fun copyMangaUrl(context: Context, manga_: Manga?, source_: Source?) {
         val url = getMangaUrl(manga_, source_) ?: return
         context.copyToClipboard(url, url)
     }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Preeternal
 
-import { TurboModuleRegistry, type TurboModule } from "react-native";
+import { type TurboModule, TurboModuleRegistry } from 'react-native';
 
-export type CookieSameSite = "lax" | "strict" | "none";
+export type CookieSameSite = 'lax' | 'strict' | 'none';
 
 export type Cookie = {
   name: string;
@@ -40,11 +40,7 @@ export interface Spec extends TurboModule {
   ): Promise<boolean>;
   getAll(useWebKit?: boolean): Promise<Cookies>;
   getAllAsArray(useWebKit?: boolean): Promise<ReadonlyArray<Cookie>>;
-  clearByName(
-    url: string,
-    name: string,
-    useWebKit?: boolean,
-  ): Promise<boolean>;
+  clearByName(url: string, name: string, useWebKit?: boolean): Promise<boolean>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>("CookieManager");
+export default TurboModuleRegistry.getEnforcing<Spec>('CookieManager');

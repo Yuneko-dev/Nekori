@@ -3,6 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
+  "scripts": {
+    "lint": "eslint src specs --ext .js,.ts",
+    "lint:fix": "pnpm run lint --fix",
+    "format": "prettier --write \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
+    "type-check": "tsc --noEmit",
+    "check": "pnpm run type-check && pnpm run lint && pnpm run format:check"
+  },
   "codegenConfig": {
     "name": "TsundokuJsRuntimeSpec",
     "type": "modules",
@@ -41,11 +49,20 @@
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native/babel-preset": "0.86.0",
     "@react-native/codegen": "0.86.0",
+    "@react-native/eslint-config": "0.86.0",
     "@react-native/gradle-plugin": "0.86.0",
     "@react-native/metro-config": "0.86.0",
+    "@react-native/typescript-config": "0.86.0",
     "@types/node": "^26.1.1",
     "@types/react": "19.2.17",
+    "@typescript-eslint/eslint-plugin": "8.58.0",
+    "@typescript-eslint/parser": "8.58.0",
+    "eslint": "8.57.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-simple-import-sort": "12.1.1",
+    "eslint-plugin-unused-imports": "4.3.0",
     "hermes-compiler": "250829098.0.14",
+    "prettier": "2.8.8",
     "typescript": "5.9.2"
   }
 }

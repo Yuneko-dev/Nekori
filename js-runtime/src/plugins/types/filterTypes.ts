@@ -3,11 +3,11 @@ export interface FilterOption {
   readonly value: string;
 }
 export enum FilterTypes {
-  TextInput = "Text",
-  Picker = "Picker",
-  CheckboxGroup = "Checkbox",
-  Switch = "Switch",
-  ExcludableCheckboxGroup = "XCheckbox",
+  TextInput = 'Text',
+  Picker = 'Picker',
+  CheckboxGroup = 'Checkbox',
+  Switch = 'Switch',
+  ExcludableCheckboxGroup = 'XCheckbox',
 }
 
 type SwitchFilter = {
@@ -58,30 +58,30 @@ export type FilterToValues<
   ? undefined
   : {
       [K in keyof T]: Omit<
-        { type: NonNullable<T>[K]["type"] } & Filters[string],
-        "label" | "options"
+        { type: NonNullable<T>[K]['type'] } & Filters[string],
+        'label' | 'options'
       >;
     };
 
 export type ValueOfFilter<T extends FilterTypes> =
   T extends FilterTypes.CheckboxGroup
-    ? CheckboxFilter["value"]
+    ? CheckboxFilter['value']
     : T extends FilterTypes.Picker
-      ? PickerFilter["value"]
-      : T extends FilterTypes.Switch
-        ? SwitchFilter["value"]
-        : T extends FilterTypes.TextInput
-          ? TextFilter["value"]
-          : T extends FilterTypes.ExcludableCheckboxGroup
-            ? ExcludableCheckboxFilter["value"]
-            : never;
+    ? PickerFilter['value']
+    : T extends FilterTypes.Switch
+    ? SwitchFilter['value']
+    : T extends FilterTypes.TextInput
+    ? TextFilter['value']
+    : T extends FilterTypes.ExcludableCheckboxGroup
+    ? ExcludableCheckboxFilter['value']
+    : never;
 
 export const isPickerValue = (
   q: FilterToValues<Filters>[string],
 ): q is FilterToValues<{
   [key: string]: { label: string } & PickerFilter;
 }>[string] => {
-  return q.type === FilterTypes.Picker && typeof q.value === "string";
+  return q.type === FilterTypes.Picker && typeof q.value === 'string';
 };
 
 export const isCheckboxValue = (
@@ -97,7 +97,7 @@ export const isSwitchValue = (
 ): q is FilterToValues<{
   [key: string]: { label: string } & SwitchFilter;
 }>[string] => {
-  return q.type === FilterTypes.Switch && typeof q.value === "boolean";
+  return q.type === FilterTypes.Switch && typeof q.value === 'boolean';
 };
 
 export const isTextValue = (
@@ -105,7 +105,7 @@ export const isTextValue = (
 ): q is FilterToValues<{
   [key: string]: { label: string } & TextFilter;
 }>[string] => {
-  return q.type === FilterTypes.TextInput && typeof q.value === "string";
+  return q.type === FilterTypes.TextInput && typeof q.value === 'string';
 };
 
 export const isXCheckboxValue = (
@@ -115,7 +115,7 @@ export const isXCheckboxValue = (
 }>[string] => {
   return (
     q.type === FilterTypes.ExcludableCheckboxGroup &&
-    typeof q.value === "object" &&
+    typeof q.value === 'object' &&
     !Array.isArray(q.value)
   );
 };

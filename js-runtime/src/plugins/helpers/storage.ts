@@ -30,7 +30,6 @@ type PluginStorageContext = {
 const contexts = new Map<string, PluginStorageContext>();
 
 function nativeHostApi(): Spec {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('../../../specs/NativeHostApi').default as Spec;
 }
 
@@ -54,12 +53,20 @@ function parseStoredValue(value: string): StoredValue {
   return { created: 0, value };
 }
 
-export async function hydratePluginStorage(pluginId: string, runtimeKey: string): Promise<void> {
-  const snapshot = JSON.parse(await nativeHostApi().loadPluginStorage(pluginId)) as Snapshot;
+export async function hydratePluginStorage(
+  pluginId: string,
+  runtimeKey: string,
+): Promise<void> {
+  const snapshot = JSON.parse(
+    await nativeHostApi().loadPluginStorage(pluginId),
+  ) as Snapshot;
   contexts.set(runtimeKey, {
     pluginId,
     values: new Map(
-      Object.entries(snapshot.database).map(([key, value]) => [key, parseStoredValue(value)]),
+      Object.entries(snapshot.database).map(([key, value]) => [
+        key,
+        parseStoredValue(value),
+      ]),
     ),
     mutations: [],
     localStorage: parseSnapshot(snapshot.localStorage),
@@ -90,7 +97,9 @@ export function storageModule(runtimeKey: string): unknown {
         return raw
           ? {
               created: new Date(stored.created),
-              ...(stored.expires === undefined ? {} : { expires: new Date(stored.expires) }),
+              ...(stored.expires === undefined
+                ? {}
+                : { expires: new Date(stored.expires) }),
               value: stored.value,
             }
           : stored.value;
@@ -104,11 +113,17 @@ export function storageModule(runtimeKey: string): unknown {
           created: Date.now(),
           ...(expires === undefined
             ? {}
-            : { expires: expires instanceof Date ? expires.getTime() : expires }),
+            : {
+                expires: expires instanceof Date ? expires.getTime() : expires,
+              }),
           value,
         };
         state.values.set(key, stored);
-        state.mutations.push({ type: 'set', key, value: JSON.stringify(stored) });
+        state.mutations.push({
+          type: 'set',
+          key,
+          value: JSON.stringify(stored),
+        });
       },
       delete(key: string): void {
         state.values.delete(key);
@@ -127,7 +142,10 @@ export function storageModule(runtimeKey: string): unknown {
   };
 }
 
-export function getPluginStorageValue(runtimeKey: string, key: string): unknown {
+export function getPluginStorageValue(
+  runtimeKey: string,
+  key: string,
+): unknown {
   const module = storageModule(runtimeKey) as {
     storage: { get(storageKey: string): unknown };
   };
@@ -151,7 +169,10 @@ export async function flushPluginStorage(runtimeKey: string): Promise<void> {
   if (!state || state.mutations.length === 0) return;
   const mutations = state.mutations.splice(0);
   try {
-    await nativeHostApi().applyPluginStorageMutation(state.pluginId, JSON.stringify(mutations));
+    await nativeHostApi().applyPluginStorageMutation(
+      state.pluginId,
+      JSON.stringify(mutations),
+    );
   } catch (error) {
     state.mutations.unshift(...mutations);
     throw error;

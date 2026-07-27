@@ -1,5 +1,8 @@
-import type { CodegenTypes, TurboModule } from 'react-native';
-import { TurboModuleRegistry } from 'react-native';
+import {
+  type CodegenTypes,
+  type TurboModule,
+  TurboModuleRegistry,
+} from 'react-native';
 
 /** One unit of work for JavaScript. `args` is JSON, so the payload crosses as a single string. */
 export type JsCommand = {
@@ -38,7 +41,10 @@ export interface Spec extends TurboModule {
 
   loadPluginStorage(pluginId: string): Promise<string>;
 
-  applyPluginStorageMutation(pluginId: string, mutationJson: string): Promise<void>;
+  applyPluginStorageMutation(
+    pluginId: string,
+    mutationJson: string,
+  ): Promise<void>;
 
   readonly onCommand: CodegenTypes.EventEmitter<JsCommand>;
 }

@@ -45,7 +45,6 @@ import java.util.Locale
  */
 class JsSource(
     private val installedPlugin: InstalledJsPlugin,
-    private val siteOverride: String? = null,
 ) : CatalogueSource, ConfigurableSource {
 
     private val plugin: JsPlugin = installedPlugin.plugin
@@ -150,9 +149,10 @@ class JsSource(
     // Visible name of the source with language and JS marker
     override fun toString(): String = "$name (${lang.uppercase()}) (JS)"
 
-    val baseUrl: String = siteOverride?.trim()?.trimEnd('/').orEmpty()
-        .ifBlank { resolveJsPluginSite(metadataSite = plugin.site, code = jsCode) }
-        .ifBlank { "https://example.com" }
+    @Volatile
+    var baseUrl: String = resolveJsPluginSite(metadataSite = plugin.site, code = jsCode)
+        private set
+
     val iconUrl: String = plugin.iconUrl
     val version: String = plugin.version
 
@@ -183,10 +183,6 @@ class JsSource(
         }
     }
 
-    fun withSiteOverride(site: String?): JsSource {
-        return JsSource(installedPlugin, site)
-    }
-
     /** True when this source was built from the same plugin version and code. */
     fun isSamePlugin(other: InstalledJsPlugin): Boolean =
         installedPlugin.installedVersion == other.installedVersion &&
@@ -199,7 +195,6 @@ class JsSource(
             put("id", pluginId)
             put("key", hermesRuntimeKey)
             put("expression", methodCall)
-            siteOverride?.takeIf { it.isNotBlank() }?.let { put("siteOverride", it) }
         }.toString()
         return withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
             hermesRuntime.call("plugin.eval", payload)
@@ -215,9 +210,39 @@ class JsSource(
                 put("key", hermesRuntimeKey)
                 put("code", jsCode)
             }.toString()
-            hermesRuntime.call("plugin.load", payload)
+            val loadedPlugin = hermesRuntime.call("plugin.load", payload)
+            val runtimeSite = runCatching {
+                json.parseToJsonElement(loadedPlugin)
+                    .jsonObject["site"]
+                    ?.jsonPrimitive
+                    ?.content
+                    ?.trim()
+                    ?.trimEnd('/')
+            }.getOrNull()
+            if (!runtimeSite.isNullOrBlank()) {
+                baseUrl = runtimeSite
+            }
             isLoadedInHermes = true
         }
+    }
+
+    suspend fun resolveUrl(path: String, isNovel: Boolean = false): String {
+        ensureLoadedInHermes()
+        val payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", hermesRuntimeKey)
+            put("path", path)
+            put("isNovel", isNovel)
+        }.toString()
+        val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
+            hermesRuntime.call("plugin.resolveUrl", payload)
+        }
+        return json.parseToJsonElement(result)
+            .jsonObject["url"]
+            ?.jsonPrimitive
+            ?.content
+            ?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Plugin \"$pluginId\" returned an empty URL")
     }
 
     private suspend fun getPluginSetting(key: String): JsonElement? {
