@@ -49,10 +49,6 @@ dependencies {
     // Sort
     implementation(libs.natural.comparator)
 
-    // JavaScript engine
-    // implementation(libs.quickJs)
-    implementation("io.github.dokar3:quickjs-kt:1.0.0-alpha13")
-
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

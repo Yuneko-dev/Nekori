@@ -36,7 +36,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
-import eu.kanade.tachiyomi.source.custom.CustomNovelSource
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -78,10 +77,6 @@ object SourcePriorityScreen : Screen {
             val sourceTypes = listOf(
                 DuplicateDetectionScreenModel.SourceType.JS to
                     stringResource(MR.strings.duplicate_source_type_js_extensions),
-                DuplicateDetectionScreenModel.SourceType.KT to
-                    stringResource(MR.strings.duplicate_source_type_kt_extensions),
-                DuplicateDetectionScreenModel.SourceType.CUSTOM to
-                    stringResource(MR.strings.duplicate_source_type_custom_extensions),
                 DuplicateDetectionScreenModel.SourceType.LOCAL to
                     stringResource(MR.strings.duplicate_source_type_local_source),
             ).filter { it.first != DuplicateDetectionScreenModel.SourceType.LOCAL || state.hasLocalSource }
@@ -273,14 +268,12 @@ class SourcePriorityScreenModel(
                 val disabledSources = sourcePreferences.disabledSources.get()
                 val items = catalogueSources
                     .filter { source ->
-                        !source.isLocal() && (
-                            source is CustomNovelSource ||
-                                (source.lang in enabledLanguages && "${source.id}" !in disabledSources)
-                            )
+                        !source.isLocal() &&
+                            source.lang in enabledLanguages &&
+                            "${source.id}" !in disabledSources
                     }
                     .map { source ->
                         val suffix = when (source) {
-                            is CustomNovelSource -> " (Custom)"
                             is JsSource -> " (JS)"
                             else -> ""
                         }

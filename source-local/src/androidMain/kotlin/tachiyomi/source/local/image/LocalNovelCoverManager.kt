@@ -13,8 +13,7 @@ private const val DEFAULT_COVER_NAME = "cover.jpg"
 
 /**
  * Cover manager for local novel source.
- * Uses [LocalNovelSourceFileSystem] to resolve novel directories,
- * unlike [LocalCoverManager] which uses the manga file system.
+ * Uses [LocalNovelSourceFileSystem] to resolve novel directories.
  */
 class LocalNovelCoverManager(
     private val context: Context,

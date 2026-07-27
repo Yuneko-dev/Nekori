@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPluginRepository
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,10 +42,7 @@ class JsPluginsScreenModel(
         }
     }
 
-    private val searchQueryFlow = MutableStateFlow<String?>(null)
-
     fun search(query: String?) {
-        searchQueryFlow.value = query
         mutableState.update { it.copy(searchQuery = query) }
     }
 

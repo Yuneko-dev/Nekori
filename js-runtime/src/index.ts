@@ -11,13 +11,24 @@
 // a bare headless bundle has to ask. Without it `setImmediate` is undefined, `startBridge()` throws
 // during bundle evaluation, and the only symptom is that `ready()` never arrives.
 import 'react-native/Libraries/Core/InitializeCore';
+import './polyfills/secureRandom';
+import './polyfills/nodeGlobals';
+import './polyfills/textEncoding';
 
 import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
 import { registerHandler, startBridge } from './bridge/nativeHost';
-import { getPlugin, initPlugin } from './plugins/pluginHost';
+import { evaluatePlugin, getPlugin, initPlugin, removePlugin } from './plugins/pluginHost';
+import {
+  flushPluginStorage,
+  getPluginStorageValue,
+  setPluginStorageValue,
+} from './plugins/helpers/storage';
 
-declare const global: { __TSUNDOKU_JS_READY__?: boolean };
+declare const global: {
+  __TSUNDOKU_JS_READY__?: boolean;
+  crypto: { getRandomValues<T extends Uint8Array>(array: T): T };
+};
 
 // M0 spike handlers. Task 8 replaces these with the real plugin surface.
 registerHandler('sum', (args) => {
@@ -34,10 +45,79 @@ registerHandler('boom', (args) => {
 // a call that is abandoned must not leak its continuation.
 registerHandler('never', () => new Promise<never>(() => {}));
 
-registerHandler('plugin.load', (args) => {
-  const { id, code } = args as { id: string; code: string };
-  const plugin = initPlugin(id, code);
+registerHandler('secureRandom.sample', (args) => {
+  const { size } = args as { size: number };
+  const backing = new Uint8Array(size + 8);
+  const first = new Uint8Array(backing.buffer, 4, size);
+  const returned = global.crypto.getRandomValues(first);
+  const second = new Uint8Array(size);
+  global.crypto.getRandomValues(second);
+  let floatError = '';
+  let quotaError = '';
+  try {
+    global.crypto.getRandomValues(new Float32Array(1) as never);
+  } catch (error) {
+    floatError = error instanceof Error ? error.name : String(error);
+  }
+  try {
+    global.crypto.getRandomValues(new Uint8Array(65_537));
+  } catch (error) {
+    quotaError = error instanceof Error ? error.name : String(error);
+  }
+  return {
+    size,
+    sameObject: returned === first,
+    prefixUntouched: backing.slice(0, 4).every((value) => value === 0),
+    suffixUntouched: backing.slice(size + 4).every((value) => value === 0),
+    different: first.some((value, index) => value !== second[index]),
+    floatError,
+    quotaError,
+  };
+});
+
+registerHandler('plugin.load', async (args) => {
+  const { id, code, key } = args as { id: string; code: string; key?: string };
+  const plugin = await initPlugin(id, code, key);
   return { id: plugin.id, name: plugin.name, version: plugin.version, site: plugin.site };
+});
+
+registerHandler('plugin.eval', async (args) => {
+  const { id, key, expression, siteOverride } = args as {
+    id: string;
+    key?: string;
+    expression: string;
+    siteOverride?: string;
+  };
+  const runtimeKey = key ?? id;
+  try {
+    return await evaluatePlugin(runtimeKey, expression, siteOverride);
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
+});
+
+registerHandler('plugin.unload', async (args) => {
+  const { id, key } = args as { id: string; key?: string };
+  const runtimeKey = key ?? id;
+  await flushPluginStorage(runtimeKey);
+  removePlugin(runtimeKey);
+  return null;
+});
+
+registerHandler('plugin.storageGet', (args) => {
+  const { id, key, storageKey } = args as { id: string; key?: string; storageKey: string };
+  return getPluginStorageValue(key ?? id, storageKey);
+});
+
+registerHandler('plugin.storageSet', async (args) => {
+  const { id, key, storageKey, value } = args as {
+    id: string;
+    key?: string;
+    storageKey: string;
+    value: unknown;
+  };
+  await setPluginStorageValue(key ?? id, storageKey, value);
+  return null;
 });
 
 registerHandler('plugin.popularNovels', async (args) => {

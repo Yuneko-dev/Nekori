@@ -2,16 +2,20 @@ package eu.kanade.tachiyomi.jsruntime
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.io.File
 
 /**
@@ -40,6 +44,7 @@ class BaoMoiPluginSpikeTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val json = Json { ignoreUnknownKeys = true }
+    private val networkClient by lazy { Injekt.get<NetworkHelper>().client }
 
     private fun pluginSource(): String? =
         File(context.getExternalFilesDir(null), PLUGIN_FILE)
@@ -51,7 +56,12 @@ class BaoMoiPluginSpikeTest {
         val code = pluginSource()
         assumeTrue("push $PLUGIN_FILE to the app's external files dir first", code != null)
 
-        val runtime = JsRuntime(context)
+        val runtime = JsRuntime(context, networkClient)
+        assertSame(
+            "production RN Networking must use NetworkHelper.client",
+            networkClient,
+            reactNativeNetworkingClient(),
+        )
 
         // 1. Evaluation — the load-bearing step. `Function('require', 'module', code)` on Hermes.
         val meta = runtime.call("plugin.load", """{"id":"$PLUGIN_ID","code":${quote(code!!)}}""")
@@ -102,6 +112,15 @@ class BaoMoiPluginSpikeTest {
     private fun kotlinx.serialization.json.JsonObject.stringFieldOf(name: String): String =
         this[name]?.jsonPrimitive?.content
             ?: error("expected a \"$name\" on $this")
+
+    /**
+     * Keep React Native types out of :app source while still proving the provider's object identity.
+     * The subsequent plugin operation proves that this provider is the transport used by Hermes.
+     */
+    private fun reactNativeNetworkingClient(): Any =
+        Class.forName("com.facebook.react.modules.network.OkHttpClientProvider")
+            .getMethod("getOkHttpClient")
+            .invoke(null)
 
     /** Minimal JSON string escaping — the plugin source is 8 KB of minified JavaScript. */
     private fun quote(value: String): String = buildString(value.length + 32) {

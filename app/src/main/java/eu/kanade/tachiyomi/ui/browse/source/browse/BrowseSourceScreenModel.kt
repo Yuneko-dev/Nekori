@@ -24,6 +24,7 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -176,33 +177,37 @@ class BrowseSourceScreenModel(
         }
 
         if (source is CatalogueSource) {
-            // Get initial filters from source
-            var initialFilters = source.getFilterList()
-
-            // Apply default preset synchronously if enabled
-            if (manageFilterPresets.getAutoApplyEnabled()) {
-                val presetState = manageFilterPresets.getDefaultPresetState(sourceId)
-                if (presetState != null) {
-                    ManageFilterPresets.applyPresetState(initialFilters, presetState)
-                    logcat(LogPriority.INFO) { "BrowseSource: Default preset applied on init" }
-                }
-            }
-
-            mutableState.update {
-                var query: String? = null
-                var listing = it.listing
-
-                if (listing is Listing.Search) {
-                    query = listing.query
-                    listing = Listing.Search(query, initialFilters)
+            screenModelScope.launchIO {
+                val initialFilters = if (source is JsSource) {
+                    source.getFilterListAsync()
+                } else {
+                    source.getFilterList()
                 }
 
-                it.copy(
-                    listing = listing,
-                    filters = initialFilters,
-                    pendingFilters = initialFilters, // Initialize pending with same filters
-                    toolbarQuery = query,
-                )
+                if (manageFilterPresets.getAutoApplyEnabled()) {
+                    val presetState = manageFilterPresets.getDefaultPresetState(sourceId)
+                    if (presetState != null) {
+                        ManageFilterPresets.applyPresetState(initialFilters, presetState)
+                        logcat(LogPriority.INFO) { "BrowseSource: Default preset applied on init" }
+                    }
+                }
+
+                mutableState.update {
+                    var query: String? = null
+                    var listing = it.listing
+
+                    if (listing is Listing.Search) {
+                        query = listing.query
+                        listing = Listing.Search(query, initialFilters)
+                    }
+
+                    it.copy(
+                        listing = listing,
+                        filters = initialFilters,
+                        pendingFilters = initialFilters,
+                        toolbarQuery = query,
+                    )
+                }
             }
         }
 

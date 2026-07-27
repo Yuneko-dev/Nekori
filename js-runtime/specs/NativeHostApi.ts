@@ -30,6 +30,13 @@ export interface Spec extends TurboModule {
   /** Fails the pending Kotlin coroutine for `id`. */
   reject(id: string, message: string): void;
 
+  /** Cryptographically secure bytes for the Web Crypto getRandomValues polyfill. */
+  getRandomBase64(byteLength: number): string;
+
+  loadPluginStorage(pluginId: string): Promise<string>;
+
+  applyPluginStorageMutation(pluginId: string, mutationJson: string): Promise<void>;
+
   readonly onCommand: CodegenTypes.EventEmitter<JsCommand>;
 }
 

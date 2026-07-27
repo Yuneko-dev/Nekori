@@ -27,7 +27,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import coil3.compose.AsyncImage
-import eu.kanade.domain.source.model.icon
 import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -49,26 +48,17 @@ fun SourceIcon(
     source: Source,
     modifier: Modifier = Modifier,
 ) {
-    val icon = source.icon
-
     // Check if actual source is a JsSource
     val actualSource = remember(source.id) {
         Injekt.get<SourceManager>().get(source.id)
     }
 
     when {
-        source.isStub && icon == null -> {
+        source.isStub -> {
             Image(
                 imageVector = Icons.Filled.Warning,
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error),
-                modifier = modifier.then(defaultModifier),
-            )
-        }
-        icon != null -> {
-            Image(
-                bitmap = icon,
-                contentDescription = null,
                 modifier = modifier.then(defaultModifier),
             )
         }

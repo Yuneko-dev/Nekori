@@ -1,12 +1,10 @@
 package eu.kanade.tachiyomi.jsplugin.source
 
-import android.content.Context
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.resolveJsPluginSite
-import eu.kanade.tachiyomi.jsplugin.runtime.PluginRuntime
-import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.jsruntime.JsRuntime
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Filter
@@ -16,19 +14,23 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.lang.normalizeHtmlDescription
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import okhttp3.Headers
 import tachiyomi.core.common.util.system.logcat
@@ -36,11 +38,10 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.Executors
 
 /**
  * A CatalogueSource implementation backed by a JavaScript plugin.
- * Executes LNReader-compatible plugins through JsPluginRuntime.
+ * Executes LNReader-compatible plugins through the headless Hermes runtime.
  */
 class JsSource(
     private val installedPlugin: InstalledJsPlugin,
@@ -49,24 +50,14 @@ class JsSource(
 
     private val plugin: JsPlugin = installedPlugin.plugin
     private val jsCode: String = installedPlugin.code
-    private val context: Context = Injekt.get()
-    private val networkHelper: NetworkHelper = Injekt.get()
+    private val hermesRuntime: JsRuntime = Injekt.get()
+    private val applicationScope: CoroutineScope = Injekt.get()
 
     private val json = Json { ignoreUnknownKeys = true }
+    private val hermesLoadMutex = kotlinx.coroutines.sync.Mutex()
+    private val hermesRuntimeKey = "${plugin.id}@${System.identityHashCode(this)}"
 
-    // Single-thread executor for JS execution to avoid JNI caching issues
-    // QuickJS caches the JNI environment on the thread that creates it,
-    // so all operations must happen on the same thread
-    private val jsExecutor = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "JsSource-$pluginId").apply { isDaemon = true }
-    }
-    private val jsDispatcher = jsExecutor.asCoroutineDispatcher()
-
-    // Cached runtime instance to avoid recreating for every method call
-    @Volatile private var cachedInstance: eu.kanade.tachiyomi.jsplugin.runtime.PluginInstance? = null
-    private val instanceLock = Any()
-    private val instanceMutex = kotlinx.coroutines.sync.Mutex()
-    private var lastUsed = System.currentTimeMillis()
+    @Volatile private var isLoadedInHermes = false
 
     // Chapter list may aggregate parseNovel + N parsePage calls; re-deriving it would refetch every page.
     private val chaptersCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
@@ -84,15 +75,14 @@ class JsSource(
     // inferHasNextPage probe result, reused when the user pages forward.
     private val browseProbeCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
-    // Raw JSON of plugin.filters / plugin.pluginSettings. Static per plugin version; caching it
-    // limits the runBlocking JS execution in getFilterList/setupPreferenceScreen to the first call.
+    // Raw JSON of plugin.filters / plugin.pluginSettings. Static per plugin version.
     @Volatile private var filtersJsonCache: String? = null
 
     @Volatile private var pluginSettingsJsonCache: String? = null
 
     companion object {
-        private const val INSTANCE_TIMEOUT_MS = 60_000L // 1 minute timeout
         private const val BROWSE_PROBE_TTL_MS = 60_000L
+        private const val PLUGIN_CALL_TIMEOUT_MS = 30_000L
 
         // Sentinel handed to plugin.resolveUrl to discover its base/prefix join shape.
         private const val PATH_PROBE_TOKEN = "__tsundoku_path_probe__"
@@ -180,89 +170,17 @@ class JsSource(
         }
     }
 
-    /**
-     * Get or create a cached plugin instance to avoid expensive re-initialization.
-     * Must be called from jsDispatcher to ensure proper JNI environment.
-     */
-    private suspend fun getOrCreateInstance(): eu.kanade.tachiyomi.jsplugin.runtime.PluginInstance = withContext(
-        jsDispatcher,
-    ) {
-        // instanceMutex serializes check-create-assign; instanceLock additionally guards
-        // cachedInstance so invalidateInstance (any thread) can't race these accesses.
-        instanceMutex.withLock {
-            val now = System.currentTimeMillis()
-            val existing = synchronized(instanceLock) {
-                val current = cachedInstance
-                when {
-                    current == null -> null
-                    (now - lastUsed) < INSTANCE_TIMEOUT_MS -> {
-                        lastUsed = now
-                        current
-                    }
-                    else -> {
-                        runCatching { current.close() }
-                        cachedInstance = null
-                        null
-                    }
-                }
-            }
-            if (existing != null) return@withLock existing
-
-            val runtime = PluginRuntime(pluginId, context, jsDispatcher, baseUrl)
-            val newInstance = try {
-                runtime.executePlugin(jsCode)
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "JsSource[$pluginId]: Failed to execute plugin" }
-                throw e
-            }
-
-            if (!siteOverride.isNullOrBlank()) {
-                val escapedSiteOverride = escapeJsString(siteOverride)
-                newInstance.execute(
-                    """
-                    if (globalThis.plugin) {
-                        globalThis.plugin.site = '$escapedSiteOverride';
-                        globalThis.plugin.sourceSite = globalThis.plugin.site;
-                    }
-                    """.trimIndent(),
-                )
-            }
-
-            synchronized(instanceLock) {
-                lastUsed = System.currentTimeMillis()
-                cachedInstance = newInstance
-            }
-            newInstance
+    /** Unload this plugin's Hermes context while keeping the process-wide runtime alive. */
+    suspend fun releaseRuntime() {
+        hermesLoadMutex.withLock {
+            if (!isLoadedInHermes) return@withLock
+            val payload = buildJsonObject {
+                put("id", pluginId)
+                put("key", hermesRuntimeKey)
+            }.toString()
+            runCatching { hermesRuntime.call("plugin.unload", payload) }
+            isLoadedInHermes = false
         }
-    }
-
-    /**
-     * Invalidate the cached instance (call on errors).
-     * [expected] guards against closing a runtime that was already replaced: a failing call
-     * holding an old instance must not kill the fresh one a concurrent caller created.
-     */
-    private fun invalidateInstance(expected: eu.kanade.tachiyomi.jsplugin.runtime.PluginInstance? = null) {
-        synchronized(instanceLock) {
-            if (expected != null && cachedInstance !== expected) return
-            runCatching { cachedInstance?.close() }
-            cachedInstance = null
-        }
-    }
-
-    /**
-     * Close the cached QuickJS runtime to free native memory without killing the executor.
-     * Safe while the source may still be referenced; the next call recreates the runtime.
-     */
-    suspend fun releaseRuntime() = withContext(jsDispatcher) {
-        invalidateInstance()
-    }
-
-    /**
-     * Force cleanup of resources. Call when navigating away.
-     */
-    fun cleanup() {
-        invalidateInstance()
-        jsExecutor.shutdown()
     }
 
     fun withSiteOverride(site: String?): JsSource {
@@ -274,136 +192,55 @@ class JsSource(
         installedPlugin.installedVersion == other.installedVersion &&
             installedPlugin.code == other.code
 
-    /**
-     * Execute a plugin method and return JSON result.
-     * All JS execution happens on jsDispatcher to ensure JNI environment is consistent.
-     *
-     * Note: some plugin methods are async and return a Promise (via TS __awaiter).
-     * QuickJS-KT doesn't always properly await Promises returned from evaluate().
-     * We use a global variable approach to store the result after Promise resolution.
-     */
-    private suspend fun executePluginMethod(methodCall: String): String = withContext(jsDispatcher) {
-        try {
-            executePluginMethodAttempt(methodCall)
-        } catch (e: Exception) {
-            // The runtime can be closed under an in-flight call (releaseRuntime after a plugin
-            // update, instance timeout); the attempt already invalidated it, so retry once.
-            if (e.message.orEmpty().contains("context is destroyed", ignoreCase = true)) {
-                logcat(LogPriority.WARN) { "JsSource[$pluginId]: runtime closed mid-call, retrying: $methodCall" }
-                executePluginMethodAttempt(methodCall)
-            } else {
-                throw e
-            }
+    /** Execute one plugin expression and return its JSON result. */
+    private suspend fun executePluginMethod(methodCall: String): String {
+        ensureLoadedInHermes()
+        val payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", hermesRuntimeKey)
+            put("expression", methodCall)
+            siteOverride?.takeIf { it.isNotBlank() }?.let { put("siteOverride", it) }
+        }.toString()
+        return withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
+            hermesRuntime.call("plugin.eval", payload)
         }
     }
 
-    private suspend fun executePluginMethodAttempt(methodCall: String): String {
-        val instance = try {
-            getOrCreateInstance()
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "JsSource[$pluginId]: Failed to create plugin instance" }
-            throw e
+    private suspend fun ensureLoadedInHermes() {
+        if (isLoadedInHermes) return
+        hermesLoadMutex.withLock {
+            if (isLoadedInHermes) return
+            val payload = buildJsonObject {
+                put("id", pluginId)
+                put("key", hermesRuntimeKey)
+                put("code", jsCode)
+            }.toString()
+            hermesRuntime.call("plugin.load", payload)
+            isLoadedInHermes = true
         }
+    }
 
-        val token = "tsundoku_${System.nanoTime()}"
-        val escapedSiteOverride = siteOverride
-            ?.takeIf { it.isNotBlank() }
-            ?.let { escapeJsString(it) }
-        try {
-            if (escapedSiteOverride != null) {
-                instance.execute(
-                    """
-                    if (globalThis.plugin) {
-                        globalThis.plugin.site = '$escapedSiteOverride';
-                        globalThis.plugin.sourceSite = globalThis.plugin.site;
-                    }
-                    """.trimIndent(),
-                )
-            }
-            logcat(LogPriority.INFO) { "JsSource[$pluginId]: Executing: $methodCall" }
+    private suspend fun getPluginSetting(key: String): JsonElement? {
+        ensureLoadedInHermes()
+        val payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", hermesRuntimeKey)
+            put("storageKey", key)
+        }.toString()
+        return hermesRuntime.call("plugin.storageGet", payload)
+            .takeUnless { it == "null" }
+            ?.let(json::parseToJsonElement)
+    }
 
-            // Store result in global variable, handle Promise resolution in JS
-            instance.execute(
-                """
-                (function() {
-                    globalThis.__tsundoku_result_$token = null;
-                    globalThis.__tsundoku_error_$token = null;
-                    globalThis.__tsundoku_done_$token = false;
-
-                    try {
-                        var maybePromise = ($methodCall);
-                        Promise.resolve(maybePromise).then(function(result) {
-                            try {
-                                globalThis.__tsundoku_result_$token = JSON.stringify(result);
-                            } catch(e) {
-                                globalThis.__tsundoku_result_$token = 'null';
-                            }
-                            globalThis.__tsundoku_done_$token = true;
-                        }).catch(function(e) {
-                            globalThis.__tsundoku_error_$token = (e && e.stack) ? (String(e) + '\n' + e.stack) : String(e);
-                            globalThis.__tsundoku_done_$token = true;
-                        });
-                    } catch(e) {
-                        globalThis.__tsundoku_error_$token = (e && e.stack) ? (String(e) + '\n' + e.stack) : String(e);
-                        globalThis.__tsundoku_done_$token = true;
-                    }
-                })();
-                """.trimIndent(),
-            )
-
-            // Poll for completion with proper async waiting
-            // QuickJS asyncFunction needs actual time to execute Kotlin coroutines
-            var attempts = 0
-            val maxAttempts = 600 // 30 seconds max (600 * 50ms)
-            while (attempts < maxAttempts) {
-                val done = instance.execute("globalThis.__tsundoku_done_$token") as? Boolean ?: false
-                if (done) break
-                attempts++
-                // Give async functions time to execute their Kotlin coroutines
-                kotlinx.coroutines.delay(50)
-                // Also process JS microtasks
-                instance.execute("null")
-            }
-
-            if (attempts >= maxAttempts) {
-                logcat(LogPriority.WARN) { "JsSource[$pluginId]: Execution timed out after ${maxAttempts * 50}ms" }
-            }
-
-            // Read results FIRST before cleanup
-            val error = instance.execute("globalThis.__tsundoku_error_$token") as? String
-            val jsonResult = instance.execute("globalThis.__tsundoku_result_$token") as? String
-
-            // Cleanup global variables AFTER reading
-            instance.execute(
-                """
-                delete globalThis.__tsundoku_result_$token;
-                delete globalThis.__tsundoku_error_$token;
-                delete globalThis.__tsundoku_done_$token;
-                if (globalThis.__clearCheerioCache) {
-                    globalThis.__clearCheerioCache();
-                }
-                """.trimIndent(),
-            )
-
-            // Check for errors - "null" string from error means no error, not "Plugin error: null"
-            if (!error.isNullOrEmpty() && error != "null") {
-                throw Exception("Plugin error while executing [$methodCall]: $error")
-            }
-
-            logcat(LogPriority.INFO) { "JsSource[$pluginId]: Result: ${jsonResult?.take(200)}" }
-            return jsonResult ?: "null"
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "JsSource[$pluginId]: Error executing: $methodCall" }
-            // Invalidate on critical errors so the dead runtime isn't reused
-            val message = e.message.orEmpty()
-            if (message.contains("SyntaxError", ignoreCase = true) ||
-                message.contains("vm is not cached", ignoreCase = true) ||
-                message.contains("context is destroyed", ignoreCase = true)
-            ) {
-                invalidateInstance(expected = instance)
-            }
-            throw e
-        }
+    private suspend fun setPluginSetting(key: String, value: JsonElement) {
+        ensureLoadedInHermes()
+        val payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", hermesRuntimeKey)
+            put("storageKey", key)
+            put("value", value)
+        }.toString()
+        hermesRuntime.call("plugin.storageSet", payload)
     }
 
     /**
@@ -690,11 +527,14 @@ class JsSource(
     }
 
     override fun getFilterList(): FilterList {
+        val result = filtersJsonCache ?: return FilterList()
+        return parseFiltersFromJson(result)
+    }
+
+    suspend fun getFilterListAsync(): FilterList {
         return try {
-            // Synchronous interface, so the first call must runBlocking into JS. Cache the raw
-            // JSON but re-parse per call; Filter instances are stateful.
             val result = filtersJsonCache
-                ?: runBlocking { executePluginMethod("plugin.filters || {}") }
+                ?: executePluginMethod("plugin.filters || {}")
                     .also { filtersJsonCache = it }
             parseFiltersFromJson(result)
         } catch (e: Exception) {
@@ -704,66 +544,92 @@ class JsSource(
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // Read plugin's pluginSettings and create preferences backed by persistent storage
+        applicationScope.launch {
+            setupPreferenceScreenAsync(screen)
+        }
+    }
+
+    suspend fun setupPreferenceScreenAsync(screen: PreferenceScreen) {
         try {
-            val result = pluginSettingsJsonCache
-                ?: runBlocking { executePluginMethod("JSON.stringify(plugin.pluginSettings || {})") }
-                    .also { pluginSettingsJsonCache = it }
-            val settingsJson = decodeJsonStringIfQuoted(result)
-            if (settingsJson.isBlank() || settingsJson == "{}" || settingsJson == "null") return
+            val settings = withContext(Dispatchers.IO) {
+                val result = pluginSettingsJsonCache
+                    ?: executePluginMethod("JSON.stringify(plugin.pluginSettings || {})")
+                        .also { pluginSettingsJsonCache = it }
+                val settingsJson = decodeJsonStringIfQuoted(result)
+                if (settingsJson.isBlank() || settingsJson == "{}" || settingsJson == "null") {
+                    return@withContext emptyList()
+                }
 
-            val settings = json.parseToJsonElement(settingsJson).jsonObject
-            val prefs = screen.context.getSharedPreferences(
-                "jsplugin_storage_$pluginId",
-                android.content.Context.MODE_PRIVATE,
-            )
+                json.parseToJsonElement(settingsJson).jsonObject.mapNotNull { (key, value) ->
+                    val setting = value as? JsonObject ?: return@mapNotNull null
+                    Triple(key, setting, getPluginSetting(key))
+                }
+            }
 
-            settings.forEach { (key, value) ->
-                val settingObj = value as? JsonObject ?: return@forEach
-                val label = settingObj["label"]?.jsonPrimitive?.content ?: key
-                val type = settingObj["type"]?.jsonPrimitive?.content ?: "Text"
+            withContext(Dispatchers.Main.immediate) {
+                settings.forEach { (key, settingObj, storedValue) ->
+                    val label = settingObj["label"]?.jsonPrimitive?.content ?: key
+                    val type = settingObj["type"]?.jsonPrimitive?.content ?: "Text"
 
-                when (type) {
-                    "Switch" -> {
-                        val storedValue = prefs.getString(key, "")?.toBooleanStrictOrNull() ?: false
-                        logcat(LogPriority.DEBUG) { "[$pluginId] Switch pref '$key' loaded: $storedValue" }
-                        val pref = androidx.preference.SwitchPreferenceCompat(screen.context).apply {
-                            // Set isPersistent=false BEFORE key to prevent framework auto-load
-                            this.isPersistent = false
-                            this.key = key
-                            this.title = label
-                            this.setDefaultValue(storedValue)
-                            setOnPreferenceChangeListener { _, newValue ->
-                                val boolVal = newValue as? Boolean ?: false
-                                prefs.edit().putString(key, boolVal.toString()).apply()
-                                logcat(LogPriority.DEBUG) { "[$pluginId] Switch pref '$key' changed: $boolVal" }
-                                true
+                    when (type) {
+                        "Switch" -> {
+                            val defaultValue = settingObj["value"]?.jsonPrimitive?.let {
+                                it.booleanOrNull ?: it.content.toBooleanStrictOrNull()
+                            } ?: false
+                            val checked = storedValue?.jsonPrimitive?.let {
+                                it.booleanOrNull ?: it.content.toBooleanStrictOrNull()
+                            } ?: defaultValue
+                            val pref = androidx.preference.SwitchPreferenceCompat(screen.context).apply {
+                                // Set isPersistent=false BEFORE key to prevent framework auto-load
+                                this.isPersistent = false
+                                this.key = key
+                                this.title = label
+                                this.setDefaultValue(defaultValue)
+                                setOnPreferenceChangeListener { _, newValue ->
+                                    val boolVal = newValue as? Boolean ?: false
+                                    applicationScope.launch(Dispatchers.IO) {
+                                        runCatching { setPluginSetting(key, JsonPrimitive(boolVal)) }
+                                            .onFailure {
+                                                logcat(LogPriority.ERROR, it) {
+                                                    "[$pluginId] Could not save setting '$key'"
+                                                }
+                                            }
+                                    }
+                                    true
+                                }
                             }
+                            screen.addPreference(pref)
+                            // Set isChecked AFTER addPreference so onSetInitialValue doesn't override it
+                            pref.isChecked = checked
                         }
-                        screen.addPreference(pref)
-                        // Set isChecked AFTER addPreference so onSetInitialValue doesn't override it
-                        pref.isChecked = storedValue
-                    }
-                    "Text" -> {
-                        val defaultValue = settingObj["value"]?.jsonPrimitive?.content ?: ""
-                        val storedText = prefs.getString(key, defaultValue) ?: defaultValue
-                        val pref = androidx.preference.EditTextPreference(screen.context).apply {
-                            // Set isPersistent=false BEFORE key to prevent framework auto-load
-                            this.isPersistent = false
-                            this.key = key
-                            this.title = label
-                            this.setDefaultValue(defaultValue)
-                            setOnPreferenceChangeListener { p, newValue ->
-                                val strVal = newValue.toString()
-                                prefs.edit().putString(key, strVal).apply()
-                                (p as? androidx.preference.EditTextPreference)?.summary = strVal
-                                true
+                        "Text" -> {
+                            val defaultValue = settingObj["value"]?.jsonPrimitive?.content ?: ""
+                            val storedText = storedValue?.jsonPrimitive?.content ?: defaultValue
+                            val pref = androidx.preference.EditTextPreference(screen.context).apply {
+                                // Set isPersistent=false BEFORE key to prevent framework auto-load
+                                this.isPersistent = false
+                                this.key = key
+                                this.title = label
+                                this.setDefaultValue(defaultValue)
+                                setOnPreferenceChangeListener { p, newValue ->
+                                    val strVal = newValue.toString()
+                                    (p as? androidx.preference.EditTextPreference)?.summary = strVal
+                                    applicationScope.launch(Dispatchers.IO) {
+                                        runCatching { setPluginSetting(key, JsonPrimitive(strVal)) }
+                                            .onFailure {
+                                                logcat(LogPriority.ERROR, it) {
+                                                    "[$pluginId] Could not save setting '$key'"
+                                                }
+                                            }
+                                    }
+                                    true
+                                }
                             }
+                            screen.addPreference(pref)
+                            // Set text/summary AFTER addPreference so onSetInitialValue doesn't override
+                            pref.text = storedText
+                            pref.summary = storedText
                         }
-                        screen.addPreference(pref)
-                        // Set text/summary AFTER addPreference so onSetInitialValue doesn't override
-                        pref.text = storedText
-                        pref.summary = storedText
                     }
                 }
             }
@@ -1338,7 +1204,7 @@ class JsSource(
 
                 // Get default selected values
                 val defaultValues = filterObj["value"]?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.content
+                    it.jsonPrimitive.content
                 }?.toSet() ?: emptySet()
 
                 // Set initial state for checkboxes
@@ -1373,10 +1239,10 @@ class JsSource(
                 // Get default include/exclude values
                 val defaultValueObj = filterObj["value"]?.jsonObject
                 val includeValues = defaultValueObj?.get("include")?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.content
+                    it.jsonPrimitive.content
                 }?.toSet() ?: emptySet()
                 val excludeValues = defaultValueObj?.get("exclude")?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.content
+                    it.jsonPrimitive.content
                 }?.toSet() ?: emptySet()
 
                 // Set initial state using Filter.TriState constants

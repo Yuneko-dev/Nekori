@@ -5,13 +5,19 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
+import com.facebook.react.modules.blob.BlobModule
+import com.facebook.react.modules.blob.FileReaderModule
+import com.facebook.react.modules.network.NetworkingModule
 
-/** Registers the app's TurboModules with the React Native instance. */
+/** Registers only the native modules used by the headless plugin runtime. */
 internal class JsRuntimePackage : BaseReactPackage() {
 
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? =
         when (name) {
             NativeHostApiModule.NAME -> NativeHostApiModule(reactContext)
+            NetworkingModule.NAME -> NetworkingModule(reactContext)
+            BlobModule.NAME -> BlobModule(reactContext)
+            FileReaderModule.NAME -> FileReaderModule(reactContext)
             else -> null
         }
 
@@ -29,6 +35,18 @@ internal class JsRuntimePackage : BaseReactPackage() {
                 // isTurboModule
                 true,
             ),
+            NetworkingModule.NAME to moduleInfo<NetworkingModule>(NetworkingModule.NAME),
+            BlobModule.NAME to moduleInfo<BlobModule>(BlobModule.NAME),
+            FileReaderModule.NAME to moduleInfo<FileReaderModule>(FileReaderModule.NAME),
         )
     }
+
+    private inline fun <reified T : NativeModule> moduleInfo(name: String) = ReactModuleInfo(
+        name,
+        T::class.java.name,
+        false,
+        false,
+        false,
+        ReactModuleInfo.classIsTurboModule(T::class.java),
+    )
 }

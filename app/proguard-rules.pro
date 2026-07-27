@@ -15,8 +15,6 @@
 -keep,allowoptimization class com.squareup.zstd.** { public protected *; }
 -keep,allowoptimization class org.jsoup.** { public protected *; }
 -keep,allowoptimization class rx.** { public protected *; }
--keep,allowoptimization class com.dokar.quickjs.** { public protected *; }
--keep class com.dokar.quickjs.MemoryUsage { *; }
 -keepclassmembers class kotlin.UByteArray { <init>(...); }
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
 -keep,allowoptimization class com.squareup.zstd.** { public protected *; }

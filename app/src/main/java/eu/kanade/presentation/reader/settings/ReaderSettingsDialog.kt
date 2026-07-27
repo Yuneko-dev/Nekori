@@ -15,7 +15,6 @@ import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
@@ -26,7 +25,6 @@ import eu.kanade.presentation.components.toTabTitles
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 @Composable
 fun ReaderSettingsDialog(
@@ -109,7 +107,6 @@ private fun NovelReaderSettingsDialog(
     onShowMenus: () -> Unit,
     screenModel: ReaderSettingsScreenModel,
 ) {
-    val renderingMode by screenModel.preferences.novelRenderingMode.collectAsState()
     val tabTitles = listOf(
         TabTitle.Icon(imageVector = Icons.Outlined.TextFields), // Reading
         TabTitle.Icon(imageVector = Icons.Outlined.Palette), // Appearance
@@ -135,11 +132,11 @@ private fun NovelReaderSettingsDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 when (page) {
-                    0 -> NovelReadingTab(screenModel, renderingMode)
-                    1 -> NovelAppearanceTab(screenModel, renderingMode)
-                    2 -> NovelControlsTab(screenModel, renderingMode)
+                    0 -> NovelReadingTab(screenModel)
+                    1 -> NovelAppearanceTab(screenModel)
+                    2 -> NovelControlsTab(screenModel)
                     3 -> NovelTtsTab(screenModel)
-                    4 -> NovelAdvancedTab(screenModel, renderingMode)
+                    4 -> NovelAdvancedTab(screenModel)
                 }
             }
         }

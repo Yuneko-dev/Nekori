@@ -61,7 +61,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      - name: Build release APK(s) (unsigned)
+      - name: Build release APK(s) from clean native/codegen state
+        run: |
+          ./gradlew clean
+          ./gradlew assembleRelease
+
+      - name: Build nightly APK(s) (unsigned)
         run: ./gradlew assembleNightly -Penable-updater
 
       - name: Run unit tests

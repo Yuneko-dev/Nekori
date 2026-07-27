@@ -89,7 +89,6 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalNovelSource
-import tachiyomi.source.local.LocalSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -193,8 +192,7 @@ data class BrowseSourceScreen(
         }
 
         val onHelpClick = {
-            val url = if (source is LocalNovelSource) LocalNovelSource.HELP_URL else LocalSource.HELP_URL
-            uriHandler.openUri(url)
+            uriHandler.openUri(LocalNovelSource.HELP_URL)
         }
         val onOpenFolderClick = {
             val localNovelSource = source as? LocalNovelSource

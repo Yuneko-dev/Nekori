@@ -40,7 +40,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.source.local.LocalSource
+import tachiyomi.source.local.LocalNovelSource
 
 data class MigrateSourceSearchScreen(
     private val currentManga: Manga,
@@ -117,7 +117,7 @@ data class MigrateSourceSearchScreen(
                     )
                 },
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
-                onLocalSourceHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) },
+                onLocalSourceHelpClick = { uriHandler.openUri(LocalNovelSource.HELP_URL) },
                 onMangaClick = openMigrateDialog,
                 onMangaLongClick = { navigator.push(MangaScreen(it.id, true)) },
             )

@@ -9,8 +9,6 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
-import mihon.core.archive.archiveReader
-import mihon.core.archive.epubReader
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -18,8 +16,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.LocalNovelSource
-import tachiyomi.source.local.LocalSource
-import tachiyomi.source.local.io.Format
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -101,18 +97,8 @@ class ChapterLoader(
                 downloadManager,
                 downloadProvider,
             )
-            source is LocalSource -> source.getFormat(chapter.chapter).let { format ->
-                when (format) {
-                    is Format.Directory -> DirectoryPageLoader(format.file)
-                    is Format.Archive -> ArchivePageLoader(format.file.archiveReader(context))
-                    is Format.Epub -> EpubPageLoader(format.file.epubReader(context))
-                    is Format.Text, is Format.Html -> error(
-                        context.stringResource(MR.strings.loader_not_implemented_error),
-                    )
-                }
-            }
             source is LocalNovelSource -> LocalNovelPageLoader(chapter, source)
-            // HttpSource novels (extensions + CustomNovelSource) return a no-fetch page list whose
+            // Online novel sources return a no-fetch page list whose
             // URL their own fetchPageText consumes, so HttpPageLoader loads them (manga too).
             source is HttpSource -> HttpPageLoader(chapter, source)
             // Non-HttpSource novels (JS plugins, etc.). Exclude StubSource: a stub carries the

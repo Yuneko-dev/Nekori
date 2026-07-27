@@ -3,6 +3,7 @@ package tachiyomi.source.local
 import android.content.Context
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.UnmeteredSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -618,3 +619,10 @@ actual class LocalNovelSource : CatalogueSource, UnmeteredSource {
 fun Manga.isLocalNovel(): Boolean = source == LocalNovelSource.ID
 
 fun DomainSource.isLocalNovel(): Boolean = id == LocalNovelSource.ID
+
+// Keep Mihon's generic call sites source-compatible while local manga support is absent.
+fun Manga.isLocal(): Boolean = isLocalNovel()
+
+fun Source.isLocal(): Boolean = id == LocalNovelSource.ID
+
+fun DomainSource.isLocal(): Boolean = isLocalNovel()

@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryClearJob
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
-import eu.kanade.tachiyomi.source.custom.CustomNovelSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.removeCovers
@@ -63,8 +62,6 @@ class DuplicateDetectionScreenModel(
 
     enum class SourceType {
         JS,
-        KT,
-        CUSTOM,
         LOCAL,
         STUB,
     }
@@ -675,9 +672,8 @@ class DuplicateDetectionScreenModel(
         val source = sourceManager.get(sourceId) ?: return SourceType.STUB
         return when {
             source.isLocal() -> SourceType.LOCAL
-            source is CustomNovelSource -> SourceType.CUSTOM
             source is JsSource -> SourceType.JS
-            else -> SourceType.KT
+            else -> SourceType.STUB
         }
     }
 

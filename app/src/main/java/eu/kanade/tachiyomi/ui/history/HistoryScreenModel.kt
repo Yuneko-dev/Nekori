@@ -165,21 +165,6 @@ class HistoryScreenModel(
         mutableState.update { it.copy(searchQuery = query, limit = HISTORY_PAGE_SIZE) }
     }
 
-    fun setFilter(filter: HistoryFilter) {
-        mutableState.update { it.copy(filter = filter, limit = HISTORY_PAGE_SIZE) }
-    }
-
-    fun syncFilterWithHideManga(hideMangaUi: Boolean) {
-        if (!hideMangaUi) return
-        mutableState.update { state ->
-            if (state.filter == HistoryFilter.ALL) {
-                state
-            } else {
-                state.copy(filter = HistoryFilter.ALL, limit = HISTORY_PAGE_SIZE)
-            }
-        }
-    }
-
     fun setGroupByNovel(groupByNovel: Boolean) {
         mutableState.update { it.copy(groupByNovel = groupByNovel, limit = HISTORY_PAGE_SIZE) }
         libraryPreferences.historyGroupByNovel.set(groupByNovel)
@@ -298,7 +283,7 @@ class HistoryScreenModel(
         val searchQuery: String? = null,
         val limit: Long = HISTORY_PAGE_SIZE,
         val list: List<HistoryUiModel>? = null,
-        val filter: HistoryFilter = HistoryFilter.ALL,
+        val filter: HistoryFilter = HistoryFilter.NOVELS,
         val groupByNovel: Boolean = true,
         val dialog: Dialog? = null,
     )

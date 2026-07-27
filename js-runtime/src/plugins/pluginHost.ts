@@ -1,14 +1,21 @@
-import { load } from 'cheerio';
-
 import {
   ContentType,
   ContentWarning,
   defaultCover,
   fetchApi,
+  fetchFile,
+  fetchProto,
   fetchText,
   FilterTypes,
+  isAbsoluteUrl,
   NovelStatus,
+  unsupportedWebView,
 } from './libs';
+import {
+  hydratePluginStorage,
+  removePluginStorageContext,
+  storageModule,
+} from './helpers/storage';
 
 /**
  * Loads and runs LNReader plugins.
@@ -21,6 +28,7 @@ import {
  */
 
 type Plugin = {
+  [key: string]: unknown;
   id: string;
   name: string;
   version: string;
@@ -35,20 +43,69 @@ type Plugin = {
   parseChapter: (path: string) => Promise<string>;
 };
 
-const packages: Record<string, unknown> = {
-  'cheerio': { load },
+const localPackages: Record<string, unknown> = {
   '@libs/novelStatus': { NovelStatus },
   '@libs/filterInputs': { FilterTypes },
   '@libs/defaultCover': { defaultCover },
-  '@libs/fetch': { fetchApi, fetchText },
+  '@libs/fetch': { fetchApi, fetchFile, fetchProto, fetchText },
+  '@libs/isAbsoluteUrl': { isUrlAbsolute: isAbsoluteUrl },
   '@libs/pluginMetadata': { ContentType, ContentWarning },
+  '@libs/webview': unsupportedWebView,
 };
+
+const packageAliases: Record<string, string> = {
+  '@libs/aes': '@noble/ciphers/aes.js',
+  '@libs/buffer': 'buffer',
+  '@libs/crypto': 'crypto-browserify',
+  'crypto': 'crypto-browserify',
+  'lodash': 'lodash-es',
+  'stream': 'stream-browserify',
+};
+
+const packageFactories: Record<string, () => unknown> = {
+  '@noble/ciphers/aes.js': () => require('@noble/ciphers/aes.js'),
+  'buffer': () => require('buffer'),
+  'cheerio': () => require('cheerio'),
+  'crypto-browserify': () => require('crypto-browserify'),
+  'dayjs': () => require('dayjs'),
+  'html-entities': () => require('html-entities'),
+  'htmlparser2': () => require('htmlparser2'),
+  'lodash-es': () => require('lodash-es'),
+  'node-html-markdown': () => require('node-html-markdown'),
+  'protobufjs': () => require('protobufjs'),
+  'stream-browserify': () => require('stream-browserify'),
+  'urlencode': () => require('urlencode'),
+};
+
+const resolvedPackages = new Map<string, unknown>();
+
+function resolvePackage(name: string): unknown {
+  const local = localPackages[name];
+  if (local !== undefined) return local;
+
+  const canonicalName = packageAliases[name] ?? name;
+  const cached = resolvedPackages.get(canonicalName);
+  if (cached !== undefined) return cached;
+
+  const factory = packageFactories[canonicalName];
+  if (!factory) {
+    // Never return {}. A missing module has to fail here, loudly, rather than turning into wrong
+    // data three call frames later.
+    throw new Error(`Plugin required "${name}", which is not implemented`);
+  }
+  const module = factory();
+  resolvedPackages.set(canonicalName, module);
+  return module;
+}
 
 const plugins = new Map<string, Plugin>();
 
-function makeRequire(): (name: string) => unknown {
+function makeRequire(runtimeKey: string): (name: string) => unknown {
   return (name: string) => {
-    const module = packages[name];
+    if (name === '@libs/storage') {
+      return storageModule(runtimeKey);
+    }
+    const module = resolvePackage(name);
     if (module === undefined) {
       // Never return {}. A missing module has to fail here, loudly, rather than turning into wrong
       // data three call frames later — the one rule the whole plugin layer is built on.
@@ -58,28 +115,60 @@ function makeRequire(): (name: string) => unknown {
   };
 }
 
-export function initPlugin(pluginId: string, rawCode: string): Plugin {
-  const plugin = Function(
-    'require',
-    'module',
-    `const exports = module.exports = {};\n${rawCode};\nreturn exports.default;`,
-  )(makeRequire(), {}) as Plugin | undefined;
+export async function initPlugin(
+  pluginId: string,
+  rawCode: string,
+  runtimeKey: string = pluginId,
+): Promise<Plugin> {
+  await hydratePluginStorage(pluginId, runtimeKey);
+  try {
+    const plugin = Function(
+      'require',
+      'module',
+      `const exports = module.exports = {};\n${rawCode};\nreturn exports.default;`,
+    )(makeRequire(runtimeKey), {}) as Plugin | undefined;
 
+    if (!plugin) {
+      throw new Error(`Plugin "${pluginId}" evaluated but exported no default`);
+    }
+    if (plugin.id !== pluginId) {
+      throw new Error(`Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`);
+    }
+
+    plugins.set(runtimeKey, plugin);
+    return plugin;
+  } catch (error) {
+    removePluginStorageContext(runtimeKey);
+    throw error;
+  }
+}
+
+export function getPlugin(runtimeKey: string): Plugin {
+  const plugin = plugins.get(runtimeKey);
   if (!plugin) {
-    throw new Error(`Plugin "${pluginId}" evaluated but exported no default`);
+    throw new Error(`Plugin "${runtimeKey}" is not loaded`);
   }
-  if (plugin.id !== pluginId) {
-    throw new Error(`Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`);
-  }
-
-  plugins.set(pluginId, plugin);
   return plugin;
 }
 
-export function getPlugin(pluginId: string): Plugin {
-  const plugin = plugins.get(pluginId);
-  if (!plugin) {
-    throw new Error(`Plugin "${pluginId}" is not loaded`);
+export async function evaluatePlugin(
+  runtimeKey: string,
+  expression: string,
+  siteOverride?: string,
+): Promise<unknown> {
+  const plugin = getPlugin(runtimeKey);
+  if (siteOverride) {
+    plugin.site = siteOverride;
+    plugin.sourceSite = siteOverride;
   }
-  return plugin;
+  const result = Function('plugin', `return (${expression});`)(plugin) as unknown;
+  return Promise.resolve(result);
+}
+
+export function removePlugin(runtimeKey: string): void {
+  const plugin = plugins.get(runtimeKey);
+  plugins.delete(runtimeKey);
+  if (plugin) {
+    removePluginStorageContext(runtimeKey);
+  }
 }

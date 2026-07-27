@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.util.source
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.custom.CustomNovelSource
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -73,7 +72,6 @@ fun normalizeSourcePath(source: Source, pathOrUrl: String): String {
 fun Source.getMangaUrlOrNull(manga: SManga): String? {
     return try {
         when (this) {
-            is CustomNovelSource -> resolveRelativeUrl(baseUrl, manga.url)
             is HttpSource -> getMangaUrl(manga)
             is JsSource -> resolveRelativeUrl(baseUrl, manga.url)
             else -> manga.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }
@@ -86,7 +84,6 @@ fun Source.getMangaUrlOrNull(manga: SManga): String? {
 fun Source.getChapterUrlOrNull(chapter: SChapter): String? {
     return try {
         when (this) {
-            is CustomNovelSource -> resolveRelativeUrl(baseUrl, chapter.url)
             is HttpSource -> getChapterUrl(chapter)
             is JsSource -> resolveRelativeUrl(baseUrl, chapter.url)
             else -> chapter.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }

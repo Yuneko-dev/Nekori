@@ -69,4 +69,7 @@ dependencies {
     // still arrives through `implementation` above. The containment gate is unaffected because it
     // scans source directories, not build/generated — generated build glue is not implementation.
     compileOnlyApi("com.facebook.react:react-android:$reactNativeVersion")
+
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -4,7 +4,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.source.local.image.LocalCoverManager
+import tachiyomi.source.local.image.LocalNovelCoverManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -21,7 +21,7 @@ fun Manga.removeCovers(coverCache: CoverCache = Injekt.get()): Manga {
 }
 
 suspend fun Manga.editCover(
-    coverManager: LocalCoverManager,
+    coverManager: LocalNovelCoverManager,
     stream: InputStream,
     updateManga: UpdateManga = Injekt.get(),
     coverCache: CoverCache = Injekt.get(),

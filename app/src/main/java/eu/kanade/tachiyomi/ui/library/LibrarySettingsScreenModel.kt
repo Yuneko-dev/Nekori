@@ -6,7 +6,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.cache.LibrarySettingsCache
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
-import eu.kanade.tachiyomi.source.custom.CustomNovelSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -234,7 +233,6 @@ class LibrarySettingsScreenModel(
                     val source = sourceManager.getOrStub(sourceId)
                     val isNovel = source.isNovelSource()
                     val isStub = source is StubSource
-                    val isCustom = source is CustomNovelSource
                     val shouldInclude = when (type) {
                         LibraryScreenModel.LibraryType.All -> true
                         LibraryScreenModel.LibraryType.Manga -> !isNovel
@@ -244,10 +242,9 @@ class LibrarySettingsScreenModel(
                         // Add suffix for special source types
                         val displayName = when {
                             source is JsSource -> "${source.name} (JS)"
-                            isCustom -> "${source.name} (Custom)"
                             else -> source.name
                         }
-                        ExtensionInfo(sourceId, displayName, isStub, isNovel, isCustom)
+                        ExtensionInfo(sourceId, displayName, isStub, isNovel)
                     } else {
                         null
                     }

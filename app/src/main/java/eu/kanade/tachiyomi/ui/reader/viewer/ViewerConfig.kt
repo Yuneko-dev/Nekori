@@ -12,65 +12,22 @@ import tachiyomi.core.common.preference.Preference
  */
 abstract class ViewerConfig(readerPreferences: ReaderPreferences, private val scope: CoroutineScope) {
 
-    var imagePropertyChangedListener: (() -> Unit)? = null
-
     var navigationModeChangedListener: (() -> Unit)? = null
 
     var tappingInverted = ReaderPreferences.TappingInvertMode.NONE
-    var longTapEnabled = true
-    var usePageTransitions = false
-    var doubleTapAnimDuration = 500
-    var volumeKeysEnabled = false
-    var volumeKeysInverted = false
-    var alwaysShowChapterTransition = true
     var navigationMode = 0
         protected set
 
     var forceNavigationOverlay = false
 
-    var navigationOverlayOnStart = false
-
-    var dualPageSplit = false
-        protected set
-
-    var dualPageInvert = false
-        protected set
-
-    var dualPageRotateToFit = false
-        protected set
-
-    var dualPageRotateToFitInvert = false
-        protected set
-
     abstract var navigator: ViewerNavigation
         protected set
 
     init {
-        readerPreferences.readWithLongTap
-            .register({ longTapEnabled = it })
-
-        readerPreferences.pageTransitions
-            .register({ usePageTransitions = it })
-
-        readerPreferences.doubleTapAnimSpeed
-            .register({ doubleTapAnimDuration = it })
-
-        readerPreferences.readWithVolumeKeys
-            .register({ volumeKeysEnabled = it })
-
-        readerPreferences.readWithVolumeKeysInverted
-            .register({ volumeKeysInverted = it })
-
-        readerPreferences.alwaysShowChapterTransition
-            .register({ alwaysShowChapterTransition = it })
-
         forceNavigationOverlay = readerPreferences.showNavigationOverlayNewUser.get()
         if (forceNavigationOverlay) {
             readerPreferences.showNavigationOverlayNewUser.set(false)
         }
-
-        readerPreferences.showNavigationOverlayOnStart
-            .register({ navigationOverlayOnStart = it })
     }
 
     protected abstract fun defaultNavigation(): ViewerNavigation

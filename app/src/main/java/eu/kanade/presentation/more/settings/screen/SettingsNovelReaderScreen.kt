@@ -147,14 +147,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     ).toMap(),
                     title = stringResource(TDMR.strings.pref_novel_theme),
                 ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = readerPreferences.novelRenderingMode,
-                    entries = mapOf(
-                        "default" to "Native (TextView)",
-                        "webview" to "WebView",
-                    ).toMap(),
-                    title = "Rendering mode",
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.fullscreen,
                     title = stringResource(MR.strings.pref_fullscreen),

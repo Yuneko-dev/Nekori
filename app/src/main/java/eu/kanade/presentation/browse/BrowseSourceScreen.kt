@@ -36,7 +36,6 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalNovelSource
-import tachiyomi.source.local.LocalSource
 
 @Composable
 fun BrowseSourceContent(
@@ -108,13 +107,6 @@ fun BrowseSourceContent(
                     ),
                     EmptyScreenAction(
                         stringRes = MR.strings.label_help,
-                        icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                        onClick = onLocalSourceHelpClick,
-                    ),
-                )
-                source is LocalSource -> listOf(
-                    EmptyScreenAction(
-                        stringRes = MR.strings.local_source_help_guide,
                         icon = Icons.AutoMirrored.Outlined.HelpOutline,
                         onClick = onLocalSourceHelpClick,
                     ),

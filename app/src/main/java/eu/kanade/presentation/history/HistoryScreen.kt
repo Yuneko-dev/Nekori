@@ -1,16 +1,12 @@
 package eu.kanade.presentation.history
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.ViewList
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -19,7 +15,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
@@ -28,11 +23,9 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.components.HistoryItem
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.util.animateItemFastScroll
-import eu.kanade.tachiyomi.ui.history.HistoryFilter
 import eu.kanade.tachiyomi.ui.history.HistoryScreenModel
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -45,17 +38,13 @@ import java.time.LocalDate
 fun HistoryScreen(
     state: HistoryScreenModel.State,
     snackbarHostState: SnackbarHostState,
-    showFilterChips: Boolean = true,
     onSearchQueryChange: (String?) -> Unit,
     onClickCover: (mangaId: Long) -> Unit,
     onClickResume: (mangaId: Long, chapterId: Long) -> Unit,
     onClickFavorite: (mangaId: Long) -> Unit,
     onDialogChange: (HistoryScreenModel.Dialog?) -> Unit,
-    onFilterSelected: (HistoryFilter) -> Unit,
     onGroupByNovelChanged: (Boolean) -> Unit,
     onLoadNextPage: () -> Unit,
-    showAllFilter: Boolean = true,
-    showMangaFilter: Boolean = true,
 ) {
     Scaffold(
         topBar = { scrollBehavior ->
@@ -89,35 +78,6 @@ fun HistoryScreen(
         Column(
             modifier = Modifier.padding(contentPadding),
         ) {
-            if (showFilterChips) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (showAllFilter) {
-                        FilterChip(
-                            selected = state.filter == HistoryFilter.ALL,
-                            onClick = { onFilterSelected(HistoryFilter.ALL) },
-                            label = { Text(stringResource(MR.strings.all)) },
-                        )
-                    }
-                    if (showMangaFilter) {
-                        FilterChip(
-                            selected = state.filter == HistoryFilter.MANGA,
-                            onClick = { onFilterSelected(HistoryFilter.MANGA) },
-                            label = { Text(stringResource(TDMR.strings.label_manga)) },
-                        )
-                    }
-                    FilterChip(
-                        selected = state.filter == HistoryFilter.NOVELS,
-                        onClick = { onFilterSelected(HistoryFilter.NOVELS) },
-                        label = { Text(stringResource(TDMR.strings.label_novels)) },
-                    )
-                }
-            }
-
             state.list.let {
                 if (it == null) {
                     LoadingScreen()
@@ -213,10 +173,8 @@ internal fun HistoryScreenPreviews(
             onClickResume = { _, _ -> run {} },
             onDialogChange = {},
             onClickFavorite = {},
-            onFilterSelected = {},
             onGroupByNovelChanged = {},
             onLoadNextPage = {},
-            showMangaFilter = true,
         )
     }
 }

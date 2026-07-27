@@ -2,12 +2,15 @@ package eu.kanade.tachiyomi.jsruntime
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /**
  * Lifecycle of the runtime itself. The command protocol is covered by [JsRuntimeBridgeTest].
@@ -20,10 +23,11 @@ import org.junit.runner.RunWith
 class JsRuntimeTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val networkClient by lazy { Injekt.get<NetworkHelper>().client }
 
     @Test
     fun startsHermesAndEvaluatesTheBundle() = runBlocking {
-        val runtime = JsRuntime(context)
+        val runtime = JsRuntime(context, networkClient)
 
         runtime.start()
 
@@ -35,7 +39,7 @@ class JsRuntimeTest {
 
     @Test
     fun startIsIdempotentUnderConcurrency() = runBlocking {
-        val runtime = JsRuntime(context)
+        val runtime = JsRuntime(context, networkClient)
 
         // Must not start a second instance or re-apply the feature-flag overrides, which throw on a
         // second call.
@@ -46,9 +50,9 @@ class JsRuntimeTest {
 
     @Test
     fun separateInstancesShareOneProcessWideRuntime() = runBlocking {
-        JsRuntime(context).start()
+        JsRuntime(context, networkClient).start()
 
-        val second = JsRuntime(context)
+        val second = JsRuntime(context, networkClient)
         second.start()
 
         assertEquals(JsRuntimeState.JS_READY, second.state)

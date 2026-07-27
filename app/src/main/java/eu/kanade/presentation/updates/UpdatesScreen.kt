@@ -1,8 +1,6 @@
 package eu.kanade.presentation.updates
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -14,7 +12,6 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.ViewList
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -38,13 +35,11 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.ui.updates.UpdatesFilter
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -58,7 +53,6 @@ import kotlin.time.Duration.Companion.seconds
 fun UpdateScreen(
     state: UpdatesScreenModel.State,
     snackbarHostState: SnackbarHostState,
-    showFilterChips: Boolean = true,
     lastUpdated: Long,
     onClickCover: (UpdatesItem) -> Unit,
     onSelectAll: (Boolean) -> Unit,
@@ -71,11 +65,8 @@ fun UpdateScreen(
     onMultiDeleteClicked: (List<UpdatesItem>) -> Unit,
     onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
     onOpenChapter: (UpdatesItem) -> Unit,
-    onFilterSelected: (UpdatesFilter) -> Unit = {},
     onFilterClicked: () -> Unit,
     hasActiveFilters: Boolean,
-    showAllFilter: Boolean = true,
-    showMangaFilter: Boolean = true,
     onToggleGroupByNovel: () -> Unit = {},
     onClickNovelGroup: (Long) -> Unit = {},
     onLoadMore: () -> Unit = {},
@@ -152,37 +143,6 @@ fun UpdateScreen(
                         contentPadding = contentPadding,
                         state = lazyListState,
                     ) {
-                        if (showFilterChips) {
-                            item(key = "filter_chips") {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    if (showAllFilter) {
-                                        FilterChip(
-                                            selected = state.filter == UpdatesFilter.ALL,
-                                            onClick = { onFilterSelected(UpdatesFilter.ALL) },
-                                            label = { Text(stringResource(MR.strings.all)) },
-                                        )
-                                    }
-                                    if (showMangaFilter) {
-                                        FilterChip(
-                                            selected = state.filter == UpdatesFilter.MANGA,
-                                            onClick = { onFilterSelected(UpdatesFilter.MANGA) },
-                                            label = { Text(stringResource(TDMR.strings.label_manga)) },
-                                        )
-                                    }
-                                    FilterChip(
-                                        selected = state.filter == UpdatesFilter.NOVELS,
-                                        onClick = { onFilterSelected(UpdatesFilter.NOVELS) },
-                                        label = { Text(stringResource(TDMR.strings.label_novels)) },
-                                    )
-                                }
-                            }
-                        }
-
                         updatesLastUpdatedItem(lastUpdated)
 
                         if (state.items.isEmpty()) {

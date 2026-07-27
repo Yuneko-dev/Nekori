@@ -13,7 +13,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
-import eu.kanade.domain.manga.model.readingMode
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.interactor.TrackChapter
@@ -47,9 +46,7 @@ import eu.kanade.tachiyomi.ui.reader.quote.Quote
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
-import eu.kanade.tachiyomi.ui.reader.viewer.text.textview.NovelViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
@@ -84,7 +81,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.core.archive.archiveReader
-import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -552,7 +548,7 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     private fun shouldSetActiveWithoutReload(chapter: ReaderChapter): Boolean {
-        val isNovelViewer = state.value.viewer is NovelViewer || state.value.viewer is NovelWebViewViewer
+        val isNovelViewer = state.value.viewer is NovelWebViewViewer
         if (!isNovelViewer) return false
         if (!readerPreferences.novelInfiniteScroll.get()) return false
 
@@ -762,7 +758,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /**
      * Saves reading progress for novel chapters using percentage (0-100).
-     * Used by NovelViewer to save scroll position.
+     * Used by NovelWebViewViewer to save scroll position.
      */
     fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
         val selectedChapter = page.chapter
@@ -1265,49 +1261,6 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Returns the viewer position used by this manga or the default one.
-     * For novel sources, always returns NOVEL mode.
-     */
-    fun getMangaReadingMode(resolveDefault: Boolean = true): Int {
-        // For novel sources, always use novel reader
-        val source = manga?.source?.let { sourceManager.getOrStub(it) }
-        if (source?.isNovelSource() == true) {
-            return ReadingMode.NOVEL.flagValue
-        }
-
-        val default = readerPreferences.defaultReadingMode.get()
-        val readingMode = ReadingMode.fromPreference(manga?.readingMode?.toInt())
-        return when {
-            resolveDefault && readingMode == ReadingMode.DEFAULT -> default
-            else -> manga?.readingMode?.toInt() ?: default
-        }
-    }
-
-    /**
-     * Updates the viewer position for the open manga.
-     */
-    fun setMangaReadingMode(readingMode: ReadingMode) {
-        val manga = manga ?: return
-        runBlocking(Dispatchers.IO) {
-            setMangaViewerFlags.awaitSetReadingMode(manga.id, readingMode.flagValue.toLong())
-            val currChapters = state.value.viewerChapters
-            if (currChapters != null) {
-                // Save current page
-                val currChapter = currChapters.currChapter
-                currChapter.requestedPage = currChapter.chapter.last_page_read
-
-                mutableState.update {
-                    it.copy(
-                        manga = getManga.await(manga.id),
-                        viewerChapters = currChapters,
-                    )
-                }
-                eventChannel.send(Event.ReloadViewerChapters)
-            }
-        }
-    }
-
-    /**
      * Returns the orientation type used by this manga or the default one.
      */
     fun getMangaOrientation(resolveDefault: Boolean = true): Int {
@@ -1344,15 +1297,6 @@ class ReaderViewModel @JvmOverloads constructor(
         }
     }
 
-    fun toggleCropBorders(): Boolean {
-        val isPagerType = ReadingMode.isPagerType(getMangaReadingMode())
-        return if (isPagerType) {
-            readerPreferences.cropBorders.toggle()
-        } else {
-            readerPreferences.cropBordersWebtoon.toggle()
-        }
-    }
-
     /**
      * Generate a filename for the given [manga] and [page]
      */
@@ -1374,10 +1318,6 @@ class ReaderViewModel @JvmOverloads constructor(
 
     fun showLoadingDialog() {
         mutableState.update { it.copy(dialog = Dialog.Loading) }
-    }
-
-    fun openReadingModeSelectDialog() {
-        mutableState.update { it.copy(dialog = Dialog.ReadingModeSelect) }
     }
 
     fun openOrientationModeSelectDialog() {
@@ -1590,7 +1530,7 @@ class ReaderViewModel @JvmOverloads constructor(
         val isTranslating: Boolean = false,
 
         /**
-         * Viewer used to display the pages (pager, webtoon, ...).
+         * WebView viewer used to display novel content.
          */
         val viewer: Viewer? = null,
         val dialog: Dialog? = null,
@@ -1807,7 +1747,6 @@ class ReaderViewModel @JvmOverloads constructor(
     sealed interface Dialog {
         data object Loading : Dialog
         data object Settings : Dialog
-        data object ReadingModeSelect : Dialog
         data object OrientationModeSelect : Dialog
         data object TranslationLanguageSelect : Dialog
         data class PageActions(val page: ReaderPage) : Dialog

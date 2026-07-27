@@ -25,11 +25,10 @@ import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
-import eu.kanade.tachiyomi.network.JavaScriptEngine
+import eu.kanade.tachiyomi.jsruntime.JsRuntime
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.RequestRateLimitPolicy
 import eu.kanade.tachiyomi.source.AndroidSourceManager
-import eu.kanade.tachiyomi.source.custom.CustomSourceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.plus
@@ -37,9 +36,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
-import nl.adaptivity.xmlutil.serialization.DefaultXmlSerializationPolicy
 import nl.adaptivity.xmlutil.serialization.XML
-import nl.adaptivity.xmlutil.serialization.XmlConfig
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
 import tachiyomi.data.AlternativeTitlesColumnAdapter
 import tachiyomi.data.Chapters
@@ -55,10 +52,8 @@ import tachiyomi.domain.download.service.RateLimitResolver
 import tachiyomi.domain.download.service.SourceRateLimitPolicy
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
-import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.image.LocalNovelCoverManager
 import tachiyomi.source.local.io.LocalNovelSourceFileSystem
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addSingleton
@@ -139,9 +134,9 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { LibrarySettingsCache(app) }
 
         addSingletonFactory { NetworkHelper(app, get()) }
-        addSingletonFactory { JavaScriptEngine(app) }
+        addSingletonFactory { JsRuntime(app, get<NetworkHelper>().client) }
 
-        addSingletonFactory<SourceManager> { AndroidSourceManager(app, get(), get()) }
+        addSingletonFactory<SourceManager> { AndroidSourceManager(get()) }
         addSingletonFactory { ExtensionManager(app) }
 
         addSingletonFactory { RateLimitResolver(get()) }
@@ -162,16 +157,11 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { TranslationEngineManager(app, get()) }
         addSingletonFactory { TranslationService(app) }
 
-        // Custom source management
-        addSingletonFactory { CustomSourceManager(app) }
-
         // JS Plugin management (LNReader-style plugins)
         addSingletonFactory { JsPluginManager(app) }
 
         addSingletonFactory { AndroidStorageFolderProvider(app) }
-        addSingletonFactory { LocalSourceFileSystem(get()) }
         addSingletonFactory { LocalNovelSourceFileSystem(get()) }
-        addSingletonFactory { LocalCoverManager(app, get()) }
         addSingletonFactory { LocalNovelCoverManager(app, get()) }
         addSingletonFactory { StorageManager(app, get()) }
 

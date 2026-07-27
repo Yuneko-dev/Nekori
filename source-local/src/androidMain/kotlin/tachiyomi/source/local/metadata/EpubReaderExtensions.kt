@@ -91,7 +91,7 @@ fun EpubReader.fillMetadata(manga: SManga, chapter: SChapter) {
 /**
  * Extracts the cover image from the EPUB and sets it as thumbnail.
  * Skips extraction if thumbnail_url is already set to a valid external URI
- * (e.g., by LocalCoverManager/LocalNovelCoverManager).
+ * (e.g., by LocalNovelCoverManager).
  */
 private fun EpubReader.extractCoverUrl(manga: SManga, doc: org.jsoup.nodes.Document, packageRef: String) {
     val existing = manga.thumbnail_url

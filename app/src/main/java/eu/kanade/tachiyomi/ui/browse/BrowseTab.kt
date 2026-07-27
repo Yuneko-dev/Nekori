@@ -8,25 +8,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
-import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionsScreenModel
-import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
-import eu.kanade.tachiyomi.ui.browse.extension.novelExtensionsTab
-import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
+import eu.kanade.tachiyomi.ui.browse.jsplugin.JsPluginsScreenModel
+import eu.kanade.tachiyomi.ui.browse.jsplugin.jsPluginsTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.novelMigrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.novelSourcesTab
-import eu.kanade.tachiyomi.ui.browse.source.sourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -34,9 +28,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 data object BrowseTab : Tab {
 
@@ -65,36 +56,14 @@ data object BrowseTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
-        val basePreferences = remember { Injekt.get<BasePreferences>() }
-        val hideMangaUi by basePreferences.hideMangaUi.collectAsState()
-        val hideMangaBrowseTabs = hideMangaUi
-
-        // Hoisted for extensions tab's search bar
-        val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
-        val extensionsState by extensionsScreenModel.state.collectAsState()
-
-        val novelExtensionsScreenModel = rememberScreenModel { NovelExtensionsScreenModel() }
-        val novelExtensionsState by novelExtensionsScreenModel.state.collectAsState()
-
-        val tabs = if (hideMangaBrowseTabs) {
-            listOf(
-                novelSourcesTab(),
-                novelExtensionsTab(novelExtensionsScreenModel),
-                novelMigrateSourceTab(),
-            )
-        } else {
-            listOf(
-                novelSourcesTab(),
-                sourcesTab(),
-                novelExtensionsTab(novelExtensionsScreenModel),
-                extensionsTab(extensionsScreenModel),
-                novelMigrateSourceTab(),
-                migrateSourceTab(),
-            )
-        }
-
-        val novelExtensionsTabIndex = if (hideMangaBrowseTabs) 1 else 2
-        val mangaExtensionsTabIndex = if (hideMangaBrowseTabs) null else 3
+        val pluginsScreenModel = rememberScreenModel { JsPluginsScreenModel() }
+        val pluginsState by pluginsScreenModel.state.collectAsState()
+        val pluginsTabIndex = 1
+        val tabs = listOf(
+            novelSourcesTab(),
+            jsPluginsTab(pluginsScreenModel),
+            novelMigrateSourceTab(),
+        )
 
         val state = rememberPagerState { tabs.size }
 
@@ -102,22 +71,17 @@ data object BrowseTab : Tab {
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
-            searchQuery = when (state.currentPage) {
-                novelExtensionsTabIndex -> novelExtensionsState.searchQuery
-                mangaExtensionsTabIndex -> extensionsState.searchQuery
-                else -> null
-            },
+            searchQuery = pluginsState.searchQuery.takeIf { state.currentPage == pluginsTabIndex },
             onChangeSearchQuery = { query ->
-                when (state.currentPage) {
-                    novelExtensionsTabIndex -> novelExtensionsScreenModel.search(query)
-                    mangaExtensionsTabIndex -> extensionsScreenModel.search(query)
+                if (state.currentPage == pluginsTabIndex) {
+                    pluginsScreenModel.search(query)
                 }
             },
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()
                 .collectLatest {
-                    state.scrollToPage(if (hideMangaBrowseTabs) novelExtensionsTabIndex else 3)
+                    state.scrollToPage(pluginsTabIndex)
                 }
         }
 

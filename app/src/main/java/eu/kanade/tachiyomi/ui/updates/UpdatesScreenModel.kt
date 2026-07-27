@@ -578,7 +578,7 @@ class UpdatesScreenModel(
         val hasActiveFilters: Boolean = false,
         val items: List<UpdatesItem> = listOf(),
         val dialog: Dialog? = null,
-        val filter: UpdatesFilter = UpdatesFilter.ALL,
+        val filter: UpdatesFilter = UpdatesFilter.NOVELS,
         val groupByNovel: Boolean = false,
         val hasMorePages: Boolean = true,
         val isLoadingMore: Boolean = false,
@@ -621,25 +621,6 @@ class UpdatesScreenModel(
                     }
                 }
         }
-    }
-
-    fun setFilter(filter: UpdatesFilter) {
-        mutableState.update { it.copy(filter = filter) }
-        mutableState.update {
-            it.copy(items = latestUpdates.toUpdateItems().toList())
-        }
-        // Reset pagination when filter changes
-        currentLimit.value = GetUpdates.PAGE_SIZE
-    }
-
-    fun syncFilterWithHideManga(hideMangaUi: Boolean) {
-        if (!hideMangaUi || state.value.filter == UpdatesFilter.ALL) return
-
-        mutableState.update { it.copy(filter = UpdatesFilter.ALL) }
-        mutableState.update {
-            it.copy(items = latestUpdates.toUpdateItems().toList())
-        }
-        currentLimit.value = GetUpdates.PAGE_SIZE
     }
 
     sealed interface Dialog {

@@ -34,14 +34,12 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
-import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.library.NovelsTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
@@ -59,7 +57,6 @@ import tachiyomi.presentation.core.components.material.NavigationBar
 import tachiyomi.presentation.core.components.material.NavigationRail
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
-import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -77,15 +74,6 @@ object HomeScreen : Screen() {
 
     private val TABS = listOf(
         NovelsTab,
-        LibraryTab,
-        UpdatesTab,
-        HistoryTab,
-        BrowseTab,
-        MoreTab,
-    )
-
-    private val JOINED_TABS = listOf(
-        NovelsTab,
         UpdatesTab,
         HistoryTab,
         BrowseTab,
@@ -95,11 +83,6 @@ object HomeScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val libraryPreferences = remember { Injekt.get<tachiyomi.domain.library.service.LibraryPreferences>() }
-        val basePreferences = remember { Injekt.get<BasePreferences>() }
-        val isJoined by libraryPreferences.joinedLibrary.collectAsState()
-        val hideMangaUi by basePreferences.hideMangaUi.collectAsState()
-        val tabs = if (isJoined || hideMangaUi) JOINED_TABS else TABS
         TabNavigator(
             tab = NovelsTab,
             key = TabNavigatorKey,
@@ -110,7 +93,7 @@ object HomeScreen : Screen() {
                     startBar = {
                         if (isTabletUi()) {
                             NavigationRail {
-                                tabs.fastForEach {
+                                TABS.fastForEach {
                                     NavigationRailItem(it)
                                 }
                             }
@@ -127,7 +110,7 @@ object HomeScreen : Screen() {
                                 exit = shrinkVertically(),
                             ) {
                                 NavigationBar {
-                                    tabs.fastForEach {
+                                    TABS.fastForEach {
                                         NavigationBarItem(it)
                                     }
                                 }
@@ -171,7 +154,7 @@ object HomeScreen : Screen() {
                 launch {
                     openTabEvent.receiveAsFlow().collectLatest {
                         tabNavigator.current = when (it) {
-                            is Tab.Library -> if (isJoined || hideMangaUi) NovelsTab else LibraryTab
+                            is Tab.Library -> NovelsTab
                             Tab.Updates -> UpdatesTab
                             Tab.History -> HistoryTab
                             is Tab.Browse -> {

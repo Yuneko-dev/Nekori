@@ -40,7 +40,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.screen.about.AboutScreen
@@ -51,9 +50,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import cafe.adriel.voyager.core.screen.Screen as VoyagerScreen
 
 object SettingsMainScreen : Screen() {
@@ -83,13 +79,8 @@ object SettingsMainScreen : Screen() {
     fun Content(twoPane: Boolean) {
         val navigator = LocalNavigator.currentOrThrow
         val backPress = LocalBackPress.currentOrThrow
-        val basePreferences = remember { Injekt.get<BasePreferences>() }
-        val hideMangaUi by basePreferences.hideMangaUi.collectAsState()
         val containerColor = if (twoPane) getPalerSurface() else MaterialTheme.colorScheme.surface
         val topBarState = rememberTopAppBarState()
-        val visibleItems = remember(hideMangaUi) {
-            items.filterNot { hideMangaUi && it.isMangaOnly }
-        }
 
         Scaffold(
             topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState),
@@ -115,7 +106,7 @@ object SettingsMainScreen : Screen() {
             content = { contentPadding ->
                 val state = rememberLazyListState()
                 val indexSelected = if (twoPane) {
-                    visibleItems.indexOfFirst { it.screen::class == navigator.items.first()::class }
+                    items.indexOfFirst { it.screen::class == navigator.items.first()::class }
                         .also {
                             LaunchedEffect(Unit) {
                                 if (it >= 0) {
@@ -136,7 +127,7 @@ object SettingsMainScreen : Screen() {
                     contentPadding = contentPadding,
                 ) {
                     itemsIndexed(
-                        items = visibleItems,
+                        items = items,
                         key = { _, item -> item.hashCode() },
                     ) { index, item ->
                         val selected = indexSelected == index
@@ -182,7 +173,6 @@ object SettingsMainScreen : Screen() {
         val formatSubtitle: @Composable () -> String? = { subtitleRes?.let { stringResource(it) } },
         val icon: ImageVector,
         val screen: VoyagerScreen,
-        val isMangaOnly: Boolean = false,
     )
 
     private val items = listOf(
@@ -199,23 +189,10 @@ object SettingsMainScreen : Screen() {
             screen = SettingsLibraryScreen,
         ),
         Item(
-            titleRes = TDMR.strings.pref_category_manga_reader,
-            subtitleRes = TDMR.strings.pref_manga_reader_summary,
-            icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
-            screen = SettingsReaderScreen,
-            isMangaOnly = true,
-        ),
-        Item(
             titleRes = TDMR.strings.pref_category_novel_reader,
             subtitleRes = TDMR.strings.pref_novel_reader_summary,
             icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
             screen = SettingsNovelReaderScreen,
-        ),
-        Item(
-            titleRes = MR.strings.pref_category_downloads,
-            subtitleRes = MR.strings.pref_downloads_summary,
-            icon = Icons.Outlined.GetApp,
-            screen = SettingsDownloadScreen,
         ),
         Item(
             titleRes = TDMR.strings.pref_category_novel_downloads,

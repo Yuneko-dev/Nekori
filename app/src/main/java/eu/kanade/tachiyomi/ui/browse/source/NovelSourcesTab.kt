@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.source
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.runtime.Composable
@@ -17,7 +16,6 @@ import eu.kanade.presentation.browse.SourcesScreen
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
-import eu.kanade.tachiyomi.ui.browse.source.custom.CustomSourcesScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.NovelGlobalSearchScreen
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -43,11 +41,6 @@ fun Screen.novelSourcesTab(): TabContent {
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,
                 onClick = { navigator.push(SourcesFilterScreen(isNovel = true)) },
-            ),
-            AppBar.Action(
-                title = "Custom Sources", // TODO: Add string resource
-                icon = Icons.Outlined.Edit,
-                onClick = { navigator.push(CustomSourcesScreen()) },
             ),
         ),
         content = { contentPadding, snackbarHostState ->

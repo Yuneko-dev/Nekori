@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.jsruntime
 
 import android.content.Context
-import com.facebook.react.shell.MainReactPackage
+import okhttp3.OkHttpClient
 
 /**
  * Lifecycle of the JavaScript runtime.
@@ -24,11 +24,18 @@ enum class JsRuntimeState {
  * keeps `react-android` declarable as `implementation` rather than `api` and stops React Native
  * concepts leaking into app and domain code.
  */
-class JsRuntime(context: Context) {
+class JsRuntime(
+    context: Context,
+    networkClient: OkHttpClient,
+) {
+
+    init {
+        ReactNativeNetworkClient.install(networkClient)
+    }
 
     private val host = ReactHostHolder(
         context,
-        listOf(MainReactPackage(), JsRuntimePackage()),
+        listOf(JsRuntimePackage()),
     )
 
     val state: JsRuntimeState

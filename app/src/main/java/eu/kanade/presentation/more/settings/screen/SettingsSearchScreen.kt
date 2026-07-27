@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.components.UpIcon
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.util.Screen
@@ -55,10 +54,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.runOnEnterKeyPressed
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import cafe.adriel.voyager.core.screen.Screen as VoyagerScreen
 
 class SettingsSearchScreen : Screen() {
@@ -168,10 +164,7 @@ private fun SearchResult(
 
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
 
-    val basePreferences = remember { Injekt.get<BasePreferences>() }
-    val hideMangaUi by basePreferences.hideMangaUi.collectAsState()
-
-    val index = getIndex(hideMangaUi)
+    val index = getIndex()
     val result by produceState<List<SearchResultItem>?>(initialValue = null, searchKey) {
         value = index.asSequence()
             .flatMap { settingsData ->
@@ -269,8 +262,7 @@ private fun SearchResult(
 
 @Composable
 @NonRestartableComposable
-private fun getIndex(hideMangaUi: Boolean) = settingScreens
-    .filterNot { hideMangaUi && it in mangaOnlySettingScreens }
+private fun getIndex() = settingScreens
     .map { screen ->
         SettingsData(
             title = stringResource(screen.getTitleRes()),
@@ -296,9 +288,7 @@ private fun getLocalizedBreadcrumb(path: String, node: String?, isLtr: Boolean):
 private val settingScreens = listOf(
     SettingsAppearanceScreen,
     SettingsLibraryScreen,
-    SettingsReaderScreen,
     SettingsNovelReaderScreen,
-    SettingsDownloadScreen,
     SettingsNovelDownloadScreen,
     SettingsTranslationScreen,
     SettingsTrackingScreen,
@@ -306,10 +296,6 @@ private val settingScreens = listOf(
     SettingsDataScreen,
     SettingsSecurityScreen,
     SettingsAdvancedScreen,
-)
-
-private val mangaOnlySettingScreens = setOf(
-    SettingsReaderScreen,
 )
 
 private data class SettingsData(

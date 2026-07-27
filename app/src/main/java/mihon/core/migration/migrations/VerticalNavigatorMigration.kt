@@ -1,7 +1,5 @@
 package mihon.core.migration.migrations
 
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import tachiyomi.core.common.preference.PreferenceStore
@@ -12,19 +10,14 @@ class VerticalNavigatorMigration : Migration {
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         val preferenceStore = migrationContext.get<PreferenceStore>() ?: return@withIOContext false
-        val readerPreferences = migrationContext.get<ReaderPreferences>() ?: return@withIOContext false
 
         val oldVerticalNavigator = preferenceStore.getBoolean("pref_webtoon_vertical_navigator", true)
         if (oldVerticalNavigator.isSet()) {
-            if (oldVerticalNavigator.get()) {
-                readerPreferences.verticalNavigator.set(setOf(ReadingMode.WEBTOON, ReadingMode.CONTINUOUS_VERTICAL))
-            }
             oldVerticalNavigator.delete()
         }
 
         val oldVerticalNavigatorOnLeft = preferenceStore.getBoolean("pref_webtoon_vertical_navigator_on_left", false)
         if (oldVerticalNavigatorOnLeft.isSet()) {
-            readerPreferences.verticalNavigatorOnLeft.set(oldVerticalNavigatorOnLeft.get())
             oldVerticalNavigatorOnLeft.delete()
         }
 

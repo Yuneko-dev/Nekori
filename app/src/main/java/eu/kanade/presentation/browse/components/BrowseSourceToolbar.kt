@@ -36,7 +36,7 @@ import eu.kanade.tachiyomi.source.Source
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.source.local.LocalSource
+import tachiyomi.source.local.LocalNovelSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -60,7 +60,7 @@ fun BrowseSourceToolbar(
 ) {
     // Avoid capturing unstable source in actions lambda
     val title = source?.name
-    val isLocalSource = source is LocalSource
+    val isLocalSource = source is LocalNovelSource
     val isConfigurableSource = source is ConfigurableSource
     val canOpenPageDialog = onPageJump != null || onPageRangeLoad != null
 

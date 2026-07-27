@@ -71,15 +71,12 @@ import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.ReaderPageActionsDialog
 import eu.kanade.presentation.reader.ReaderPageIndicator
-import eu.kanade.presentation.reader.ReadingModeSelectDialog
 import eu.kanade.presentation.reader.TranslationLanguageSelectDialog
 import eu.kanade.presentation.reader.appbars.BottomBarEditorSheet
 import eu.kanade.presentation.reader.appbars.BottomBarItem
 import eu.kanade.presentation.reader.appbars.NovelReaderAppBars
 import eu.kanade.presentation.reader.appbars.QuotesSheet
-import eu.kanade.presentation.reader.appbars.ReaderAppBars
 import eu.kanade.presentation.reader.appbars.bottomBarItemInfo
-import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.presentation.reader.deserializeStatusBarOrder
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.presentation.util.formatChapterNumber
@@ -102,11 +99,8 @@ import eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
-import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
-import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
-import eu.kanade.tachiyomi.ui.reader.viewer.text.textview.NovelViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
@@ -169,7 +163,6 @@ class ReaderActivity : BaseActivity() {
     private var config: ReaderConfig? = null
 
     private var menuToggleToast: Toast? = null
-    private var readingModeToast: Toast? = null
     private val displayRefreshHost = DisplayRefreshHost()
 
     // Registered eagerly (before the viewer exists) so a WebView file chooser has a launcher to call.
@@ -302,8 +295,7 @@ class ReaderActivity : BaseActivity() {
             .distinctUntilChanged()
             .onEach { isLoading ->
                 // Skip loading dialog for infinite scroll - the viewer handles inline indicators
-                val isNovelViewer = viewModel.state.value.viewer is NovelViewer ||
-                    viewModel.state.value.viewer is NovelWebViewViewer
+                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
                 val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
                 if (isNovelViewer && infiniteScrollEnabled) {
                     // Don't show popup for infinite scroll - viewer shows inline indicators
@@ -401,12 +393,11 @@ class ReaderActivity : BaseActivity() {
         val settingsScreenModel = remember {
             ReaderSettingsScreenModel(
                 readerState = viewModel.state,
-                onChangeReadingMode = viewModel::setMangaReadingMode,
                 onChangeOrientation = viewModel::setMangaOrientationType,
             )
         }
 
-        val isNovelViewer = state.viewer is NovelViewer || state.viewer is NovelWebViewViewer
+        val isNovelViewer = state.viewer is NovelWebViewViewer
         val statusBarAtBottomEdge = novelStatusBarPosition != "top"
 
         // Pad viewer_container by the status bar's height on its docked edge so content never renders
@@ -440,7 +431,7 @@ class ReaderActivity : BaseActivity() {
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            val isNovelMode = state.viewer is NovelViewer || state.viewer is NovelWebViewViewer
+            val isNovelMode = state.viewer is NovelWebViewViewer
             if (!state.menuVisible && showPageNumber && !isNovelMode) {
                 ReaderPageIndicator(
                     currentPage = state.currentPage,
@@ -538,19 +529,7 @@ class ReaderActivity : BaseActivity() {
                     onShowMenus = { setMenuVisibility(true) },
                     onHideMenus = { setMenuVisibility(false) },
                     screenModel = settingsScreenModel,
-                    isNovelMode = state.viewer is NovelViewer || state.viewer is NovelWebViewViewer,
-                )
-            }
-            is ReaderViewModel.Dialog.ReadingModeSelect -> {
-                ReadingModeSelectDialog(
-                    onDismissRequest = onDismissRequest,
-                    screenModel = settingsScreenModel,
-                    onChange = { stringRes ->
-                        menuToggleToast?.cancel()
-                        if (!readerPreferences.showReadingMode.get()) {
-                            menuToggleToast = toast(stringRes)
-                        }
-                    },
+                    isNovelMode = state.viewer is NovelWebViewViewer,
                 )
             }
             is ReaderViewModel.Dialog.OrientationModeSelect -> {
@@ -656,15 +635,10 @@ class ReaderActivity : BaseActivity() {
         viewModel.state.value.viewer?.destroy()
         config = null
         menuToggleToast?.cancel()
-        readingModeToast?.cancel()
     }
 
     override fun onPause() {
-        when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> viewer.flushProgress()
-            is NovelWebViewViewer -> viewer.flushProgress()
-            else -> {}
-        }
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.flushProgress()
 
         lifecycleScope.launchNonCancellable {
             viewModel.updateHistory()
@@ -706,7 +680,7 @@ class ReaderActivity : BaseActivity() {
         // viewer is null until updateViewer() runs, which happens asynchronously after manga
         // loads. Rotating in that window shouldn't fall through to recreate() for a novel entry,
         // so fall back to the manga's type while the viewer hasn't been created yet.
-        val isNovel = viewer is NovelViewer || viewer is NovelWebViewViewer ||
+        val isNovel = viewer is NovelWebViewViewer ||
             (viewer == null && state.manga?.isNovel == true)
         if (isNovel) {
             setMenuVisibility(state.menuVisible)
@@ -813,29 +787,16 @@ class ReaderActivity : BaseActivity() {
 
         val source = viewModel.getSource()
         val hasWebViewSupport = source is HttpSource || source is JsSource
-        val isNovelViewer = state.viewer is NovelViewer || state.viewer is NovelWebViewViewer
+        val isNovelViewer = state.viewer is NovelWebViewViewer
 
         if (isNovelViewer) {
+            val novelViewer = state.viewer
             var isAutoScrolling by remember { mutableStateOf(false) }
 
-            // Get common callbacks that work for both viewer types
-            val onScrollToTop: () -> Unit = {
-                when (val viewer = state.viewer) {
-                    is NovelViewer -> viewer.scrollToTop()
-                    is NovelWebViewViewer -> viewer.scrollToTop()
-                }
-            }
+            val onScrollToTop: () -> Unit = novelViewer::scrollToTop
             val onToggleAutoScroll: () -> Unit = {
-                when (val viewer = state.viewer) {
-                    is NovelViewer -> {
-                        viewer.toggleAutoScroll()
-                        isAutoScrolling = viewer.isAutoScrollActive()
-                    }
-                    is NovelWebViewViewer -> {
-                        viewer.toggleAutoScroll()
-                        isAutoScrolling = viewer.isAutoScrollActive()
-                    }
-                }
+                novelViewer.toggleAutoScroll()
+                isAutoScrolling = novelViewer.isAutoScrollActive()
             }
 
             // Get novel progress for slider - use state from ViewModel for real-time updates
@@ -860,28 +821,14 @@ class ReaderActivity : BaseActivity() {
             // stops TTS without a button tap, so key on chapter id to reset it.
             LaunchedEffect(state.menuVisible, state.novelVisibleChapter?.id) {
                 if (!state.menuVisible) return@LaunchedEffect
-                val viewer = state.viewer
-                isTtsActive = when (viewer) {
-                    is NovelViewer -> viewer.isTtsActive()
-                    is NovelWebViewViewer -> viewer.isTtsActive()
-                    else -> false
-                }
-                isTtsPaused = when (viewer) {
-                    is NovelViewer -> viewer.isTtsPaused()
-                    is NovelWebViewViewer -> viewer.isTtsPaused()
-                    else -> false
-                }
+                isTtsActive = novelViewer.isTtsActive()
+                isTtsPaused = novelViewer.isTtsPaused()
             }
 
             // Also sync from viewer when menu becomes visible (for initial sync)
             LaunchedEffect(state.menuVisible) {
                 if (state.menuVisible) {
-                    val viewer = state.viewer
-                    if (viewer is NovelViewer) {
-                        viewModel.updateNovelProgressPercent(viewer.getProgressPercent())
-                    } else if (viewer is NovelWebViewViewer) {
-                        viewModel.updateNovelProgressPercent(viewer.getProgressPercent())
-                    }
+                    viewModel.updateNovelProgressPercent(novelViewer.getProgressPercent())
                 }
             }
 
@@ -952,22 +899,11 @@ class ReaderActivity : BaseActivity() {
                     viewModel.updateNovelProgressPercent(newProgress)
                     // A seek is an explicit position choice; a running autoscroll would immediately
                     // scroll away from it, so stop it first and reflect that in the toggle state.
-                    when (val viewer = state.viewer) {
-                        is NovelViewer -> {
-                            if (viewer.isAutoScrollActive()) {
-                                viewer.stopAutoScroll()
-                                isAutoScrolling = false
-                            }
-                            viewer.setProgressPercent(newProgress)
-                        }
-                        is NovelWebViewViewer -> {
-                            if (viewer.isAutoScrollActive()) {
-                                viewer.stopAutoScroll()
-                                isAutoScrolling = false
-                            }
-                            viewer.setProgressPercent(newProgress)
-                        }
+                    if (novelViewer.isAutoScrollActive()) {
+                        novelViewer.stopAutoScroll()
+                        isAutoScrolling = false
                     }
+                    novelViewer.setProgressPercent(newProgress)
                 },
 
                 onNextChapter = {
@@ -975,12 +911,8 @@ class ReaderActivity : BaseActivity() {
                     // Sync slider after navigation
                     lifecycleScope.launch {
                         delay(100)
-                        val viewer = viewModel.state.value.viewer
-                        val progress = when (viewer) {
-                            is NovelViewer -> viewer.getProgressPercent()
-                            is NovelWebViewViewer -> viewer.getProgressPercent()
-                            else -> 0
-                        }
+                        val progress = (viewModel.state.value.viewer as? NovelWebViewViewer)
+                            ?.getProgressPercent() ?: 0
                         viewModel.updateNovelProgressPercent(progress)
                     }
                 },
@@ -990,12 +922,8 @@ class ReaderActivity : BaseActivity() {
                     // Sync slider after navigation
                     lifecycleScope.launch {
                         delay(100)
-                        val viewer = viewModel.state.value.viewer
-                        val progress = when (viewer) {
-                            is NovelViewer -> viewer.getProgressPercent()
-                            is NovelWebViewViewer -> viewer.getProgressPercent()
-                            else -> 0
-                        }
+                        val progress = (viewModel.state.value.viewer as? NovelWebViewViewer)
+                            ?.getProgressPercent() ?: 0
                         viewModel.updateNovelProgressPercent(progress)
                     }
                 },
@@ -1020,152 +948,74 @@ class ReaderActivity : BaseActivity() {
                     val nowVisible = !ttsControlsVisible
                     ttsControlsVisible = nowVisible
                     readerPreferences.novelTtsControlsVisible.set(nowVisible)
-                    val viewer = state.viewer
                     if (nowVisible) {
                         if (!isTtsActive && readerPreferences.novelTtsAutoStartOnPanelOpen.get()) {
-                            when (viewer) {
-                                is NovelViewer -> {
-                                    startBackgroundTtsIfEnabled()
-                                    viewer.startTts()
-                                    isTtsActive = true
-                                    isTtsPaused = false
-                                    syncBackgroundTtsState()
-                                }
-                                is NovelWebViewViewer -> {
-                                    startBackgroundTtsIfEnabled()
-                                    viewer.startTts()
-                                    isTtsActive = true
-                                    isTtsPaused = false
-                                    syncBackgroundTtsState()
-                                }
-                                else -> {}
-                            }
+                            startBackgroundTtsIfEnabled()
+                            novelViewer.startTts()
+                            isTtsActive = true
+                            isTtsPaused = false
+                            syncBackgroundTtsState()
                         }
                     } else {
-                        when (viewer) {
-                            is NovelViewer -> {
-                                stopBackgroundTtsIfRunning()
-                                viewer.stopTts()
-                                isTtsActive = false
-                                isTtsPaused = false
-                                stopTtsNotificationSync()
-                            }
-                            is NovelWebViewViewer -> {
-                                stopBackgroundTtsIfRunning()
-                                viewer.stopTts()
-                                isTtsActive = false
-                                isTtsPaused = false
-                                stopTtsNotificationSync()
-                            }
-                            else -> {}
-                        }
+                        stopBackgroundTtsIfRunning()
+                        novelViewer.stopTts()
+                        isTtsActive = false
+                        isTtsPaused = false
+                        stopTtsNotificationSync()
                     }
                 },
                 onToggleTts = {
-                    val viewer = state.viewer
-                    when (viewer) {
-                        is NovelViewer -> {
-                            if (viewer.isTtsSpeaking()) {
-                                viewer.pauseTts()
-                                isTtsPaused = true
-                                syncBackgroundTtsState()
-                            } else if (viewer.isTtsPaused()) {
-                                viewer.resumeTts()
-                                isTtsPaused = false
-                                startBackgroundTtsIfEnabled()
-                                syncBackgroundTtsState()
-                            } else {
-                                startBackgroundTtsIfEnabled()
-                                viewer.startTts()
-                                isTtsActive = true
-                                isTtsPaused = false
-                                syncBackgroundTtsState()
-                            }
-                        }
-                        is NovelWebViewViewer -> {
-                            if (viewer.isTtsSpeaking()) {
-                                viewer.pauseTts()
-                                isTtsPaused = true
-                                syncBackgroundTtsState()
-                            } else if (viewer.isTtsPaused()) {
-                                viewer.resumeTts()
-                                isTtsPaused = false
-                                startBackgroundTtsIfEnabled()
-                                syncBackgroundTtsState()
-                            } else {
-                                startBackgroundTtsIfEnabled()
-                                viewer.startTts()
-                                isTtsActive = true
-                                isTtsPaused = false
-                                syncBackgroundTtsState()
-                            }
-                        }
-                        else -> {}
+                    if (novelViewer.isTtsSpeaking()) {
+                        novelViewer.pauseTts()
+                        isTtsPaused = true
+                        syncBackgroundTtsState()
+                    } else if (novelViewer.isTtsPaused()) {
+                        novelViewer.resumeTts()
+                        isTtsPaused = false
+                        startBackgroundTtsIfEnabled()
+                        syncBackgroundTtsState()
+                    } else {
+                        startBackgroundTtsIfEnabled()
+                        novelViewer.startTts()
+                        isTtsActive = true
+                        isTtsPaused = false
+                        syncBackgroundTtsState()
                     }
                 },
                 onLongPressTts = {
                     // Force stop without hiding panel
-                    val viewer = state.viewer
-                    when (viewer) {
-                        is NovelViewer -> {
-                            stopBackgroundTtsIfRunning()
-                            viewer.stopTts()
-                            isTtsActive = false
-                            isTtsPaused = false
-                            stopTtsNotificationSync()
-                        }
-                        is NovelWebViewViewer -> {
-                            stopBackgroundTtsIfRunning()
-                            viewer.stopTts()
-                            isTtsActive = false
-                            isTtsPaused = false
-                            stopTtsNotificationSync()
-                        }
-                        else -> {}
-                    }
+                    stopBackgroundTtsIfRunning()
+                    novelViewer.stopTts()
+                    isTtsActive = false
+                    isTtsPaused = false
+                    stopTtsNotificationSync()
                 },
                 onTtsStartFromViewport = {
-                    val viewer = state.viewer
-                    when (viewer) {
-                        is NovelViewer -> {
-                            startBackgroundTtsIfEnabled()
-                            viewer.startTtsFromViewport()
-                            isTtsActive = true
-                            isTtsPaused = false
-                            syncBackgroundTtsState()
-                        }
-                        is NovelWebViewViewer -> {
-                            startBackgroundTtsIfEnabled()
-                            viewer.startTtsFromViewport()
-                            isTtsActive = true
-                            isTtsPaused = false
-                            syncBackgroundTtsState()
-                        }
-                        else -> {}
-                    }
+                    startBackgroundTtsIfEnabled()
+                    novelViewer.startTtsFromViewport()
+                    isTtsActive = true
+                    isTtsPaused = false
+                    syncBackgroundTtsState()
                 },
                 onTtsPreviousParagraph = { stepTtsParagraph(isNext = false) },
                 onTtsNextParagraph = { stepTtsParagraph(isNext = true) },
 
                 isEditing = isEditing,
                 onToggleEdit = {
-                    val viewer = state.viewer
                     if (isEditing) {
                         if (state.hasUnsavedChanges) {
                             showEditSaveDialog = true
                         } else {
                             isEditing = false
-                            (viewer as? NovelWebViewViewer)?.toggleEditMode(isEditing = false, save = false)
+                            novelViewer.toggleEditMode(isEditing = false, save = false)
                         }
                     } else {
                         isEditing = true
-                        if (viewer is NovelWebViewViewer) {
-                            viewer.toggleEditMode(true)
-                        }
+                        novelViewer.toggleEditMode(true)
                     }
                 },
 
-                isWebView = state.viewer is NovelWebViewViewer,
+                isWebView = true,
                 bottomBarItems = bottomBarItems,
                 onQuotes = ::onQuotesClicked,
                 ttsOverlayBottomPadding = ttsOverlayBottomPadding,
@@ -1198,7 +1048,7 @@ class ReaderActivity : BaseActivity() {
                         androidx.compose.material3.TextButton(onClick = {
                             showEditSaveDialog = false
                             isEditing = false
-                            (state.viewer as? NovelWebViewViewer)?.toggleEditMode(isEditing = false, save = true)
+                            novelViewer.toggleEditMode(isEditing = false, save = true)
                         }) {
                             Text(tachiyomi.presentation.core.i18n.stringResource(MR.strings.action_save))
                         }
@@ -1207,7 +1057,7 @@ class ReaderActivity : BaseActivity() {
                         androidx.compose.material3.TextButton(onClick = {
                             showEditSaveDialog = false
                             isEditing = false
-                            (state.viewer as? NovelWebViewViewer)?.toggleEditMode(isEditing = false, save = false)
+                            novelViewer.toggleEditMode(isEditing = false, save = false)
                         }) {
                             Text(
                                 tachiyomi.presentation.core.i18n.stringResource(
@@ -1242,72 +1092,6 @@ class ReaderActivity : BaseActivity() {
                     },
                 )
             }
-        } else {
-            val cropBorderPaged by readerPreferences.cropBorders.collectAsState()
-            val cropBorderWebtoon by readerPreferences.cropBordersWebtoon.collectAsState()
-            val isPagerType = ReadingMode.isPagerType(viewModel.getMangaReadingMode())
-            val cropEnabled = if (isPagerType) cropBorderPaged else cropBorderWebtoon
-            val verticalNavigatorModes by readerPreferences.verticalNavigator.collectAsState()
-            val verticalNavigator = verticalNavigatorModes.contains(
-                ReadingMode.fromPreference(viewModel.getMangaReadingMode()),
-            )
-            val verticalNavigatorOnLeft by readerPreferences.verticalNavigatorOnLeft.collectAsState()
-            val verticalNavigatorHeight by readerPreferences.verticalNavigatorHeight.collectAsState()
-
-            ReaderAppBars(
-                visible = state.menuVisible,
-
-                mangaTitle = state.manga?.title,
-                chapterTitle = state.currentChapter?.chapter?.name,
-                navigateUp = onBackPressedDispatcher::onBackPressed,
-                onClickTopAppBar = ::openMangaScreen,
-                bookmarked = state.bookmarked,
-                onToggleBookmarked = viewModel::toggleChapterBookmark,
-                onOpenInWebView = ::openChapterInWebView.takeIf { hasWebViewSupport },
-                onOpenInBrowser = ::openChapterInBrowser.takeIf { hasWebViewSupport },
-                onShare = ::shareChapter.takeIf { hasWebViewSupport },
-
-                chapterNavigatorType = if (!verticalNavigator) {
-                    if (state.viewer is R2LPagerViewer) {
-                        ChapterNavigatorType.HORIZONTAL_RTL
-                    } else {
-                        ChapterNavigatorType.HORIZONTAL_LTR
-                    }
-                } else {
-                    if (verticalNavigatorOnLeft) {
-                        ChapterNavigatorType.VERTICAL_LEFT
-                    } else {
-                        ChapterNavigatorType.VERTICAL_RIGHT
-                    }
-                },
-                verticalNavigatorHeight = verticalNavigatorHeight / 100f,
-                onNextChapter = ::loadNextChapter,
-                enabledNext = state.viewerChapters?.nextChapter != null,
-                onPreviousChapter = ::loadPreviousChapter,
-                enabledPrevious = state.viewerChapters?.prevChapter != null,
-                currentPage = state.currentPage,
-                totalPages = state.totalPages,
-                onPageIndexChange = {
-                    isScrollingThroughPages = true
-                    moveToPageIndex(it)
-                },
-
-                readingMode = ReadingMode.fromPreference(
-                    viewModel.getMangaReadingMode(resolveDefault = false),
-                ),
-                onClickReadingMode = viewModel::openReadingModeSelectDialog,
-                orientation = ReaderOrientation.fromPreference(
-                    viewModel.getMangaOrientation(resolveDefault = false),
-                ),
-                onClickOrientation = viewModel::openOrientationModeSelectDialog,
-                cropEnabled = cropEnabled,
-                onClickCropBorder = {
-                    val enabled = viewModel.toggleCropBorders()
-                    menuToggleToast?.cancel()
-                    menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
-                },
-                onClickSettings = viewModel::openSettingsDialog,
-            )
         }
     }
 
@@ -1398,68 +1182,38 @@ class ReaderActivity : BaseActivity() {
         val mangaId = readerState.manga?.id ?: -1L
         val chapterId = readerState.currentChapter?.chapter?.id ?: -1L
 
-        return when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> NovelTtsState(
-                // Use isTtsActive() (covers the autoPlay flag) so the brief
-                // gap inside stepParagraph (stop → speakChunksFrom) doesn't
-                // make the periodic sync drop the foreground service.
-                active = viewer.isTtsActive(),
-                paused = viewer.isTtsPaused(),
-                progressPercent = viewer.getTtsProgressPercent(),
-                novelTitle = novelTitle,
-                chapterTitle = chapterTitle,
-                mangaId = mangaId,
-                chapterId = chapterId,
-            )
-            is NovelWebViewViewer -> NovelTtsState(
-                active = viewer.isTtsActive(),
-                paused = viewer.isTtsPaused(),
-                progressPercent = viewer.getTtsProgressPercent(),
-                novelTitle = novelTitle,
-                chapterTitle = chapterTitle,
-                mangaId = mangaId,
-                chapterId = chapterId,
-            )
-            else -> null
-        }
+        val viewer = viewModel.state.value.viewer as? NovelWebViewViewer ?: return null
+        return NovelTtsState(
+            active = viewer.isTtsActive(),
+            paused = viewer.isTtsPaused(),
+            progressPercent = viewer.getTtsProgressPercent(),
+            novelTitle = novelTitle,
+            chapterTitle = chapterTitle,
+            mangaId = mangaId,
+            chapterId = chapterId,
+        )
     }
 
     private fun stopAnyActiveNovelTts() {
-        when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> if (viewer.isTtsSpeaking() || viewer.isTtsPaused()) viewer.stopTts()
-            is NovelWebViewViewer -> if (viewer.isTtsSpeaking() || viewer.isTtsPaused()) viewer.stopTts()
-            else -> Unit
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
+            if (viewer.isTtsSpeaking() || viewer.isTtsPaused()) viewer.stopTts()
         }
     }
 
     private fun togglePauseResumeFromNotification() {
-        when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> {
-                if (viewer.isTtsSpeaking()) {
-                    viewer.pauseTts()
-                } else if (viewer.isTtsPaused()) {
-                    viewer.resumeTts()
-                }
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
+            if (viewer.isTtsSpeaking()) {
+                viewer.pauseTts()
+            } else if (viewer.isTtsPaused()) {
+                viewer.resumeTts()
             }
-            is NovelWebViewViewer -> {
-                if (viewer.isTtsSpeaking()) {
-                    viewer.pauseTts()
-                } else if (viewer.isTtsPaused()) {
-                    viewer.resumeTts()
-                }
-            }
-            else -> Unit
         }
         syncBackgroundTtsState()
     }
 
     private fun stepTtsParagraph(isNext: Boolean) {
-        val step: (() -> Unit)? = when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> if (isNext) viewer::ttsNextParagraph else viewer::ttsPreviousParagraph
-            is NovelWebViewViewer -> if (isNext) viewer::ttsNextParagraph else viewer::ttsPreviousParagraph
-            else -> null
-        }
-        step ?: return
+        val viewer = viewModel.state.value.viewer as? NovelWebViewViewer ?: return
+        val step = if (isNext) viewer::ttsNextParagraph else viewer::ttsPreviousParagraph
         startBackgroundTtsIfEnabled()
         step()
         syncBackgroundTtsState()
@@ -1476,22 +1230,13 @@ class ReaderActivity : BaseActivity() {
     private fun updateViewer() {
         val prevViewer = viewModel.state.value.viewer
 
-        // state.manga re-emits on non-viewer changes too: the reader's orientation dialog
-        // (setMangaOrientationType) fetches a fresh manga, which would otherwise rebuild the viewer
-        // here and tear down an active novel TTS session (and reset scroll). If the novel viewer
-        // already matches the current renderer, only (re)apply the orientation and keep the viewer.
-        if (prevViewer != null &&
-            ReadingMode.fromPreference(viewModel.getMangaReadingMode()) == ReadingMode.NOVEL
-        ) {
-            val wantsWebView = readerPreferences.novelRenderingMode.get() == "webview"
-            val matches = if (wantsWebView) prevViewer is NovelWebViewViewer else prevViewer is NovelViewer
-            if (matches) {
-                setOrientation(viewModel.getMangaOrientation())
-                return
-            }
+        // Manga metadata updates must not rebuild the WebView or reset scroll/TTS.
+        if (prevViewer is NovelWebViewViewer) {
+            setOrientation(viewModel.getMangaOrientation())
+            return
         }
 
-        val newViewer = ReadingMode.toViewer(viewModel.getMangaReadingMode(), this)
+        val newViewer = NovelWebViewViewer(this)
 
         if (window.sharedElementEnterTransition is MaterialContainerTransform) {
             // Wait until transition is complete to avoid crash on API 26
@@ -1510,10 +1255,6 @@ class ReaderActivity : BaseActivity() {
         viewModel.onViewerLoaded(newViewer)
         updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
         binding.viewerContainer.addView(newViewer.getView())
-
-        if (readerPreferences.showReadingMode.get()) {
-            showReadingModeToast(viewModel.getMangaReadingMode())
-        }
 
         loadingIndicator = ReaderProgressIndicator(this)
         binding.readerContainer.addView(loadingIndicator)
@@ -1551,19 +1292,6 @@ class ReaderActivity : BaseActivity() {
         assistUrl?.let {
             val intent = it.toUri().toShareIntent(this, type = "text/plain")
             startActivity(intent)
-        }
-    }
-
-    private fun showReadingModeToast(mode: Int) {
-        try {
-            val readingMode = ReadingMode.fromPreference(mode)
-            // Skip toast for novel mode - it's obvious we're reading text
-            if (readingMode == ReadingMode.NOVEL) return
-
-            readingModeToast?.cancel()
-            readingModeToast = toast(readingMode.stringRes)
-        } catch (_: ArrayIndexOutOfBoundsException) {
-            logcat(LogPriority.ERROR) { "Unknown reading mode: $mode" }
         }
     }
 
@@ -1638,8 +1366,7 @@ class ReaderActivity : BaseActivity() {
             viewModel.loadNextChapter()
             (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("next")
             // Only reset to page 0 if NOT using infinite scroll for novel viewers
-            val isNovelViewer = viewModel.state.value.viewer is NovelViewer ||
-                viewModel.state.value.viewer is NovelWebViewViewer
+            val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
             val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
             if (!(isNovelViewer && infiniteScrollEnabled)) {
                 moveToPageIndex(0)
@@ -1657,8 +1384,7 @@ class ReaderActivity : BaseActivity() {
             viewModel.loadPreviousChapter()
             (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("prev")
             // Only reset to page 0 if NOT using infinite scroll for novel viewers
-            val isNovelViewer = viewModel.state.value.viewer is NovelViewer ||
-                viewModel.state.value.viewer is NovelWebViewViewer
+            val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
             val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
             if (!(isNovelViewer && infiniteScrollEnabled)) {
                 moveToPageIndex(0)
@@ -1673,11 +1399,7 @@ class ReaderActivity : BaseActivity() {
      * unconditionally cut TTS here without disturbing automatic advancement.
      */
     private fun stopNovelTtsForManualNav() {
-        when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> viewer.stopTts()
-            is NovelWebViewViewer -> viewer.stopTts()
-            else -> {}
-        }
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.stopTts()
     }
 
     /**
@@ -1773,14 +1495,8 @@ class ReaderActivity : BaseActivity() {
         val state = viewModel.state.value
         val viewer = state.viewer
 
-        when (viewer) {
-            is NovelViewer -> viewer.reloadWithTranslation()
-            is NovelWebViewViewer -> viewer.reloadWithTranslation()
-            else -> {
-                // For other viewers, just reload chapters
-                state.viewerChapters?.let(::setChapters)
-            }
-        }
+        (viewer as? NovelWebViewViewer)?.reloadWithTranslation()
+            ?: state.viewerChapters?.let(::setChapters)
     }
 
     /**
@@ -1867,32 +1583,17 @@ class ReaderActivity : BaseActivity() {
      * Gets selected text from the current viewer and adds it as a quote.
      */
     fun onRememberSelectedText() {
-        val selectedText = when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> viewer.getSelectedText()
-            is NovelWebViewViewer -> viewer.pendingSelectedText ?: viewer.getSelectedText()
-            else -> null
-        }
-        val paragraphIndex = when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> viewer.getSelectedParagraphIndex()
-            is NovelWebViewViewer -> viewer.pendingParagraphIndex
-            else -> null
-        }
-        val chapterName = when (val viewer = viewModel.state.value.viewer) {
-            is NovelViewer -> viewer.getCurrentChapterName()
-            is NovelWebViewViewer -> viewer.getCurrentChapterName()
-            else -> null
-        }
+        val viewer = viewModel.state.value.viewer as? NovelWebViewViewer
+        val selectedText = viewer?.pendingSelectedText ?: viewer?.getSelectedText()
+        val paragraphIndex = viewer?.pendingParagraphIndex
+        val chapterName = viewer?.getCurrentChapterName()
 
         if (selectedText != null && chapterName != null) {
             viewModel.saveQuote(selectedText, chapterName, paragraphIndex)
-            // Clear selection after adding quote
-            when (val viewer = viewModel.state.value.viewer) {
-                is NovelViewer -> viewer.clearTextSelection()
-                is NovelWebViewViewer -> {
-                    viewer.clearTextSelection()
-                    viewer.pendingSelectedText = null
-                    viewer.pendingParagraphIndex = null
-                }
+            viewer.run {
+                clearTextSelection()
+                pendingSelectedText = null
+                pendingParagraphIndex = null
             }
             toast("Quote saved!")
         } else {
@@ -2010,7 +1711,7 @@ class ReaderActivity : BaseActivity() {
             readerPreferences.novelKeepScreenOn.changes()
                 .onEach { enabled ->
                     val viewer = viewModel.state.value.viewer
-                    if (viewer is NovelViewer || viewer is NovelWebViewViewer) {
+                    if (viewer is NovelWebViewViewer) {
                         setKeepScreenOn(enabled)
                     }
                 }
@@ -2022,7 +1723,7 @@ class ReaderActivity : BaseActivity() {
                 .distinctUntilChanged()
                 .filterNotNull()
                 .onEach { viewer ->
-                    if (viewer is NovelViewer || viewer is NovelWebViewViewer) {
+                    if (viewer is NovelWebViewViewer) {
                         setNovelCustomBrightness(readerPreferences.novelCustomBrightness.get())
                         setKeepScreenOn(readerPreferences.novelKeepScreenOn.get())
                     } else {
@@ -2053,23 +1754,6 @@ class ReaderActivity : BaseActivity() {
             ) { fullscreen, drawUnderCutout -> fullscreen to drawUnderCutout }
                 .onEach { (fullscreen, drawUnderCutout) ->
                     updateViewerInset(fullscreen, drawUnderCutout)
-                }
-                .launchIn(lifecycleScope)
-
-            // Re-create viewer when novel rendering mode changes
-            readerPreferences.novelRenderingMode.changes()
-                .drop(1) // Skip initial value
-                .onEach {
-                    val currentViewer = viewModel.state.value.viewer
-                    // Only re-create if currently using a novel viewer
-                    if (currentViewer is NovelViewer || currentViewer is NovelWebViewViewer) {
-                        updateViewer()
-                        viewModel.state.value.viewerChapters?.let { chapters ->
-                            setChapters(chapters)
-                        }
-                        // Re-apply brightness for novel viewers
-                        setNovelCustomBrightness(readerPreferences.novelCustomBrightness.get())
-                    }
                 }
                 .launchIn(lifecycleScope)
         }
@@ -2121,7 +1805,7 @@ class ReaderActivity : BaseActivity() {
         private fun setCustomBrightness(enabled: Boolean) {
             // Skip if using novel viewer with its own brightness setting
             val viewer = viewModel.state.value.viewer
-            if (viewer is NovelViewer || viewer is NovelWebViewViewer) {
+            if (viewer is NovelWebViewViewer) {
                 return
             }
             brightnessJob?.cancel()
@@ -2142,7 +1826,7 @@ class ReaderActivity : BaseActivity() {
         private fun setNovelCustomBrightness(enabled: Boolean) {
             // Only apply if using novel viewer
             val viewer = viewModel.state.value.viewer
-            if (viewer !is NovelViewer && viewer !is NovelWebViewViewer) {
+            if (viewer !is NovelWebViewViewer) {
                 return
             }
             brightnessJob?.cancel()

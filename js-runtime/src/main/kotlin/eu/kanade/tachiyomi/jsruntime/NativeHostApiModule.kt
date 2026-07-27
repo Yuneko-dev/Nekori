@@ -1,11 +1,14 @@
 package eu.kanade.tachiyomi.jsruntime
 
+import android.util.Base64
 import com.facebook.proguard.annotations.DoNotStrip
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.turbomodule.core.interfaces.TurboModule
+import java.security.SecureRandom
 
 /**
  * The native half of the TurboModule declared by `specs/NativeHostApi.ts`.
@@ -18,6 +21,8 @@ import com.facebook.react.turbomodule.core.interfaces.TurboModule
 internal class NativeHostApiModule(
     reactContext: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(reactContext), TurboModule {
+
+    private val pluginStorage = PluginStorage(reactContext)
 
     init {
         JsCallDispatcher.attach(this)
@@ -48,6 +53,34 @@ internal class NativeHostApiModule(
         JsCallDispatcher.reject(id, message)
     }
 
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    @DoNotStrip
+    fun getRandomBase64(byteLength: Double): String {
+        val size = byteLength.toInt()
+        require(byteLength == size.toDouble() && size in 0..MAX_RANDOM_BYTES) {
+            "getRandomValues length must be an integer between 0 and $MAX_RANDOM_BYTES"
+        }
+        return ByteArray(size)
+            .also(SECURE_RANDOM::nextBytes)
+            .let { Base64.encodeToString(it, Base64.NO_WRAP) }
+    }
+
+    @ReactMethod
+    @DoNotStrip
+    fun loadPluginStorage(pluginId: String, promise: Promise) {
+        runCatching { pluginStorage.load(pluginId) }
+            .onSuccess { promise.resolve(it) }
+            .onFailure { promise.reject("PLUGIN_STORAGE_LOAD", it.message, it) }
+    }
+
+    @ReactMethod
+    @DoNotStrip
+    fun applyPluginStorageMutation(pluginId: String, mutationJson: String, promise: Promise) {
+        runCatching { pluginStorage.apply(pluginId, mutationJson) }
+            .onSuccess { promise.resolve(null) }
+            .onFailure { promise.reject("PLUGIN_STORAGE_WRITE", it.message, it) }
+    }
+
     override fun invalidate() {
         JsCallDispatcher.detach(this)
         super.invalidate()
@@ -55,5 +88,7 @@ internal class NativeHostApiModule(
 
     companion object {
         const val NAME = "NativeHostApi"
+        private const val MAX_RANDOM_BYTES = 65_536
+        private val SECURE_RANDOM = SecureRandom()
     }
 }

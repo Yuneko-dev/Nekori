@@ -139,11 +139,6 @@ private val textAlignments = listOf(
     Icons.Outlined.FormatAlignJustify to "justify",
 )
 
-private val renderingModes = listOf(
-    TDMR.strings.novel_render_default to "default",
-    TDMR.strings.novel_render_webview to "webview",
-)
-
 // Predefined font colors (ARGB int format, 0 = theme default, Int.MIN_VALUE = custom)
 private val fontColors = listOf(
     TDMR.strings.novel_color_default to 0,
@@ -171,7 +166,7 @@ private val backgroundColors = listOf(
 )
 
 @Composable
-internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel, renderingMode: String) {
+internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel) {
     val context = LocalContext.current
     val fontFamily by screenModel.preferences.novelFontFamily.collectAsState()
     val textAlign by screenModel.preferences.novelTextAlign.collectAsState()
@@ -188,17 +183,6 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel,
         value = resolvedSystemFonts + customFonts
     }
 
-    // Rendering Mode
-    InlineSettingsChipRow(TDMR.strings.pref_novel_rendering_mode) {
-        renderingModes.forEach { (labelRes, value) ->
-            FilterChip(
-                selected = renderingMode == value,
-                onClick = { screenModel.preferences.novelRenderingMode.set(value) },
-                label = { Text(stringResource(labelRes)) },
-            )
-        }
-    }
-
     // Font Family
     RadioSelectItem(
         label = stringResource(TDMR.strings.pref_font_family),
@@ -208,13 +192,10 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel,
         defaultValue = screenModel.preferences.novelFontFamily.defaultValue(),
     )
 
-    // Use Original Fonts (WebView mode only)
-    if (renderingMode == "webview") {
-        CheckboxItem(
-            label = stringResource(TDMR.strings.pref_novel_use_original_fonts),
-            pref = screenModel.preferences.novelUseOriginalFonts,
-        )
-    }
+    CheckboxItem(
+        label = stringResource(TDMR.strings.pref_novel_use_original_fonts),
+        pref = screenModel.preferences.novelUseOriginalFonts,
+    )
 
     // Text Alignment
     InlineSettingsChipRow(TDMR.strings.pref_novel_text_align) {
@@ -307,7 +288,7 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel,
 }
 
 @Composable
-internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenModel, renderingMode: String) {
+internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenModel) {
     val theme by screenModel.preferences.novelTheme.collectAsState()
     val fontColor by screenModel.preferences.novelFontColor.collectAsState()
     val backgroundColor by screenModel.preferences.novelBackgroundColor.collectAsState()
@@ -530,18 +511,10 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
         label = stringResource(TDMR.strings.pref_novel_block_media),
         pref = screenModel.preferences.novelBlockMedia,
     )
-
-    // Show Raw HTML (TextView only) - for debugging
-    if (renderingMode == "default") {
-        CheckboxItem(
-            label = stringResource(TDMR.strings.pref_novel_show_raw_html),
-            pref = screenModel.preferences.novelShowRawHtml,
-        )
-    }
 }
 
 @Composable
-internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel, renderingMode: String) {
+internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel) {
     val autoScrollSpeed by screenModel.preferences.novelAutoScrollSpeed.collectAsState()
 
     SliderItem(
@@ -779,38 +752,8 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
 }
 
 @Composable
-internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel, renderingMode: String) {
+internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel) {
     RegexReplacementSection(screenModel)
-
-    if (renderingMode != "webview") {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(TDMR.strings.novel_advanced_webview_only),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(TDMR.strings.novel_no_cssjs),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
-        }
-        return
-    }
 
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
     CheckboxItem(

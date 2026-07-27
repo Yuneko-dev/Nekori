@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -17,7 +16,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.history.HistoryScreen
 import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
@@ -37,8 +35,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 data object HistoryTab : Tab {
 
@@ -67,30 +63,18 @@ data object HistoryTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val screenModel = rememberScreenModel { HistoryScreenModel() }
-        val basePreferences = remember { Injekt.get<BasePreferences>() }
         val state by screenModel.state.collectAsState()
-        val hideMangaUi by basePreferences.hideMangaUi.changes().collectAsState(
-            initial = basePreferences.hideMangaUi.get(),
-        )
-
-        LaunchedEffect(hideMangaUi) {
-            screenModel.syncFilterWithHideManga(hideMangaUi)
-        }
 
         HistoryScreen(
             state = state,
             snackbarHostState = snackbarHostState,
-            showFilterChips = !hideMangaUi,
             onSearchQueryChange = screenModel::updateSearchQuery,
             onClickCover = { navigator.push(MangaScreen(it)) },
             onClickResume = screenModel::getNextChapterForManga,
             onDialogChange = screenModel::setDialog,
             onClickFavorite = screenModel::addFavorite,
-            onFilterSelected = screenModel::setFilter,
             onGroupByNovelChanged = screenModel::setGroupByNovel,
             onLoadNextPage = screenModel::loadNextPage,
-            showAllFilter = !hideMangaUi,
-            showMangaFilter = !hideMangaUi,
         )
 
         val onDismissRequest = { screenModel.setDialog(null) }
