@@ -10,6 +10,14 @@ import org.junit.jupiter.api.Test
 
 class JsSourceEntityTest {
 
+    @Test
+    fun `plugin paths keep their original shape and repair legacy absolute urls`() {
+        assertEquals("/works/123", JsSource.normalizePluginPath("/works/123"))
+        assertEquals("works/123", JsSource.normalizePluginPath("works/123"))
+        assertEquals("https://example.com/works/123", JsSource.normalizePluginPath("https://example.com/works/123"))
+        assertEquals("https://example.com/works/123", JsSource.normalizePluginPath("/https://example.com/works/123"))
+    }
+
     // ── looksLikeHtml ──────────────────────────────────────────────────────
 
     @Test

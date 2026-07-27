@@ -83,9 +83,6 @@ class JsSource(
         private const val BROWSE_PROBE_TTL_MS = 60_000L
         private const val PLUGIN_CALL_TIMEOUT_MS = 30_000L
 
-        // Sentinel handed to plugin.resolveUrl to discover its base/prefix join shape.
-        private const val PATH_PROBE_TOKEN = "__tsundoku_path_probe__"
-
         private val HTML_TAG_REGEX = Regex(
             "<(?:p|div|br|span|h[1-6]|ul|ol|li|a|img|table|blockquote|strong|em|b|i|code)\\b",
             RegexOption.IGNORE_CASE,
@@ -125,6 +122,13 @@ class JsSource(
         /** Remove control chars that break XML serialization and SAF file/folder names. */
         internal fun stripInvalidChars(text: String): String =
             if (text.isEmpty()) text else INVALID_CHARS.replace(text, "")
+
+        /**
+         * Preserve the path supplied by the plugin. Older builds prepended "/" to absolute URLs,
+         * so repair that one legacy shape without changing valid relative paths.
+         */
+        internal fun normalizePluginPath(path: String): String =
+            if (path.startsWith("/https://") || path.startsWith("/http://")) path.removePrefix("/") else path
 
         /**
          * Pick the content field from a parsed JSON plugin response object.
@@ -231,7 +235,7 @@ class JsSource(
         val payload = buildJsonObject {
             put("id", pluginId)
             put("key", hermesRuntimeKey)
-            put("path", path)
+            put("path", normalizePluginPath(path))
             put("isNovel", isNovel)
         }.toString()
         val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
@@ -465,7 +469,7 @@ class JsSource(
                 return@withContext cached.first
             }
 
-            val path = escapeJsString(resolvePluginPath(manga.url))
+            val path = escapeJsString(normalizePluginPath(manga.url))
             val result = parseNovelCached(manga.url)
             val chapters = parseChapterList(result).toMutableList()
 
@@ -670,69 +674,13 @@ class JsSource(
         }
     }
 
-    private fun normalizeDoubleSlashes(value: String): String {
-        if (value.isBlank()) return value
-        val parts = value.split("://", limit = 2)
-        return if (parts.size == 2) {
-            val normalizedPath = parts[1].replace(Regex("/{2,}"), "/")
-            "${parts[0]}://$normalizedPath"
-        } else {
-            value.replace(Regex("/{2,}"), "/")
-        }
-    }
-
-    private fun normalizePluginPath(value: String): String {
-        val normalized = normalizeDoubleSlashes(value.trim())
-        return if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
-            normalized
-        } else {
-            normalized.removePrefix("/")
-        }
-    }
-
-    // Whether the plugin's URL join (resolveUrl) ends with a slash. Probed once via a sentinel.
-    // Plugins that build URLs from a trailing-slash `site` want the path WITHOUT a leading slash;
-    // plugins that use a prefix without a trailing slash need the
-    // leading slash kept.
-    @Volatile private var resolveUrlPrefixProbe: String? = null
-
-    @Volatile private var resolveUrlProbed = false
-
-    private suspend fun pluginPrefixEndsWithSlash(): Boolean? {
-        if (resolveUrlProbed) return resolveUrlPrefixProbe?.endsWith("/")
-        val prefix = runCatching {
-            if (executePluginMethod("typeof plugin.resolveUrl === 'function'") != "true") return@runCatching null
-            val raw = executePluginMethod("plugin.resolveUrl('$PATH_PROBE_TOKEN')")
-            val decoded = decodeJsonStringIfQuoted(raw)
-            if (decoded.endsWith(PATH_PROBE_TOKEN)) decoded.removeSuffix(PATH_PROBE_TOKEN) else null
-        }.getOrNull()
-        resolveUrlPrefixProbe = prefix
-        resolveUrlProbed = true
-        return prefix?.endsWith("/")
-    }
-
-    /**
-     * Path passed to parseNovel/parseChapter/parsePage, with its leading slash reconciled to the
-     * plugin's URL-join convention (see [pluginPrefixEndsWithSlash]). Falls back to the legacy
-     * leading-slash strip when the plugin exposes no usable resolveUrl.
-     */
-    private suspend fun resolvePluginPath(value: String): String {
-        val base = normalizeDoubleSlashes(value.trim())
-        if (base.startsWith("http://") || base.startsWith("https://")) return base
-        return when (pluginPrefixEndsWithSlash()) {
-            true -> base.removePrefix("/")
-            false -> if (base.startsWith("/")) base else "/$base"
-            null -> base.removePrefix("/")
-        }
-    }
-
     /** Escape a value for embedding in a single-quoted JS string literal. */
     private fun escapeJsString(value: String): String =
         value.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"")
 
     /** plugin.parseNovel with raw-result caching and in-flight dedup. */
     private suspend fun parseNovelCached(mangaUrl: String): String {
-        val path = escapeJsString(resolvePluginPath(mangaUrl))
+        val path = escapeJsString(normalizePluginPath(mangaUrl))
         return parseNovelMutex.withLock {
             val now = System.currentTimeMillis()
             parseNovelCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
@@ -745,7 +693,7 @@ class JsSource(
 
     /** plugin.parseChapter with raw-result caching and in-flight dedup. */
     private suspend fun parseChapterCached(chapterUrl: String): String {
-        val path = escapeJsString(resolvePluginPath(chapterUrl))
+        val path = escapeJsString(normalizePluginPath(chapterUrl))
         return chapterTextMutex.withLock {
             val now = System.currentTimeMillis()
             chapterTextCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
@@ -798,10 +746,9 @@ class JsSource(
                     val obj = item.jsonObject
                     SManga.create().apply {
                         title = obj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: return@mapNotNull null
-                        url =
-                            (obj["path"]?.jsonPrimitive?.content ?: return@mapNotNull null).let {
-                                if (it.startsWith("/")) it else "/$it"
-                            }
+                        url = normalizePluginPath(
+                            obj["path"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                        )
                         // Ensure thumbnail_url is a valid URL or null
                         val coverUrl = obj["cover"]?.jsonPrimitive?.content
                         thumbnail_url = when {

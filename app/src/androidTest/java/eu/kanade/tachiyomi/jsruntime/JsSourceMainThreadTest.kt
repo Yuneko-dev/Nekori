@@ -87,6 +87,42 @@ class JsSourceMainThreadTest {
         assertEquals("https://selected.invalid/novel/book", source.resolveUrl("/book", isNovel = true))
     }
 
+    @Test
+    fun parseNovelReceivesThePluginPathUnchanged() = runBlocking {
+        val source = JsSource(
+            InstalledJsPlugin(
+                plugin = JsPlugin(
+                    id = "path.source.test",
+                    name = "Path source test",
+                    site = "https://example.invalid",
+                    lang = "English",
+                    version = "1",
+                    url = "https://example.com/plugin.js",
+                    iconUrl = "",
+                ),
+                code = """
+                    exports.default = {
+                      id: 'path.source.test',
+                      name: 'Path source test',
+                      version: '1',
+                      site: 'https://example.invalid',
+                      parseNovel: async path => ({
+                        name: path,
+                        path,
+                        chapters: [],
+                      }),
+                    };
+                """.trimIndent(),
+                installedVersion = "1",
+                repositoryUrl = "https://example.com/plugins.json",
+            ),
+        )
+
+        val details = source.getMangaDetails(SManga.create().apply { url = "/works/123" })
+
+        assertEquals("/works/123", details.title)
+    }
+
     private fun createSource() =
         JsSource(
             InstalledJsPlugin(
