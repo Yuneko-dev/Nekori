@@ -56,7 +56,6 @@ import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
@@ -572,13 +571,6 @@ class MainActivity : BaseActivity() {
                     navigator.popUntilRoot()
                     navigator.push(RestoreBackupScreen(intent.data.toString()))
                 }
-                // Deep link to add extension store
-                else if (intent.isAddExtensionStoreIntent()) {
-                    intent.data?.getQueryParameter("url")?.let { repoUrl ->
-                        navigator.popUntilRoot()
-                        navigator.push(ExtensionStoresScreen(repoUrl))
-                    }
-                }
                 // Deep link to add LNReader JS repo
                 else if (intent.scheme == "lnreader" && intent.data?.host == "repo" && intent.data?.path == "/add") {
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
@@ -683,11 +675,6 @@ class MainActivity : BaseActivity() {
                 resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         }
-    }
-
-    private fun Intent.isAddExtensionStoreIntent(): Boolean {
-        return (scheme == "tachiyomi" && data?.host == "add-repo") ||
-            (scheme == "mihon" && data?.host == "extension-store")
     }
 
     companion object {

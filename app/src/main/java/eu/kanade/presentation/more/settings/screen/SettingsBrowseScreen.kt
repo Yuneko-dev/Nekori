@@ -11,14 +11,11 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionReposScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
-import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
-import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -37,9 +34,6 @@ object SettingsBrowseScreen : SearchableSettings {
         val navigator = LocalNavigator.currentOrThrow
 
         val sourcePreferences = remember { Injekt.get<SourcePreferences>() }
-        val getExtensionStoreCountAsFlow = remember { Injekt.get<GetExtensionStoreCountAsFlow>() }
-
-        val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
 
         return listOf(
             Preference.PreferenceGroup(
@@ -76,13 +70,6 @@ object SettingsBrowseScreen : SearchableSettings {
                             10 to "10 pages",
                             20 to "20 pages",
                         ).toMap(),
-                    ),
-                    Preference.PreferenceItem.TextPreference(
-                        title = stringResource(MR.strings.extensionStores),
-                        subtitle = pluralStringResource(MR.plurals.num_repos, reposCount.toInt(), reposCount),
-                        onClick = {
-                            navigator.push(ExtensionStoresScreen())
-                        },
                     ),
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(TDMR.strings.pref_novel_extension_repos),

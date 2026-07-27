@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.browse.extension
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -61,18 +62,17 @@ class NovelExtensionReposScreen(
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(url) {
-            val repoUrl = url ?: return@LaunchedEffect
-            screenModel.createJsRepo(repoUrl, repoUrl)
+            url?.let(screenModel::createRepo)
         }
 
         Scaffold(
             topBar = {
                 AppBar(
-                    title = stringResource(MR.strings.label_extension_repos),
+                    title = stringResource(TDMR.strings.pref_novel_extension_repos),
                     navigateUp = navigator::pop,
                     actions = {
-                        androidx.compose.material3.IconButton(onClick = screenModel::refreshRepos) {
-                            androidx.compose.material3.Icon(
+                        IconButton(onClick = screenModel::refreshRepos) {
+                            Icon(
                                 imageVector = Icons.Outlined.Refresh,
                                 contentDescription = stringResource(MR.strings.action_webview_refresh),
                             )
@@ -81,9 +81,7 @@ class NovelExtensionReposScreen(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { screenModel.showDialog(NovelRepoDialog.ChooseType) },
-                ) {
+                FloatingActionButton(onClick = { screenModel.showDialog(NovelRepoDialog.Create) }) {
                     Icon(
                         imageVector = Icons.Outlined.Add,
                         contentDescription = stringResource(MR.strings.action_add),
@@ -91,114 +89,41 @@ class NovelExtensionReposScreen(
                 }
             },
         ) { contentPadding ->
-            if (state is NovelRepoScreenState.Loading) {
-                LoadingScreen()
-                return@Scaffold
-            }
-
-            val successState = state as NovelRepoScreenState.Success
-
-            if (successState.isEmpty) {
-                EmptyScreen(
-                    stringRes = MR.strings.information_empty_repos,
-                    modifier = Modifier.padding(contentPadding),
-                )
-            } else {
-                LazyColumn(
-                    contentPadding = contentPadding,
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                ) {
-                    if (successState.jsRepos.isNotEmpty()) {
-                        item(key = "js-header") {
-                            Text(
-                                text = stringResource(TDMR.strings.novel_ext_repos_js_header),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(
-                                    horizontal = MaterialTheme.padding.medium,
-                                    vertical = MaterialTheme.padding.small,
-                                ),
-                            )
-                        }
-                        items(
-                            items = successState.jsRepos,
-                            key = { "js-${it.url}" },
-                        ) { repo ->
-                            NovelRepoListItem(
-                                repo = repo,
-                                onSetEnabled = { enabled -> screenModel.setJsRepoEnabled(repo.url, enabled) },
-                                onDelete = { screenModel.showDialog(NovelRepoDialog.DeleteJs(repo)) },
-                            )
+            when (val current = state) {
+                NovelRepoScreenState.Loading -> LoadingScreen()
+                is NovelRepoScreenState.Success -> {
+                    if (current.repositories.isEmpty()) {
+                        EmptyScreen(
+                            stringRes = MR.strings.information_empty_repos,
+                            modifier = Modifier.padding(contentPadding),
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = contentPadding,
+                            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                        ) {
+                            items(current.repositories, key = { it.url }) { repo ->
+                                RepositoryItem(
+                                    repo = repo,
+                                    onSetEnabled = { screenModel.setRepoEnabled(repo.url, it) },
+                                    onDelete = { screenModel.showDialog(NovelRepoDialog.Delete(repo)) },
+                                )
+                            }
                         }
                     }
 
-                    if (successState.kotlinRepos.isNotEmpty()) {
-                        item(key = "kotlin-header") {
-                            Text(
-                                text = stringResource(TDMR.strings.novel_ext_repos_kt_header),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(
-                                    horizontal = MaterialTheme.padding.medium,
-                                    vertical = MaterialTheme.padding.small,
-                                ),
-                            )
-                        }
-                        items(
-                            items = successState.kotlinRepos.toList(),
-                            key = { "kotlin-${it.indexUrl}" },
-                        ) { repo ->
-                            KotlinRepoListItem(
-                                repo = repo,
-                                enabled = repo.indexUrl !in successState.disabledKotlinRepos,
-                                onSetEnabled = { enabled -> screenModel.setKotlinRepoEnabled(repo.indexUrl, enabled) },
-                                onDelete = { screenModel.showDialog(NovelRepoDialog.DeleteKotlin(repo.indexUrl)) },
-                            )
-                        }
+                    when (val dialog = current.dialog) {
+                        null -> Unit
+                        NovelRepoDialog.Create -> RepositoryCreateDialog(
+                            onDismissRequest = screenModel::dismissDialog,
+                            onCreate = screenModel::createRepo,
+                        )
+                        is NovelRepoDialog.Delete -> RepositoryDeleteDialog(
+                            repo = dialog.repo,
+                            onDismissRequest = screenModel::dismissDialog,
+                            onDelete = { screenModel.deleteRepo(dialog.repo.url) },
+                        )
                     }
-                }
-            }
-
-            when (val dialog = successState.dialog) {
-                null -> {}
-                is NovelRepoDialog.ChooseType -> {
-                    RepoTypeChooserDialog(
-                        onDismissRequest = screenModel::dismissDialog,
-                        onChooseJs = {
-                            screenModel.dismissDialog()
-                            screenModel.showDialog(NovelRepoDialog.CreateJs)
-                        },
-                        onChooseKotlin = {
-                            screenModel.dismissDialog()
-                            screenModel.showDialog(NovelRepoDialog.CreateKotlin)
-                        },
-                    )
-                }
-                is NovelRepoDialog.CreateJs -> {
-                    NovelRepoCreateDialog(
-                        onDismissRequest = screenModel::dismissDialog,
-                        onCreate = { name, url -> screenModel.createJsRepo(name, url) },
-                    )
-                }
-                is NovelRepoDialog.CreateKotlin -> {
-                    KotlinRepoCreateDialog(
-                        onDismissRequest = screenModel::dismissDialog,
-                        onCreate = { url -> screenModel.createKotlinRepo(url) },
-                    )
-                }
-                is NovelRepoDialog.DeleteJs -> {
-                    NovelRepoDeleteDialog(
-                        onDismissRequest = screenModel::dismissDialog,
-                        onDelete = { screenModel.deleteJsRepo(dialog.repo.url) },
-                        repoName = dialog.repo.name,
-                    )
-                }
-                is NovelRepoDialog.DeleteKotlin -> {
-                    NovelRepoDeleteDialog(
-                        onDismissRequest = screenModel::dismissDialog,
-                        onDelete = { screenModel.deleteKotlinRepo(dialog.indexUrl) },
-                        repoName = dialog.indexUrl,
-                    )
                 }
             }
         }
@@ -206,86 +131,58 @@ class NovelExtensionReposScreen(
 }
 
 @Composable
-private fun NovelRepoListItem(
+private fun RepositoryItem(
     repo: JsPluginRepository,
     onSetEnabled: (Boolean) -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-
+    val context = LocalContext.current
     ElevatedCard(
-        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium),
+        modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = MaterialTheme.padding.medium,
-                    top = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.medium,
-                ),
+                .padding(MaterialTheme.padding.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(imageVector = Icons.AutoMirrored.Outlined.Label, contentDescription = null)
-            androidx.compose.foundation.layout.Column(
-                modifier = Modifier.padding(start = MaterialTheme.padding.medium),
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = MaterialTheme.padding.medium),
             ) {
-                Text(
-                    text = repo.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Text(text = repo.name, style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = repo.url,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Switch(checked = repo.enabled, onCheckedChange = onSetEnabled)
         }
-
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End,
         ) {
             IconButton(onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(repo.url))
-                context.startActivity(intent)
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(repo.url)))
             }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                     contentDescription = stringResource(MR.strings.action_open_in_browser),
                 )
             }
-
-            IconButton(
-                onClick = {
-                    context.copyToClipboard(repo.url, repo.url)
-                },
-            ) {
+            IconButton(onClick = { context.copyToClipboard(repo.url, repo.url) }) {
                 Icon(
                     imageVector = Icons.Outlined.ContentCopy,
                     contentDescription = stringResource(MR.strings.action_copy_to_clipboard),
                 )
             }
-
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Outlined.Delete,
                     contentDescription = stringResource(MR.strings.action_delete),
-                )
-            }
-
-            Row(
-                modifier = Modifier.padding(
-                    top = MaterialTheme.padding.small,
-                    end = MaterialTheme.padding.small,
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Switch(
-                    checked = repo.enabled,
-                    onCheckedChange = onSetEnabled,
                 )
             }
         }
@@ -293,176 +190,19 @@ private fun NovelRepoListItem(
 }
 
 @Composable
-private fun NovelRepoCreateDialog(
-    onDismissRequest: () -> Unit,
-    onCreate: (String, String) -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.action_add_repo)) },
-        text = {
-            androidx.compose.foundation.layout.Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(text = "Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text(text = "URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreate(name.ifBlank { url }, url) },
-                enabled = url.isNotBlank(),
-            ) {
-                Text(text = stringResource(MR.strings.action_add))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
-}
-
-@Composable
-private fun NovelRepoDeleteDialog(
-    onDismissRequest: () -> Unit,
-    onDelete: () -> Unit,
-    repoName: String,
-) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.action_delete)) },
-        text = { Text(text = stringResource(MR.strings.delete_repo_confirmation, repoName)) },
-        confirmButton = {
-            TextButton(onClick = onDelete) {
-                Text(text = stringResource(MR.strings.action_delete))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
-}
-
-@Composable
-private fun KotlinRepoListItem(
-    repo: mihon.domain.extension.model.ExtensionStore,
-    enabled: Boolean,
-    onSetEnabled: (Boolean) -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-
-    ElevatedCard(
-        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = MaterialTheme.padding.medium,
-                    top = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.medium,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(imageVector = Icons.AutoMirrored.Outlined.Label, contentDescription = null)
-            androidx.compose.foundation.layout.Column(
-                modifier = Modifier.padding(start = MaterialTheme.padding.medium),
-            ) {
-                Text(
-                    text = repo.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = repo.indexUrl,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(repo.indexUrl))
-                context.startActivity(intent)
-            }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                    contentDescription = stringResource(MR.strings.action_open_in_browser),
-                )
-            }
-
-            IconButton(
-                onClick = {
-                    context.copyToClipboard(repo.indexUrl, repo.indexUrl)
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ContentCopy,
-                    contentDescription = stringResource(MR.strings.action_copy_to_clipboard),
-                )
-            }
-
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = stringResource(MR.strings.action_delete),
-                )
-            }
-
-            Row(
-                modifier = Modifier.padding(
-                    top = MaterialTheme.padding.small,
-                    end = MaterialTheme.padding.small,
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = onSetEnabled,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun KotlinRepoCreateDialog(
+private fun RepositoryCreateDialog(
     onDismissRequest: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = "Add Kotlin extension repo") },
+        title = { Text(text = stringResource(MR.strings.action_add_repo)) },
         text = {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text(text = "Repository URL") },
+                label = { Text(text = "URL") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -484,23 +224,23 @@ private fun KotlinRepoCreateDialog(
 }
 
 @Composable
-private fun RepoTypeChooserDialog(
+private fun RepositoryDeleteDialog(
+    repo: JsPluginRepository,
     onDismissRequest: () -> Unit,
-    onChooseJs: () -> Unit,
-    onChooseKotlin: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = "Add Repository") },
-        text = { Text(text = "Choose the type of repository to add:") },
+        title = { Text(text = stringResource(MR.strings.action_delete)) },
+        text = { Text(text = stringResource(MR.strings.delete_repo_confirmation, repo.name)) },
         confirmButton = {
-            TextButton(onClick = onChooseKotlin) {
-                Text(text = "Kotlin Extension")
+            TextButton(onClick = onDelete) {
+                Text(text = stringResource(MR.strings.action_delete))
             }
         },
         dismissButton = {
-            TextButton(onClick = onChooseJs) {
-                Text(text = "JS Plugin")
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
             }
         },
     )

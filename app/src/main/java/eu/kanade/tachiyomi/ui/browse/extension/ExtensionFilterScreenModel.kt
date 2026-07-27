@@ -3,9 +3,9 @@ package eu.kanade.tachiyomi.ui.browse.extension
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import eu.kanade.domain.extension.interactor.GetExtensionLanguages
 import eu.kanade.domain.source.interactor.ToggleLanguage
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -21,7 +21,7 @@ import uy.kohesive.injekt.api.get
 
 class ExtensionFilterScreenModel(
     private val preferences: SourcePreferences = Injekt.get(),
-    private val getExtensionLanguages: GetExtensionLanguages = Injekt.get(),
+    private val jsPluginManager: JsPluginManager = Injekt.get(),
     private val toggleLanguage: ToggleLanguage = Injekt.get(),
 ) : StateScreenModel<ExtensionFilterState>(ExtensionFilterState.Loading) {
 
@@ -31,9 +31,15 @@ class ExtensionFilterScreenModel(
     init {
         screenModelScope.launch {
             combine(
-                getExtensionLanguages.subscribe(),
+                jsPluginManager.availablePlugins,
+                jsPluginManager.installedPlugins,
                 preferences.enabledLanguages.changes(),
-            ) { a, b -> a to b }
+            ) { available, installed, enabledLanguages ->
+                (available + installed.map { it.plugin })
+                    .map { it.langCode() }
+                    .distinct()
+                    .sorted() to enabledLanguages
+            }
                 .catch { throwable ->
                     logcat(LogPriority.ERROR, throwable)
                     _events.send(ExtensionFilterEvent.FailedFetchingLanguages)

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.jsplugin.model
 
 import kotlinx.serialization.Serializable
+import java.net.URI
 
 /**
  * Represents a JS plugin from LNReader-compatible repositories.
@@ -17,12 +18,29 @@ data class JsPlugin(
     val iconUrl: String,
     val customCSS: String? = null,
     val customJS: String? = null,
+    val contentWarning: Int? = null,
+    val contentType: String? = null,
     var repositoryUrl: String? = null,
 ) {
     companion object {
         /** Package name prefix for novel JS plugins - unique to tsundoku fork */
         const val PKG_PREFIX = "app.tsundoku.jsplugin."
+
+        const val CONTENT_WARNING_SAFE = 1
+
+        private const val CONTENT_TYPE_IMAGE = "image"
+        private const val CONTENT_TYPE_VIDEO = "video"
+        private const val CONTENT_TYPE_MIXED = "mixed"
     }
+
+    fun displayName(): String = when (contentType) {
+        CONTENT_TYPE_VIDEO -> "📺 $name"
+        CONTENT_TYPE_IMAGE -> "🖼️ $name"
+        CONTENT_TYPE_MIXED -> "🧭 $name"
+        else -> name
+    }
+
+    fun hasAdultContentWarning(): Boolean = contentWarning in (CONTENT_WARNING_SAFE + 1)..3
 
     /**
      * Unique identifier combining plugin ID and repository URL for disambiguation
@@ -75,7 +93,22 @@ data class JsPluginRepository(
     val name: String,
     val url: String,
     val enabled: Boolean = true,
-)
+) {
+    companion object {
+        fun nameFromUrl(url: String): String {
+            val trimmed = url.trim()
+            val uri = runCatching { URI(trimmed) }.getOrNull()
+            val segments = uri?.path.orEmpty()
+                .split('/')
+                .filter(String::isNotBlank)
+
+            return segments.take(2)
+                .joinToString("/")
+                .removeSuffix(".git")
+                .ifBlank { uri?.host ?: trimmed }
+        }
+    }
+}
 
 /**
  * Installed JS plugin with cached code

@@ -73,14 +73,16 @@ fun extensionsTab(
                 onClickItemCancel = extensionsScreenModel::cancelInstallUpdateExtension,
                 onClickUpdateAll = extensionsScreenModel::updateAllExtensions,
                 onOpenWebView = { extension ->
-                    extension.sources.getOrNull(0)?.let {
-                        navigator.push(
-                            WebViewScreen(
-                                url = it.baseUrl,
-                                initialTitle = it.name,
-                                sourceId = it.id,
-                            ),
-                        )
+                    if (extension is Extension.Available) {
+                        extension.sources.getOrNull(0)?.let {
+                            navigator.push(
+                                WebViewScreen(
+                                    url = it.baseUrl,
+                                    initialTitle = it.name,
+                                    sourceId = it.id,
+                                ),
+                            )
+                        }
                     }
                 },
                 onInstallExtension = { if (it is Extension.Available) extensionsScreenModel.installExtension(it) },

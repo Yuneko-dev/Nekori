@@ -26,25 +26,33 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastMap
+import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.isNovelSource
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences.Companion.SourceOverride
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -82,6 +90,9 @@ object SettingsNovelDownloadScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val novelDownloadPreferences = remember { Injekt.get<NovelDownloadPreferences>() }
         val downloadPreferences = remember { Injekt.get<DownloadPreferences>() }
+        val getCategories = remember { Injekt.get<GetCategories>() }
+        val categories by getCategories.subscribe().collectAsState(initial = emptyList())
+        val novelCategories = categories.filter { it.contentType != Category.CONTENT_TYPE_MANGA }
 
         // Dialog state for per-extension overrides
         var showOverridesDialog by remember { mutableStateOf(false) }
@@ -121,14 +132,130 @@ object SettingsNovelDownloadScreen : SearchableSettings {
         }
 
         return listOf(
+            Preference.PreferenceItem.SwitchPreference(
+                preference = downloadPreferences.downloadOnlyOverWifi,
+                title = stringResource(MR.strings.connected_to_wifi),
+            ),
             getRequestThrottlingGroup(novelDownloadPreferences),
             getDownloadSettingsGroup(novelDownloadPreferences),
             getImageEmbeddingGroup(novelDownloadPreferences),
+            getDeleteChaptersGroup(downloadPreferences, novelCategories),
+            getAutoDownloadGroup(downloadPreferences, novelCategories),
+            getDownloadAheadGroup(downloadPreferences),
             getUpdateSettingsGroup(novelDownloadPreferences),
             getMassImportSettingsGroup(novelDownloadPreferences),
             getPerExtensionGroup(novelDownloadPreferences) { showOverridesDialog = true },
         )
     }
+
+    @Composable
+    private fun getDeleteChaptersGroup(
+        downloadPreferences: DownloadPreferences,
+        categories: List<Category>,
+    ) = Preference.PreferenceGroup(
+        title = stringResource(MR.strings.pref_category_delete_chapters),
+        preferenceItems = listOf(
+            Preference.PreferenceItem.SwitchPreference(
+                preference = downloadPreferences.removeAfterMarkedAsRead,
+                title = stringResource(MR.strings.pref_remove_after_marked_as_read),
+            ),
+            Preference.PreferenceItem.ListPreference(
+                preference = downloadPreferences.removeAfterReadSlots,
+                entries = mapOf(
+                    -1 to stringResource(MR.strings.disabled),
+                    0 to stringResource(MR.strings.last_read_chapter),
+                    1 to stringResource(MR.strings.second_to_last),
+                    2 to stringResource(MR.strings.third_to_last),
+                    3 to stringResource(MR.strings.fourth_to_last),
+                    4 to stringResource(MR.strings.fifth_to_last),
+                ),
+                title = stringResource(MR.strings.pref_remove_after_read),
+            ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = downloadPreferences.removeBookmarkedChapters,
+                title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
+            ),
+            Preference.PreferenceItem.MultiSelectListPreference(
+                preference = downloadPreferences.removeExcludeCategories,
+                entries = categories.associate { it.id.toString() to it.visualName },
+                title = stringResource(MR.strings.pref_remove_exclude_categories),
+            ),
+        ),
+    )
+
+    @Composable
+    private fun getAutoDownloadGroup(
+        downloadPreferences: DownloadPreferences,
+        categories: List<Category>,
+    ): Preference.PreferenceGroup {
+        val enabled by downloadPreferences.downloadNewChapters.collectAsState()
+        val included by downloadPreferences.downloadNewChapterCategories.collectAsState()
+        val excluded by downloadPreferences.downloadNewChapterCategoriesExclude.collectAsState()
+        var showDialog by rememberSaveable { mutableStateOf(false) }
+
+        if (showDialog) {
+            TriStateListDialog(
+                title = stringResource(MR.strings.categories),
+                message = stringResource(MR.strings.pref_download_new_categories_details),
+                items = categories,
+                initialChecked = included.mapNotNull { id -> categories.find { it.id.toString() == id } },
+                initialInversed = excluded.mapNotNull { id -> categories.find { it.id.toString() == id } },
+                itemLabel = { it.visualName },
+                onDismissRequest = { showDialog = false },
+                onValueChanged = { newIncluded, newExcluded ->
+                    downloadPreferences.downloadNewChapterCategories.set(
+                        newIncluded.fastMap { it.id.toString() }.toSet(),
+                    )
+                    downloadPreferences.downloadNewChapterCategoriesExclude.set(
+                        newExcluded.fastMap { it.id.toString() }.toSet(),
+                    )
+                    showDialog = false
+                },
+            )
+        }
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_auto_download),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = downloadPreferences.downloadNewChapters,
+                    title = stringResource(MR.strings.pref_download_new),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = downloadPreferences.downloadNewUnreadChaptersOnly,
+                    title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
+                    enabled = enabled,
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.categories),
+                    subtitle = getCategoriesLabel(categories, included, excluded),
+                    enabled = enabled,
+                    onClick = { showDialog = true },
+                ),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getDownloadAheadGroup(
+        downloadPreferences: DownloadPreferences,
+    ) = Preference.PreferenceGroup(
+        title = stringResource(MR.strings.download_ahead),
+        preferenceItems = listOf(
+            Preference.PreferenceItem.ListPreference(
+                preference = downloadPreferences.autoDownloadWhileReading,
+                entries = listOf(0, 2, 3, 5, 10).associateWith {
+                    if (it == 0) {
+                        stringResource(MR.strings.disabled)
+                    } else {
+                        pluralStringResource(MR.plurals.next_unread_chapters, count = it, it)
+                    }
+                },
+                title = stringResource(MR.strings.auto_download_while_reading),
+            ),
+            Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.download_ahead_info)),
+        ),
+    )
 
     @Composable
     private fun getRequestThrottlingGroup(

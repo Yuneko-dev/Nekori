@@ -61,7 +61,6 @@ import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.base.BasePreferences
-import eu.kanade.domain.extension.interactor.TrustExtension
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
@@ -87,19 +86,14 @@ import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.CrashLogUtil
-import eu.kanade.tachiyomi.util.system.GLUtil
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import eu.kanade.tachiyomi.util.system.isReleaseBuildType
-import eu.kanade.tachiyomi.util.system.isShizukuInstalled
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.Headers
-import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseMaintenance
 import tachiyomi.domain.category.interactor.GetCategories
@@ -107,7 +101,6 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
@@ -159,11 +152,6 @@ object SettingsAdvancedScreen : SearchableSettings {
                 },
             ),
             Preference.PreferenceItem.SwitchPreference(
-                preference = libraryPreferences.showMangaSourceName,
-                title = stringResource(TDMR.strings.pref_show_manga_source_name),
-                subtitle = stringResource(TDMR.strings.pref_show_manga_source_name_summary),
-            ),
-            Preference.PreferenceItem.SwitchPreference(
                 preference = libraryPreferences.experimentalLibraryPagination,
                 title = stringResource(TDMR.strings.pref_experimental_library_pagination),
                 subtitle = stringResource(TDMR.strings.pref_experimental_library_pagination_summary),
@@ -206,9 +194,8 @@ object SettingsAdvancedScreen : SearchableSettings {
             getDataGroup(),
             getNetworkGroup(networkPreferences = networkPreferences),
             getLibraryGroup(libraryPreferences = libraryPreferences),
-            getReaderGroup(basePreferences = basePreferences),
             getNovelReaderGroup(),
-            getExtensionsGroup(basePreferences = basePreferences),
+            getJsPluginsGroup(basePreferences = basePreferences),
             getMassImportGroup(novelDownloadPreferences = novelDownloadPreferences),
         )
     }
@@ -501,10 +488,10 @@ object SettingsAdvancedScreen : SearchableSettings {
         if (showNormalizeUrlsDialog) {
             AlertDialog(
                 onDismissRequest = { showNormalizeUrlsDialog = false },
-                title = { Text(text = "Normalize manga URLs") },
+                title = { Text(text = "Normalize novel URLs") },
                 text = {
                     Column {
-                        Text(text = "This will clean up manga URLs in your library:")
+                        Text(text = "This will clean up novel URLs in your library:")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(text = "• Remove trailing slashes")
                         Text(text = "• Remove URL fragments (#...)")
@@ -529,7 +516,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 if (duplicateUrls.isNotEmpty()) {
                                     showDuplicatesDialog = true
                                 }
-                                context.toast("Normalized ${result.first} manga URLs")
+                                context.toast("Normalized ${result.first} novel URLs")
                                 showNormalizeUrlsDialog = false
                             }
                         },
@@ -590,7 +577,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     text = {
                         Column {
                             Text(
-                                text = "This will unfavorite manga entries that would have duplicate URLs after normalization.",
+                                text = "This will unfavorite novel entries that would have duplicate URLs after normalization.",
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(text = "For each group of duplicates, only the first entry will be kept.")
@@ -1198,7 +1185,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                                     appendLine()
                                     appendLine("--- Averages ---")
                                     appendLine("Avg chapter text: %.1f bytes".format(avgChapterBytes))
-                                    appendLine("Avg manga description: %.1f bytes".format(avgDescBytes))
+                                    appendLine("Avg novel description: %.1f bytes".format(avgDescBytes))
 
                                     // Size estimation breakdown
                                     val chapterCount = tableCounts["chapters"] ?: 0L
@@ -1217,7 +1204,7 @@ object SettingsAdvancedScreen : SearchableSettings {
 
                                         if (avgDescBytes > 0 && mangaCount > 0) {
                                             val estMangaSize = (mangaCount * (200 + avgDescBytes)).toLong()
-                                            appendLine("Manga data: ~${formatSize(estMangaSize)}")
+                                            appendLine("Novel data: ~${formatSize(estMangaSize)}")
                                         }
                                     }
                                 }
@@ -1249,13 +1236,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_normalize_urls),
-                    subtitle = stringResource(MR.strings.pref_normalize_urls_subtitle),
+                    title = stringResource(TDMR.strings.pref_normalize_novel_urls),
+                    subtitle = stringResource(TDMR.strings.pref_normalize_novel_urls_summary),
                     onClick = { showNormalizeUrlsDialog = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_remove_duplicate_urls),
-                    subtitle = stringResource(MR.strings.pref_remove_duplicate_urls_subtitle),
+                    subtitle = stringResource(TDMR.strings.pref_remove_duplicate_novel_urls_summary),
                     onClick = { showRemoveDuplicatesDialog = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
@@ -1524,27 +1511,10 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_refresh_library_covers),
                     onClick = { MetadataUpdateJob.startNow(context) },
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_reset_viewer_flags),
-                    subtitle = stringResource(MR.strings.pref_reset_viewer_flags_summary),
-                    onClick = {
-                        scope.launchNonCancellable {
-                            val success = Injekt.get<ResetViewerFlags>().await()
-                            withUIContext {
-                                val message = if (success) {
-                                    MR.strings.pref_reset_viewer_flags_success
-                                } else {
-                                    MR.strings.pref_reset_viewer_flags_error
-                                }
-                                context.toast(message)
-                            }
-                        }
-                    },
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.updateMangaTitles,
-                    title = stringResource(MR.strings.pref_update_library_manga_titles),
-                    subtitle = stringResource(MR.strings.pref_update_library_manga_titles_summary),
+                    title = stringResource(TDMR.strings.pref_update_library_novel_titles),
+                    subtitle = stringResource(TDMR.strings.pref_update_library_novel_titles_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.disallowNonAsciiFilenames,
@@ -1557,124 +1527,12 @@ object SettingsAdvancedScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getReaderGroup(
+    private fun getJsPluginsGroup(
         basePreferences: BasePreferences,
     ): Preference.PreferenceGroup {
-        val context = LocalContext.current
-        val chooseColorProfile = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.OpenDocument(),
-        ) { uri ->
-            uri?.let {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(uri, flags)
-                basePreferences.displayProfile.set(uri.toString())
-            }
-        }
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_category_reader),
+            title = stringResource(TDMR.strings.pref_category_js_plugins),
             preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = basePreferences.hardwareBitmapThreshold,
-                    entries = GLUtil.CUSTOM_TEXTURE_LIMIT_OPTIONS
-                        .mapIndexed { index, option ->
-                            val display = if (index == 0) {
-                                stringResource(MR.strings.pref_hardware_bitmap_threshold_default, option)
-                            } else {
-                                option.toString()
-                            }
-                            option to display
-                        }
-                        .toMap(),
-                    title = stringResource(MR.strings.pref_hardware_bitmap_threshold),
-                    subtitleProvider = { value, options ->
-                        stringResource(MR.strings.pref_hardware_bitmap_threshold_summary, options[value].orEmpty())
-                    },
-                    enabled = !ImageUtil.HARDWARE_BITMAP_UNSUPPORTED &&
-                        GLUtil.DEVICE_TEXTURE_LIMIT > GLUtil.SAFE_TEXTURE_LIMIT,
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = basePreferences.alwaysDecodeLongStripWithSSIV,
-                    title = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_2),
-                    subtitle = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_summary),
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_display_profile),
-                    subtitle = basePreferences.displayProfile.get(),
-                    onClick = {
-                        chooseColorProfile.launch(arrayOf("*/*"))
-                    },
-                ),
-            ),
-        )
-    }
-
-    @Composable
-    private fun getExtensionsGroup(
-        basePreferences: BasePreferences,
-    ): Preference.PreferenceGroup {
-        val context = LocalContext.current
-        val uriHandler = LocalUriHandler.current
-        val extensionInstallerPref = basePreferences.extensionInstaller
-        var shizukuMissing by rememberSaveable { mutableStateOf(false) }
-        val trustExtension = remember { Injekt.get<TrustExtension>() }
-
-        if (shizukuMissing) {
-            val dismiss = { shizukuMissing = false }
-            AlertDialog(
-                onDismissRequest = dismiss,
-                title = { Text(text = stringResource(MR.strings.ext_installer_shizuku)) },
-                text = { Text(text = stringResource(MR.strings.ext_installer_shizuku_unavailable_dialog)) },
-                dismissButton = {
-                    TextButton(onClick = dismiss) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            dismiss()
-                            uriHandler.openUri("https://shizuku.rikka.app/download")
-                        },
-                    ) {
-                        Text(text = stringResource(MR.strings.action_ok))
-                    }
-                },
-            )
-        }
-        return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.label_extensions),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = extensionInstallerPref,
-                    entries = extensionInstallerPref.entries
-                        .filter {
-                            // TODO: allow private option in stable versions once URL handling is more fleshed out
-                            if (isReleaseBuildType) {
-                                it != BasePreferences.ExtensionInstaller.PRIVATE
-                            } else {
-                                true
-                            }
-                        }
-                        .associateWith { stringResource(it.titleRes) },
-                    title = stringResource(MR.strings.ext_installer_pref),
-                    onValueChanged = {
-                        if (it == BasePreferences.ExtensionInstaller.SHIZUKU &&
-                            !context.isShizukuInstalled
-                        ) {
-                            shizukuMissing = true
-                            false
-                        } else {
-                            true
-                        }
-                    },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.ext_revoke_trust),
-                    onClick = {
-                        trustExtension.revokeAll()
-                        context.toast(MR.strings.requires_app_restart)
-                    },
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = basePreferences.jsPluginNativeCheerio,
                     title = stringResource(TDMR.strings.pref_js_plugin_native_cheerio),

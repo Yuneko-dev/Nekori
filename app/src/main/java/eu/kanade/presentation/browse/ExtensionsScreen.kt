@@ -56,7 +56,6 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
-import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import tachiyomi.i18n.MR
@@ -79,7 +78,7 @@ fun ExtensionScreen(
     searchQuery: String?,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
+    onOpenWebView: (Extension) -> Unit,
     onInstallExtension: (Extension) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension) -> Unit,
@@ -88,6 +87,7 @@ fun ExtensionScreen(
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
     onEmptyReposAction: (() -> Unit)? = null,
+    emptyReposLabel: StringResource = MR.strings.extensionStores,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -109,7 +109,7 @@ fun ExtensionScreen(
                     modifier = Modifier.padding(contentPadding),
                     actions = listOf(
                         EmptyScreenAction(
-                            stringRes = MR.strings.extensionStores,
+                            stringRes = emptyReposLabel,
                             icon = Icons.Outlined.Settings,
                             onClick = onEmptyReposAction ?: { navigator.push(ExtensionStoresScreen()) },
                         ),
@@ -141,7 +141,7 @@ private fun ExtensionContent(
     contentPadding: PaddingValues,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
+    onOpenWebView: (Extension) -> Unit,
     onInstallExtension: (Extension) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension) -> Unit,
@@ -150,7 +150,6 @@ private fun ExtensionContent(
     onClickUpdateAll: () -> Unit,
 ) {
     val context = LocalContext.current
-    val navigator = LocalNavigator.currentOrThrow
     var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
     val installGranted = rememberRequestPackageInstallsPermissionState(initialValue = true)
 
@@ -251,18 +250,7 @@ private fun ExtensionContent(
                         when (it) {
                             is Extension.Available -> onOpenWebView(it)
                             is Extension.Installed -> onOpenExtension(it)
-                            is Extension.JsPlugin -> {
-                                // Handle web view for JS plugins using sources
-                                it.sources.getOrNull(0)?.let { source ->
-                                    navigator.push(
-                                        WebViewScreen(
-                                            url = source.baseUrl,
-                                            initialTitle = source.name,
-                                            sourceId = source.id,
-                                        ),
-                                    )
-                                }
-                            }
+                            is Extension.JsPlugin -> onOpenWebView(it)
                             else -> {}
                         }
                     },
@@ -416,6 +404,7 @@ private fun ExtensionItemContent(
                 val warning = when {
                     extension is Extension.Untrusted -> MR.strings.ext_untrusted
                     extension is Extension.Installed && extension.isObsolete -> MR.strings.ext_obsolete
+                    extension.isNsfw && extension is Extension.JsPlugin -> null
                     extension.isNsfw -> MR.strings.ext_nsfw_short
                     else -> null
                 }
@@ -437,6 +426,14 @@ private fun ExtensionItemContent(
                 }
 
                 if (extension is Extension.JsPlugin) {
+                    if (extension.isNsfw) {
+                        if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
+                        Text(
+                            text = "18+",
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        hasAlreadyShownAnElement = true
+                    }
                     if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
                     hasAlreadyShownAnElement = true
                     Text(

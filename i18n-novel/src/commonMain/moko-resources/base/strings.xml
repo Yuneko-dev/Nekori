@@ -458,7 +458,7 @@
     <string name="novel_blue_format">Blue: %d</string>
 
     <!-- Novel Download Queue -->
-    <string name="novel_downloads_title">Novel Downloads</string>
+    <string name="novel_downloads_title">Downloads</string>
     <string name="novel_downloads_clear_completed">Clear completed</string>
     <string name="novel_downloads_chapters_format">%1$d/%2$d chapters</string>
     <string name="novel_downloads_more_options">More options</string>
@@ -469,15 +469,6 @@
     <string name="novel_downloads_copy_error">Copy error details</string>
     <string name="novel_downloads_more_errors">+%d more</string>
     <string name="novel_downloads_show_less">Show less</string>
-
-    <!-- JS Plugins Tab -->
-    <string name="js_plugin_manage_repos">Manage Repositories</string>
-    <string name="js_plugin_update_all">Update all (%d)</string>
-    <string name="js_plugin_badge">JS</string>
-    <string name="js_plugin_update_badge">UPDATE</string>
-    <string name="js_plugin_repos_title">JS Plugin Repositories</string>
-    <string name="js_plugin_add_repo">Add Repository</string>
-    <string name="js_plugin_repo_name">Name</string>
     <string name="js_plugin_repo_url">URL</string>
 
     <!-- Some novel settings -->
@@ -556,7 +547,7 @@
     <string name="pref_novel_css_snippets">CSS Snippets</string>
 
     <!-- Novel Download Throttling (category headers only) -->
-    <string name="pref_category_novel_downloads">Novel Downloads</string>
+    <string name="pref_category_novel_downloads">Downloads</string>
     <string name="pref_novel_source_overrides">Source-specific overrides</string>
     <string name="pref_novel_source_overrides_summary">Configure delays for specific sources</string>
 
@@ -777,7 +768,7 @@
     <string name="custom_sources_test">Test</string>
     <string name="custom_sources_export">Export</string>
     <string name="pref_novel_extension_repos">Novel extension repos</string>
-    <string name="pref_novel_extension_repos_summary">Manage JS plugin and novel extension repositories</string>
+    <string name="pref_novel_extension_repos_summary">Manage JavaScript plugin repositories</string>
     <string name="custom_sources_use_webview_selector">Use WebView Element Selector</string>
     <string name="custom_sources_use_webview_selector_summary">Guided setup to select elements visually</string>
     <string name="custom_sources_open_webview_wizard">Open WebView Setup</string>
@@ -830,8 +821,6 @@
     <string name="skip_recently_updated_subtitle">Skip entries that were recently updated during bulk updates</string>
     <string name="skip_update_no_restriction">No restriction</string>
     <string name="skip_update_days">Skip if updated in last %d day(s)</string>
-    <string name="novel_ext_repos_js_header">JS Plugin Repos</string>
-    <string name="novel_ext_repos_kt_header">Kotlin Extension Repos</string>
 
     <!-- Library clear notifications -->
     <string name="channel_library_clear">Library Clear</string>
@@ -863,8 +852,16 @@
     <string name="db_maintenance_started">Database maintenance started &#8212; check notifications for progress</string>
 
     <string name="action_sort_source_name">Source name</string>
-    <string name="pref_show_manga_source_name">Show source name in manga details</string>
-    <string name="pref_show_manga_source_name_summary">Display source name under status on manga details screen</string>
+    <string name="pref_show_manga_source_name">Show source name in novel details</string>
+    <string name="pref_show_manga_source_name_summary">Display source name under status on the novel details screen</string>
+    <string name="pref_update_library_novel_titles">Update novel titles</string>
+    <string name="pref_update_library_novel_titles_summary">Refresh titles when updating library entries</string>
+    <string name="pref_normalize_novel_urls">Normalize novel URLs</string>
+    <string name="pref_normalize_novel_urls_summary">Remove trailing slashes from all novel URLs</string>
+    <string name="pref_remove_duplicate_novel_urls_summary">Unfavorite duplicate novels that have the same URL</string>
+    <string name="pref_category_js_plugins">JavaScript plugins</string>
+    <string name="onboarding_permission_install_updates">Install app updates</string>
+    <string name="onboarding_permission_install_updates_description">Allow Tsundoku to install APK updates downloaded by the in-app updater</string>
     <string name="pref_experimental_library_pagination">Experimental: paginate library (reduce memory)</string>
     <string name="pref_experimental_library_pagination_summary">Load each category a page at a time (default 300, newest first) and load more as you scroll, instead of holding the whole library in memory. Sorting, filtering and search apply to the entries loaded so far. Restart after changing.</string>
     <string name="pref_experimental_library_page_size">Experimental: library page size</string>

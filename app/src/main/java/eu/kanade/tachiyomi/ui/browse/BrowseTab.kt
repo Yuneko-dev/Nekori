@@ -16,8 +16,8 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.jsplugin.JsPluginsScreenModel
-import eu.kanade.tachiyomi.ui.browse.jsplugin.jsPluginsTab
+import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionsScreenModel
+import eu.kanade.tachiyomi.ui.browse.extension.novelExtensionsTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.novelMigrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.novelSourcesTab
@@ -56,12 +56,12 @@ data object BrowseTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
-        val pluginsScreenModel = rememberScreenModel { JsPluginsScreenModel() }
-        val pluginsState by pluginsScreenModel.state.collectAsState()
-        val pluginsTabIndex = 1
+        val extensionsScreenModel = rememberScreenModel { NovelExtensionsScreenModel() }
+        val extensionsState by extensionsScreenModel.state.collectAsState()
+        val extensionsTabIndex = 1
         val tabs = listOf(
             novelSourcesTab(),
-            jsPluginsTab(pluginsScreenModel),
+            novelExtensionsTab(extensionsScreenModel),
             novelMigrateSourceTab(),
         )
 
@@ -71,17 +71,17 @@ data object BrowseTab : Tab {
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
-            searchQuery = pluginsState.searchQuery.takeIf { state.currentPage == pluginsTabIndex },
+            searchQuery = extensionsState.searchQuery.takeIf { state.currentPage == extensionsTabIndex },
             onChangeSearchQuery = { query ->
-                if (state.currentPage == pluginsTabIndex) {
-                    pluginsScreenModel.search(query)
+                if (state.currentPage == extensionsTabIndex) {
+                    extensionsScreenModel.search(query)
                 }
             },
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()
                 .collectLatest {
-                    state.scrollToPage(pluginsTabIndex)
+                    state.scrollToPage(extensionsTabIndex)
                 }
         }
 

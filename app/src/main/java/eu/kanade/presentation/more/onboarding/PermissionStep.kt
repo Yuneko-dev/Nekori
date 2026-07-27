@@ -39,7 +39,9 @@ import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import eu.kanade.tachiyomi.util.system.telemetryIncluded
+import eu.kanade.tachiyomi.util.system.updaterEnabled
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.secondaryItemAlpha
@@ -81,14 +83,16 @@ internal class PermissionStep : OnboardingStep {
         }
 
         Column {
-            PermissionCheckbox(
-                title = stringResource(MR.strings.onboarding_permission_install_apps),
-                subtitle = stringResource(MR.strings.onboarding_permission_install_apps_description),
-                granted = installGranted,
-                onButtonClick = {
-                    context.launchRequestPackageInstallsPermission()
-                },
-            )
+            if (updaterEnabled) {
+                PermissionCheckbox(
+                    title = stringResource(TDMR.strings.onboarding_permission_install_updates),
+                    subtitle = stringResource(TDMR.strings.onboarding_permission_install_updates_description),
+                    granted = installGranted,
+                    onButtonClick = {
+                        context.launchRequestPackageInstallsPermission()
+                    },
+                )
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val permissionRequester = rememberLauncherForActivityResult(

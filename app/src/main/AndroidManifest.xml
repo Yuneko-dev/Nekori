@@ -2,11 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Query for extension packages that declare the tachiyomi.extension feature -->
     <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-        </intent>
         <!-- Needed to detect Google Play Services availability for telemetry init -->
         <package android:name="com.google.android.gms" />
     </queries>
@@ -27,14 +23,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- For managing extensions -->
+    <!-- Required by the optional in-app APK updater -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
-    <!-- To view extension packages in API 30+ -->
-    <uses-permission
-        android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
@@ -70,17 +60,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Legacy deeplink to add extension store -->
-            <intent-filter android:label="@string/action_addExtensionStore">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="tachiyomi" />
-                <data android:host="add-repo" />
-            </intent-filter>
-
             <intent-filter android:label="@string/action_add_repo">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -90,17 +69,6 @@
                 <data android:scheme="lnreader" />
                 <data android:host="repo" />
                 <data android:pathPrefix="/add" />
-            </intent-filter>
-
-            <!-- Deeplink to add extension store -->
-            <intent-filter android:label="@string/action_addExtensionStore">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="mihon" />
-                <data android:host="extension-store" />
             </intent-filter>
 
             <!-- Open backup files -->
@@ -261,11 +229,6 @@
             android:exported="false" />
 
         <activity
-            android:name=".extension.util.ExtensionInstallActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
-        <activity
             android:name=".ui.setting.track.TrackLoginActivity"
             android:exported="true"
             android:label="@string/track_activity_name">
@@ -289,11 +252,6 @@
         <receiver
             android:name=".data.notification.NotificationReceiver"
             android:exported="false" />
-
-        <service
-            android:name=".extension.util.ExtensionInstallService"
-            android:exported="false"
-            android:foregroundServiceType="shortService" />
 
         <service
             android:name=".ui.reader.service.TtsPlaybackService"
@@ -323,14 +281,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
         </provider>
-
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:enabled="true"
-            android:exported="true"
-            android:multiprocess="false"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <meta-data
             android:name="android.webkit.WebView.EnableSafeBrowsing"

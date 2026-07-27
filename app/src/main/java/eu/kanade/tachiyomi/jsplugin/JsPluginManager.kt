@@ -367,19 +367,21 @@ class JsPluginManager(
     /**
      * Add a new repository
      */
-    fun addRepository(name: String, url: String) {
-        logcat(LogPriority.INFO) { "JsPluginManager: addRepository called — name='$name', url='$url'" }
+    fun addRepository(url: String) {
+        val normalizedUrl = url.trim()
+        val name = JsPluginRepository.nameFromUrl(normalizedUrl)
+        logcat(LogPriority.INFO) { "JsPluginManager: addRepository called — name='$name', url='$normalizedUrl'" }
         _repositories.update { current ->
-            if (current.any { it.url == url }) {
-                logcat(LogPriority.DEBUG) { "JsPluginManager: repo already exists, skipping: $url" }
+            if (current.any { it.url == normalizedUrl }) {
+                logcat(LogPriority.DEBUG) { "JsPluginManager: repo already exists, skipping: $normalizedUrl" }
                 current
             } else {
                 logcat(LogPriority.INFO) { "JsPluginManager: adding new repo — total will be ${current.size + 1}" }
-                current + JsPluginRepository(name, url)
+                current + JsPluginRepository(name, normalizedUrl)
             }
         }
         saveRepositories()
-        scope.launch { refreshAvailablePlugins() }
+        scope.launch { refreshAvailablePlugins(forceRefresh = true) }
     }
 
     /**

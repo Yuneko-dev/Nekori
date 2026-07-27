@@ -160,14 +160,9 @@ object SettingsTrackingScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_auto_update_manga_on_mark_read),
             ),
             Preference.PreferenceItem.EditTextPreference(
-                preference = trackPreferences.minChaptersBeforeTrackingManga,
-                title = "Minimum chapters before tracking (Manga)",
-                subtitle = "Number of chapters that must be read before auto-tracking starts for manga (0 = always track)",
-            ),
-            Preference.PreferenceItem.EditTextPreference(
                 preference = trackPreferences.minChaptersBeforeTrackingNovel,
-                title = "Minimum chapters before tracking (Novels)",
-                subtitle = "Number of chapters that must be read before auto-tracking starts for novels (0 = always track)",
+                title = "Minimum chapters before tracking",
+                subtitle = "Number of chapters that must be read before auto-tracking starts (0 = always track)",
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
