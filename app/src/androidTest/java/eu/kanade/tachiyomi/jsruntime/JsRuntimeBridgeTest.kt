@@ -154,14 +154,9 @@ class JsRuntimeBridgeTest {
             const dayjs = require('dayjs');
             const urlencode = require('urlencode');
             const { NodeHtmlMarkdown } = require('node-html-markdown');
-            const protobuf = require('protobufjs');
-            const entities = require('html-entities');
-            const lodash = require('lodash-es');
-            const { Buffer } = require('buffer');
-            const crypto = require('crypto');
-            const stream = require('stream');
             const aes = require('@libs/aes');
             const fetchHelpers = require('@libs/fetch');
+            const utils = require('@libs/utils');
 
             exports.default = {
               id: 'modules.test',
@@ -182,13 +177,10 @@ class JsRuntimeBridgeTest {
                   dayjs: dayjs('2020-01-02').format('YYYY'),
                   urlencode: urlencode.decode(urlencode.encode('a b')),
                   markdown: NodeHtmlMarkdown.translate('<strong>bold</strong>'),
-                  protobuf: protobuf.parse('message Ping { optional string value = 1; }').root.lookupType('Ping').name,
-                  entities: entities.decode('&amp;'),
-                  lodash: lodash.chunk([1, 2, 3], 2).length,
-                  buffer: Buffer.from('ok').toString('hex'),
-                  crypto: crypto.createHash('sha256').update('abc').digest('hex').slice(0, 8),
-                  random: crypto.randomBytes(8).length,
-                  stream: typeof stream.Readable,
+                  entities: utils.decodeHtmlEntities('&amp;'),
+                  buffer: utils.Buffer.from('ok').toString('hex'),
+                  crypto: utils.NodeCrypto.createHash('sha256').update('abc').digest('hex').slice(0, 8),
+                  random: utils.NodeCrypto.randomBytes(8).length,
                   aes: Array.from(decrypted).join(','),
                   fetch: [
                     typeof fetchHelpers.fetchApi,
@@ -212,13 +204,10 @@ class JsRuntimeBridgeTest {
         assertTrue(result, result.contains("\"dayjs\":\"2020\""))
         assertTrue(result, result.contains("\"urlencode\":\"a b\""))
         assertTrue(result, result.contains("\"markdown\":\"**bold**\""))
-        assertTrue(result, result.contains("\"protobuf\":\"Ping\""))
         assertTrue(result, result.contains("\"entities\":\"&\""))
-        assertTrue(result, result.contains("\"lodash\":2"))
         assertTrue(result, result.contains("\"buffer\":\"6f6b\""))
         assertTrue(result, result.contains("\"crypto\":\"ba7816bf\""))
         assertTrue(result, result.contains("\"random\":8"))
-        assertTrue(result, result.contains("\"stream\":\"function\""))
         assertTrue(result, result.contains("\"aes\":\"1,2,3\""))
         assertTrue(result, result.contains("\"fetch\":\"function,function,function,function\""))
     }

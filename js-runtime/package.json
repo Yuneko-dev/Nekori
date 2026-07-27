@@ -21,8 +21,6 @@
     "events": "^3.3.0",
     "html-entities": "^2.6.0",
     "htmlparser2": "^8.0.2",
-    "lodash-es": "^4.18.1",
-    "node-html-markdown": "^2.0.0",
     "protobufjs": "^8.7.1",
     "react": "19.2.8",
     "react-native": "0.86.0",
@@ -45,6 +43,7 @@
     "@react-native/codegen": "0.86.0",
     "@react-native/gradle-plugin": "0.86.0",
     "@react-native/metro-config": "0.86.0",
+    "@types/node": "^26.1.1",
     "@types/react": "19.2.17",
     "hermes-compiler": "250829098.0.14",
     "typescript": "5.9.2"

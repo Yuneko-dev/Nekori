@@ -1,5 +1,7 @@
 import type { Spec } from '../../../specs/NativeHostApi';
 
+// ! Todo: localStorage/sessionStorage
+
 type StoredValue = {
   created: number;
   expires?: number;

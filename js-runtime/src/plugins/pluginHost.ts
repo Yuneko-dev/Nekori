@@ -1,21 +1,93 @@
 import {
-  ContentType,
-  ContentWarning,
-  defaultCover,
-  fetchApi,
-  fetchFile,
-  fetchProto,
-  fetchText,
-  FilterTypes,
-  isAbsoluteUrl,
+  NodeHtmlMarkdown,
+  PostProcessResult,
+  TranslatorCollection,
+} from "./modules/node-html-markdown";
+import {
+  aeskw,
+  aeskwp,
+  aessiv,
+  cbc,
+  cfb,
+  cmac,
+  ctr,
+  ecb,
+  gcm,
+  gcmsiv,
+} from "@noble/ciphers/aes.js";
+import { bytesToUtf8, utf8ToBytes } from "@noble/ciphers/utils.js";
+// import CookieManager from "@preeternal/react-native-cookie-manager";
+import { load } from "cheerio";
+import dayjs from "dayjs";
+import {
+  decode as decodeHtmlEntities,
+  encode as encodeHtmlEntities,
+} from "html-entities";
+import { Parser } from "htmlparser2";
+import { decode, encode } from "urlencode";
+
+import { createVolumePage, VOLUME_PAGE_MARKER } from "./helpers/chapterPage";
+import {
+  solveCloudflareAPI,
+  solveCloudflareTurnstileAPI,
+} from "./helpers/cloudflareStore";
+import { defaultCover } from "./helpers/constants";
+import { fetchApi, fetchFile, fetchProto, fetchText } from "./helpers/fetch";
+import { isUrlAbsolute } from "./helpers/isAbsoluteUrl";
+import {
   NovelStatus,
-  unsupportedWebView,
-} from './libs';
+  Plugin,
+  PluginContentType,
+  PluginContentWarning,
+  PluginItem,
+} from "./types";
+import { FilterTypes } from "./types/filterTypes";
+import { Buffer } from "buffer";
+import NodeCrypto from "crypto-browserify";
+
 import {
   hydratePluginStorage,
   removePluginStorageContext,
   storageModule,
-} from './helpers/storage';
+} from "./helpers/storage";
+
+const contentWarningValues = new Set<number>([
+  PluginContentWarning.UNSPECIFIED,
+  PluginContentWarning.SAFE,
+  PluginContentWarning.MIXED,
+  PluginContentWarning.NSFW,
+]);
+
+const contentTypeValues = new Set<string>(Object.values(PluginContentType));
+
+const normalizePluginContentWarning = (
+  contentWarning: unknown,
+): PluginContentWarning => {
+  return typeof contentWarning === "number" &&
+    contentWarningValues.has(contentWarning)
+    ? contentWarning
+    : PluginContentWarning.UNSPECIFIED;
+};
+
+const normalizePluginContentType = (
+  contentType: unknown,
+): PluginContentType => {
+  return typeof contentType === "string" && contentTypeValues.has(contentType)
+    ? (contentType as PluginContentType)
+    : PluginContentType.NOVEL;
+};
+
+const normalizePluginMetadata = (plugin: PluginItem): PluginItem => ({
+  ...plugin,
+  contentWarning: normalizePluginContentWarning(plugin.contentWarning),
+  contentType: normalizePluginContentType(plugin.contentType),
+});
+
+const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
+  plugin.contentWarning = normalizePluginContentWarning(plugin.contentWarning);
+  plugin.contentType = normalizePluginContentType(plugin.contentType);
+  return plugin;
+};
 
 /**
  * Loads and runs LNReader plugins.
@@ -26,86 +98,69 @@ import {
  * all is the question this spike exists to answer** — Hermes ships without `eval` in some
  * configurations, and every LNReader plugin is fetched as source at runtime.
  */
-
-type Plugin = {
-  [key: string]: unknown;
-  id: string;
-  name: string;
-  version: string;
-  site: string;
-  /** Declared filter definitions; each entry carries its own default `value`. */
-  filters?: Record<string, { value: unknown }>;
-  popularNovels: (page: number, options: unknown) => Promise<unknown[]>;
-  searchNovels: (query: string, page: number) => Promise<unknown[]>;
-  parseNovel: (path: string) => Promise<unknown>;
-  /** Present only on paged/volume sources — Báo Mới is one. */
-  parsePage: (path: string, page: string) => Promise<unknown>;
-  parseChapter: (path: string) => Promise<string>;
+const packages: Record<string, unknown> = {
+  "@libs/novelStatus": { NovelStatus },
+  "@libs/filterInputs": { FilterTypes },
+  "@libs/defaultCover": { defaultCover },
+  "@libs/fetch": { fetchApi, fetchFile, fetchProto, fetchText },
+  "@libs/isAbsoluteUrl": { isUrlAbsolute },
+  "@libs/aes": { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
+  htmlparser2: { Parser },
+  cheerio: { load },
+  dayjs: dayjs,
+  urlencode: { encode, decode },
+  "node-html-markdown": {
+    NodeHtmlMarkdown,
+    PostProcessResult,
+    TranslatorCollection,
+  },
+  "@libs/utils": {
+    createVolumePage,
+    VOLUME_PAGE_MARKER,
+    utf8ToBytes,
+    bytesToUtf8,
+    Buffer,
+    encodeHtmlEntities,
+    decodeHtmlEntities,
+    NodeCrypto,
+    // ! Todo
+    getUserAgent: () => "",
+  },
+  // ! todo: implement cookie support
+  "@libs/cookie": {
+    set: () => null,
+    setFromResponse: () => null,
+    get: () => null,
+    flush: () => null,
+    removeSessionCookies: () => null,
+  },
+  /*
+    '@libs/cookie': {
+    set: CookieManager.set,
+    setFromResponse: CookieManager.setFromResponse,
+    get: CookieManager.get,
+    flush: CookieManager.flush,
+    removeSessionCookies: CookieManager.removeSessionCookies,
+  },
+  */
+  "@libs/pluginMetadata": {
+    ContentWarning: PluginContentWarning,
+    ContentType: PluginContentType,
+  },
+  "@libs/webview": {
+    solveCloudflare: solveCloudflareAPI,
+    solveCloudflareTurnstile: solveCloudflareTurnstileAPI,
+  },
 };
-
-const localPackages: Record<string, unknown> = {
-  '@libs/novelStatus': { NovelStatus },
-  '@libs/filterInputs': { FilterTypes },
-  '@libs/defaultCover': { defaultCover },
-  '@libs/fetch': { fetchApi, fetchFile, fetchProto, fetchText },
-  '@libs/isAbsoluteUrl': { isUrlAbsolute: isAbsoluteUrl },
-  '@libs/pluginMetadata': { ContentType, ContentWarning },
-  '@libs/webview': unsupportedWebView,
-};
-
-const packageAliases: Record<string, string> = {
-  '@libs/aes': '@noble/ciphers/aes.js',
-  '@libs/buffer': 'buffer',
-  '@libs/crypto': 'crypto-browserify',
-  'crypto': 'crypto-browserify',
-  'lodash': 'lodash-es',
-  'stream': 'stream-browserify',
-};
-
-const packageFactories: Record<string, () => unknown> = {
-  '@noble/ciphers/aes.js': () => require('@noble/ciphers/aes.js'),
-  'buffer': () => require('buffer'),
-  'cheerio': () => require('cheerio'),
-  'crypto-browserify': () => require('crypto-browserify'),
-  'dayjs': () => require('dayjs'),
-  'html-entities': () => require('html-entities'),
-  'htmlparser2': () => require('htmlparser2'),
-  'lodash-es': () => require('lodash-es'),
-  'node-html-markdown': () => require('node-html-markdown'),
-  'protobufjs': () => require('protobufjs'),
-  'stream-browserify': () => require('stream-browserify'),
-  'urlencode': () => require('urlencode'),
-};
-
-const resolvedPackages = new Map<string, unknown>();
-
-function resolvePackage(name: string): unknown {
-  const local = localPackages[name];
-  if (local !== undefined) return local;
-
-  const canonicalName = packageAliases[name] ?? name;
-  const cached = resolvedPackages.get(canonicalName);
-  if (cached !== undefined) return cached;
-
-  const factory = packageFactories[canonicalName];
-  if (!factory) {
-    // Never return {}. A missing module has to fail here, loudly, rather than turning into wrong
-    // data three call frames later.
-    throw new Error(`Plugin required "${name}", which is not implemented`);
-  }
-  const module = factory();
-  resolvedPackages.set(canonicalName, module);
-  return module;
-}
 
 const plugins = new Map<string, Plugin>();
 
 function makeRequire(runtimeKey: string): (name: string) => unknown {
   return (name: string) => {
-    if (name === '@libs/storage') {
+    if (name === "@libs/storage") {
       return storageModule(runtimeKey);
     }
-    const module = resolvePackage(name);
+    const module = packages[name];
     if (module === undefined) {
       // Never return {}. A missing module has to fail here, loudly, rather than turning into wrong
       // data three call frames later — the one rule the whole plugin layer is built on.
@@ -123,20 +178,46 @@ export async function initPlugin(
   await hydratePluginStorage(pluginId, runtimeKey);
   try {
     const plugin = Function(
-      'require',
-      'module',
-      `const exports = module.exports = {};\n${rawCode};\nreturn exports.default;`,
+      "require",
+      "module",
+      `const exports = module.exports = {};
+      ${rawCode};
+      return exports.default`,
     )(makeRequire(runtimeKey), {}) as Plugin | undefined;
 
     if (!plugin) {
       throw new Error(`Plugin "${pluginId}" evaluated but exported no default`);
     }
     if (plugin.id !== pluginId) {
-      throw new Error(`Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`);
+      throw new Error(
+        `Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`,
+      );
     }
 
-    plugins.set(runtimeKey, plugin);
-    return plugin;
+    /**
+     if (!plugin.imageRequestInit) {
+      plugin.imageRequestInit = {
+        headers: { "User-Agent": getUserAgent() },
+      };
+    } else {
+      if (!plugin.imageRequestInit.headers) {
+        plugin.imageRequestInit.headers = {};
+      }
+
+      const hasUserAgent = Object.keys(plugin.imageRequestInit.headers).some(
+        (header) => header.toLowerCase() === "user-agent",
+      );
+
+      if (!hasUserAgent) {
+        plugin.imageRequestInit.headers["User-Agent"] = getUserAgent();
+      }
+    }
+     */
+
+    const pluginNormalize = normalizeLoadedPluginMetadata(plugin);
+
+    plugins.set(runtimeKey, pluginNormalize);
+    return pluginNormalize;
   } catch (error) {
     removePluginStorageContext(runtimeKey);
     throw error;
@@ -159,9 +240,13 @@ export async function evaluatePlugin(
   const plugin = getPlugin(runtimeKey);
   if (siteOverride) {
     plugin.site = siteOverride;
+    // @ts-expect-error what is this?
     plugin.sourceSite = siteOverride;
   }
-  const result = Function('plugin', `return (${expression});`)(plugin) as unknown;
+  const result = Function(
+    "plugin",
+    `return (${expression});`,
+  )(plugin) as unknown;
   return Promise.resolve(result);
 }
 
