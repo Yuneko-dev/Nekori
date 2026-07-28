@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
@@ -93,6 +92,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.Headers
+import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseMaintenance
@@ -101,6 +101,7 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
@@ -125,7 +126,6 @@ object SettingsAdvancedScreen : SearchableSettings {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
-        val basePreferences = remember { Injekt.get<BasePreferences>() }
         val networkPreferences = remember { Injekt.get<NetworkPreferences>() }
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
         val novelDownloadPreferences = remember { Injekt.get<NovelDownloadPreferences>() }
@@ -150,6 +150,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     context.toast(MR.strings.requires_app_restart)
                     true
                 },
+            ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = libraryPreferences.showMangaSourceName,
+                title = stringResource(TDMR.strings.pref_show_manga_source_name),
+                subtitle = stringResource(TDMR.strings.pref_show_manga_source_name_summary),
             ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = libraryPreferences.experimentalLibraryPagination,
@@ -195,7 +200,6 @@ object SettingsAdvancedScreen : SearchableSettings {
             getNetworkGroup(networkPreferences = networkPreferences),
             getLibraryGroup(libraryPreferences = libraryPreferences),
             getNovelReaderGroup(),
-            getJsPluginsGroup(basePreferences = basePreferences),
             getMassImportGroup(novelDownloadPreferences = novelDownloadPreferences),
         )
     }
@@ -1511,10 +1515,27 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_refresh_library_covers),
                     onClick = { MetadataUpdateJob.startNow(context) },
                 ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_reset_viewer_flags),
+                    subtitle = stringResource(MR.strings.pref_reset_viewer_flags_summary),
+                    onClick = {
+                        scope.launchNonCancellable {
+                            val success = Injekt.get<ResetViewerFlags>().await()
+                            withUIContext {
+                                val message = if (success) {
+                                    MR.strings.pref_reset_viewer_flags_success
+                                } else {
+                                    MR.strings.pref_reset_viewer_flags_error
+                                }
+                                context.toast(message)
+                            }
+                        }
+                    },
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.updateMangaTitles,
-                    title = stringResource(TDMR.strings.pref_update_library_novel_titles),
-                    subtitle = stringResource(TDMR.strings.pref_update_library_novel_titles_summary),
+                    title = stringResource(MR.strings.pref_update_library_manga_titles),
+                    subtitle = stringResource(MR.strings.pref_update_library_manga_titles_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.disallowNonAsciiFilenames,
@@ -1522,22 +1543,6 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_disallow_non_ascii_filenames_details),
                 ),
 
-            ),
-        )
-    }
-
-    @Composable
-    private fun getJsPluginsGroup(
-        basePreferences: BasePreferences,
-    ): Preference.PreferenceGroup {
-        return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_category_js_plugins),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = basePreferences.jsPluginNativeCheerio,
-                    title = stringResource(TDMR.strings.pref_js_plugin_native_cheerio),
-                    subtitle = stringResource(TDMR.strings.pref_js_plugin_native_cheerio_summary),
-                ),
             ),
         )
     }

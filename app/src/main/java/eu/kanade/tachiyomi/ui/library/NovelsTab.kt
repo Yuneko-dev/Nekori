@@ -341,6 +341,7 @@ data object NovelsTab : Tab {
             is LibraryScreenModel.Dialog.CategoryAction -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = false,
+                    isCategoryAction = true,
                     onDismissRequest = onDismissRequest,
                     onConfirm = {
                             deleteManga,

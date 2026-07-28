@@ -148,7 +148,7 @@ private fun LibraryRegularToolbar(
             if (onClickImportEpub != null) {
                 actions.add(
                     AppBar.OverflowAction(
-                        title = "Import EPUB",
+                        title = stringResource(TDMR.strings.epub_import_title),
                         onClick = onClickImportEpub,
                     ),
                 )
@@ -157,7 +157,7 @@ private fun LibraryRegularToolbar(
             if (onClickFindDuplicates != null) {
                 actions.add(
                     AppBar.OverflowAction(
-                        title = "Find Duplicates",
+                        title = stringResource(MR.strings.duplicate_find_duplicates),
                         onClick = onClickFindDuplicates,
                     ),
                 )

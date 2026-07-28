@@ -878,19 +878,17 @@
     <string name="quick_migrate_complete_removed">Quick migrated %1$d entries, removed %2$d</string>
 
     <string name="action_sort_source_name">Source name</string>
-    <string name="pref_duplicate_sort_mode">Duplicate list order</string>
+    <string name="pref_duplicate_sort_mode">Duplicate suggestions order</string>
+    <string name="pref_duplicate_sort_mode_summary">Controls how possible duplicate entries are ordered when adding a novel</string>
     <string name="pref_migrate_source_sorting">Migrate source list sorting</string>
     <string name="pref_migrate_source_sorting_direction">Migrate source list order</string>
     <string name="pref_check_duplicate_on_add">Check for existing entries when adding to library</string>
     <string name="pref_check_duplicate_on_add_summary">Warn about possible duplicates already in your library before adding</string>
     <string name="pref_show_manga_source_name">Show source name in novel details</string>
     <string name="pref_show_manga_source_name_summary">Display source name under status on the novel details screen</string>
-    <string name="pref_update_library_novel_titles">Update novel titles</string>
-    <string name="pref_update_library_novel_titles_summary">Refresh titles when updating library entries</string>
     <string name="pref_normalize_novel_urls">Normalize novel URLs</string>
     <string name="pref_normalize_novel_urls_summary">Remove trailing slashes from all novel URLs</string>
     <string name="pref_remove_duplicate_novel_urls_summary">Unfavorite duplicate novels that have the same URL</string>
-    <string name="pref_category_js_plugins">JavaScript plugins</string>
     <string name="onboarding_permission_install_updates">Install app updates</string>
     <string name="onboarding_permission_install_updates_description">Allow Tsundoku to install APK updates downloaded by the in-app updater</string>
     <string name="pref_experimental_library_pagination">Experimental: paginate library (reduce memory)</string>
@@ -902,10 +900,10 @@
     <string name="pref_mass_import_separate_file_per_batch_summary">When importing multiple files at once, add each file as its own queue instead of joining them into one.</string>
     <string name="pref_mass_import_split_by_domain">Split by domain</string>
     <string name="pref_mass_import_split_by_domain_summary">Put each website\'s URLs in its own queue. Streamed to disk so large files won\'t run out of memory; queues past a safe limit are combined into one.</string>
-    <string name="pref_js_plugin_native_cheerio">Use native cheerio for JS plugins</string>
-    <string name="pref_js_plugin_native_cheerio_summary">Experimental: parse plugin HTML with bundled real cheerio (full API) instead of the Jsoup wrapper. Slower but more compatible. Reopen the chapter to apply.</string>
     <string name="action_hide_source_name">Hide source name</string>
     <string name="action_show_source_name">Show source name</string>
+    <string name="clear_category_data_summary">Applies the selected actions to every novel in the current category. The category itself is not deleted.</string>
+    <string name="clear_chapter_entries_warning">Deleting chapter entries also permanently deletes reading progress, history, bookmarks, and reading sessions.</string>
     <string name="prompt_save_changes">Save changes?</string>
     <string name="prompt_save_changes_message">Do you want to save your edits to this chapter?</string>
     <string name="action_discard">Discard</string>

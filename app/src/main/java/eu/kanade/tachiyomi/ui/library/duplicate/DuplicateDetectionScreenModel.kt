@@ -2,14 +2,11 @@ package eu.kanade.tachiyomi.ui.library.duplicate
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryClearJob
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
-import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
@@ -54,12 +51,6 @@ class DuplicateDetectionScreenModel(
         screenModelScope.coroutineContext.cancelChildren()
     }
 
-    enum class ContentType {
-        ALL,
-        MANGA,
-        NOVEL,
-    }
-
     enum class SourceType {
         JS,
         LOCAL,
@@ -83,7 +74,6 @@ class DuplicateDetectionScreenModel(
         val isLoading: Boolean = false,
         val hasStartedAnalysis: Boolean = false,
         val matchMode: DuplicateMatchMode = DuplicateMatchMode.EXACT,
-        val contentType: ContentType = ContentType.ALL,
         val duplicateGroups: Map<String, List<MangaWithChapterCount>> = emptyMap(),
         val selection: Set<Long> = emptySet(),
         val showDeleteDialog: Boolean = false,
@@ -101,7 +91,6 @@ class DuplicateDetectionScreenModel(
         val mangaDownloadCounts: Map<Long, Int> = emptyMap(),
         val mangaReadCounts: Map<Long, Int> = emptyMap(),
         val pinnedSourceIds: Set<Long> = emptySet(),
-        val novelSourceIds: Set<Long> = emptySet(),
         val sourcePriorities: Map<SourceType, Int> = SourceType.entries.associateWith { 0 },
         val specificSourcePriorities: Map<Long, Int> = emptyMap(),
         val sourceTypeMap: Map<Long, SourceType> = emptyMap(),
@@ -125,15 +114,7 @@ class DuplicateDetectionScreenModel(
             }
 
             val minGroupSize = if (listingMode) 1 else 2
-            val contentFiltered = when (contentType) {
-                ContentType.ALL -> searchFiltered
-                ContentType.MANGA -> searchFiltered.mapValues { (_, items) ->
-                    items.filter { it.manga.source !in novelSourceIds }
-                }.filter { it.value.size >= minGroupSize }
-                ContentType.NOVEL -> searchFiltered.mapValues { (_, items) ->
-                    items.filter { it.manga.source in novelSourceIds }
-                }.filter { it.value.size >= minGroupSize }
-            }
+            val contentFiltered = searchFiltered.filter { it.value.size >= minGroupSize }
 
             val filtered = if (selectedCategoryFilters.isEmpty() && excludedCategoryFilters.isEmpty()) {
                 contentFiltered
@@ -304,7 +285,9 @@ class DuplicateDetectionScreenModel(
 
     private fun loadCategories() {
         screenModelScope.launch(Dispatchers.IO) {
-            val categories = getCategories.await()
+            val categories = getCategories.await().filter {
+                it.contentType == Category.CONTENT_TYPE_ALL || it.contentType == Category.CONTENT_TYPE_NOVEL
+            }
             mutableState.update { it.copy(categories = categories) }
         }
     }
@@ -365,13 +348,10 @@ class DuplicateDetectionScreenModel(
                     categories.map { it.id }.toSet().ifEmpty { setOf(0L) }
                 }
 
-                // Cover sources of the whole selection set, not just the displayed page, so content-type
-                // and source-priority selection are correct beyond the materialized rows.
+                // Cover sources of the whole selection set, not just the displayed page, so
+                // source-priority selection is correct beyond the materialized rows.
                 val allSourceIds = (allMangaItems.map { it.manga.source } + selectionGroups.flatten().map { it.source })
                     .distinct()
-                val novelSourceIds = allSourceIds.filter { sourceId ->
-                    sourceManager.getOrStub(sourceId).isNovelSource()
-                }.toSet()
 
                 val sourceTypeMap = allSourceIds.associateWith { sourceId ->
                     classifySourceType(sourceId)
@@ -386,7 +366,6 @@ class DuplicateDetectionScreenModel(
                         duplicateGroups = groups,
                         mangaCategories = mangaCategoriesMap,
                         mangaCategoryIdSets = mangaCategoryIdSets,
-                        novelSourceIds = novelSourceIds,
                         sourceTypeMap = sourceTypeMap,
                         mangaDownloadCounts = downloadCounts,
                         mangaReadCounts = readCounts,
@@ -424,8 +403,8 @@ class DuplicateDetectionScreenModel(
 
     /**
      * Groups used by the bulk-selection actions. In listing mode this is the full lightweight set
-     * (well beyond the displayed page) filtered by content type; otherwise the displayed duplicate
-     * groups. Selection therefore covers every matching entry, not just the materialized rows.
+     * (well beyond the displayed page); otherwise the displayed duplicate groups. Selection therefore
+     * covers every matching novel, not just the materialized rows.
      */
     private fun selectionItemGroups(state: State): List<List<SelItem>> {
         // The full lightweight set carries no category membership, so it can only drive selection when
@@ -435,15 +414,7 @@ class DuplicateDetectionScreenModel(
         val categoryFilterActive =
             state.selectedCategoryFilters.isNotEmpty() || state.excludedCategoryFilters.isNotEmpty()
         return if (state.listingMode && !categoryFilterActive) {
-            val novelIds = state.novelSourceIds
-            state.selectionGroups.mapNotNull { group ->
-                val filtered = when (state.contentType) {
-                    ContentType.ALL -> group
-                    ContentType.MANGA -> group.filter { it.source !in novelIds }
-                    ContentType.NOVEL -> group.filter { it.source in novelIds }
-                }
-                filtered.ifEmpty { null }
-            }
+            state.selectionGroups.filter { it.isNotEmpty() }
         } else {
             val readCounts = state.mangaReadCounts
             state.filteredDuplicateGroups.values.map { group ->
@@ -464,11 +435,6 @@ class DuplicateDetectionScreenModel(
             mutableState.update { it.copy(matchMode = mode, selection = emptySet()) }
             loadDuplicates()
         }
-    }
-
-    fun setContentType(contentType: ContentType) {
-        mutableState.update { it.copy(contentType = contentType, selection = emptySet()) }
-        recomputeFiltered()
     }
 
     fun setListingMode(enabled: Boolean) {
@@ -665,9 +631,7 @@ class DuplicateDetectionScreenModel(
         recomputeFiltered()
     }
 
-    /**
-     * Classify a source by type: JS, KT, CUSTOM, LOCAL, or STUB.
-     */
+    /** Classify a source by type: JS, local, or unavailable. */
     private fun classifySourceType(sourceId: Long): SourceType {
         val source = sourceManager.get(sourceId) ?: return SourceType.STUB
         return when {
@@ -730,8 +694,8 @@ class DuplicateDetectionScreenModel(
                     url
                 } else {
                     when (val source = sourceManager.getOrStub(manga.source)) {
-                        is HttpSource -> try {
-                            source.getMangaUrl(manga.toSManga())
+                        is JsSource -> try {
+                            source.resolveUrl(url, isNovel = true)
                         } catch (_: Exception) {
                             source.baseUrl + url
                         }

@@ -110,11 +110,6 @@ class LibraryPreferences(
         TriState.DISABLED,
     )
 
-    fun filterNovel() = preferenceStore.getEnum(
-        "pref_filter_library_novel",
-        TriState.DISABLED,
-    )
-
     fun filterIntervalCustom() = preferenceStore.getEnum(
         "pref_filter_library_interval_custom",
         TriState.DISABLED,

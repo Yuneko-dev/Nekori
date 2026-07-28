@@ -22,7 +22,6 @@ import eu.kanade.tachiyomi.network.interceptor.BackgroundRateLimitGuard
 import eu.kanade.tachiyomi.network.interceptor.withRateLimitWaitUpdates
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
@@ -1171,8 +1170,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
     }
 
     private fun getImportSources(): List<CatalogueSource> {
-        return sourceManager.getAll().filterIsInstance<CatalogueSource>()
-            .filter { it is HttpSource || it is JsSource }
+        return sourceManager.getAll().filterIsInstance<JsSource>()
     }
 
     private suspend fun waitForMemoryPressure() {

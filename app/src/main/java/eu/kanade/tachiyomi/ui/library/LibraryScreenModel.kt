@@ -360,7 +360,6 @@ class LibraryScreenModel(
                 prefs.filterCompleted,
                 prefs.filterIntervalCustom,
                 prefs.filterNoTags,
-                prefs.filterNovel,
                 prefs.filterChapterCount,
                 *trackFilters.values.toTypedArray(),
             )
@@ -487,18 +486,12 @@ class LibraryScreenModel(
                 it.libraryManga.manga.source !in excludedSourceIds
             if (!extensionPasses) return@fastFilter false
 
-            // Novel filter
-            val novelPasses = applyFilter(preferences.filterNovel) { it.libraryManga.manga.isNovel }
-            if (!novelPasses) return@fastFilter false
-
             // Tags filter (more expensive, so do it last)
             if (
-                normalizedIncluded.isEmpty() &&
-                normalizedExcluded.isEmpty() &&
-                preferences.filterNoTags == TriState.DISABLED
+                normalizedIncluded.isNotEmpty() ||
+                normalizedExcluded.isNotEmpty() ||
+                preferences.filterNoTags != TriState.DISABLED
             ) {
-                true
-            } else {
                 val mangaTags = it.libraryManga.manga.genre.orEmpty()
 
                 val noTagsFilter = preferences.filterNoTags
@@ -531,8 +524,6 @@ class LibraryScreenModel(
                     }
                     if (!hasIncludedTag) return@fastFilter false
                 }
-
-                true
             }
 
             // Chapter count filter
@@ -693,7 +684,6 @@ class LibraryScreenModel(
                 libraryPreferences.filterCompleted.changes(),
                 libraryPreferences.filterIntervalCustom().changes(),
                 libraryPreferences.excludedExtensions.changes(),
-                libraryPreferences.filterNovel().changes(),
             ) { arr -> arr },
             combine(
                 libraryPreferences.includedTags.changes(),
@@ -720,7 +710,6 @@ class LibraryScreenModel(
                 filterCompleted = second[4] as TriState,
                 filterIntervalCustom = second[5] as TriState,
                 excludedExtensions = @Suppress("UNCHECKED_CAST") (second[6] as Set<String>),
-                filterNovel = second[7] as TriState,
                 includedTags = @Suppress("UNCHECKED_CAST") (third[0] as Set<String>),
                 excludedTags = @Suppress("UNCHECKED_CAST") (third[1] as Set<String>),
                 filterNoTags = third[2] as TriState,
@@ -1058,7 +1047,7 @@ class LibraryScreenModel(
 
     private suspend fun deleteDownloadsBySource(mangas: List<Manga>) {
         mangas.groupBy { it.source }.forEach { (sourceId, sourceMangas) ->
-            val source = sourceManager.get(sourceId) as? HttpSource ?: return@forEach
+            val source = sourceManager.get(sourceId) ?: return@forEach
             downloadManager.deleteMangas(sourceMangas, source)
         }
     }
@@ -2052,7 +2041,6 @@ class LibraryScreenModel(
         val filterCompleted: TriState,
         val filterIntervalCustom: TriState,
         val excludedExtensions: Set<String>,
-        val filterNovel: TriState,
         val includedTags: Set<String>,
         val excludedTags: Set<String>,
         val filterNoTags: TriState,

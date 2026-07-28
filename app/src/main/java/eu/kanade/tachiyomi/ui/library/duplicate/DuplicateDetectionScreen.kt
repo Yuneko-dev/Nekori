@@ -420,58 +420,6 @@ class DuplicateDetectionScreen : Screen {
                 @OptIn(ExperimentalLayoutApi::class)
                 AnimatedVisibility(visible = filtersExpanded) {
                     Column {
-                        // Content type selector (Manga/Novel/Both)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                stringResource(MR.strings.duplicate_type_label),
-                                style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.align(Alignment.CenterVertically),
-                            )
-                            FilterChip(
-                                selected = state.contentType == DuplicateDetectionScreenModel.ContentType.ALL,
-                                onClick = { screenModel.setContentType(DuplicateDetectionScreenModel.ContentType.ALL) },
-                                label = { Text(stringResource(MR.strings.duplicate_type_all)) },
-                                leadingIcon = if (state.contentType == DuplicateDetectionScreenModel.ContentType.ALL) {
-                                    { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                                } else {
-                                    null
-                                },
-                            )
-                            FilterChip(
-                                selected = state.contentType == DuplicateDetectionScreenModel.ContentType.MANGA,
-                                onClick = {
-                                    screenModel.setContentType(DuplicateDetectionScreenModel.ContentType.MANGA)
-                                },
-                                label = { Text(stringResource(MR.strings.duplicate_type_manga)) },
-                                leadingIcon = if (state.contentType ==
-                                    DuplicateDetectionScreenModel.ContentType.MANGA
-                                ) {
-                                    { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                                } else {
-                                    null
-                                },
-                            )
-                            FilterChip(
-                                selected = state.contentType == DuplicateDetectionScreenModel.ContentType.NOVEL,
-                                onClick = {
-                                    screenModel.setContentType(DuplicateDetectionScreenModel.ContentType.NOVEL)
-                                },
-                                label = { Text(stringResource(MR.strings.duplicate_type_novel)) },
-                                leadingIcon = if (state.contentType ==
-                                    DuplicateDetectionScreenModel.ContentType.NOVEL
-                                ) {
-                                    { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                                } else {
-                                    null
-                                },
-                            )
-                        }
-
                         // Show URLs toggle
                         Row(
                             modifier = Modifier
@@ -624,18 +572,6 @@ class DuplicateDetectionScreen : Screen {
 
                         // Tristate Category filters
                         if (state.categories.isNotEmpty()) {
-                            val relevantCategories = state.categories.filter { category ->
-                                when (state.contentType) {
-                                    DuplicateDetectionScreenModel.ContentType.ALL -> true
-                                    DuplicateDetectionScreenModel.ContentType.NOVEL ->
-                                        category.contentType == CategoryModel.CONTENT_TYPE_ALL ||
-                                            category.contentType == CategoryModel.CONTENT_TYPE_NOVEL
-                                    DuplicateDetectionScreenModel.ContentType.MANGA ->
-                                        category.contentType == CategoryModel.CONTENT_TYPE_ALL ||
-                                            category.contentType == CategoryModel.CONTENT_TYPE_MANGA
-                                }
-                            }
-
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -686,7 +622,7 @@ class DuplicateDetectionScreen : Screen {
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    relevantCategories.forEach { category ->
+                                    state.categories.forEach { category ->
                                         val isIncluded = category.id in state.selectedCategoryFilters
                                         val isExcluded = category.id in state.excludedCategoryFilters
                                         val displayName = category.name.ifBlank {

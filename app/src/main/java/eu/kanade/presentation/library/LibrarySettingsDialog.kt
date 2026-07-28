@@ -171,13 +171,6 @@ private fun ColumnScope.FilterPage(
         state = filterCompleted,
         onClick = { screenModel.toggleFilter(LibraryPreferences::filterCompleted) },
     )
-    val filterNovel by screenModel.libraryPreferences.filterNovel().collectAsState()
-    TriStateItem(
-        label = "Novel",
-        state = filterNovel,
-        onClick = { screenModel.toggleFilter(LibraryPreferences::filterNovel) },
-    )
-
     val filterChapterCount by screenModel.libraryPreferences.filterChapterCount().collectAsState()
     val chapterCountThreshold by screenModel.libraryPreferences.filterChapterCountThreshold.collectAsState()
     var thresholdText by remember { mutableStateOf(chapterCountThreshold.toString()) }

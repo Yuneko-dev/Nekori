@@ -2,6 +2,7 @@ package eu.kanade.presentation.library
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun DeleteLibraryMangaDialog(
     containsLocalManga: Boolean,
+    isCategoryAction: Boolean = false,
     onDismissRequest: () -> Unit,
     onConfirm: (
         removeFromLibrary: Boolean,
@@ -97,16 +99,29 @@ fun DeleteLibraryMangaDialog(
             }
         },
         title = {
-            Text(text = stringResource(MR.strings.action_remove))
+            Text(
+                text = stringResource(
+                    if (isCategoryAction) MR.strings.action_clear_category else MR.strings.action_remove,
+                ),
+            )
         },
         text = {
             Column {
+                if (isCategoryAction) {
+                    Text(text = stringResource(TDMR.strings.clear_category_data_summary))
+                }
                 checkboxItems.forEach { item ->
                     LabeledCheckbox(
                         label = stringResource(item.label),
                         checked = item.checked,
                         onCheckedChange = item.onCheckedChange,
                         enabled = item.enabled,
+                    )
+                }
+                if (clearChaptersFromDb) {
+                    Text(
+                        text = stringResource(TDMR.strings.clear_chapter_entries_warning),
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }

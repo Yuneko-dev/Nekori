@@ -4,7 +4,6 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.source.normalizeSourcePath
 import kotlinx.coroutines.Dispatchers
 import logcat.LogPriority
@@ -86,7 +85,7 @@ class MassImport(
     }
 
     private fun getAllSources(): List<CatalogueSource> {
-        return sourceManager.getAll().filterIsInstance<CatalogueSource>().filter { it is HttpSource || it is JsSource }
+        return sourceManager.getAll().filterIsInstance<JsSource>()
     }
 
     // Single source-matching algorithm shared by the analysis preview and the worker
@@ -147,17 +146,12 @@ class MassImport(
             it.lang in enabledLanguages && it.id.toString() !in disabledSources
         }
         val bestLangSources = if (enabledSources.isNotEmpty()) enabledSources else matchingSources
-        val kotlinSources = bestLangSources.filter { it !is JsSource }
 
-        return kotlinSources.firstOrNull() ?: bestLangSources.first()
+        return bestLangSources.first()
     }
 
     fun getSourceBaseUrl(source: CatalogueSource): String {
-        return when (source) {
-            is HttpSource -> source.baseUrl
-            is JsSource -> source.baseUrl
-            else -> ""
-        }
+        return (source as? JsSource)?.baseUrl.orEmpty()
     }
 
     fun extractPathFromUrl(url: String, baseUrl: String, source: CatalogueSource? = null): String {

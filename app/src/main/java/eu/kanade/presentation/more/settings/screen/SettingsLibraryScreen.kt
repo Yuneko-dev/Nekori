@@ -306,6 +306,7 @@ object SettingsLibraryScreen : SearchableSettings {
                             stringResource(MR.strings.action_sort_total),
                     ),
                     title = stringResource(TDMR.strings.pref_duplicate_sort_mode),
+                    subtitle = stringResource(TDMR.strings.pref_duplicate_sort_mode_summary),
                 ),
             )
             add(
@@ -328,15 +329,6 @@ object SettingsLibraryScreen : SearchableSettings {
                     title = stringResource(TDMR.strings.pref_migrate_source_sorting_direction),
                 ),
             )
-            if (!isJoined) {
-                add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = libraryPreferences.showMangaSourceName,
-                        title = stringResource(TDMR.strings.pref_show_manga_source_name),
-                        subtitle = stringResource(TDMR.strings.pref_show_manga_source_name_summary),
-                    ),
-                )
-            }
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.sortMangaTags,
