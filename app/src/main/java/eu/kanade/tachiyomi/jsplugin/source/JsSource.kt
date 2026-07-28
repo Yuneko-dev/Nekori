@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.novel.NovelStructureSource
 import eu.kanade.tachiyomi.util.lang.normalizeHtmlDescription
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -33,6 +35,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.model.NovelStructure
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -44,7 +48,7 @@ import java.util.Locale
  */
 class JsSource(
     private val installedPlugin: InstalledJsPlugin,
-) : CatalogueSource, ConfigurableSource {
+) : CatalogueSource, ConfigurableSource, NovelStructureSource {
 
     private val plugin: JsPlugin = installedPlugin.plugin
     private val jsCode: String = installedPlugin.code
@@ -61,8 +65,9 @@ class JsSource(
 
     @Volatile private var webStorageUtilized = false
 
-    // Chapter list may aggregate parseNovel + N parsePage calls; re-deriving it would refetch every page.
+    // parseNovel details and chapter list share one response.
     private val chaptersCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
+    private val novelStructures = java.util.concurrent.ConcurrentHashMap<String, NovelStructure>()
 
     // Short so a manual details/chapter-list refresh actually refetches.
     private val cacheTimeout = 60_000L
@@ -152,6 +157,8 @@ class JsSource(
 
     // Novel source marker
     override val isNovelSource: Boolean = true
+
+    override fun getNovelStructure(mangaUrl: String): NovelStructure? = novelStructures[mangaUrl]
 
     // Visible name of the source with language and JS marker
     override fun toString(): String = "$name (${lang.uppercase()}) (JS)"
@@ -495,7 +502,7 @@ class JsSource(
             parseNovelDetails(parseNovelCached(manga.url), manga)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Error in getMangaDetails for ${plugin.name}" }
-            manga
+            throw e
         }
     }
 
@@ -508,41 +515,10 @@ class JsSource(
                 return@withContext cached.first
             }
 
-            val path = escapeJsString(normalizePluginPath(manga.url))
             val result = parseNovelCached(manga.url)
-            val chapters = parseChapterList(result).toMutableList()
-
-            // Support paged chapter sources (like novelight, novelfire)
-            // If parseNovel returns totalPages > 1, fetch remaining pages via parsePage
-            val totalPages = try {
-                val obj = json.parseToJsonElement(result).jsonObject
-                obj["totalPages"]?.jsonPrimitive?.content?.toIntOrNull() ?: 1
-            } catch (_: Exception) {
-                1
-            }
-
-            if (totalPages > 1 || chapters.isEmpty()) {
-                val hasParsePage =
-                    executePluginMethod("typeof plugin.parsePage === 'function'") == "true"
-                val maxPages = if (totalPages > 0) totalPages else 1
-                val startPage = if (chapters.isEmpty()) 1 else 2
-                logcat(LogPriority.DEBUG) {
-                    "JsSource[$pluginId]: Paged source detected, totalPages=$totalPages, startPage=$startPage, existingChapters=${chapters.size}, hasParsePage=$hasParsePage"
-                }
-                if (hasParsePage && startPage <= maxPages) {
-                    for (page in startPage..maxPages) {
-                        try {
-                            val pageResult = executePluginMethod("plugin.parsePage('$path', $page)")
-                            val pageChapters = parsePageChapters(pageResult)
-                            chapters.addAll(pageChapters)
-                        } catch (e: Exception) {
-                            logcat(LogPriority.ERROR, e) {
-                                "JsSource[$pluginId]: Error fetching page $page of $maxPages"
-                            }
-                        }
-                    }
-                }
-            }
+            val parsed = parseChapterList(result)
+            val chapters = parsed.chapters.toMutableList()
+            novelStructures[manga.url] = parsed.structure
 
             val total = chapters.size
             chapters.forEachIndexed { index, chapter ->
@@ -806,11 +782,19 @@ class JsSource(
 
     /** plugin.parseNovel with raw-result caching and in-flight dedup. */
     private suspend fun parseNovelCached(mangaUrl: String): String {
-        val path = escapeJsString(normalizePluginPath(mangaUrl))
+        val path = normalizePluginPath(mangaUrl)
         return parseNovelMutex.withLock {
             val now = System.currentTimeMillis()
             parseNovelCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
-            val result = executePluginMethod("plugin.parseNovel('$path')")
+            ensureLoadedInHermes()
+            val payload = buildJsonObject {
+                put("id", pluginId)
+                put("key", hermesRuntimeKey)
+                put("path", path)
+            }.toString()
+            val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
+                hermesRuntime.call("plugin.parseNovel", payload)
+            }
             parseNovelCache[path] = result to now
             trimRawCache(parseNovelCache)
             result
@@ -984,23 +968,35 @@ class JsSource(
         }
     }
 
-    private fun parseChapterList(jsonResult: String): List<SChapter> {
+    private fun parseChapterList(jsonResult: String): ParsedChapterList {
         if (jsonResult == "null" || jsonResult.isBlank()) {
-            return emptyList()
+            throw IllegalArgumentException("[$pluginId] parseNovel returned no data")
         }
 
         try {
             val obj = json.parseToJsonElement(jsonResult).jsonObject
-            val chaptersArray = obj["chapters"]?.jsonArray ?: return emptyList()
+            val layout = obj["__tsundokuLayout"]?.jsonPrimitive?.content
+                ?.let(NovelLayout::valueOf)
+                ?: throw IllegalArgumentException("[$pluginId] parseNovel returned no layout")
+            val totalPages = obj["totalPages"]?.jsonPrimitive?.content?.toLongOrNull()
+                ?: throw IllegalArgumentException("[$pluginId] parseNovel returned no totalPages")
+            val chaptersArray = obj["chapters"]?.jsonArray
+                ?: throw IllegalArgumentException("[$pluginId] parseNovel returned no chapters")
+            val chapterPages = linkedMapOf<String, String>()
 
             // Return chapters in source order (newest-first from LNReader);
-            // reversal and chapter_number assignment happen in getChapterList() after all pages are collected.
-            return chaptersArray.mapIndexedNotNull { index, item ->
+            // reversal and chapter_number assignment happen in getChapterList().
+            val chapters = chaptersArray.mapIndexedNotNull { index, item ->
                 try {
                     val chapterObj = item.jsonObject
+                    val chapterPath = chapterObj["path"]?.jsonPrimitive?.content ?: return@mapIndexedNotNull null
+                    val chapterPage = chapterObj["page"]?.jsonPrimitive?.content
+                        ?.let(::stripInvalidChars)
+                        ?: return@mapIndexedNotNull null
+                    chapterPages.putIfAbsent(chapterPath, chapterPage)
                     SChapter.create().apply {
                         name = chapterObj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: "Chapter ${index + 1}"
-                        url = chapterObj["path"]?.jsonPrimitive?.content ?: return@mapIndexedNotNull null
+                        url = chapterPath
                         // Keep plugin-provided chapterNumber if available; otherwise leave as -1
                         // (global numbering is assigned later in getChapterList)
                         chapterObj["chapterNumber"]?.jsonPrimitive?.content?.toFloatOrNull()?.let {
@@ -1013,62 +1009,38 @@ class JsSource(
                         } catch (e: Exception) {
                             0L
                         }
-                        // Volume info
-                        scanlator = chapterObj["page"]?.jsonPrimitive?.content?.let { stripInvalidChars(it) }
+                        scanlator = parseScanlator(chapterObj["scanlator"])
                     }
                 } catch (e: Exception) {
                     null
                 }
             }
+            return ParsedChapterList(
+                chapters = chapters,
+                structure = NovelStructure(
+                    layout = layout,
+                    totalPages = totalPages,
+                    chapterPages = chapterPages,
+                ),
+            )
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to parse chapters: $jsonResult" }
-            return emptyList()
+            throw e
         }
     }
 
-    /**
-     * Parse chapters from a parsePage() result.
-     * parsePage returns { chapters: [...] } like parseNovel, but just for one page.
-     * Returns chapters in source order (newest-first from LNReader);
-     * reversal and chapter_number assignment happen in getChapterList().
-     */
-    private fun parsePageChapters(jsonResult: String): List<SChapter> {
-        if (jsonResult == "null" || jsonResult.isBlank()) return emptyList()
-        try {
-            val element = json.parseToJsonElement(jsonResult)
-            val chaptersArray = when (element) {
-                is JsonObject -> element["chapters"]?.jsonArray ?: return emptyList()
-                is JsonArray -> element // Some plugins return a plain array
-                else -> return emptyList()
-            }
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            return chaptersArray.mapIndexedNotNull { index, item ->
-                try {
-                    val chapterObj = item.jsonObject
-                    SChapter.create().apply {
-                        name = chapterObj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: "Chapter ${index + 1}"
-                        url = chapterObj["path"]?.jsonPrimitive?.content ?: return@mapIndexedNotNull null
-                        chapterObj["chapterNumber"]?.jsonPrimitive?.content?.toFloatOrNull()?.let {
-                            chapter_number = it
-                        }
-                        date_upload = try {
-                            chapterObj["releaseTime"]?.jsonPrimitive?.content?.let { dateStr ->
-                                parseReleaseTime(dateStr)
-                            } ?: 0L
-                        } catch (_: Exception) {
-                            0L
-                        }
-                        scanlator = chapterObj["page"]?.jsonPrimitive?.content?.let { stripInvalidChars(it) }
-                    }
-                } catch (_: Exception) {
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to parse page chapters: $jsonResult" }
-            return emptyList()
-        }
-    }
+    private fun parseScanlator(value: JsonElement?): String? =
+        when (value) {
+            null, JsonNull -> null
+            is JsonPrimitive -> value.content
+            is JsonArray -> value.joinToString(", ") { it.jsonPrimitive.content }
+            else -> null
+        }?.let(::stripInvalidChars)?.trim()?.ifBlank { null }
+
+    private data class ParsedChapterList(
+        val chapters: List<SChapter>,
+        val structure: NovelStructure,
+    )
 
     /**
      * Parse release time string from JS plugins.

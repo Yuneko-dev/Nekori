@@ -22,7 +22,6 @@ import {
 import { Parser } from 'htmlparser2';
 import { decode, encode } from 'urlencode';
 
-import { createVolumePage, VOLUME_PAGE_MARKER } from './helpers/chapterPage';
 import {
   solveCloudflareAPI,
   solveCloudflareTurnstileAPI,
@@ -108,8 +107,6 @@ const packages: Record<string, unknown> = {
     TranslatorCollection,
   },
   '@libs/utils': {
-    createVolumePage,
-    VOLUME_PAGE_MARKER,
     utf8ToBytes,
     bytesToUtf8,
     Buffer,

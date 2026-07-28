@@ -9,6 +9,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -157,6 +161,130 @@ class JsRuntimeBridgeTest {
             fail("Expected a plugin without parsePage to reject")
         } catch (e: JsRuntimeException) {
             assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("does not implement parsePage"))
+        }
+    }
+
+    @Test
+    fun parseNovelNormalizesPagedChaptersWithoutCallingParsePage() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'paged.test',
+              name: 'Paged test',
+              version: '1',
+              site: 'https://example.invalid',
+              parsePageCalls: 0,
+              parseNovel: async () => ({
+                name: 'Novel',
+                path: '/novel',
+                totalPages: 3,
+                chapters: [{
+                  name: 'Chapter 1',
+                  path: '/chapter-1',
+                  scanlator: [' Team A ', '', 'Team B'],
+                }],
+              }),
+              parsePage: async function () {
+                this.parsePageCalls += 1;
+                return { chapters: [] };
+              },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"paged.test","code":${quote(code)}}""")
+        val result = Json.parseToJsonElement(
+            runtime.call("plugin.parseNovel", """{"id":"paged.test","path":"/novel"}"""),
+        ).jsonObject
+
+        assertEquals("PAGED", result.getValue("__tsundokuLayout").jsonPrimitive.content)
+        assertEquals("3", result.getValue("totalPages").jsonPrimitive.content)
+        val chapter = result.getValue("chapters").jsonArray.single().jsonObject
+        assertEquals("1", chapter.getValue("page").jsonPrimitive.content)
+        assertEquals("Team A, Team B", chapter.getValue("scanlator").jsonPrimitive.content)
+        assertEquals("0", runtime.call("plugin.eval", """{"id":"paged.test","expression":"plugin.parsePageCalls"}"""))
+    }
+
+    @Test
+    fun parseNovelRejectsPagedPluginWithoutValidTotalPages() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'invalid-paged.test',
+              name: 'Invalid paged test',
+              version: '1',
+              site: 'https://example.invalid',
+              parseNovel: async () => ({ name: 'Novel', path: '/novel', chapters: [] }),
+              parsePage: async () => ({ chapters: [] }),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"invalid-paged.test","code":${quote(code)}}""")
+        try {
+            runtime.call("plugin.parseNovel", """{"id":"invalid-paged.test","path":"/novel"}""")
+            fail("Expected invalid totalPages to reject")
+        } catch (e: JsRuntimeException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("invalid totalPages"))
+        }
+    }
+
+    @Test
+    fun parseNovelClassifiesVolumeAndNormalizesMissingPage() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'volume.test',
+              name: 'Volume test',
+              version: '1',
+              site: 'https://example.invalid',
+              parseNovel: async () => ({
+                name: 'Novel',
+                path: '/novel',
+                totalPages: 1,
+                chapters: [
+                  { name: 'Chapter 1', path: '/chapter-1', page: 'Volume 1' },
+                  { name: 'Chapter 2', path: '/chapter-2' },
+                ],
+              }),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"volume.test","code":${quote(code)}}""")
+        val result = Json.parseToJsonElement(
+            runtime.call("plugin.parseNovel", """{"id":"volume.test","path":"/novel"}"""),
+        ).jsonObject
+
+        assertEquals("VOLUME", result.getValue("__tsundokuLayout").jsonPrimitive.content)
+        assertEquals("0", result.getValue("totalPages").jsonPrimitive.content)
+        val chapters = result.getValue("chapters").jsonArray
+        assertEquals("Volume 1", chapters[0].jsonObject.getValue("page").jsonPrimitive.content)
+        assertEquals("Default", chapters[1].jsonObject.getValue("page").jsonPrimitive.content)
+    }
+
+    @Test
+    fun parseNovelRejectsNonCanonicalPagedChapterNumber() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'invalid-page.test',
+              name: 'Invalid page test',
+              version: '1',
+              site: 'https://example.invalid',
+              parseNovel: async () => ({
+                name: 'Novel',
+                path: '/novel',
+                totalPages: 2,
+                chapters: [{ name: 'Chapter', path: '/chapter', page: '01' }],
+              }),
+              parsePage: async () => ({ chapters: [] }),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"invalid-page.test","code":${quote(code)}}""")
+        try {
+            runtime.call("plugin.parseNovel", """{"id":"invalid-page.test","path":"/novel"}""")
+            fail("Expected non-canonical page to reject")
+        } catch (e: JsRuntimeException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("positive integer string"))
         }
     }
 

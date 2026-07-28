@@ -94,6 +94,7 @@ import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
+import tachiyomi.domain.history.repository.ReadingSessionRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
@@ -128,6 +129,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val upsertHistory: UpsertHistory = Injekt.get(),
+    private val readingSessionRepository: ReadingSessionRepository = Injekt.get(),
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val setMangaViewerFlags: SetMangaViewerFlags = Injekt.get(),
     private val getIncognitoState: GetIncognitoState = Injekt.get(),
@@ -1031,7 +1033,9 @@ class ReaderViewModel @JvmOverloads constructor(
 
         val chapterId = readerChapter.chapter.id!!
         val endTime = Date()
-        val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
+        val startedAt = chapterReadStartTime
+        val sessionReadDuration = startedAt?.let { endTime.time - it } ?: 0
+        chapterReadStartTime = null
 
         // Novels stamp last_read on chapter entry via setNovelVisibleChapter, which owns recency.
         // Re-stamping it here (on a chapter switch or pause flush) can push the just-left chapter's
@@ -1039,10 +1043,17 @@ class ReaderViewModel @JvmOverloads constructor(
         // accumulate duration for novels; manga keeps the entry-less last_read = now behavior.
         if (manga?.isNovel == true) {
             upsertHistory.awaitTimeReadOnly(HistoryUpdate(chapterId, endTime, sessionReadDuration))
+            if (startedAt != null && sessionReadDuration > 0) {
+                readingSessionRepository.insert(
+                    chapterId = chapterId,
+                    startedAt = startedAt,
+                    endedAt = endTime.time,
+                    readDuration = sessionReadDuration,
+                )
+            }
         } else {
             upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
         }
-        chapterReadStartTime = null
     }
 
     /**

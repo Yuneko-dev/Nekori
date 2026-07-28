@@ -1,0 +1,75 @@
+CREATE TABLE novel_layouts(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    layout INTEGER NOT NULL,
+    total_pages INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE,
+    CHECK (
+        (layout = 2 AND total_pages >= 1) OR
+        (layout IN (0, 1) AND total_pages = 0)
+    )
+);
+
+CREATE TABLE novel_sections(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    kind INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    page_number INTEGER,
+    path TEXT,
+    cover TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE,
+    UNIQUE(manga_id, kind, name),
+    CHECK (
+        (kind = 2 AND page_number >= 1 AND name = CAST(page_number AS TEXT)) OR
+        (kind IN (0, 1) AND page_number IS NULL)
+    )
+);
+
+CREATE INDEX novel_sections_manga_order_index
+ON novel_sections(manga_id, sort_order);
+
+CREATE TABLE novel_chapter_sections(
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    section_id INTEGER NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(chapter_id) REFERENCES chapters (_id)
+    ON DELETE CASCADE,
+    FOREIGN KEY(section_id) REFERENCES novel_sections (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_chapter_sections_section_position_index
+ON novel_chapter_sections(section_id, position);
+
+CREATE TRIGGER novel_chapter_sections_same_manga
+BEFORE INSERT ON novel_chapter_sections
+BEGIN
+    SELECT RAISE(ABORT, 'Chapter and section must belong to the same novel')
+    WHERE (
+        SELECT manga_id
+        FROM chapters
+        WHERE _id = new.chapter_id
+    ) != (
+        SELECT manga_id
+        FROM novel_sections
+        WHERE _id = new.section_id
+    );
+END;
+
+CREATE TABLE reading_sessions(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    read_duration INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES chapters (_id)
+    ON DELETE CASCADE,
+    CHECK(ended_at >= started_at),
+    CHECK(read_duration >= 0)
+);
+
+CREATE INDEX reading_sessions_chapter_started_index
+ON reading_sessions(chapter_id, started_at);

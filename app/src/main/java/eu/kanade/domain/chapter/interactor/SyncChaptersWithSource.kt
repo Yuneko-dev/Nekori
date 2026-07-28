@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.novel.NovelStructureSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -21,6 +22,9 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.model.NovelStructure
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.source.local.isLocal
 import java.lang.Long.max
@@ -38,6 +42,7 @@ class SyncChaptersWithSource(
     private val getExcludedScanlators: GetExcludedScanlators,
     private val libraryPreferences: LibraryPreferences,
     private val translatedChapterRepository: TranslatedChapterRepository,
+    private val novelStructureRepository: NovelStructureRepository,
 ) {
 
     /**
@@ -55,7 +60,12 @@ class SyncChaptersWithSource(
         manualFetch: Boolean = false,
         fetchWindow: Pair<Long, Long> = Pair(0, 0),
     ): List<Chapter> {
-        if (rawSourceChapters.isEmpty() && !source.isLocal()) {
+        val novelStructure = (source as? NovelStructureSource)?.getNovelStructure(manga.url)
+        if (
+            rawSourceChapters.isEmpty() &&
+            !source.isLocal() &&
+            novelStructure?.layout != NovelLayout.PAGED
+        ) {
             throw NoChaptersException()
         }
 
@@ -160,6 +170,7 @@ class SyncChaptersWithSource(
 
         // Return if there's nothing to add, delete, or update to avoid unnecessary db transactions.
         if (newChapters.isEmpty() && removedChapters.isEmpty() && updatedChapters.isEmpty()) {
+            replaceNovelStructure(manga.id, novelStructure, dbChapters)
             if (manualFetch || manga.fetchInterval == 0 || manga.nextUpdate < fetchWindow.first) {
                 updateManga.awaitUpdateFetchInterval(
                     manga,
@@ -235,6 +246,11 @@ class SyncChaptersWithSource(
             val chapterUpdates = updatedChapters.map { it.toChapterUpdate() }
             updateChapter.awaitAll(chapterUpdates)
         }
+        replaceNovelStructure(
+            mangaId = manga.id,
+            structure = novelStructure,
+            chapters = getChaptersByMangaId.await(manga.id),
+        )
         updateManga.awaitUpdateFetchInterval(manga, now, fetchWindow)
 
         // Set this manga as updated since chapters were changed
@@ -244,5 +260,14 @@ class SyncChaptersWithSource(
         val excludedScanlators = getExcludedScanlators.await(manga.id).toHashSet()
 
         return updatedToAdd.filterNot { it.url in changedOrDuplicateReadUrls || it.scanlator in excludedScanlators }
+    }
+
+    private suspend fun replaceNovelStructure(
+        mangaId: Long,
+        structure: NovelStructure?,
+        chapters: List<Chapter>,
+    ) {
+        structure ?: return
+        novelStructureRepository.replace(mangaId, structure, chapters)
     }
 }

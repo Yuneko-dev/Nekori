@@ -19,6 +19,10 @@ import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
 import { registerHandler, startBridge } from './bridge/nativeHost';
 import {
+  normalizePluginChapters,
+  normalizePluginNovel,
+} from './plugins/helpers/chapterPage';
+import {
   flushPluginStorage,
   getPluginStorageValue,
   setPluginStorageValue,
@@ -176,8 +180,31 @@ registerHandler('plugin.searchNovels', async args => {
 });
 
 registerHandler('plugin.parseNovel', async args => {
-  const { id, path } = args as { id: string; path: string };
-  return { novel: await getPlugin(id).parseNovel(path) };
+  const { id, key, path } = args as {
+    id: string;
+    key?: string;
+    path: string;
+  };
+  const runtimeKey = key ?? id;
+  const plugin = getPlugin(runtimeKey);
+  const paged = typeof plugin.parsePage === 'function';
+  try {
+    const sourceNovel = await plugin.parseNovel(path);
+    const hasVolumePage =
+      !paged &&
+      Array.isArray(sourceNovel.chapters) &&
+      sourceNovel.chapters.some(
+        chapter =>
+          typeof chapter.page === 'string' && chapter.page.trim().length > 0,
+      );
+    const novel = normalizePluginNovel(id, sourceNovel, paged);
+    return {
+      ...novel,
+      __tsundokuLayout: paged ? 'PAGED' : hasVolumePage ? 'VOLUME' : 'FLAT',
+    };
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
 });
 
 registerHandler('plugin.parsePage', async args => {
@@ -191,7 +218,17 @@ registerHandler('plugin.parsePage', async args => {
   if (!plugin.parsePage) {
     throw new Error(`Plugin "${id}" does not implement parsePage`);
   }
-  return { page: await plugin.parsePage(path, page) };
+  try {
+    const sourcePage = await plugin.parsePage(path, page);
+    return {
+      chapters: normalizePluginChapters(id, sourcePage.chapters, 'parsePage', {
+        pageOverride: page,
+        validateNumeric: true,
+      }),
+    };
+  } finally {
+    await flushPluginStorage(key ?? id);
+  }
 });
 
 registerHandler('plugin.resolveUrl', args => {

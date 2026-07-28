@@ -1,0 +1,32 @@
+CREATE TABLE reading_sessions(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    read_duration INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES chapters (_id)
+    ON DELETE CASCADE,
+    CHECK(ended_at >= started_at),
+    CHECK(read_duration >= 0)
+);
+
+CREATE INDEX reading_sessions_chapter_started_index
+ON reading_sessions(chapter_id, started_at);
+
+insert:
+INSERT INTO reading_sessions(chapter_id, started_at, ended_at, read_duration)
+VALUES (:chapterId, :startedAt, :endedAt, :readDuration);
+
+getByChapterId:
+SELECT *
+FROM reading_sessions
+WHERE chapter_id = :chapterId
+ORDER BY started_at DESC;
+
+getByMangaId:
+SELECT reading_sessions.*
+FROM reading_sessions
+JOIN chapters
+ON chapters._id = reading_sessions.chapter_id
+WHERE chapters.manga_id = :mangaId
+ORDER BY reading_sessions.started_at DESC;
