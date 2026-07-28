@@ -201,6 +201,18 @@ class DownloadCache(
     }
 
     /**
+     * Populates the cache if needed and suspends until that scan ends. [renewCache] only schedules
+     * it, so a caller that reads a zero count as "nothing downloaded" has to wait. Returns false if
+     * the scan was cancelled or failed, i.e. the counts cannot be trusted.
+     */
+    suspend fun awaitReady(): Boolean {
+        renewCache()
+        val job = renewalJob
+        job?.join()
+        return job?.isCancelled != true
+    }
+
+    /**
      * Returns downloaded chapter counts for multiple manga with a single cache refresh.
      */
     fun getDownloadCounts(mangaList: List<Manga>): Map<Long, Int> {
@@ -299,11 +311,21 @@ class DownloadCache(
      * @param manga the manga to remove.
      */
     suspend fun removeManga(manga: Manga) {
+        removeMangas(listOf(manga))
+    }
+
+    /**
+     * Removes several deleted manga from this cache, notifying observers once for the batch
+     */
+    suspend fun removeMangas(mangas: List<Manga>) {
+        if (mangas.isEmpty()) return
         rootDownloadsDirMutex.withLock {
-            val sourceDir = rootDownloadsDir.sourceDirs[manga.source] ?: return
-            val mangaDirName = provider.getMangaDirName(manga.title)
-            if (sourceDir.mangaDirs.containsKey(mangaDirName)) {
-                sourceDir.mangaDirs -= mangaDirName
+            mangas.forEach { manga ->
+                val sourceDir = rootDownloadsDir.sourceDirs[manga.source] ?: return@forEach
+                val mangaDirName = provider.getMangaDirName(manga.title)
+                if (sourceDir.mangaDirs.containsKey(mangaDirName)) {
+                    sourceDir.mangaDirs -= mangaDirName
+                }
             }
         }
 

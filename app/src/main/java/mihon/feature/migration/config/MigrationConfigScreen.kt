@@ -3,6 +3,7 @@ package mihon.feature.migration.config
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -43,6 +44,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.components.SourceIcon
+import eu.kanade.presentation.browse.components.SourceTypeBadge
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
@@ -293,8 +295,10 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                SourceTypeBadge(source = source.source)
+                Spacer(modifier = Modifier.weight(1f))
                 if (showLanguage) {
                     Pill(
                         text = LocaleHelper.getShortDisplayName(source.shortLanguage, uppercase = true),
@@ -311,11 +315,9 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
     ) : StateScreenModel<ScreenModel.State>(State()) {
 
         private val sourcesComparator = { includedSources: List<Long> ->
-            compareBy<MigrationSource>(
-                { !it.isSelected },
-                { includedSources.indexOf(it.id) },
-                { with(it) { "$name ($shortLanguage)" } },
-            )
+            compareBy<MigrationSource> { !it.isSelected }
+                .thenBy { includedSources.indexOf(it.id) }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { with(it) { "$name ($shortLanguage)" } }
         }
 
         init {

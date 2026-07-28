@@ -73,3 +73,10 @@ CREATE TABLE reading_sessions(
 
 CREATE INDEX reading_sessions_chapter_started_index
 ON reading_sessions(chapter_id, started_at);
+
+-- Stubbed sources need to retain the JS marker when their plugin is not currently loaded.
+ALTER TABLE sources ADD COLUMN is_js INTEGER NOT NULL DEFAULT 0;
+
+-- Every persisted online novel source in this branch is a JS plugin. Loaded plugins correct and
+-- persist the marker again during registration.
+UPDATE sources SET is_js = is_novel;

@@ -25,6 +25,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Improved
 - Reader Lifecycle and UX fixes [@mrissaoussama](https://github.com/mrissaoussama) [#338](https://github.com/tsundoku-otaku/tsundoku/pull/338)
+- Better batch dl delete, refresh entry categories and updates tab [@mrissaoussama](https://github.com/mrissaoussama) [#358](https://github.com/tsundoku-otaku/tsundoku/pull/358)
 - Custom Source Overhaul [@mrissaoussama](https://github.com/mrissaoussama) [#273](https://github.com/tsundoku-otaku/tsundoku/pull/273)
 - Translations and quotes more organized/portable [@mrissaoussama](https://github.com/mrissaoussama) [#336](https://github.com/tsundoku-otaku/tsundoku/pull/336)
 - A ton of Arabic translations [@OtakuArab](https://github.com/OtakuArab) [#327](https://github.com/tsundoku-otaku/tsundoku/pull/327)
@@ -35,6 +36,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Some great improvements to custom sources, including {novelUrl} [@mrissaoussama](https://github.com/mrissaoussama) [#296](https://github.com/tsundoku-otaku/tsundoku/pull/296)
 - Localnovel relative path improvements [@mrissaoussama](https://github.com/mrissaoussama) [#343](https://github.com/tsundoku-otaku/tsundoku/pull/343)
 - Improve performance on library export notifications [@mrissaoussama](https://github.com/mrissaoussama) [#285](https://github.com/tsundoku-otaku/tsundoku/pull/285)
+- Custom source: Duplicate source under new name/site [@mrissaoussama](https://github.com/mrissaoussama) [#361](https://github.com/tsundoku-otaku/tsundoku/pull/361)
 - Per-field metadata overrides [@mrissaoussama](https://github.com/mrissaoussama) [#308](https://github.com/tsundoku-otaku/tsundoku/pull/308)
 - Edit manga now has an artist field [@mrissaoussama](https://github.com/mrissaoussama) [#278](https://github.com/tsundoku-otaku/tsundoku/pull/278)
 - Compatibility with previous backups [@mrissaoussama](https://github.com/mrissaoussama) [#306](https://github.com/tsundoku-otaku/tsundoku/pull/306)
@@ -42,6 +44,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - ALt title import when tracking, case insensitive dupe check [@mrissaoussama](https://github.com/mrissaoussama) [#305](https://github.com/tsundoku-otaku/tsundoku/pull/305)
 - Mass import improvements and resume counting [@mrissaoussama](https://github.com/mrissaoussama) [#288](https://github.com/tsundoku-otaku/tsundoku/pull/288)
 - EPUBC ToC Subsection Fix [@mrissaoussama](https://github.com/mrissaoussama) [#315](https://github.com/tsundoku-otaku/tsundoku/pull/315)
+- Added option to migrate skipped quick migrate entries [@mrissaoussama](https://github.com/mrissaoussama) [#315](https://github.com/tsundoku-otaku/tsundoku/pull/362)
 - Append clipboard added in edit quotes [@Rojikku](https://github.com/Rojikku) [#301](https://github.com/tsundoku-otaku/tsundoku/pull/301)
 - Customsource improvements and url build fixes [@mrissaoussama](https://github.com/mrissaoussama) [#322](https://github.com/tsundoku-otaku/tsundoku/pull/322)
 - Prevent duplicate custom sources [@mrissaoussama](https://github.com/mrissaoussama) [#294](https://github.com/tsundoku-otaku/tsundoku/pull/294)
@@ -52,13 +55,17 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 - Make unread ch count update after fetching new chapters [@mrissaoussama](https://github.com/mrissaoussama) [#334](https://github.com/tsundoku-otaku/tsundoku/pull/334)
+- Resolve library export urls properly in jssource [@mrissaoussama](https://github.com/mrissaoussama) [#357](https://github.com/tsundoku-otaku/tsundoku/pull/357)
 - Guard download cache serialization [@mrissaoussama](https://github.com/mrissaoussama) [#346](https://github.com/tsundoku-otaku/tsundoku/pull/346)
 - Paginated library export to prevent potential OOM, added cancel to notif [@mrissaoussama](https://github.com/mrissaoussama) [#270](https://github.com/tsundoku-otaku/tsundoku/pull/270)
 - Correct import stats when app is restarted [@mrissaoussama](https://github.com/mrissaoussama) [#272](https://github.com/tsundoku-otaku/tsundoku/pull/272)
+- Consistent JS/custom tagging, fixed duplicate check, add options in library settings [@mrissaoussama](https://github.com/mrissaoussama) [#359](https://github.com/tsundoku-otaku/tsundoku/pull/359)
 - Fix for an Injekt related exception tied to performance improvements, should keep performance [@mrissaoussama](https://github.com/mrissaoussama) [#352](https://github.com/tsundoku-otaku/tsundoku/pull/352)
+- Properly fetch details and chapters through new getMangaUpdate [@mrissaoussama](https://github.com/mrissaoussama) [#363](https://github.com/tsundoku-otaku/tsundoku/pull/363)
 - Fix download queue restart preference [@mrissaoussama](https://github.com/mrissaoussama) [#297](https://github.com/tsundoku-otaku/tsundoku/pull/297)
 - Better handle old backups, better backup/restore performance [@mrissaoussama](https://github.com/mrissaoussama) [#297](https://github.com/tsundoku-otaku/tsundoku/pull/297)
 - Volume keys no longer scroll while menu visible [@mrissaoussama](https://github.com/mrissaoussama) [#345](https://github.com/tsundoku-otaku/tsundoku/pull/345)
+- Custom source: Edit paged urls, keep card link [@mrissaoussama](https://github.com/mrissaoussama) [#356](https://github.com/tsundoku-otaku/tsundoku/pull/356)
 - Pull to refresh spinner will be more patient [@mrissaoussama](https://github.com/mrissaoussama) [#321](https://github.com/tsundoku-otaku/tsundoku/pull/321)
 - Improve massimport - Notification dedupe,v erious fixes [@mrissaoussama](https://github.com/mrissaoussama) [#333](https://github.com/tsundoku-otaku/tsundoku/pull/333)
 - Deleage custom-source image fetch to base httpsource [@mrissaoussama](https://github.com/mrissaoussama) [#331](https://github.com/tsundoku-otaku/tsundoku/pull/331)

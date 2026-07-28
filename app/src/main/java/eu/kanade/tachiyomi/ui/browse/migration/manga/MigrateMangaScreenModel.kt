@@ -8,7 +8,9 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.filterEnabledLanguages
 import eu.kanade.tachiyomi.source.isNovelSource
+import eu.kanade.tachiyomi.source.nameWithTypeTag
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -55,8 +57,9 @@ class MigrateMangaScreenModel(
 
     fun getAvailableSources(filterNovel: Boolean): List<CatalogueSource> {
         return sourceManager.getAll().filterIsInstance<CatalogueSource>()
+            .filterEnabledLanguages()
             .filter { it.id != sourceId && it.isNovelSource() == filterNovel }
-            .sortedBy { it.name }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.nameWithTypeTag() })
     }
 
     init {
@@ -121,8 +124,8 @@ class MigrateMangaScreenModel(
                     it.copy(
                         dialog = Dialog.QuickMigrateConfirm(
                             targetSourceId = targetSourceId,
-                            sourceName = sourceManager.getOrStub(sourceId).name,
-                            targetSourceName = sourceManager.getOrStub(targetSourceId).name,
+                            sourceName = sourceManager.getOrStub(sourceId).nameWithTypeTag(),
+                            targetSourceName = sourceManager.getOrStub(targetSourceId).nameWithTypeTag(),
                             totalCount = selectedManga.size,
                             skipCount = skipCount,
                         ),
@@ -135,28 +138,99 @@ class MigrateMangaScreenModel(
         }
     }
 
-    fun executeQuickMigrate(targetSourceId: Long, categoryName: String?) {
+    fun executeQuickMigrate(targetSourceId: Long, categoryName: String?, removeSkipped: Boolean) {
         screenModelScope.launchIO {
             try {
                 val selectedManga = state.value.titles.filter { it.id in state.value.selection }
-                val targetFavoriteUrls = getFavorites.subscribe(targetSourceId).first()
-                    .mapTo(mutableSetOf()) { it.url }
+                val targetFavorites = getFavorites.subscribe(targetSourceId).first()
+                val targetFavoriteUrls = targetFavorites.mapTo(mutableSetOf()) { it.url }
+                val targets = quickMigrateTargets(selectedManga, targetFavoriteUrls)
+                val skipped = if (removeSkipped) {
+                    quickMigrateSkipped(selectedManga, targetFavoriteUrls)
+                } else {
+                    emptyList()
+                }
                 val migratedIds = mutableListOf<Long>()
-                for ((manga, newUrl) in quickMigrateTargets(selectedManga, targetFavoriteUrls)) {
+                if (targets.isEmpty() && skipped.isEmpty()) {
+                    mutableState.update { it.copy(dialog = null, selection = emptySet()) }
+                    _events.send(MigrationMangaEvent.QuickMigrateComplete(0, 0))
+                    return@launchIO
+                }
+
+                val oldSource = sourceManager.getOrStub(sourceId)
+                val newSource = sourceManager.getOrStub(targetSourceId)
+                val targetTitles = targets.mapTo(mutableSetOf()) { it.first.title }
+                // The entry that stays behind for a skipped one, matched the same way the skip was:
+                // on the normalized url, not the title, which the two can disagree on.
+                val keptByUrl = targetFavorites.associateBy { it.url }
+                val keptForSkipped = skipped.associate { it.id to keptByUrl[normalizeQuickMigrateUrl(it.url)] }
+
+                val countsUsable = downloadManager.awaitDownloadCacheReady()
+                val downloadCounts = if (countsUsable) {
+                    downloadManager.getDownloadCounts(
+                        (targets.map { it.first } + skipped + keptForSkipped.values.filterNotNull())
+                            .distinctBy { it.id },
+                    )
+                } else {
+                    emptyMap()
+                }
+
+                val queuedMangaIds = downloadManager.queueState.value.mapTo(mutableSetOf()) { it.mangaId }
+
+                val withTranslations = runCatching {
+                    translatedChapterRepository.filterNovelsWithTranslations(oldSource.toString(), targetTitles)
+                }.onFailure {
+                    logcat(LogPriority.ERROR, it) { "Failed to list translations on quick migrate" }
+                }.getOrNull()
+                val withQuotes = runCatching {
+                    quoteManager.filterNovelsWithQuotes(oldSource.toString(), targetTitles)
+                }.onFailure {
+                    logcat(LogPriority.ERROR, it) { "Failed to list quotes on quick migrate" }
+                }.getOrNull()
+                val pendingUpdates = mutableListOf<MangaUpdate>()
+                val pendingIds = mutableListOf<Long>()
+                suspend fun flushUpdates(force: Boolean) {
+                    if (pendingUpdates.isEmpty() || (!force && pendingUpdates.size < UPDATE_CHUNK_SIZE)) return
+                    val chunk = pendingUpdates.toList()
+                    val chunkIds = pendingIds.toList()
+                    pendingUpdates.clear()
+                    pendingIds.clear()
+
+                    if (updateManga.awaitAll(chunk)) {
+                        migratedIds.addAll(chunkIds)
+                    } else {
+                        logcat(LogPriority.ERROR) {
+                            "Quick migrate: failed to write a chunk of ${chunk.size} entries"
+                        }
+                    }
+                }
+                var attemptedDownloadMove = false
+                val removal = relocateAndRemoveSkipped(
+                    skipped = skipped,
+                    keptForSkipped = keptForSkipped,
+                    oldSource = oldSource,
+                    newSource = newSource,
+                    downloadCounts = downloadCounts,
+                    countsUsable = countsUsable,
+                    queuedMangaIds = queuedMangaIds,
+                )
+                if (removal.touchedDownloads) attemptedDownloadMove = true
+                for ((manga, newUrl) in targets) {
                     try {
-                        val oldSource = sourceManager.getOrStub(manga.source)
-                        val newSource = sourceManager.getOrStub(targetSourceId)
                         // Relocate source-keyed data (downloads/translations/quotes) BEFORE flipping the
                         // DB source, so a crash in between can't leave files under the old source name
-                        // while the DB already points at the new one (orphaned data). Only preserves
-                        // data for same-URL migrations (e.g. JS->KT); different-site moves change
-                        // chapter URLs and won't line up.
+                        // while the DB already points at the new one. Only preserves data for same-URL
+                        // migrations (e.g. JS->KT); different-site moves change chapter URLs.
                         // moveMangaToNewSource reports non-crash failures (destination collision,
-                        // partial copy) via a false return, not an exception, so branch on the value:
+                        // partial copy) with false rather than an exception, so branch on the value:
                         // leave the manga on its old source rather than flipping the DB onto downloads
                         // that never moved. It can be retried once the conflict is resolved.
-                        val downloadsMoved = runCatching {
-                            downloadManager.moveMangaToNewSource(manga, oldSource, newSource)
+                        val hasDownloads = !countsUsable ||
+                            (downloadCounts[manga.id] ?: 0) > 0 ||
+                            manga.id in queuedMangaIds
+                        if (hasDownloads) attemptedDownloadMove = true
+                        val downloadsMoved = !hasDownloads || runCatching {
+                            downloadManager.moveMangaToNewSource(manga, oldSource, newSource, invalidateCache = false)
                         }.onFailure {
                             logcat(LogPriority.ERROR, it) { "Failed to move downloads on quick migrate" }
                         }.getOrDefault(false)
@@ -166,28 +240,41 @@ class MigrateMangaScreenModel(
                             }
                             continue
                         }
-                        runCatching {
-                            translatedChapterRepository.moveNovel(
-                                oldSource.toString(),
-                                manga.title,
-                                newSource.toString(),
-                                manga.title,
-                            )
-                        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to move translations on quick migrate" } }
-                        runCatching {
-                            quoteManager.moveNovel(
-                                oldSource.toString(),
-                                manga.title,
-                                newSource.toString(),
-                                manga.title,
-                            )
-                        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to move quotes on quick migrate" } }
-                        updateManga.await(MangaUpdate(id = manga.id, source = targetSourceId, url = newUrl))
-                        migratedIds.add(manga.id)
+                        if (withTranslations == null || manga.title in withTranslations) {
+                            runCatching {
+                                translatedChapterRepository.moveNovel(
+                                    oldSource.toString(),
+                                    manga.title,
+                                    newSource.toString(),
+                                    manga.title,
+                                )
+                            }.onFailure {
+                                logcat(LogPriority.ERROR, it) { "Failed to move translations on quick migrate" }
+                            }
+                        }
+                        if (withQuotes == null || manga.title in withQuotes) {
+                            runCatching {
+                                quoteManager.moveNovel(
+                                    oldSource.toString(),
+                                    manga.title,
+                                    newSource.toString(),
+                                    manga.title,
+                                )
+                            }.onFailure {
+                                logcat(LogPriority.ERROR, it) { "Failed to move quotes on quick migrate" }
+                            }
+                        }
+                        pendingUpdates.add(MangaUpdate(id = manga.id, source = targetSourceId, url = newUrl))
+                        pendingIds.add(manga.id)
+                        flushUpdates(force = false)
                     } catch (_: Exception) {
                         // Skip entries that fail to update; the rest still migrate.
                     }
                 }
+                flushUpdates(force = true)
+                // One rebuild for the whole run instead of one per relocated entry, each of which
+                // deletes the on-disk index and restarts the full SAF scan.
+                if (attemptedDownloadMove) downloadManager.invalidateDownloadCache()
                 val migrated = migratedIds.size
 
                 if (migratedIds.isNotEmpty() && trackPreferences.migrationTriggersSourceTracker.get()) {
@@ -217,7 +304,7 @@ class MigrateMangaScreenModel(
                 }
 
                 mutableState.update { it.copy(dialog = null, selection = emptySet()) }
-                _events.send(MigrationMangaEvent.QuickMigrateComplete(migrated))
+                _events.send(MigrationMangaEvent.QuickMigrateComplete(migrated, removal.removed))
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Quick migrate execute failed" }
                 mutableState.update { it.copy(dialog = null) }
@@ -225,6 +312,107 @@ class MigrateMangaScreenModel(
             }
         }
     }
+
+    /**
+     * Hands a skipped entry's data to the entry that stays and then takes the skipped one out of the
+     * library, in the same chunks the migration writes with.
+     *
+     * A skipped entry is one the target source already has, so its downloads, translations and
+     * quotes are relocated exactly like a migrated entry's, under the kept entry's title, which is
+     * where that entry looks for them. The old copy is deleted only when the kept one already holds
+     * downloads of its own: every other relocation failure leaves the only copy on disk.
+     */
+    private suspend fun relocateAndRemoveSkipped(
+        skipped: List<Manga>,
+        keptForSkipped: Map<Long, Manga?>,
+        oldSource: Source,
+        newSource: Source,
+        downloadCounts: Map<Long, Int>,
+        countsUsable: Boolean,
+        queuedMangaIds: Set<Long>,
+    ): SkippedRemoval {
+        if (skipped.isEmpty()) return SkippedRemoval(removed = 0, touchedDownloads = false)
+        val titles = skipped.mapTo(mutableSetOf()) { it.title }
+        val withTranslations = runCatching {
+            translatedChapterRepository.filterNovelsWithTranslations(oldSource.toString(), titles)
+        }.onFailure {
+            logcat(LogPriority.ERROR, it) { "Failed to list translations for skipped entries" }
+        }.getOrNull()
+        val withQuotes = runCatching {
+            quoteManager.filterNovelsWithQuotes(oldSource.toString(), titles)
+        }.onFailure {
+            logcat(LogPriority.ERROR, it) { "Failed to list quotes for skipped entries" }
+        }.getOrNull()
+
+        var removed = 0
+        var touchedDownloads = false
+        skipped.chunked(UPDATE_CHUNK_SIZE).forEach { chunk ->
+            chunk.forEach { manga ->
+                val kept = keptForSkipped[manga.id]
+                val keptTitle = kept?.title ?: manga.title
+                val hasDownloads = !countsUsable ||
+                    (downloadCounts[manga.id] ?: 0) > 0 ||
+                    manga.id in queuedMangaIds
+                if (hasDownloads) {
+                    touchedDownloads = true
+                    val keptHasDownloads = if (countsUsable && kept != null) {
+                        (downloadCounts[kept.id] ?: 0) > 0
+                    } else {
+                        downloadManager.hasDownloadedChapters(keptTitle, newSource)
+                    }
+                    if (keptHasDownloads) {
+                        downloadManager.deleteManga(manga, oldSource)
+                    } else {
+                        runCatching {
+                            if (keptTitle != manga.title) {
+                                downloadManager.renameManga(manga, keptTitle)
+                            }
+                            downloadManager.moveMangaToNewSource(
+                                manga.copy(title = keptTitle),
+                                oldSource,
+                                newSource,
+                                invalidateCache = false,
+                            )
+                        }.onFailure {
+                            logcat(LogPriority.ERROR, it) { "Failed to move downloads for a skipped entry" }
+                        }
+                    }
+                }
+                if (withTranslations == null || manga.title in withTranslations) {
+                    runCatching {
+                        translatedChapterRepository.moveNovel(
+                            oldSource.toString(),
+                            manga.title,
+                            newSource.toString(),
+                            keptTitle,
+                        )
+                    }.onFailure {
+                        logcat(LogPriority.ERROR, it) { "Failed to move translations for a skipped entry" }
+                    }
+                }
+                if (withQuotes == null || manga.title in withQuotes) {
+                    runCatching {
+                        quoteManager.moveNovel(
+                            oldSource.toString(),
+                            manga.title,
+                            newSource.toString(),
+                            keptTitle,
+                        )
+                    }.onFailure {
+                        logcat(LogPriority.ERROR, it) { "Failed to move quotes for a skipped entry" }
+                    }
+                }
+            }
+            if (updateManga.awaitAll(chunk.map { MangaUpdate(id = it.id, favorite = false) })) {
+                removed += chunk.size
+            } else {
+                logcat(LogPriority.ERROR) { "Failed to remove a chunk of ${chunk.size} skipped entries" }
+            }
+        }
+        return SkippedRemoval(removed = removed, touchedDownloads = touchedDownloads)
+    }
+
+    private data class SkippedRemoval(val removed: Int, val touchedDownloads: Boolean)
 
     @Immutable
     data class State(
@@ -260,8 +448,12 @@ class MigrateMangaScreenModel(
 
 sealed interface MigrationMangaEvent {
     data object FailedFetchingFavorites : MigrationMangaEvent
-    data class QuickMigrateComplete(val count: Int) : MigrationMangaEvent
+    data class QuickMigrateComplete(val count: Int, val removedCount: Int = 0) : MigrationMangaEvent
 }
+
+// Small enough that a crash leaves at most this many entries with their files already relocated
+// but their row not yet flipped, large enough to keep the transaction count down on a bulk migrate.
+private const val UPDATE_CHUNK_SIZE = 200
 
 /** Leading-slash normalization matching how source urls are stored. */
 internal fun normalizeQuickMigrateUrl(url: String): String = if (url.startsWith("/")) url else "/$url"
@@ -279,3 +471,9 @@ internal fun quickMigrateTargets(
         val newUrl = normalizeQuickMigrateUrl(manga.url)
         if (newUrl in existingFavoriteUrls) null else manga to newUrl
     }
+
+/** The other half of [quickMigrateTargets]: the entries the target source already has. */
+internal fun quickMigrateSkipped(
+    selected: List<Manga>,
+    existingFavoriteUrls: Set<String>,
+): List<Manga> = selected.filter { normalizeQuickMigrateUrl(it.url) in existingFavoriteUrls }

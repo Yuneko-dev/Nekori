@@ -104,6 +104,12 @@ interface TranslatedChapterRepository {
     suspend fun moveNovel(oldSourceName: String, oldTitle: String, newSourceName: String, newTitle: String)
 
     /**
+     * Of [novelTitles], the ones that have translations under [sourceName]. Lists the source
+     * directory once, where probing per title is a SAF enumeration of it per probe.
+     */
+    suspend fun filterNovelsWithTranslations(sourceName: String, novelTitles: Collection<String>): Set<String>
+
+    /**
      * Delete all translations.
      */
     suspend fun deleteAll()

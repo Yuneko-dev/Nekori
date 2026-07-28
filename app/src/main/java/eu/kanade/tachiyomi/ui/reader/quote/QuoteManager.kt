@@ -97,6 +97,20 @@ class QuoteManager(private val context: Context) {
     }
 
     /**
+     * Of [novelTitles], the ones that have a quotes file under [sourceName]. Lists the source
+     * directory once, where probing per title is a SAF enumeration of it per probe.
+     */
+    fun filterNovelsWithQuotes(sourceName: String, novelTitles: Collection<String>): Set<String> {
+        if (novelTitles.isEmpty()) return emptySet()
+        val existing = findSourceDir(sourceName)
+            ?.takeIf { it.isDirectory }
+            ?.listFiles()
+            ?.mapNotNullTo(mutableSetOf()) { it.name }
+            ?: return emptySet()
+        return novelTitles.filterTo(mutableSetOf()) { getNovelFileName(it) in existing }
+    }
+
+    /**
      * Save quotes for a novel
      */
     fun saveQuotes(sourceName: String, novelTitle: String, quotes: List<Quote>): Boolean =

@@ -119,7 +119,13 @@ class AndroidSourceManager(
         scope.launch {
             val dbSource = sourceRepository.getStubSource(source.id)
             if (dbSource == source) return@launch
-            sourceRepository.upsertStubSource(source.id, source.lang, source.name, source.isNovelSource)
+            sourceRepository.upsertStubSource(
+                source.id,
+                source.lang,
+                source.name,
+                source.isNovelSource,
+                source.isJsSource,
+            )
             if (dbSource != null) {
                 downloadManager.renameSource(dbSource, source)
             }

@@ -344,6 +344,13 @@ class LibraryPreferences(
     val mangaReadProgress100: Preference<Boolean> = preferenceStore.getBoolean("pref_manga_read_progress_100", true)
     val novelReadProgress100: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_read_progress_100", true)
 
+    val duplicateSortMode: Preference<DuplicateSortMode> = preferenceStore.getEnum(
+        "pref_duplicate_sort_mode",
+        DuplicateSortMode.Alphabetical,
+    )
+
+    val checkDuplicateEntryOnAdd: Preference<Boolean> = preferenceStore.getBoolean("pref_check_duplicate_on_add", true)
+
     /**
      * Source type priorities for duplicate detection.
      * Stored as semicolon-delimited "TYPE:PRIORITY" pairs, e.g. "JS:3;KT:1;CUSTOM:0;LOCAL:-2;STUB:-5"
@@ -357,6 +364,11 @@ class LibraryPreferences(
     val specificSourcePriorities: Preference<String> = preferenceStore.getString("specific_source_priorities", "")
 
     // endregion
+
+    enum class DuplicateSortMode {
+        Alphabetical,
+        ChapterCount,
+    }
 
     enum class ChapterSwipeAction {
         ToggleRead,
