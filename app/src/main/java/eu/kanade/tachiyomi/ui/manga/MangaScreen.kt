@@ -170,8 +170,10 @@ class MangaScreen(
             },
             onTagSearch = { scope.launch { performGenreSearch(navigator, it, screenModel.source!!) } },
             onFilterButtonClicked = screenModel::showSettingsDialog,
+            onSectionSelected = screenModel::selectSection,
+            onRetrySection = screenModel::retrySelectedPage,
             onRefresh = screenModel::fetchAllFromSource,
-            onForceRefresh = { screenModel.fetchAllFromSource(forceRefresh = true) },
+            onForceRefresh = screenModel::forceRefresh,
             onContinueReading = { continueReading(context, screenModel.getNextUnreadChapter()) },
             onSearch = { query, global ->
                 scope.launch {

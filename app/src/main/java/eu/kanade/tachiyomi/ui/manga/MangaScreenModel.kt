@@ -16,6 +16,7 @@ import eu.kanade.core.util.addOrRemove
 import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
+import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
@@ -39,6 +40,7 @@ import eu.kanade.tachiyomi.data.translation.TranslationJob
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.source.rateLimitHost
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -46,6 +48,7 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
@@ -88,6 +91,9 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.model.NovelStructureSnapshot
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.track.interactor.GetTracks
@@ -139,6 +145,8 @@ class MangaScreenModel(
     private val translationService: TranslationService = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
+    private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
+    private val novelStructureRepository: NovelStructureRepository = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -173,6 +181,7 @@ class MangaScreenModel(
 
     private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
     private val selectedChapterIds: HashSet<Long> = HashSet()
+    private var pageLoadJob: Job? = null
 
     override fun onDispose() {
         val currentManga = manga
@@ -194,6 +203,21 @@ class MangaScreenModel(
         }
     }
 
+    private fun State.Success.withNovelStructure(structure: NovelStructureSnapshot?): State.Success {
+        val sections = sectionNames(structure)
+        val selected = selectedSection?.takeIf { it in sections } ?: defaultSection(structure)
+        return copy(
+            novelStructure = structure,
+            selectedSection = selected,
+        )
+    }
+
+    private fun defaultSection(structure: NovelStructureSnapshot?): String? =
+        structure?.defaultSection
+
+    private fun sectionNames(structure: NovelStructureSnapshot?): List<String> =
+        structure?.sectionNames.orEmpty()
+
     init {
         screenModelScope.launchIO {
             combine(
@@ -206,11 +230,12 @@ class MangaScreenModel(
                 .flowWithLifecycle(lifecycle)
                 .collectLatest { (manga, chapters) ->
                     val translatedChapterIds = translatedChapterIdsFor(manga, chapters)
+                    val novelStructure = novelStructureRepository.get(manga.id)
                     updateSuccessState {
                         it.copy(
                             manga = manga,
                             chapters = chapters.toChapterListItems(manga, translatedChapterIds),
-                        )
+                        ).withNovelStructure(novelStructure)
                     }
                 }
         }
@@ -254,6 +279,7 @@ class MangaScreenModel(
             val availableScanlatorsDeferred = async { getAvailableScanlators.await(mangaId) }
             val excludedScanlatorsDeferred = async { getExcludedScanlators.await(mangaId) }
             val categoriesDeferred = async { getCategories.await(mangaId) }
+            val novelStructureDeferred = async { novelStructureRepository.get(mangaId) }
 
             val manga = mangaDeferred.await()
             val chapters = chaptersDeferred.await()
@@ -269,6 +295,7 @@ class MangaScreenModel(
 
             // Show what we have earlier
             val source = sourceManager.getOrStub(manga.source)
+            val novelStructure = novelStructureDeferred.await()
             mutableState.update {
                 State.Success(
                     manga = manga,
@@ -285,6 +312,8 @@ class MangaScreenModel(
                     hideMissingChapters = libraryPreferences.hideMissingChapters.get(),
                     isNovel = manga.isNovel,
                     showSourceName = libraryPreferences.showMangaSourceName.get(),
+                    novelStructure = novelStructure,
+                    selectedSection = defaultSection(novelStructure),
                 )
             }
 
@@ -374,6 +403,100 @@ class MangaScreenModel(
 
             screenModelScope.launch {
                 snackbarHostState.showSnackbar(message = message)
+            }
+        } finally {
+            refreshNovelStructure()
+        }
+    }
+
+    private suspend fun refreshNovelStructure() {
+        val current = successState ?: return
+        val structure = novelStructureRepository.get(current.manga.id)
+        updateSuccessState { it.withNovelStructure(structure) }
+    }
+
+    fun selectSection(section: String) {
+        val current = successState ?: return
+        if (section !in current.sectionNames) return
+        pageLoadJob?.cancel()
+        updateSuccessState {
+            it.copy(
+                chapters = it.chapters.map { chapter -> chapter.copy(selected = false) },
+                selectedSection = section,
+                loadingSection = null,
+                sectionLoadError = null,
+            )
+        }
+        selectedChapterIds.clear()
+        if (
+            current.novelStructure?.layout == NovelLayout.PAGED &&
+            current.novelStructure.sections.none { it.name == section }
+        ) {
+            loadPage(section)
+        }
+    }
+
+    fun retrySelectedPage() {
+        successState?.selectedSection?.let { loadPage(it, forceRefresh = true) }
+    }
+
+    fun forceRefresh() {
+        val current = successState
+        if (current?.novelStructure?.layout == NovelLayout.PAGED && current.selectedSection != null) {
+            loadPage(current.selectedSection, forceRefresh = true)
+        } else {
+            fetchAllFromSource(forceRefresh = true)
+        }
+    }
+
+    private fun loadPage(page: String, forceRefresh: Boolean = false) {
+        val current = successState ?: return
+        val source = current.source as? PagedNovelSource ?: return
+        if (!forceRefresh && current.loadingSection == page) return
+
+        pageLoadJob?.cancel()
+        pageLoadJob = screenModelScope.launchIO {
+            updateSuccessState {
+                it.copy(
+                    loadingSection = page,
+                    sectionLoadError = null,
+                )
+            }
+            try {
+                val chapters = source.getPage(current.manga.url, page, forceRefresh)
+                syncChaptersWithSource.awaitPage(chapters, current.manga, current.source, page)
+                val refreshedChapters = getMangaAndChapters.awaitChapters(
+                    current.manga.id,
+                    applyScanlatorFilter = true,
+                )
+                val translatedChapterIds = translatedChapterIdsFor(current.manga, refreshedChapters)
+                val structure = novelStructureRepository.get(current.manga.id)
+                updateSuccessState {
+                    it.copy(
+                        chapters = refreshedChapters.toChapterListItems(current.manga, translatedChapterIds),
+                        loadingSection = null,
+                    ).withNovelStructure(structure)
+                }
+            } catch (_: CancellationException) {
+                updateSuccessState {
+                    if (it.loadingSection == page) it.copy(loadingSection = null) else it
+                }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                val message = with(context) { e.formattedMessage }
+                updateSuccessState {
+                    if (it.selectedSection == page) {
+                        it.copy(
+                            loadingSection = null,
+                            sectionLoadError = message,
+                        )
+                    } else if (it.loadingSection == page) {
+                        it.copy(loadingSection = null)
+                    } else {
+                        it
+                    }
+                }
+                snackbarHostState.showSnackbar(message)
             }
         }
     }
@@ -1264,9 +1387,11 @@ class MangaScreenModel(
 
     fun toggleAllSelection(selected: Boolean) {
         updateSuccessState { successState ->
+            val visibleChapterIds = successState.displayedChapters.mapTo(mutableSetOf()) { it.id }
             val newChapters = successState.chapters.map {
-                selectedChapterIds.addOrRemove(it.id, selected)
-                it.copy(selected = selected)
+                val itemSelected = if (selected) it.id in visibleChapterIds else false
+                selectedChapterIds.addOrRemove(it.id, itemSelected)
+                it.copy(selected = itemSelected)
             }
             selectedPositions[0] = -1
             selectedPositions[1] = -1
@@ -1276,9 +1401,11 @@ class MangaScreenModel(
 
     fun invertSelection() {
         updateSuccessState { successState ->
+            val visibleChapterIds = successState.displayedChapters.mapTo(mutableSetOf()) { it.id }
             val newChapters = successState.chapters.map {
-                selectedChapterIds.addOrRemove(it.id, !it.selected)
-                it.copy(selected = !it.selected)
+                val itemSelected = if (it.id in visibleChapterIds) !it.selected else it.selected
+                selectedChapterIds.addOrRemove(it.id, itemSelected)
+                it.copy(selected = itemSelected)
             }
             selectedPositions[0] = -1
             selectedPositions[1] = -1
@@ -1746,9 +1873,27 @@ class MangaScreenModel(
             val similarNovels: List<MangaWithChapterCount> = emptyList(),
             val categories: List<Category> = emptyList(),
             val showSourceName: Boolean = true,
+            val novelStructure: NovelStructureSnapshot? = null,
+            val selectedSection: String? = null,
+            val loadingSection: String? = null,
+            val sectionLoadError: String? = null,
         ) : State {
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()
+            }
+
+            val sectionNames by lazy {
+                novelStructure?.sectionNames.orEmpty()
+            }
+
+            val displayedChapters by lazy {
+                val section = selectedSection
+                if (section == null || novelStructure?.layout == NovelLayout.FLAT) {
+                    processedChapters
+                } else {
+                    val chapterIds = novelStructure?.chapterIds(section).orEmpty()
+                    processedChapters.filter { it.id in chapterIds }
+                }
             }
 
             val isAnySelected by lazy {
@@ -1757,10 +1902,10 @@ class MangaScreenModel(
 
             val chapterListItems by lazy {
                 if (hideMissingChapters) {
-                    return@lazy processedChapters
+                    return@lazy displayedChapters
                 }
 
-                processedChapters.insertSeparators { before, after ->
+                displayedChapters.insertSeparators { before, after ->
                     val (lowerChapter, higherChapter) = if (manga.sortDescending()) {
                         after to before
                     } else {

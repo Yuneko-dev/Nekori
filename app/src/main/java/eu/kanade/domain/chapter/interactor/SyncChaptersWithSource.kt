@@ -89,13 +89,26 @@ class SyncChaptersWithSource(
             }
 
         val dbChapters = getChaptersByMangaId.await(manga.id)
+        val replaceableChapterIds = if (novelStructure?.layout == NovelLayout.PAGED) {
+            val returnedPages = novelStructure.chapterPages.values.toSet()
+            novelStructureRepository.get(manga.id)
+                ?.sections
+                .orEmpty()
+                .asSequence()
+                .filter { it.name in returnedPages }
+                .flatMap { it.chapterIds.asSequence() }
+                .toSet()
+        } else {
+            null
+        }
 
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
         val removedChapters = dbChapters.filterNot { dbChapter ->
-            sourceChapters.any { sourceChapter ->
+            val returned = sourceChapters.any { sourceChapter ->
                 dbChapter.url == sourceChapter.url
             }
+            returned || (replaceableChapterIds != null && dbChapter.id !in replaceableChapterIds)
         }
 
         // Used to not set upload date of older chapters
@@ -262,6 +275,45 @@ class SyncChaptersWithSource(
         return updatedToAdd.filterNot { it.url in changedOrDuplicateReadUrls || it.scanlator in excludedScanlators }
     }
 
+    suspend fun awaitPage(
+        rawSourceChapters: List<SChapter>,
+        manga: Manga,
+        source: Source,
+        page: String,
+    ) {
+        val pageNumber = page.toLongOrNull()
+            ?.takeIf { page == it.toString() && it >= 1 }
+            ?: throw IllegalArgumentException("Invalid novel page: $page")
+        val now = ZonedDateTime.now()
+        val nowMillis = now.toInstant().toEpochMilli()
+        val pageOrderOffset = (pageNumber - 1) * PAGE_ORDER_SIZE
+        val orderedChapters = if (source.id.toString() in libraryPreferences.reversedChapterSources.get()) {
+            rawSourceChapters.reversed()
+        } else {
+            rawSourceChapters
+        }
+        val chapters = orderedChapters
+            .distinctBy { it.url }
+            .mapIndexed { index, sourceChapter ->
+                Chapter.create()
+                    .copyFromSChapter(sourceChapter)
+                    .copy(
+                        mangaId = manga.id,
+                        name = with(ChapterSanitizer) { sourceChapter.name.sanitize(manga.title) },
+                        chapterNumber = ChapterRecognition.parseChapterNumber(
+                            manga.title,
+                            sourceChapter.name,
+                            sourceChapter.chapter_number.toDouble(),
+                        ),
+                        sourceOrder = pageOrderOffset + index,
+                        dateFetch = nowMillis + orderedChapters.size - index,
+                        dateUpload = sourceChapter.date_upload.takeIf { it != 0L } ?: nowMillis,
+                    )
+            }
+        novelStructureRepository.reconcilePage(manga.id, page, chapters)
+        updateManga.awaitUpdateLastUpdate(manga.id)
+    }
+
     private suspend fun replaceNovelStructure(
         mangaId: Long,
         structure: NovelStructure?,
@@ -269,5 +321,9 @@ class SyncChaptersWithSource(
     ) {
         structure ?: return
         novelStructureRepository.replace(mangaId, structure, chapters)
+    }
+
+    private companion object {
+        const val PAGE_ORDER_SIZE = 1_000_000L
     }
 }

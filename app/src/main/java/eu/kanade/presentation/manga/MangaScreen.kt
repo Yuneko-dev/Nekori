@@ -58,6 +58,7 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
+import eu.kanade.presentation.manga.components.NovelSectionNavigation
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
@@ -104,6 +105,8 @@ fun MangaScreen(
     onTagSearch: (String) -> Unit,
 
     onFilterButtonClicked: () -> Unit,
+    onSectionSelected: (String) -> Unit,
+    onRetrySection: () -> Unit,
     onRefresh: () -> Unit,
     onForceRefresh: (() -> Unit)? = null,
     onContinueReading: () -> Unit,
@@ -171,6 +174,8 @@ fun MangaScreen(
             onTagSearch = onTagSearch,
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterClicked = onFilterButtonClicked,
+            onSectionSelected = onSectionSelected,
+            onRetrySection = onRetrySection,
             onRefresh = onRefresh,
             onForceRefresh = onForceRefresh,
             onContinueReading = onContinueReading,
@@ -221,6 +226,8 @@ fun MangaScreen(
             onTagSearch = onTagSearch,
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterButtonClicked = onFilterButtonClicked,
+            onSectionSelected = onSectionSelected,
+            onRetrySection = onRetrySection,
             onRefresh = onRefresh,
             onForceRefresh = onForceRefresh,
             onContinueReading = onContinueReading,
@@ -277,6 +284,8 @@ private fun MangaScreenSmallImpl(
     onCopyTagToClipboard: (tag: String) -> Unit,
 
     onFilterClicked: () -> Unit,
+    onSectionSelected: (String) -> Unit,
+    onRetrySection: () -> Unit,
     onRefresh: () -> Unit,
     onForceRefresh: (() -> Unit)? = null,
     onContinueReading: () -> Unit,
@@ -322,7 +331,7 @@ private fun MangaScreenSmallImpl(
 ) {
     val (chapters, listItem, isAnySelected) = remember(state) {
         Triple(
-            first = state.processedChapters,
+            first = state.displayedChapters,
             second = state.chapterListItems,
             third = state.isAnySelected,
         )
@@ -542,6 +551,23 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    if (state.sectionNames.size > 1) {
+                        item(
+                            key = MangaScreenItem.NOVEL_SECTION_NAVIGATION,
+                            contentType = MangaScreenItem.NOVEL_SECTION_NAVIGATION,
+                        ) {
+                            NovelSectionNavigation(
+                                layout = state.novelStructure!!.layout,
+                                sections = state.sectionNames,
+                                selectedSection = state.selectedSection!!,
+                                loading = state.loadingSection == state.selectedSection,
+                                error = state.sectionLoadError,
+                                onSectionSelected = onSectionSelected,
+                                onRetry = onRetrySection,
+                            )
+                        }
+                    }
+
                     sharedChapterItems(
                         manga = state.manga,
                         chapters = listItem,
@@ -580,6 +606,8 @@ fun MangaScreenLargeImpl(
     onCopyTagToClipboard: (tag: String) -> Unit,
 
     onFilterButtonClicked: () -> Unit,
+    onSectionSelected: (String) -> Unit,
+    onRetrySection: () -> Unit,
     onRefresh: () -> Unit,
     onForceRefresh: (() -> Unit)? = null,
     onContinueReading: () -> Unit,
@@ -628,7 +656,7 @@ fun MangaScreenLargeImpl(
 
     val (chapters, listItem, isAnySelected) = remember(state) {
         Triple(
-            first = state.processedChapters,
+            first = state.displayedChapters,
             second = state.chapterListItems,
             third = state.isAnySelected,
         )
@@ -838,6 +866,23 @@ fun MangaScreenLargeImpl(
                                     missingChapterCount = missingChapterCount,
                                     onClick = onFilterButtonClicked,
                                 )
+                            }
+
+                            if (state.sectionNames.size > 1) {
+                                item(
+                                    key = MangaScreenItem.NOVEL_SECTION_NAVIGATION,
+                                    contentType = MangaScreenItem.NOVEL_SECTION_NAVIGATION,
+                                ) {
+                                    NovelSectionNavigation(
+                                        layout = state.novelStructure!!.layout,
+                                        sections = state.sectionNames,
+                                        selectedSection = state.selectedSection!!,
+                                        loading = state.loadingSection == state.selectedSection,
+                                        error = state.sectionLoadError,
+                                        onSectionSelected = onSectionSelected,
+                                        onRetry = onRetrySection,
+                                    )
+                                }
                             }
 
                             sharedChapterItems(

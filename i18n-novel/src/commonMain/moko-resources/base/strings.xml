@@ -46,6 +46,8 @@
     <string name="novel_viewer">Novel (text)</string>
     <string name="novel_nav_center_only">Center only</string>
     <string name="chapter_progress_novel">%1$d%%</string>
+    <string name="novel_page_label">Page %s</string>
+    <string name="novel_volume_label">Volume %s</string>
     <!-- Library -->
     <string name="chapters_from_database">Chapter entries from database</string>
     <string name="delete_local_novel_files">Delete local EPUB/HTML?</string>

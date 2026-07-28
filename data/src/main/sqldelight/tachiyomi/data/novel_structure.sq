@@ -70,6 +70,14 @@ deleteSectionsByMangaId:
 DELETE FROM novel_sections
 WHERE manga_id = :mangaId;
 
+deleteChapterSectionsBySectionId:
+DELETE FROM novel_chapter_sections
+WHERE section_id = :sectionId;
+
+deleteChapterSectionByChapterId:
+DELETE FROM novel_chapter_sections
+WHERE chapter_id = :chapterId;
+
 insertSection:
 INSERT INTO novel_sections(manga_id, kind, name, page_number, path, cover, sort_order)
 VALUES (:mangaId, :kind, :name, :pageNumber, :path, :cover, :sortOrder)
@@ -89,6 +97,12 @@ SELECT *
 FROM novel_sections
 WHERE manga_id = :mangaId
 ORDER BY sort_order, _id;
+
+getSectionByMangaIdAndName:
+SELECT *
+FROM novel_sections
+WHERE manga_id = :mangaId
+AND name = :name;
 
 getChapterSectionsByMangaId:
 SELECT

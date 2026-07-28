@@ -205,6 +205,37 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun parsePageForcesEveryChapterOntoTheCanonicalRequestedPage() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'page-result.test',
+              name: 'Page result test',
+              version: '1',
+              site: 'https://example.invalid',
+              parsePage: async () => ({
+                chapters: [
+                  { name: 'Chapter 1', path: '/chapter-1' },
+                  { name: 'Chapter 2', path: '/chapter-2', page: 'wrong' },
+                ],
+              }),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"page-result.test","code":${quote(code)}}""")
+        val result = Json.parseToJsonElement(
+            runtime.call(
+                "plugin.parsePage",
+                """{"id":"page-result.test","path":"/novel","page":"2"}""",
+            ),
+        ).jsonObject
+
+        result.getValue("chapters").jsonArray.forEach { chapter ->
+            assertEquals("2", chapter.jsonObject.getValue("page").jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun parseNovelRejectsPagedPluginWithoutValidTotalPages() = runBlocking {
         val runtime = createRuntime()
         val code = """
