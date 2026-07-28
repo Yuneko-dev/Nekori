@@ -186,7 +186,7 @@ class JsSource(
             val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
                 hermesRuntime.call("plugin.parsePage", payload)
             }
-            val chapters = prepareSourceChapters(parsePageChapters(result))
+            val chapters = prepareSourceChapters(parsePageChapters(result, page))
             pageCache[cacheKey] = chapters to System.currentTimeMillis()
             trimPageCache()
             chapters
@@ -1021,12 +1021,15 @@ class JsSource(
         }
     }
 
-    private fun parsePageChapters(jsonResult: String): List<SChapter> {
+    private fun parsePageChapters(jsonResult: String, page: String): List<SChapter> {
         if (jsonResult == "null" || jsonResult.isBlank()) {
             throw IllegalArgumentException("[$pluginId] parsePage returned no data")
         }
         val chapters = json.parseToJsonElement(jsonResult).jsonObject["chapters"]?.jsonArray
             ?: throw IllegalArgumentException("[$pluginId] parsePage returned no chapters")
+        if (chapters.isEmpty()) {
+            throw IllegalArgumentException("[$pluginId] parsePage($page) returned no chapters")
+        }
         return parseChapters(chapters).chapters
     }
 
@@ -1068,6 +1071,7 @@ class JsSource(
                 chapter.chapter_number = (index + 1).toFloat()
             }
         }
+        // LNReader returns oldest-first; Mihon sources and sourceOrder expect newest-first.
         return chapters.reversed()
     }
 

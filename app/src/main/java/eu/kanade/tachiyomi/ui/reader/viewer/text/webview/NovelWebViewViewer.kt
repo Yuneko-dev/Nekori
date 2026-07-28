@@ -2363,10 +2363,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         val preparedChapter = activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: run {
             logcat(LogPriority.WARN) { "NovelWebViewViewer: No next chapter available after ${anchor.chapter.name}" }
-            // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
-            if (!reachedNovelEnd) inlineFeedback.showInlineError("No next chapter available", isPrepend = false)
-            reachedNovelEnd = true
-            setJsNoMoreChapters(true)
+            if (activity.viewModel.hasNextPagedPage(anchor)) {
+                inlineFeedback.showInlineError("Unable to load next page", isPrepend = false)
+            } else {
+                // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
+                if (!reachedNovelEnd) inlineFeedback.showInlineError("No next chapter available", isPrepend = false)
+                reachedNovelEnd = true
+                setJsNoMoreChapters(true)
+            }
             return false
         }
         val nextId = preparedChapter.chapter.id ?: run {

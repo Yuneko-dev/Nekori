@@ -126,6 +126,51 @@ class JsSourceMainThreadTest {
     }
 
     @Test
+    fun emptyPageRemainsRetryable() = runBlocking {
+        val source = JsSource(
+            InstalledJsPlugin(
+                plugin = JsPlugin(
+                    id = "empty-page.source.test",
+                    name = "Empty page source test",
+                    site = "https://example.invalid",
+                    lang = "English",
+                    version = "1",
+                    url = "https://example.com/plugin.js",
+                    iconUrl = "",
+                ),
+                code = """
+                    let pageCalls = 0;
+                    exports.default = {
+                      id: 'empty-page.source.test',
+                      name: 'Empty page source test',
+                      version: '1',
+                      site: 'https://example.invalid',
+                      parseNovel: async path => ({
+                        name: 'Novel',
+                        path,
+                        totalPages: 2,
+                        chapters: [],
+                      }),
+                      parsePage: async () => ({
+                        chapters: ++pageCalls === 1
+                          ? []
+                          : [{ name: 'Chapter 1', path: '/chapter-1' }],
+                      }),
+                    };
+                """.trimIndent(),
+                installedVersion = "1",
+                repositoryUrl = "https://example.com/plugins.json",
+            ),
+        )
+
+        val error = runCatching { source.getPage("/book", "2", forceRefresh = false) }.exceptionOrNull()
+        val chapters = source.getPage("/book", "2", forceRefresh = false)
+
+        assertTrue(error?.message.orEmpty().contains("parsePage(2) returned no chapters"))
+        assertEquals(listOf("/chapter-1"), chapters.map { it.url })
+    }
+
+    @Test
     fun exposesEveryLnReaderFilterType() = runBlocking {
         val filters = createSource().getFilterListAsync()
 

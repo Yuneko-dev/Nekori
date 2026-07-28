@@ -43,6 +43,9 @@ class NovelStructureSnapshotTest {
         structure.defaultSection shouldBe "1"
         structure.chapterIds("2") shouldBe emptySet()
         structure.chapterIds("3") shouldBe emptySet()
+        structure.isSectionLoaded("1") shouldBe true
+        structure.isSectionLoaded("2") shouldBe false
+        structure.isSectionLoaded("3") shouldBe false
     }
 
     private fun snapshot(

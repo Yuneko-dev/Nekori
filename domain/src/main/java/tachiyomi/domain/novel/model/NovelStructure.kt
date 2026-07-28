@@ -33,6 +33,9 @@ data class NovelStructureSnapshot(
 
     fun chapterIds(section: String): Set<Long> =
         sections.firstOrNull { it.name == section }?.chapterIds.orEmpty().toSet()
+
+    fun isSectionLoaded(section: String): Boolean =
+        sections.firstOrNull { it.name == section }?.chapterIds?.isNotEmpty() == true
 }
 
 data class NovelSection(

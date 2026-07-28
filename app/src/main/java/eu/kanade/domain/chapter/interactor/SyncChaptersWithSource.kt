@@ -79,13 +79,24 @@ class SyncChaptersWithSource(
         // Apply reversal if configured for this source
         val orderedChapters = if (shouldReverse) rawSourceChapters.reversed() else rawSourceChapters
 
+        val pageChapterIndexes = mutableMapOf<Long, Int>()
         val sourceChapters = orderedChapters
             .distinctBy { it.url }
             .mapIndexed { i, sChapter ->
+                val sourceOrder = if (novelStructure?.layout == NovelLayout.PAGED) {
+                    val pageNumber = novelStructure.chapterPages[sChapter.url]
+                        ?.toLongOrNull()
+                        ?: throw IllegalArgumentException("Invalid novel page for ${sChapter.url}")
+                    val indexInPage = pageChapterIndexes.getOrDefault(pageNumber, 0)
+                    pageChapterIndexes[pageNumber] = indexInPage + 1
+                    pagedSourceOrder(novelStructure.totalPages, pageNumber, indexInPage)
+                } else {
+                    i.toLong()
+                }
                 Chapter.create()
                     .copyFromSChapter(sChapter)
                     .copy(name = with(ChapterSanitizer) { sChapter.name.sanitize(manga.title) })
-                    .copy(mangaId = manga.id, sourceOrder = i.toLong())
+                    .copy(mangaId = manga.id, sourceOrder = sourceOrder)
             }
 
         val dbChapters = getChaptersByMangaId.await(manga.id)
@@ -281,12 +292,15 @@ class SyncChaptersWithSource(
         source: Source,
         page: String,
     ) {
+        if (rawSourceChapters.isEmpty()) throw NoChaptersException()
         val pageNumber = page.toLongOrNull()
             ?.takeIf { page == it.toString() && it >= 1 }
             ?: throw IllegalArgumentException("Invalid novel page: $page")
+        val novelStructure = novelStructureRepository.get(manga.id)
+            ?.takeIf { it.layout == NovelLayout.PAGED }
+            ?: throw IllegalArgumentException("Novel ${manga.id} is not paged")
         val now = ZonedDateTime.now()
         val nowMillis = now.toInstant().toEpochMilli()
-        val pageOrderOffset = (pageNumber - 1) * PAGE_ORDER_SIZE
         val orderedChapters = if (source.id.toString() in libraryPreferences.reversedChapterSources.get()) {
             rawSourceChapters.reversed()
         } else {
@@ -305,7 +319,7 @@ class SyncChaptersWithSource(
                             sourceChapter.name,
                             sourceChapter.chapter_number.toDouble(),
                         ),
-                        sourceOrder = pageOrderOffset + index,
+                        sourceOrder = pagedSourceOrder(novelStructure.totalPages, pageNumber, index),
                         dateFetch = nowMillis + orderedChapters.size - index,
                         dateUpload = sourceChapter.date_upload.takeIf { it != 0L } ?: nowMillis,
                     )
@@ -322,8 +336,16 @@ class SyncChaptersWithSource(
         structure ?: return
         novelStructureRepository.replace(mangaId, structure, chapters)
     }
+}
 
-    private companion object {
-        const val PAGE_ORDER_SIZE = 1_000_000L
-    }
+private const val PAGE_ORDER_SIZE = 1_000_000L
+
+internal fun pagedSourceOrder(totalPages: Long, pageNumber: Long, indexInPage: Int): Long {
+    require(totalPages >= 1)
+    require(pageNumber in 1..totalPages)
+    require(indexInPage >= 0 && indexInPage.toLong() < PAGE_ORDER_SIZE)
+    return Math.subtractExact(
+        indexInPage.toLong(),
+        Math.multiplyExact(pageNumber - 1, PAGE_ORDER_SIZE),
+    )
 }

@@ -430,7 +430,7 @@ class MangaScreenModel(
         selectedChapterIds.clear()
         if (
             current.novelStructure?.layout == NovelLayout.PAGED &&
-            current.novelStructure.sections.none { it.name == section }
+            !current.novelStructure.isSectionLoaded(section)
         ) {
             loadPage(section)
         }

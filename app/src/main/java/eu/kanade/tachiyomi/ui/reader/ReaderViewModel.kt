@@ -10,6 +10,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
@@ -34,6 +35,7 @@ import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.rateLimitHost
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
@@ -99,6 +101,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.model.NovelStructureSnapshot
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.model.TranslationLocator
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -108,6 +113,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.util.Date
+import java.util.concurrent.atomic.AtomicReference
 import tachiyomi.domain.chapter.model.Chapter as DomainChapter
 
 /**
@@ -137,6 +143,8 @@ class ReaderViewModel @JvmOverloads constructor(
     private val translationPreferences: TranslationPreferences = Injekt.get(),
     private val translationService: TranslationService = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    private val novelStructureRepository: NovelStructureRepository = Injekt.get(),
+    private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
 ) : ViewModel() {
     private val quoteManager: QuoteManager by lazy {
         QuoteManager(Injekt.get<Application>())
@@ -207,12 +215,18 @@ class ReaderViewModel @JvmOverloads constructor(
      * Chapter list for the active manga. It's retrieved lazily and should be accessed for the first
      * time in a background thread to avoid blocking the UI.
      */
-    private val chapterList by lazy {
-        val manga = manga!!
-        val chapters = runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+    private val chapterListRef by lazy {
+        AtomicReference(runBlocking { buildReaderChapterList(chapterId) })
+    }
+    private val chapterList: List<ReaderChapter>
+        get() = chapterListRef.get()
 
-        val selectedChapter = chapters.find { it.id == chapterId }
-            ?: error("Requested chapter of id $chapterId not found in chapter list")
+    private suspend fun buildReaderChapterList(selectedChapterId: Long): List<ReaderChapter> {
+        val manga = manga!!
+        val chapters = getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true)
+
+        val selectedChapter = chapters.find { it.id == selectedChapterId }
+            ?: error("Requested chapter of id $selectedChapterId not found in chapter list")
 
         val chaptersForReader = when {
             (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
@@ -249,7 +263,7 @@ class ReaderViewModel @JvmOverloads constructor(
                     }
                 }
 
-                if (filteredChapters.any { it.id == chapterId }) {
+                if (filteredChapters.any { it.id == selectedChapterId }) {
                     filteredChapters
                 } else {
                     filteredChapters + listOf(selectedChapter)
@@ -260,7 +274,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
         val sortedChapters = chaptersForReader.sortedWith(getChapterSort(manga, sortDescending = false))
 
-        sortedChapters
+        return sortedChapters
             .run {
                 if (readerPreferences.skipDupe.get()) {
                     removeDuplicates(selectedChapter)
@@ -279,6 +293,13 @@ class ReaderViewModel @JvmOverloads constructor(
             .map(::ReaderChapter)
     }
 
+    private suspend fun refreshChapterList(selectedChapterId: Long) {
+        val existing = chapterList.associateBy { it.chapter.id }
+        val refreshed = buildReaderChapterList(selectedChapterId)
+            .map { existing[it.chapter.id] ?: it }
+        chapterListRef.set(refreshed)
+    }
+
     private val pendingTranslationAheadChapterIds = mutableSetOf<Long>()
 
     private val incognitoMode: Boolean by lazy { getIncognitoState.await(manga?.source) }
@@ -286,6 +307,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /** Serializes novel progress saves to prevent concurrent saves racing each other. */
     private val novelProgressMutex = Mutex()
+    private val pagedChapterLoadMutex = Mutex()
 
     /**
      * Serializes history writes so the read+clear of [chapterReadStartTime] is atomic. A pause flush
@@ -408,11 +430,22 @@ class ReaderViewModel @JvmOverloads constructor(
     ): ViewerChapters {
         loader.loadChapter(chapter, forceFromSource)
 
-        val chapterPos = chapterList.indexOf(chapter)
+        val pagedChapterPages = loadAdjacentPagedPages(chapter)
+        val chapterPos = chapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
         val newChapters = ViewerChapters(
             chapter,
-            chapterList.getOrNull(chapterPos - 1),
-            chapterList.getOrNull(chapterPos + 1),
+            pagedAdjacentChapter(
+                chapter,
+                chapterList.getOrNull(chapterPos - 1),
+                pagedChapterPages,
+                pageDelta = -1,
+            ),
+            pagedAdjacentChapter(
+                chapter,
+                chapterList.getOrNull(chapterPos + 1),
+                pagedChapterPages,
+                pageDelta = 1,
+            ),
         )
 
         withUIContext {
@@ -433,6 +466,74 @@ class ReaderViewModel @JvmOverloads constructor(
         enqueueTranslationIfNeeded(chapter)
 
         return newChapters
+    }
+
+    private suspend fun loadAdjacentPagedPages(current: ReaderChapter): Map<Long, Long> =
+        pagedChapterLoadMutex.withLock {
+            val currentManga = manga ?: return@withLock emptyMap()
+            var structure = novelStructureRepository.get(currentManga.id)
+                ?.takeIf { it.layout == NovelLayout.PAGED }
+                ?: return@withLock emptyMap()
+            val currentChapterId = current.chapter.id ?: return@withLock emptyMap()
+            var chapterPages = structure.chapterPagesById()
+            val currentPage = chapterPages[currentChapterId] ?: return@withLock chapterPages
+            val currentIndex = chapterList.indexOfFirst { it.chapter.id == currentChapterId }
+            if (currentIndex < 0) return@withLock chapterPages
+
+            val pagesToLoad = adjacentPagedPagesToLoad(
+                currentPage = currentPage,
+                totalPages = structure.totalPages,
+                previousCandidatePage = chapterList.getOrNull(currentIndex - 1)?.chapter?.id?.let(chapterPages::get),
+                nextCandidatePage = chapterList.getOrNull(currentIndex + 1)?.chapter?.id?.let(chapterPages::get),
+                loadedPages = structure.sections
+                    .filter { it.chapterIds.isNotEmpty() }
+                    .mapNotNullTo(mutableSetOf()) { it.pageNumber },
+            )
+            if (pagesToLoad.isEmpty()) return@withLock chapterPages
+
+            val source = sourceManager.getOrStub(currentManga.source)
+            val pagedSource = source as? PagedNovelSource ?: return@withLock chapterPages
+            var changed = false
+            pagesToLoad.forEach { page ->
+                try {
+                    val chapters = pagedSource.getPage(currentManga.url, page.toString(), forceRefresh = false)
+                    syncChaptersWithSource.awaitPage(chapters, currentManga, source, page.toString())
+                    changed = true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN, e) { "Failed to load adjacent novel page $page" }
+                }
+            }
+            if (changed) {
+                refreshChapterList(currentChapterId)
+                structure = novelStructureRepository.get(currentManga.id)
+                    ?.takeIf { it.layout == NovelLayout.PAGED }
+                    ?: structure
+                chapterPages = structure.chapterPagesById()
+            }
+            chapterPages
+        }
+
+    private fun NovelStructureSnapshot.chapterPagesById(): Map<Long, Long> =
+        buildMap {
+            sections.forEach { section ->
+                val page = section.pageNumber ?: return@forEach
+                section.chapterIds.forEach { chapterId -> put(chapterId, page) }
+            }
+        }
+
+    private fun pagedAdjacentChapter(
+        current: ReaderChapter,
+        candidate: ReaderChapter?,
+        chapterPages: Map<Long, Long>,
+        pageDelta: Long,
+    ): ReaderChapter? {
+        candidate ?: return null
+        if (chapterPages.isEmpty()) return candidate
+        val currentPage = chapterPages[current.chapter.id] ?: return candidate
+        val candidatePage = chapterPages[candidate.chapter.id] ?: return null
+        return candidate.takeIf { isPagedAdjacentPage(currentPage, candidatePage, pageDelta) }
     }
 
     /**
@@ -486,9 +587,8 @@ class ReaderViewModel @JvmOverloads constructor(
      * This loads the chapter's page list (via [ChapterLoader]) but does not update [State.viewerChapters].
      */
     suspend fun prepareNextChapterForInfiniteScroll(): ReaderChapter? {
-        val nextChapter = state.value.viewerChapters?.nextChapter ?: return null
-        prepareChapterForInfiniteScroll(nextChapter)
-        return nextChapter
+        val currentChapter = state.value.viewerChapters?.currChapter ?: return null
+        return prepareNextChapterForInfiniteScroll(currentChapter)
     }
 
     /**
@@ -496,29 +596,49 @@ class ReaderViewModel @JvmOverloads constructor(
      * This allows multi-chapter append without requiring the active chapter to change.
      */
     suspend fun prepareNextChapterForInfiniteScroll(anchor: ReaderChapter): ReaderChapter? {
+        val chapterPages = loadAdjacentPagedPages(anchor)
         val anchorPos = chapterList.indexOfFirst { it.chapter.id == anchor.chapter.id }
         if (anchorPos < 0) return null
-        val nextChapter = chapterList.getOrNull(anchorPos + 1) ?: return null
+        val nextChapter = pagedAdjacentChapter(
+            anchor,
+            chapterList.getOrNull(anchorPos + 1),
+            chapterPages,
+            pageDelta = 1,
+        ) ?: return null
         prepareChapterForInfiniteScroll(nextChapter)
         return nextChapter
+    }
+
+    suspend fun hasNextPagedPage(anchor: ReaderChapter): Boolean {
+        val currentManga = manga ?: return false
+        val structure = novelStructureRepository.get(currentManga.id)
+            ?.takeIf { it.layout == NovelLayout.PAGED }
+            ?: return false
+        val currentPage = structure.chapterPagesById()[anchor.chapter.id] ?: return false
+        return currentPage < structure.totalPages
     }
 
     /**
      * Prepares the previous chapter for novel infinite-scroll without changing the active chapter.
      */
     suspend fun preparePreviousChapterForInfiniteScroll(): ReaderChapter? {
-        val prevChapter = state.value.viewerChapters?.prevChapter ?: return null
-        prepareChapterForInfiniteScroll(prevChapter)
-        return prevChapter
+        val currentChapter = state.value.viewerChapters?.currChapter ?: return null
+        return preparePreviousChapterForInfiniteScroll(currentChapter)
     }
 
     /**
      * Prepares the previous chapter before [anchor] for novel infinite-scroll without changing the active chapter.
      */
     suspend fun preparePreviousChapterForInfiniteScroll(anchor: ReaderChapter): ReaderChapter? {
+        val chapterPages = loadAdjacentPagedPages(anchor)
         val anchorPos = chapterList.indexOfFirst { it.chapter.id == anchor.chapter.id }
         if (anchorPos < 0) return null
-        val prevChapter = chapterList.getOrNull(anchorPos - 1) ?: return null
+        val prevChapter = pagedAdjacentChapter(
+            anchor,
+            chapterList.getOrNull(anchorPos - 1),
+            chapterPages,
+            pageDelta = -1,
+        ) ?: return null
         prepareChapterForInfiniteScroll(prevChapter)
         return prevChapter
     }
@@ -566,13 +686,24 @@ class ReaderViewModel @JvmOverloads constructor(
         viewModelScope.launchIO {
             flushReadTimerAndRestart()
 
+            val chapterPages = loadAdjacentPagedPages(chapter)
             val chapterPos = chapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
             if (chapterPos < 0) return@launchIO
 
             val newChapters = ViewerChapters(
                 chapter,
-                chapterList.getOrNull(chapterPos - 1),
-                chapterList.getOrNull(chapterPos + 1),
+                pagedAdjacentChapter(
+                    chapter,
+                    chapterList.getOrNull(chapterPos - 1),
+                    chapterPages,
+                    pageDelta = -1,
+                ),
+                pagedAdjacentChapter(
+                    chapter,
+                    chapterList.getOrNull(chapterPos + 1),
+                    chapterPages,
+                    pageDelta = 1,
+                ),
             )
 
             withUIContext {
@@ -1776,5 +1907,37 @@ class ReaderViewModel @JvmOverloads constructor(
         data class SavedImage(val result: SaveImageResult) : Event
         data class ShareImage(val uri: Uri, val page: ReaderPage) : Event
         data class CopyImage(val uri: Uri) : Event
+    }
+}
+
+internal fun isPagedAdjacentPage(currentPage: Long, candidatePage: Long, pageDelta: Long): Boolean {
+    return candidatePage == currentPage || candidatePage == currentPage + pageDelta
+}
+
+internal fun adjacentPagedPagesToLoad(
+    currentPage: Long,
+    totalPages: Long,
+    previousCandidatePage: Long?,
+    nextCandidatePage: Long?,
+    loadedPages: Set<Long>,
+): List<Long> = buildList {
+    val previousPage = currentPage - 1
+    if (
+        previousPage >= 1 &&
+        previousPage !in loadedPages &&
+        previousCandidatePage != currentPage &&
+        previousCandidatePage != previousPage
+    ) {
+        add(previousPage)
+    }
+
+    val nextPage = currentPage + 1
+    if (
+        nextPage <= totalPages &&
+        nextPage !in loadedPages &&
+        nextCandidatePage != currentPage &&
+        nextCandidatePage != nextPage
+    ) {
+        add(nextPage)
     }
 }
