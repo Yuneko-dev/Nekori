@@ -26,7 +26,7 @@ fun novelExtensionsTab(
     val state by extensionsScreenModel.state.collectAsState()
 
     return TabContent(
-        titleRes = TDMR.strings.label_novel_extensions,
+        titleRes = MR.strings.label_extensions,
         badgeNumber = state.updates.takeIf { it > 0 },
         searchEnabled = true,
         actions = listOf(
