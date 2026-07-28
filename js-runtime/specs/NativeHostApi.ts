@@ -27,8 +27,8 @@ export interface Spec extends TurboModule {
   /** Called once, after the JS side has subscribed to [onCommand]. */
   ready(): void;
 
-  /** Completes the pending Kotlin coroutine for `id` with a JSON payload. */
-  resolve(id: string, json: string): void;
+  /** Completes the pending Kotlin coroutine with the handler's encoded payload. */
+  resolve(id: string, payload: string): void;
 
   /** Fails the pending Kotlin coroutine for `id`, preserving the JavaScript stack for diagnostics. */
   reject(id: string, message: string, stack: string): void;

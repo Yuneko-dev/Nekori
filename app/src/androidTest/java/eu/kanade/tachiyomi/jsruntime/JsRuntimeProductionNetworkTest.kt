@@ -52,6 +52,7 @@ class JsRuntimeProductionNetworkTest {
                 }
             }
 
+            runtime.start()
             assertSame(networkClient, reactNativeNetworkingClient())
 
             runtime.call("plugin.load", """{"id":"network.test","code":${quote(PLUGIN_SOURCE)}}""")
@@ -62,7 +63,7 @@ class JsRuntimeProductionNetworkTest {
 
             val requestHeaders = response.await()
             assertEquals(networkHelper.defaultUserAgentProvider(), requestHeaders["user-agent"])
-            assertTrue(result, result.contains("production-client"))
+            assertEquals("<p>production-client</p>", result)
         }
     }
 

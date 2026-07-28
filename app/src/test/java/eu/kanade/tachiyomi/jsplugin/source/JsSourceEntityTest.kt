@@ -1,10 +1,7 @@
 package eu.kanade.tachiyomi.jsplugin.source
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -219,52 +216,5 @@ class JsSourceEntityTest {
     @Test
     fun `stripInvalidChars returns empty string unchanged`() {
         assertEquals("", JsSource.stripInvalidChars(""))
-    }
-
-    // ── pickContentField ──────────────────────────────────────────────────
-
-    private val json = Json { ignoreUnknownKeys = true }
-
-    private fun obj(raw: String) = json.parseToJsonElement(raw).jsonObject
-
-    @Test
-    fun `pickContentField returns chapterText when present`() {
-        assertEquals("hello", JsSource.pickContentField(obj("""{"chapterText":"hello","text":"other"}""")))
-    }
-
-    @Test
-    fun `pickContentField falls back to text when chapterText absent`() {
-        assertEquals("body", JsSource.pickContentField(obj("""{"text":"body","content":"c"}""")))
-    }
-
-    @Test
-    fun `pickContentField falls back to content when chapterText and text absent`() {
-        assertEquals("cnt", JsSource.pickContentField(obj("""{"content":"cnt"}""")))
-    }
-
-    @Test
-    fun `pickContentField returns null when no known field present`() {
-        assertNull(JsSource.pickContentField(obj("""{"data":"something"}""")))
-    }
-
-    @Test
-    fun `pickContentField returns null for empty object`() {
-        assertNull(JsSource.pickContentField(obj("""{}""")))
-    }
-
-    @Test
-    fun `pickContentField handles multiline chapter text`() {
-        val text = "Line one\nLine two\nLine three"
-        val encoded = text.replace("\n", "\\n")
-        assertEquals(text, JsSource.pickContentField(obj("""{"chapterText":"$encoded"}""")))
-    }
-
-    @Test
-    fun `pickContentField handles HTML content in chapterText field`() {
-        val text = "<p>Chapter one</p><p>Chapter two</p>"
-        assertEquals(
-            text,
-            JsSource.pickContentField(obj("""{"chapterText":"<p>Chapter one<\/p><p>Chapter two<\/p>"}""")),
-        )
     }
 }

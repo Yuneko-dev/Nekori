@@ -139,15 +139,6 @@ class JsSource(
          */
         internal fun normalizePluginPath(path: String): String =
             if (path.startsWith("/https://") || path.startsWith("/http://")) path.removePrefix("/") else path
-
-        /**
-         * Pick the content field from a parsed JSON plugin response object.
-         * Returns null when none of the known fields are present.
-         */
-        internal fun pickContentField(obj: JsonObject): String? =
-            obj["chapterText"]?.jsonPrimitive?.content
-                ?: obj["text"]?.jsonPrimitive?.content
-                ?: obj["content"]?.jsonPrimitive?.content
     }
 
     private val pluginId: String = plugin.id
@@ -820,11 +811,19 @@ class JsSource(
 
     /** plugin.parseChapter with raw-result caching and in-flight dedup. */
     private suspend fun parseChapterCached(chapterUrl: String): String {
-        val path = escapeJsString(normalizePluginPath(chapterUrl))
+        val path = normalizePluginPath(chapterUrl)
         return chapterTextMutex.withLock {
             val now = System.currentTimeMillis()
             chapterTextCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
-            val result = executePluginMethod("plugin.parseChapter('$path')")
+            ensureLoadedInHermes()
+            val payload = buildJsonObject {
+                put("id", pluginId)
+                put("key", hermesRuntimeKey)
+                put("path", path)
+            }.toString()
+            val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
+                hermesRuntime.call("plugin.parseChapter", payload)
+            }
             chapterTextCache[path] = result to now
             trimRawCache(chapterTextCache)
             result
@@ -1378,29 +1377,10 @@ class JsSource(
         }
 
         try {
-            val result = parseChapterCached(page.url)
-            extractChapterText(result)
+            normalizePluginContent(parseChapterCached(page.url))
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Error fetching page text for ${plugin.name}" }
             throw e
         }
-    }
-
-    // Extract chapter text from executePluginMethod result.
-    // Plugins may return a plain JSON string or a JSON object with chapterText/text/content field.
-    // decodeJsonStringIfQuoted returns raw JSON for objects, which viewers then misrender.
-    private fun extractChapterText(result: String): String {
-        val raw = if (result.startsWith("{")) {
-            try {
-                val obj = json.parseToJsonElement(result).jsonObject
-                pickContentField(obj) ?: decodeJsonStringIfQuoted(result)
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN, e) { "extractChapterText: failed to parse JSON object from ${plugin.name}" }
-                decodeJsonStringIfQuoted(result)
-            }
-        } else {
-            decodeJsonStringIfQuoted(result)
-        }
-        return normalizePluginContent(raw)
     }
 }

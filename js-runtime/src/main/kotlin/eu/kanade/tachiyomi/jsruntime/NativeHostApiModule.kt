@@ -44,8 +44,8 @@ internal class NativeHostApiModule(
 
     @ReactMethod
     @DoNotStrip
-    fun resolve(id: String, json: String) {
-        JsCallDispatcher.resolve(id, json)
+    fun resolve(id: String, payload: String) {
+        JsCallDispatcher.resolve(id, payload)
     }
 
     @ReactMethod

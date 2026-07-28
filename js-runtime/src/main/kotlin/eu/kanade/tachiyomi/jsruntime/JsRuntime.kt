@@ -60,7 +60,10 @@ class JsRuntime(
     }
 
     /**
-     * Runs [method] in JavaScript with a JSON [payloadJson], and returns its JSON result.
+     * Runs [method] in JavaScript with a JSON [payloadJson].
+     *
+     * Structured handlers return JSON. Text handlers such as `plugin.parseChapter` return their
+     * string directly so large chapter bodies are not serialized and decoded again.
      *
      * Starts the runtime if needed. Cancelling the calling coroutine removes the pending entry, so a
      * late answer from JavaScript is dropped rather than resuming a dead continuation. A JS-side

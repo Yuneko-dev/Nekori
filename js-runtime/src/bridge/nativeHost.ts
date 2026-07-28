@@ -2,11 +2,25 @@ import type { JsCommand, Spec } from '../../specs/NativeHostApi';
 
 export type Handler = (args: unknown) => unknown | Promise<unknown>;
 
-const handlers = new Map<string, Handler>();
+type EncodedHandler = (args: unknown) => string | Promise<string>;
+
+const handlers = new Map<string, EncodedHandler>();
 const inFlight = new Set<string>();
 
 export function registerHandler(method: string, handler: Handler): void {
-  handlers.set(method, handler);
+  handlers.set(method, async args =>
+    JSON.stringify((await handler(args)) ?? null),
+  );
+}
+
+export function registerTextHandler(method: string, handler: Handler): void {
+  handlers.set(method, async args => {
+    const result = await handler(args);
+    if (typeof result !== 'string') {
+      throw new TypeError(`Handler "${method}" did not return text`);
+    }
+    return result;
+  });
 }
 
 /**
@@ -31,9 +45,9 @@ async function dispatch(api: Spec, command: JsCommand): Promise<void> {
       // "null result" for what is actually a wiring bug.
       throw new Error(`No handler registered for "${method}"`);
     }
-    const result = await handler(args === '' ? undefined : JSON.parse(args));
+    const payload = await handler(args === '' ? undefined : JSON.parse(args));
     if (inFlight.has(id)) {
-      api.resolve(id, JSON.stringify(result ?? null));
+      api.resolve(id, payload);
     }
   } catch (error) {
     if (inFlight.has(id)) {

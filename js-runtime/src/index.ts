@@ -17,7 +17,11 @@ import './polyfills/textEncoding';
 
 import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
-import { registerHandler, startBridge } from './bridge/nativeHost';
+import {
+  registerHandler,
+  registerTextHandler,
+  startBridge,
+} from './bridge/nativeHost';
 import {
   normalizePluginChapters,
   normalizePluginNovel,
@@ -241,11 +245,18 @@ registerHandler('plugin.resolveUrl', args => {
   return { url: resolvePluginUrl(key ?? id, path, isNovel) };
 });
 
-registerHandler('plugin.parseChapter', async args => {
-  const { id, path } = args as { id: string; path: string };
-  const html = await getPlugin(id).parseChapter(path);
-  // The chapter body can be hundreds of KB; the spike only needs to know it arrived and is HTML.
-  return { length: html.length, head: html.slice(0, 120) };
+registerTextHandler('plugin.parseChapter', async args => {
+  const { id, key, path } = args as {
+    id: string;
+    key?: string;
+    path: string;
+  };
+  const runtimeKey = key ?? id;
+  try {
+    return await getPlugin(runtimeKey).parseChapter(path);
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
 });
 
 AppRegistry.registerHeadlessTask('TsundokuJsRuntime', () => async () => {

@@ -32,7 +32,7 @@ class JsRuntimeException(
  * ```
  * Kotlin call()  →  id = next()          JS  onCommand(cmd)
  *                   pending[id] = cont    →  run handler
- *                   emitOnCommand(cmd)    →  resolve(id, json) / reject(id, message, stack)
+ *                   emitOnCommand(cmd)    →  resolve(id, payload) / reject(id, message, stack)
  *                   suspend              ←   resume pending.remove(id)
  * ```
  *
@@ -125,7 +125,7 @@ internal object JsCallDispatcher {
             )
         }
 
-    fun resolve(id: String, json: String) {
+    fun resolve(id: String, payload: String) {
         // A missing id means the call was cancelled or already completed — including a duplicate
         // resolve from JS. Dropping it is correct; resuming twice would crash the coroutine machinery
         // and crashing on a benign race would be worse than the race.
@@ -133,7 +133,7 @@ internal object JsCallDispatcher {
             logcat { "Dropping resolve for unknown call id $id" }
             return
         }
-        continuation.resume(json)
+        continuation.resume(payload)
     }
 
     fun reject(id: String, message: String, stack: String) {
