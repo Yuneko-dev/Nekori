@@ -12,8 +12,19 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** Thrown when JavaScript rejects a call, carrying the JS-side message. */
-class JsRuntimeException(message: String) : RuntimeException(message)
+/** Thrown when JavaScript rejects a call, carrying its original message and stack. */
+class JsRuntimeException(
+    message: String,
+    val jsStack: String,
+) : RuntimeException(message) {
+    override fun toString(): String = buildString {
+        append(super.toString())
+        if (jsStack.isNotBlank()) {
+            append("\nJavaScript stack:\n")
+            append(jsStack)
+        }
+    }
+}
 
 /**
  * The Kotlin end of the command protocol.
@@ -21,7 +32,7 @@ class JsRuntimeException(message: String) : RuntimeException(message)
  * ```
  * Kotlin call()  →  id = next()          JS  onCommand(cmd)
  *                   pending[id] = cont    →  run handler
- *                   emitOnCommand(cmd)    →  resolve(id, json) / reject(id, message)
+ *                   emitOnCommand(cmd)    →  resolve(id, json) / reject(id, message, stack)
  *                   suspend              ←   resume pending.remove(id)
  * ```
  *
@@ -125,12 +136,12 @@ internal object JsCallDispatcher {
         continuation.resume(json)
     }
 
-    fun reject(id: String, message: String) {
+    fun reject(id: String, message: String, stack: String) {
         val continuation = pending.remove(id) ?: run {
             logcat { "Dropping reject for unknown call id $id" }
             return
         }
-        continuation.resumeWithException(JsRuntimeException(message))
+        continuation.resumeWithException(JsRuntimeException(message, stack))
     }
 
     /** Visible for tests: no call may outlive its answer. */

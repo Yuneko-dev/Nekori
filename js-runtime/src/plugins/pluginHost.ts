@@ -150,12 +150,14 @@ export async function initPlugin(
 ): Promise<Plugin> {
   await hydratePluginStorage(pluginId, runtimeKey);
   try {
+    const sourceUrl = `lnreader-plugin://${encodeURIComponent(runtimeKey)}.js`;
     const plugin = Function(
       'require',
       'module',
       `const exports = module.exports = {};
       ${rawCode};
-      return exports.default`,
+      return exports.default;
+      //# sourceURL=${sourceUrl}`,
     )(makeRequire(runtimeKey), {}) as Plugin | undefined;
 
     if (!plugin) {

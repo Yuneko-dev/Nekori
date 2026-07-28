@@ -70,8 +70,38 @@ class JsRuntimeBridgeTest {
             fail("a JS throw must surface as JsRuntimeException")
         } catch (e: JsRuntimeException) {
             assertEquals("plugin exploded", e.message)
+            assertTrue(e.jsStack, e.jsStack.contains("plugin exploded"))
+            assertTrue(e.stackTraceToString(), e.stackTraceToString().contains("JavaScript stack:"))
         }
         assertEquals("pending map must drain on rejection", 0, runtime.pendingCallCount())
+    }
+
+    @Test
+    fun pluginThrowKeepsThePluginSourceInTheJavaScriptStack() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            function explodeFromPlugin() {
+              throw new Error('plugin stack exploded');
+            }
+            exports.default = {
+              id: 'stack.test',
+              name: 'Stack test',
+              version: '1',
+              site: 'https://example.invalid',
+              parseNovel: async () => explodeFromPlugin(),
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"stack.test","code":${quote(code)}}""")
+
+        try {
+            runtime.call("plugin.parseNovel", """{"id":"stack.test","path":"/novel"}""")
+            fail("Expected plugin error")
+        } catch (e: JsRuntimeException) {
+            assertEquals("plugin stack exploded", e.message)
+            assertTrue(e.jsStack, e.jsStack.contains("explodeFromPlugin"))
+            assertTrue(e.jsStack, e.jsStack.contains("lnreader-plugin://stack.test.js"))
+        }
     }
 
     @Test

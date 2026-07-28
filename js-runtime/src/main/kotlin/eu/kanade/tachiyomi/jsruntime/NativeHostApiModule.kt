@@ -50,8 +50,8 @@ internal class NativeHostApiModule(
 
     @ReactMethod
     @DoNotStrip
-    fun reject(id: String, message: String) {
-        JsCallDispatcher.reject(id, message)
+    fun reject(id: String, message: String, stack: String) {
+        JsCallDispatcher.reject(id, message, stack)
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)

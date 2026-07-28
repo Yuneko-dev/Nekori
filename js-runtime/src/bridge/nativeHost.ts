@@ -37,7 +37,11 @@ async function dispatch(api: Spec, command: JsCommand): Promise<void> {
     }
   } catch (error) {
     if (inFlight.has(id)) {
-      api.reject(id, error instanceof Error ? error.message : String(error));
+      api.reject(
+        id,
+        error instanceof Error ? error.message : String(error),
+        error instanceof Error ? error.stack ?? '' : '',
+      );
     }
   } finally {
     inFlight.delete(id);

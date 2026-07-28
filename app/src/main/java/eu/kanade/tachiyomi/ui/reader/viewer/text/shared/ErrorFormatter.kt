@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
 import android.content.Context
+import eu.kanade.tachiyomi.jsruntime.JsRuntimeException
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
 import java.io.FileNotFoundException
@@ -77,6 +78,10 @@ object ErrorFormatter {
         while (t != null && depth < 6) {
             if (depth > 0) appendLine("Caused by:")
             appendLine("${t.javaClass.name}: ${t.message ?: "(no message)"}")
+            if (t is JsRuntimeException && t.jsStack.isNotBlank()) {
+                appendLine("JavaScript stack:")
+                appendLine(t.jsStack)
+            }
             t.stackTrace.take(20).forEach { appendLine("\tat $it") }
             val next = t.cause
             t = if (next !== t) next else null

@@ -30,8 +30,8 @@ export interface Spec extends TurboModule {
   /** Completes the pending Kotlin coroutine for `id` with a JSON payload. */
   resolve(id: string, json: string): void;
 
-  /** Fails the pending Kotlin coroutine for `id`. */
-  reject(id: string, message: string): void;
+  /** Fails the pending Kotlin coroutine for `id`, preserving the JavaScript stack for diagnostics. */
+  reject(id: string, message: string, stack: string): void;
 
   /** Cryptographically secure bytes for the Web Crypto getRandomValues polyfill. */
   getRandomBase64(byteLength: number): string;
