@@ -1758,39 +1758,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         val theme = preferences.novelTheme.get()
         val backgroundColor = preferences.novelBackgroundColor.get()
-        val fontColor = preferences.novelFontColor.get()
-        val (themeBgColor, themeTextColor) = getThemeColors(theme)
+        val (themeBgColor, _) = getThemeColors(theme)
         val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
-        val finalTextColor = if (fontColor != 0) fontColor else themeTextColor
-
-        val bgColorHex = ThemeUtils.colorToHex(finalBgColor)
-        val textColorHex = ThemeUtils.colorToHex(finalTextColor)
-
-        val loadingHtml = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body {
-                        margin: 0;
-                        padding: 16px;
-                        background-color: $bgColorHex;
-                        color: $textColorHex;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        font-family: sans-serif;
-                    }
-                </style>
-            </head>
-            <body>
-                <div>${message.replace("<", "&lt;").replace(">", "&gt;")}</div>
-            </body>
-            </html>
-        """.trimIndent()
+        val loadingHtml = NovelWebViewLoadingSkeleton.buildHtml(
+            style = NovelWebViewLoadingSkeleton.Style(
+                backgroundColor = finalBgColor,
+                fontSize = preferences.novelFontSize.get(),
+                lineHeight = preferences.novelLineHeight.get(),
+                marginLeft = preferences.novelMarginLeft.get(),
+                marginRight = preferences.novelMarginRight.get(),
+                marginTop = preferences.novelMarginTop.get(),
+                marginBottom = preferences.novelMarginBottom.get(),
+            ),
+            message = message,
+        )
 
         docState = DocState.LOADING
         webView.loadDataWithBaseURL(null, loadingHtml, "text/html", "UTF-8", null)
