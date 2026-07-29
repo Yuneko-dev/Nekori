@@ -1354,12 +1354,21 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setMenuVisibility(visible: Boolean) {
         viewModel.showMenus(visible)
-        if (visible) {
-            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-        } else if (readerPreferences.fullscreen.get()) {
-            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-        }
+        updateSystemBarsVisibility(visible)
         (viewModel.state.value.viewer as? NovelWebViewViewer)?.onMenuVisibilityChanged(visible)
+    }
+
+    private fun updateSystemBarsVisibility(menuVisible: Boolean) {
+        val videoFullscreen = (viewModel.state.value.viewer as? NovelWebViewViewer)?.isVideoFullscreen == true
+        if (videoFullscreen || (!menuVisible && readerPreferences.fullscreen.get())) {
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    internal fun onWebViewVideoFullscreenChanged() {
+        updateSystemBarsVisibility(viewModel.state.value.menuVisible)
     }
 
     private fun startBackgroundTtsIfEnabled() {

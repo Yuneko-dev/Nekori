@@ -5,6 +5,8 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.net.Uri
 import android.view.ActionMode
 import android.view.GestureDetector
@@ -28,6 +30,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
@@ -222,6 +225,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     // Tracked so a JS dialog still on screen at teardown is dismissed instead of leaking the window.
     private var activeJsDialog: AlertDialog? = null
+
+    private var fullscreenVideoContainer: FrameLayout? = null
+    private var fullscreenVideoCallback: WebChromeClient.CustomViewCallback? = null
+    private var fullscreenVideoBackCallback: OnBackPressedCallback? = null
+    private var orientationBeforeFullscreenVideo: Int? = null
+    internal val isVideoFullscreen: Boolean get() = fullscreenVideoContainer != null
 
     // Reader-chrome obstruction pushed from ReaderActivity: the transient reader menu bars (shown
     // only with the menu) plus system bars. The novel status bar is NOT here - it gets real layout
@@ -684,6 +693,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 setSupportZoom(true)
                 builtInZoomControls = true
                 displayZoomControls = false
+                mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
                 val shouldBlock = preferences.novelBlockMedia.get()
                 blockNetworkImage = shouldBlock
@@ -763,79 +773,94 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 }
             }
 
-            if (preferences.novelWebViewDevTools.get()) {
-                webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                        val level = consoleMessage.messageLevel()
-                        val shouldToast = level == ConsoleMessage.MessageLevel.LOG ||
-                            level == ConsoleMessage.MessageLevel.WARNING ||
-                            level == ConsoleMessage.MessageLevel.ERROR
-                        if (shouldToast && preferences.novelConsoleErrorToast.get()) {
-                            activity.toast(consoleMessage.message().take(120))
-                        }
+            val devToolsEnabled = preferences.novelWebViewDevTools.get()
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (view == null || callback == null) return
+                    showFullscreenVideo(view, callback)
+                }
+
+                override fun onHideCustomView() {
+                    hideFullscreenVideo()
+                }
+
+                override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                    if (!devToolsEnabled) return super.onConsoleMessage(consoleMessage)
+                    val level = consoleMessage.messageLevel()
+                    val shouldToast = level == ConsoleMessage.MessageLevel.LOG ||
+                        level == ConsoleMessage.MessageLevel.WARNING ||
+                        level == ConsoleMessage.MessageLevel.ERROR
+                    if (shouldToast && preferences.novelConsoleErrorToast.get()) {
+                        activity.toast(consoleMessage.message().take(120))
+                    }
+                    return true
+                }
+
+                override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult): Boolean {
+                    if (!devToolsEnabled) return super.onJsAlert(view, url, message, result)
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        result.cancel()
                         return true
                     }
+                    activeJsDialog = AlertDialog.Builder(activity)
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
+                        .setOnCancelListener { result.cancel() }
+                        .setOnDismissListener { activeJsDialog = null }
+                        .show()
+                    return true
+                }
 
-                    override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult): Boolean {
-                        if (activity.isFinishing || activity.isDestroyed) {
-                            result.cancel()
-                            return true
-                        }
-                        activeJsDialog = AlertDialog.Builder(activity)
-                            .setMessage(message)
-                            .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
-                            .setOnCancelListener { result.cancel() }
-                            .setOnDismissListener { activeJsDialog = null }
-                            .show()
+                override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult): Boolean {
+                    if (!devToolsEnabled) return super.onJsConfirm(view, url, message, result)
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        result.cancel()
                         return true
                     }
+                    activeJsDialog = AlertDialog.Builder(activity)
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
+                        .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
+                        .setOnCancelListener { result.cancel() }
+                        .setOnDismissListener { activeJsDialog = null }
+                        .show()
+                    return true
+                }
 
-                    override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult): Boolean {
-                        if (activity.isFinishing || activity.isDestroyed) {
-                            result.cancel()
-                            return true
-                        }
-                        activeJsDialog = AlertDialog.Builder(activity)
-                            .setMessage(message)
-                            .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
-                            .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
-                            .setOnCancelListener { result.cancel() }
-                            .setOnDismissListener { activeJsDialog = null }
-                            .show()
+                override fun onJsPrompt(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    defaultValue: String?,
+                    result: JsPromptResult,
+                ): Boolean {
+                    if (!devToolsEnabled) return super.onJsPrompt(view, url, message, defaultValue, result)
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        result.cancel()
                         return true
                     }
+                    val input = EditText(activity).apply { setText(defaultValue.orEmpty()) }
+                    activeJsDialog = AlertDialog.Builder(activity)
+                        .setMessage(message)
+                        .setView(input)
+                        .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm(input.text.toString()) }
+                        .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
+                        .setOnCancelListener { result.cancel() }
+                        .setOnDismissListener { activeJsDialog = null }
+                        .show()
+                    return true
+                }
 
-                    override fun onJsPrompt(
-                        view: WebView?,
-                        url: String?,
-                        message: String?,
-                        defaultValue: String?,
-                        result: JsPromptResult,
-                    ): Boolean {
-                        if (activity.isFinishing || activity.isDestroyed) {
-                            result.cancel()
-                            return true
-                        }
-                        val input = EditText(activity).apply { setText(defaultValue.orEmpty()) }
-                        activeJsDialog = AlertDialog.Builder(activity)
-                            .setMessage(message)
-                            .setView(input)
-                            .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm(input.text.toString()) }
-                            .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
-                            .setOnCancelListener { result.cancel() }
-                            .setOnDismissListener { activeJsDialog = null }
-                            .show()
-                        return true
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?,
+                ): Boolean {
+                    if (!devToolsEnabled) {
+                        return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
                     }
-
-                    override fun onShowFileChooser(
-                        webView: WebView?,
-                        filePathCallback: ValueCallback<Array<Uri>>?,
-                        fileChooserParams: FileChooserParams?,
-                    ): Boolean {
-                        if (filePathCallback == null || fileChooserParams == null) return false
-                        return activity.launchWebViewFileChooser(filePathCallback, fileChooserParams)
-                    }
+                    if (filePathCallback == null || fileChooserParams == null) return false
+                    return activity.launchWebViewFileChooser(filePathCallback, fileChooserParams)
                 }
             }
 
@@ -983,6 +1008,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     override fun destroy() {
         if (isDestroyed) return
+        hideFullscreenVideo()
         activity.closeFindInPage(this)
         // Only persist if real progress exists. lastSavedProgress starts at 0 and stays 0
         // until onPageFinished restores or the user scrolls. Saving 0 here on an early
@@ -1016,6 +1042,54 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = null
         webView.destroy()
+    }
+
+    private fun showFullscreenVideo(view: View, callback: WebChromeClient.CustomViewCallback) {
+        if (fullscreenVideoContainer != null) {
+            callback.onCustomViewHidden()
+            return
+        }
+
+        (view.parent as? ViewGroup)?.removeView(view)
+        fullscreenVideoCallback = callback
+        orientationBeforeFullscreenVideo = activity.requestedOrientation
+        fullscreenVideoContainer = FrameLayout(activity).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(view, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }.also { fullscreenContainer ->
+            activity.binding.root.addView(
+                fullscreenContainer,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            fullscreenContainer.bringToFront()
+        }
+        fullscreenVideoBackCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = hideFullscreenVideo()
+        }.also { activity.onBackPressedDispatcher.addCallback(activity, it) }
+
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        activity.onWebViewVideoFullscreenChanged()
+    }
+
+    private fun hideFullscreenVideo() {
+        val fullscreenContainer = fullscreenVideoContainer ?: return
+        (fullscreenContainer.parent as? ViewGroup)?.removeView(fullscreenContainer)
+        fullscreenContainer.removeAllViews()
+        fullscreenVideoContainer = null
+
+        fullscreenVideoBackCallback?.remove()
+        fullscreenVideoBackCallback = null
+        fullscreenVideoCallback?.onCustomViewHidden()
+        fullscreenVideoCallback = null
+
+        if (!activity.isFinishing && !activity.isDestroyed) {
+            orientationBeforeFullscreenVideo?.let { activity.requestedOrientation = it }
+        }
+        orientationBeforeFullscreenVideo = null
+        if (!activity.isFinishing && !activity.isDestroyed) {
+            activity.onWebViewVideoFullscreenChanged()
+        }
     }
 
     private fun evaluateJavascriptSafe(js: String, callback: ((String) -> Unit)? = null) {

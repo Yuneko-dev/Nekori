@@ -150,7 +150,7 @@ class ReaderPreferences(
         false,
     )
 
-    // Opt-in: kept off in case a WebChromeClient breaks compat on some OEM WebView builds.
+    // Extra console/dialog/file-chooser behavior; fullscreen video uses the always-present client.
     val novelWebViewDevTools: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_webview_devtools", false)
 
     val novelConsoleErrorToast: Preference<Boolean> = preferenceStore.getBoolean(
