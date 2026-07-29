@@ -962,6 +962,8 @@
     <string name="action_find_in_chapter">Find in chapter</string>
     <string name="find_previous_match">Previous match</string>
     <string name="find_next_match">Next match</string>
+    <string name="pref_bypass_dpi">Bypass internet censorship</string>
+    <string name="pref_bypass_dpi_summary">(Experimental) Split initial HTTP and TLS traffic to bypass DPI filtering.</string>
 
     <string name="pref_novel_status_bar">Reading status bar</string>
     <string name="pref_novel_status_bar_show_time">Show current time</string>

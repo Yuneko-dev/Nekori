@@ -58,6 +58,8 @@ class NetworkHelper(
             PREF_DOH_SHECAN -> builder.dohShecan()
             else -> builder
         }
+
+        builder.socketFactory(RoutingSocketFactory { preferences.dpiBypass.get() })
     }
 
     val client = clientBuilder

@@ -94,6 +94,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.Headers
 import tachiyomi.core.common.util.lang.launchNonCancellable
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseMaintenance
@@ -1489,6 +1490,15 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_dns_over_https),
                     onValueChanged = {
                         context.toast(MR.strings.requires_app_restart)
+                        true
+                    },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = networkPreferences.dpiBypass,
+                    title = stringResource(TDMR.strings.pref_bypass_dpi),
+                    subtitle = stringResource(TDMR.strings.pref_bypass_dpi_summary),
+                    onValueChanged = {
+                        withIOContext { networkHelper.client.connectionPool.evictAll() }
                         true
                     },
                 ),
