@@ -33,6 +33,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelFontFamily,
             readerPref.novelLineHeight,
             readerPref.novelAutoScrollSpeed,
+            readerPref.novelVolumeKeysScrollDistance,
             readerPref.novelParagraphIndent,
             readerPref.novelParagraphSpacing,
             readerPref.novelMarginLeft,
@@ -269,23 +270,45 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     @Composable
     private fun getNavigationGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val volumeKeysScroll = readerPreferences.novelVolumeKeysScroll.collectAsState().value
+        val volumeKeysScrollDistance = readerPreferences.novelVolumeKeysScrollDistance.collectAsState().value
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelVolumeKeysScroll,
-                    title = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelTapToScroll,
-                    title = stringResource(TDMR.strings.pref_novel_tap_to_scroll),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelSwipeNavigation,
-                    title = "Swipe navigation",
-                    subtitle = "Swipe left/right to change chapters",
-                ),
-            ),
+            preferenceItems = buildList {
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelVolumeKeysScroll,
+                        title = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
+                    ),
+                )
+                if (volumeKeysScroll) {
+                    add(
+                        Preference.PreferenceItem.SliderPreference(
+                            value = volumeKeysScrollDistance,
+                            valueRange = ReaderPreferences.VolumeKeyScrollDistanceRange,
+                            steps = ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_SLIDER_STEPS,
+                            title = stringResource(TDMR.strings.pref_novel_volume_keys_scroll_distance),
+                            valueString = "$volumeKeysScrollDistance%",
+                            preference = readerPreferences.novelVolumeKeysScrollDistance,
+                            onValueChanged = readerPreferences.novelVolumeKeysScrollDistance::set,
+                        ),
+                    )
+                }
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelTapToScroll,
+                        title = stringResource(TDMR.strings.pref_novel_tap_to_scroll),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelSwipeNavigation,
+                        title = "Swipe navigation",
+                        subtitle = "Swipe left/right to change chapters",
+                    ),
+                )
+            },
         )
     }
 

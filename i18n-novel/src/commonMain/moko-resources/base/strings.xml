@@ -513,6 +513,7 @@
     <string name="pref_novel_auto_scroll">Auto scroll</string>
     <string name="pref_novel_auto_scroll_speed">Auto scroll speed</string>
     <string name="pref_novel_volume_keys_scroll">Volume keys scroll</string>
+    <string name="pref_novel_volume_keys_scroll_distance">Scroll distance</string>
     <string name="pref_novel_tap_to_scroll">Tap to scroll</string>
     <string name="pref_novel_text_selectable">Enable text selection</string>
     <string name="pref_novel_hide_chapter_title">Hide chapter title in content</string>

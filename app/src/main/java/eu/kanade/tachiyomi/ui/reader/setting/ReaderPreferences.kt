@@ -120,6 +120,10 @@ class ReaderPreferences(
     // Resolve the stored half-step Int to the speed level the viewers scroll at (1.0..10.0).
     fun novelAutoScrollLevel(): Float = novelAutoScrollSpeed.get().coerceIn(2, 20) / 2f
     val novelVolumeKeysScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_volume_keys_scroll", false)
+    val novelVolumeKeysScrollDistance: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_volume_keys_scroll_distance",
+        VOLUME_KEY_SCROLL_DISTANCE_DEFAULT,
+    )
     val novelTapToScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tap_to_scroll", false)
     val novelTextSelectable: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_text_selectable", true)
 
@@ -352,6 +356,15 @@ class ReaderPreferences(
 
         const val TAPZONE_DISABLED_INDEX = 5
         const val TAPZONE_CENTER_INDEX = 6
+
+        const val VOLUME_KEY_SCROLL_DISTANCE_MIN = 5
+        const val VOLUME_KEY_SCROLL_DISTANCE_MAX = 95
+        const val VOLUME_KEY_SCROLL_DISTANCE_STEP = 5
+        const val VOLUME_KEY_SCROLL_DISTANCE_DEFAULT = 75
+        const val VOLUME_KEY_SCROLL_DISTANCE_SLIDER_STEPS =
+            (VOLUME_KEY_SCROLL_DISTANCE_MAX - VOLUME_KEY_SCROLL_DISTANCE_MIN) /
+                VOLUME_KEY_SCROLL_DISTANCE_STEP - 1
+        val VolumeKeyScrollDistanceRange = VOLUME_KEY_SCROLL_DISTANCE_MIN..VOLUME_KEY_SCROLL_DISTANCE_MAX
 
         val TapZones = listOf(
             MR.strings.label_default,

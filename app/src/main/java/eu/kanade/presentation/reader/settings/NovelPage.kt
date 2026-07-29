@@ -496,6 +496,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
 @Composable
 internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel) {
     val autoScrollSpeed by screenModel.preferences.novelAutoScrollSpeed.collectAsState()
+    val volumeKeysScroll by screenModel.preferences.novelVolumeKeysScroll.collectAsState()
 
     SliderItem(
         label = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
@@ -510,6 +511,17 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
         label = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
         pref = screenModel.preferences.novelVolumeKeysScroll,
     )
+    if (volumeKeysScroll) {
+        val distance by screenModel.preferences.novelVolumeKeysScrollDistance.collectAsState()
+        SliderItem(
+            label = stringResource(TDMR.strings.pref_novel_volume_keys_scroll_distance),
+            value = distance,
+            valueRange = ReaderPreferences.VolumeKeyScrollDistanceRange,
+            steps = ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_SLIDER_STEPS,
+            valueString = "$distance%",
+            onChange = { screenModel.preferences.novelVolumeKeysScrollDistance.set(it) },
+        )
+    }
 
     // Tap-zone navigation settings for novel viewer
     val navigationModeNovel by screenModel.preferences.navigationModeNovel.collectAsState()

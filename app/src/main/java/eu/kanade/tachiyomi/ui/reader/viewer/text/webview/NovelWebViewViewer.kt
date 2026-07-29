@@ -1980,19 +1980,19 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 if (isUp) activity.toggleMenu()
                 return true
             }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (preferences.novelVolumeKeysScroll.get()) {
-                    if (!isUp) pageScrollBy(1)
-                    return true
+            KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_VOLUME_UP,
+            -> {
+                if (!preferences.novelVolumeKeysScroll.get()) return false
+                if (!isUp) {
+                    val direction = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) 1 else -1
+                    val distance = preferences.novelVolumeKeysScrollDistance.get().coerceIn(
+                        ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_MIN,
+                        ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_MAX,
+                    )
+                    pageScrollBy(direction, distance / 100.0)
                 }
-                return false
-            }
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (preferences.novelVolumeKeysScroll.get()) {
-                    if (!isUp) pageScrollBy(-1)
-                    return true
-                }
-                return false
+                return true
             }
             KeyEvent.KEYCODE_SPACE -> {
                 if (!isUp) {
