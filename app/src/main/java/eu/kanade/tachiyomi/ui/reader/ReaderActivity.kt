@@ -37,14 +37,18 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -68,6 +72,7 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.EstimatedStatusBarHeight
+import eu.kanade.presentation.reader.NovelChapterDrawer
 import eu.kanade.presentation.reader.NovelStatusBar
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
@@ -117,12 +122,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
@@ -453,6 +460,12 @@ class ReaderActivity : BaseActivity() {
         var statusBarHeightPx by remember {
             mutableIntStateOf(with(density) { EstimatedStatusBarHeight.roundToPx() })
         }
+        val chapterDrawerState = rememberDrawerState(DrawerValue.Closed)
+        val chapterDrawerScope = rememberCoroutineScope()
+        var chapterDrawerSnapshot by remember { mutableStateOf<ReaderChapterDrawerSnapshot?>(null) }
+        var chapterDrawerOpenSessionId by remember { mutableLongStateOf(0L) }
+        var chapterDrawerOpening by remember { mutableStateOf(false) }
+        var chapterDrawerSelectionInProgress by remember { mutableStateOf(false) }
         val settingsScreenModel = remember {
             ReaderSettingsScreenModel(
                 readerState = viewModel.state,
@@ -464,6 +477,97 @@ class ReaderActivity : BaseActivity() {
         val findInPageOpen = findInPageState != null
         val readerChromeVisible = state.menuVisible || findInPageOpen
         val statusBarAtBottomEdge = novelStatusBarPosition != "top"
+        val visibleChapterId = state.novelVisibleChapter?.id ?: state.currentChapter?.chapter?.id
+
+        LaunchedEffect(chapterDrawerState.currentValue, visibleChapterId) {
+            if (chapterDrawerState.isOpen && !chapterDrawerSelectionInProgress && visibleChapterId != null) {
+                val currentSnapshot = chapterDrawerSnapshot
+                chapterDrawerSnapshot = if (currentSnapshot?.items?.any { it.id == visibleChapterId } == true) {
+                    currentSnapshot.copy(currentChapterId = visibleChapterId)
+                } else {
+                    viewModel.getChapterDrawerSnapshot(visibleChapterId)
+                }
+            } else if (chapterDrawerState.currentValue == DrawerValue.Closed) {
+                chapterDrawerSnapshot = null
+            }
+        }
+
+        val openChapterDrawer: () -> Unit = {
+            if (
+                !chapterDrawerOpening &&
+                !chapterDrawerSelectionInProgress &&
+                chapterDrawerState.currentValue == DrawerValue.Closed &&
+                visibleChapterId != null &&
+                state.viewer is NovelWebViewViewer
+            ) {
+                chapterDrawerOpening = true
+                chapterDrawerScope.launch {
+                    try {
+                        val snapshot = viewModel.getChapterDrawerSnapshot(visibleChapterId)
+                        if (snapshot != null) {
+                            chapterDrawerSnapshot = snapshot
+                            chapterDrawerOpenSessionId++
+                            setMenuVisibility(false)
+                            val drawerReady = withTimeoutOrNull(1_000L) {
+                                snapshotFlow { chapterDrawerState.currentOffset }
+                                    .first { !it.isNaN() }
+                            } != null
+                            if (!drawerReady) {
+                                chapterDrawerSnapshot = null
+                                return@launch
+                            }
+                            chapterDrawerState.open()
+                        }
+                    } finally {
+                        chapterDrawerOpening = false
+                        if (
+                            chapterDrawerState.currentValue == DrawerValue.Closed &&
+                            chapterDrawerState.targetValue == DrawerValue.Closed
+                        ) {
+                            chapterDrawerSnapshot = null
+                        }
+                    }
+                }
+            }
+        }
+
+        val dismissChapterDrawer: () -> Unit = {
+            chapterDrawerScope.launch { chapterDrawerState.close() }
+        }
+
+        val selectChapterFromDrawer: (Long) -> Unit = { targetChapterId ->
+            val snapshot = chapterDrawerSnapshot
+            val currentChapterId = snapshot?.currentChapterId
+            if (!chapterDrawerSelectionInProgress && snapshot != null && currentChapterId != null) {
+                if (targetChapterId != currentChapterId) {
+                    val request = viewModel.beginChapterNavigation(ReaderNavigationSource.USER)
+                    if (request != null) {
+                        val currentIndex = snapshot.currentIndex
+                        val targetIndex = snapshot.items.indexOfFirst { it.id == targetChapterId }
+                        val direction = if (targetIndex > currentIndex) "next" else "prev"
+                        val viewer = state.viewer as? NovelWebViewViewer
+                        chapterDrawerSelectionInProgress = true
+                        chapterDrawerScope.launch {
+                            try {
+                                viewer?.stopAutoScroll()
+                                stopNovelTtsForManualNav()
+                                viewer?.flushProgress()
+                                if (viewModel.loadChapterById(targetChapterId, request)) {
+                                    chapterDrawerSnapshot = chapterDrawerSnapshot?.copy(
+                                        currentChapterId = targetChapterId,
+                                    )
+                                    viewer?.scrollToLoadedChapter(targetChapterId)
+                                    viewer?.onChapterNavigate(direction)
+                                }
+                            } finally {
+                                viewModel.finishChapterNavigation(request)
+                                chapterDrawerSelectionInProgress = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Pad viewer_container by the status bar's height on its docked edge so content never renders
         // under it. Reserved while enabled (not on menu visibility) so menu toggles don't resize the
@@ -494,79 +598,89 @@ class ReaderActivity : BaseActivity() {
                 .collect { (top, bottom) -> viewer.onReaderChromeChanged(readerChromeVisible, top, bottom) }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            val isNovelMode = state.viewer is NovelWebViewViewer
-            if (!readerChromeVisible && showPageNumber && !isNovelMode) {
-                ReaderPageIndicator(
-                    currentPage = state.currentPage,
-                    totalPages = state.totalPages,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding(),
+        NovelChapterDrawer(
+            drawerState = chapterDrawerState,
+            snapshot = chapterDrawerSnapshot,
+            openSessionId = chapterDrawerOpenSessionId,
+            selectionInProgress = chapterDrawerSelectionInProgress,
+            onDismissRequest = dismissChapterDrawer,
+            onChapterSelected = selectChapterFromDrawer,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val isNovelMode = state.viewer is NovelWebViewViewer
+                if (!readerChromeVisible && showPageNumber && !isNovelMode) {
+                    ReaderPageIndicator(
+                        currentPage = state.currentPage,
+                        totalPages = state.totalPages,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding(),
+                    )
+                }
+
+                ContentOverlay(state = state)
+
+                val statusBarAtBottom = novelStatusBarPosition != "top"
+                val ttsOverlayBottomPadding = if (
+                    isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !readerChromeVisible
+                ) {
+                    with(density) { statusBarHeightPx.toDp() }
+                } else {
+                    0.dp
+                }
+
+                AppBars(
+                    state = state,
+                    onOpenChapterDrawer = openChapterDrawer,
+                    ttsOverlayBottomPadding = ttsOverlayBottomPadding,
+                    onTopBarHeight = onTopBarHeight,
+                    onBottomBarHeight = onBottomBarHeight,
                 )
-            }
 
-            ContentOverlay(state = state)
-
-            val statusBarAtBottom = novelStatusBarPosition != "top"
-            val ttsOverlayBottomPadding = if (
-                isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !readerChromeVisible
-            ) {
-                with(density) { statusBarHeightPx.toDp() }
-            } else {
-                0.dp
-            }
-
-            AppBars(
-                state = state,
-                ttsOverlayBottomPadding = ttsOverlayBottomPadding,
-                onTopBarHeight = onTopBarHeight,
-                onBottomBarHeight = onBottomBarHeight,
-            )
-
-            if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
-                val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
-                val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
-                val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
-                    val numStr = if (novelStatusBarShowChapterNumber && ch.chapter_number >= 0f) {
-                        "Ch. ${formatChapterNumber(ch.chapter_number.toDouble())}"
-                    } else {
-                        null
+                if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
+                    val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
+                    val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
+                    val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
+                        val numStr = if (novelStatusBarShowChapterNumber && ch.chapter_number >= 0f) {
+                            "Ch. ${formatChapterNumber(ch.chapter_number.toDouble())}"
+                        } else {
+                            null
+                        }
+                        val nameStr = if (novelStatusBarShowChapterTitle) ch.name.ifEmpty { null } else null
+                        when {
+                            numStr != null && nameStr != null -> "$numStr: $nameStr"
+                            numStr != null -> numStr
+                            else -> nameStr
+                        }
                     }
-                    val nameStr = if (novelStatusBarShowChapterTitle) ch.name.ifEmpty { null } else null
-                    when {
-                        numStr != null && nameStr != null -> "$numStr: $nameStr"
-                        numStr != null -> numStr
-                        else -> nameStr
+                    val (bgInt, textInt) = remember(novelTheme, novelBgColorInt, novelFontColorInt) {
+                        ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, novelTheme)
                     }
+                    val readerBgColor = ComposeColor(bgInt)
+                    val readerTextColor = ComposeColor(textInt)
+                    val statusBarOrder = remember(novelStatusBarOrderRaw) {
+                        novelStatusBarOrderRaw.deserializeStatusBarOrder()
+                    }
+                    NovelStatusBar(
+                        chapterText = chapterText,
+                        progressPercent = state.novelProgressPercent,
+                        order = statusBarOrder,
+                        showTime = novelStatusBarShowTime,
+                        showChapter = showChapterSegment,
+                        showProgress = novelStatusBarShowProgress,
+                        showBattery = novelStatusBarShowBattery,
+                        showCharging = novelStatusBarShowCharging,
+                        backgroundColor = readerBgColor,
+                        textColor = readerTextColor,
+                        isCollapsed = statusBarCollapsed,
+                        onToggleCollapse = { statusBarCollapsed = !statusBarCollapsed },
+                        size = novelStatusBarSize,
+                        onHeightChanged = { statusBarHeightPx = it },
+                        modifier = Modifier
+                            .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
+                            .then(if (statusBarAtBottom) Modifier else Modifier.statusBarsPadding()),
+                    )
                 }
-                val (bgInt, textInt) = remember(novelTheme, novelBgColorInt, novelFontColorInt) {
-                    ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, novelTheme)
-                }
-                val readerBgColor = ComposeColor(bgInt)
-                val readerTextColor = ComposeColor(textInt)
-                val statusBarOrder = remember(novelStatusBarOrderRaw) {
-                    novelStatusBarOrderRaw.deserializeStatusBarOrder()
-                }
-                NovelStatusBar(
-                    chapterText = chapterText,
-                    progressPercent = state.novelProgressPercent,
-                    order = statusBarOrder,
-                    showTime = novelStatusBarShowTime,
-                    showChapter = showChapterSegment,
-                    showProgress = novelStatusBarShowProgress,
-                    showBattery = novelStatusBarShowBattery,
-                    showCharging = novelStatusBarShowCharging,
-                    backgroundColor = readerBgColor,
-                    textColor = readerTextColor,
-                    isCollapsed = statusBarCollapsed,
-                    onToggleCollapse = { statusBarCollapsed = !statusBarCollapsed },
-                    size = novelStatusBarSize,
-                    onHeightChanged = { statusBarHeightPx = it },
-                    modifier = Modifier
-                        .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
-                        .then(if (statusBarAtBottom) Modifier else Modifier.statusBarsPadding()),
-                )
             }
         }
 
@@ -900,6 +1014,7 @@ class ReaderActivity : BaseActivity() {
     @Composable
     fun AppBars(
         state: ReaderViewModel.State,
+        onOpenChapterDrawer: () -> Unit,
         ttsOverlayBottomPadding: Dp = 0.dp,
         onTopBarHeight: (Int) -> Unit = {},
         onBottomBarHeight: (Int) -> Unit = {},
@@ -1057,6 +1172,7 @@ class ReaderActivity : BaseActivity() {
                     }
                 },
                 enabledPrevious = state.viewerChapters?.prevChapter != null,
+                onOpenChapterDrawer = onOpenChapterDrawer,
 
                 orientation = ReaderOrientation.fromPreference(
                     viewModel.getMangaOrientation(resolveDefault = false),
@@ -1486,8 +1602,7 @@ class ReaderActivity : BaseActivity() {
      * should be automatically shown.
      */
     internal fun loadNextChapter() {
-        stopNovelTtsForManualNav()
-        loadNextChapterInternal()
+        loadNextChapterInternal(ReaderNavigationSource.USER)
     }
 
     /**
@@ -1496,18 +1611,27 @@ class ReaderActivity : BaseActivity() {
      * resumes; [loadNextChapter] would clear it via [stopNovelTtsForManualNav].
      */
     internal fun loadNextChapterForTtsHandoff() {
-        loadNextChapterInternal()
+        loadNextChapterInternal(ReaderNavigationSource.AUTOMATIC)
     }
 
-    private fun loadNextChapterInternal() {
+    private fun loadNextChapterInternal(source: ReaderNavigationSource) {
+        val request = viewModel.beginChapterNavigation(source) ?: return
+        if (source == ReaderNavigationSource.USER) {
+            stopNovelTtsForManualNav()
+        }
         lifecycleScope.launch {
-            viewModel.loadNextChapter()
-            (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("next")
-            // Only reset to page 0 if NOT using infinite scroll for novel viewers
-            val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
-            val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
-            if (!(isNovelViewer && infiniteScrollEnabled)) {
-                moveToPageIndex(0)
+            try {
+                val committed = viewModel.loadNextChapter(request)
+                if (!committed) return@launch
+                (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("next")
+                // Only reset to page 0 if NOT using infinite scroll for novel viewers
+                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
+                val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
+                if (!(isNovelViewer && infiniteScrollEnabled)) {
+                    moveToPageIndex(0)
+                }
+            } finally {
+                viewModel.finishChapterNavigation(request)
             }
         }
     }
@@ -1517,15 +1641,21 @@ class ReaderActivity : BaseActivity() {
      * should be automatically shown.
      */
     internal fun loadPreviousChapter() {
+        val request = viewModel.beginChapterNavigation(ReaderNavigationSource.USER) ?: return
         stopNovelTtsForManualNav()
         lifecycleScope.launch {
-            viewModel.loadPreviousChapter()
-            (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("prev")
-            // Only reset to page 0 if NOT using infinite scroll for novel viewers
-            val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
-            val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
-            if (!(isNovelViewer && infiniteScrollEnabled)) {
-                moveToPageIndex(0)
+            try {
+                val committed = viewModel.loadPreviousChapter(request)
+                if (!committed) return@launch
+                (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("prev")
+                // Only reset to page 0 if NOT using infinite scroll for novel viewers
+                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
+                val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
+                if (!(isNovelViewer && infiniteScrollEnabled)) {
+                    moveToPageIndex(0)
+                }
+            } finally {
+                viewModel.finishChapterNavigation(request)
             }
         }
     }

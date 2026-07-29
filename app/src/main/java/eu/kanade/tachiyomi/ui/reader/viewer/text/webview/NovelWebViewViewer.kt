@@ -82,6 +82,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
@@ -90,6 +91,7 @@ import okhttp3.Request
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.injectLazy
+import kotlin.coroutines.resume
 
 class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
@@ -1619,6 +1621,58 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             "",
             "{ direction: '$direction' }",
         )
+    }
+
+    suspend fun scrollToLoadedChapter(chapterId: Long): Boolean {
+        val loaded = withContext(Dispatchers.Main.immediate) {
+            !isDestroyed && chapterQueue.contains(chapterId)
+        }
+        if (!loaded) return false
+
+        val scrolled = withTimeoutOrNull(1_000L) {
+            suspendCancellableCoroutine { continuation ->
+                activity.runOnUiThread {
+                    if (isDestroyed) {
+                        continuation.resume(false)
+                        return@runOnUiThread
+                    }
+                    val js = """
+                        (function() {
+                            var id = '$chapterId';
+                            var target =
+                                document.querySelector('.$CHAPTER_DIVIDER_CLASS[$CHAPTER_ID_ATTR="' + id + '"]') ||
+                                document.querySelector('$CHAPTER_TAG_NAME[$CHAPTER_ID_ATTR="' + id + '"]');
+                            if (!target) return false;
+                            target.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+                            if (typeof window.updateChapterBoundaries === 'function') {
+                                window.updateChapterBoundaries();
+                            }
+                            return true;
+                        })();
+                    """.trimIndent()
+                    try {
+                        webView.evaluateJavascript(js) { result ->
+                            if (continuation.isActive) {
+                                continuation.resume(result == "true")
+                            }
+                        }
+                    } catch (_: Throwable) {
+                        if (continuation.isActive) {
+                            continuation.resume(false)
+                        }
+                    }
+                }
+            }
+        } ?: false
+        if (!scrolled) return false
+
+        return withContext(Dispatchers.Main.immediate) {
+            val index = chapterQueue.indexOf(chapterId)
+            val chapter = loadedChapters.getOrNull(index) ?: return@withContext false
+            currentChapterIndex = index
+            currentPage = chapter.pages?.firstOrNull() ?: currentPage
+            true
+        }
     }
 
     private fun dispatchLoadingChapter(loading: Boolean) {

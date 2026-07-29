@@ -36,6 +36,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.automirrored.outlined.NavigateBefore
 import androidx.compose.material.icons.automirrored.outlined.NavigateNext
 import androidx.compose.material.icons.outlined.Bookmark
@@ -142,6 +143,7 @@ fun NovelReaderAppBars(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
+    onOpenChapterDrawer: () -> Unit,
 
     // Bottom bar - actions
     orientation: ReaderOrientation,
@@ -321,6 +323,7 @@ fun NovelReaderAppBars(
                         enabledNext = enabledNext,
                         onPreviousChapter = onPreviousChapter,
                         enabledPrevious = enabledPrevious,
+                        onOpenChapterDrawer = onOpenChapterDrawer,
                         orientation = orientation,
                         onClickOrientation = onClickOrientation,
                         onClickSettings = onClickSettings,
@@ -562,6 +565,7 @@ private fun NovelReaderBottomBar(
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
     enabledPrevious: Boolean,
+    onOpenChapterDrawer: () -> Unit,
     orientation: ReaderOrientation,
     onClickOrientation: () -> Unit,
     onClickSettings: () -> Unit,
@@ -619,6 +623,17 @@ private fun NovelReaderBottomBar(
                         Icon(
                             Icons.AutoMirrored.Outlined.NavigateNext,
                             contentDescription = stringResource(MR.strings.action_next_chapter),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+
+                    BottomBarItem.CHAPTER_LIST -> IconButton(
+                        onClick = onOpenChapterDrawer,
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.FormatListBulleted,
+                            contentDescription = stringResource(MR.strings.action_view_chapters),
                             modifier = Modifier.size(iconSize),
                         )
                     }
@@ -851,6 +866,8 @@ internal fun bottomBarItemInfo(
     BottomBarItem.NEXT_CHAPTER ->
         Icons.AutoMirrored.Outlined.NavigateNext to
             stringResource(MR.strings.action_next_chapter)
+    BottomBarItem.CHAPTER_LIST ->
+        Icons.AutoMirrored.Outlined.FormatListBulleted to stringResource(MR.strings.action_view_chapters)
     BottomBarItem.SCROLL_TO_TOP -> Icons.Outlined.VerticalAlignTop to stringResource(TDMR.strings.action_scroll_to_top)
     BottomBarItem.TRANSLATE -> Icons.Outlined.Translate to stringResource(TDMR.strings.action_translate)
     BottomBarItem.AUTO_SCROLL -> Icons.Outlined.PlayArrow to stringResource(TDMR.strings.action_start_auto_scroll)

@@ -113,6 +113,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import tachiyomi.domain.chapter.model.Chapter as DomainChapter
 
@@ -300,6 +301,31 @@ class ReaderViewModel @JvmOverloads constructor(
         chapterListRef.set(refreshed)
     }
 
+    suspend fun getChapterDrawerSnapshot(currentChapterId: Long): ReaderChapterDrawerSnapshot? = withIOContext {
+        val currentManga = manga ?: return@withIOContext null
+        val items = chapterList.mapNotNull { readerChapter ->
+            val chapter = readerChapter.chapter
+            ReaderChapterDrawerItem(
+                id = chapter.id ?: return@mapNotNull null,
+                name = chapter.name,
+                dateUpload = chapter.date_upload,
+                read = chapter.read,
+            )
+        }
+        buildReaderChapterDrawerSnapshot(
+            items = items,
+            structure = novelStructureRepository.get(currentManga.id),
+            currentChapterId = currentChapterId,
+        )
+    }
+
+    fun beginChapterNavigation(source: ReaderNavigationSource): ReaderNavigationRequest? =
+        navigationGuard.begin(source)
+
+    fun finishChapterNavigation(request: ReaderNavigationRequest) {
+        navigationGuard.finish(request)
+    }
+
     private val pendingTranslationAheadChapterIds = mutableSetOf<Long>()
 
     private val incognitoMode: Boolean by lazy { getIncognitoState.await(manga?.source) }
@@ -308,6 +334,9 @@ class ReaderViewModel @JvmOverloads constructor(
     /** Serializes novel progress saves to prevent concurrent saves racing each other. */
     private val novelProgressMutex = Mutex()
     private val pagedChapterLoadMutex = Mutex()
+    private val navigationCommitMutex = Mutex()
+    private val navigationGuard = ReaderNavigationGuard()
+    private val adjacentLoadingRequestId = AtomicLong(NO_NAVIGATION_REQUEST)
 
     /**
      * Serializes history writes so the read+clear of [chapterReadStartTime] is atomic. A pause flush
@@ -427,12 +456,34 @@ class ReaderViewModel @JvmOverloads constructor(
         loader: ChapterLoader,
         chapter: ReaderChapter,
         forceFromSource: Boolean = false,
-    ): ViewerChapters {
+        navigationRequest: ReaderNavigationRequest? = null,
+        flushHistoryBeforeCommit: Boolean = false,
+    ): Boolean {
         loader.loadChapter(chapter, forceFromSource)
 
         val pagedChapterPages = loadAdjacentPagedPages(chapter)
+        val newChapters = buildViewerChapters(chapter, pagedChapterPages)
+
+        val committed = commitViewerChapters(
+            newChapters = newChapters,
+            navigationRequest = navigationRequest,
+            flushHistoryBeforeCommit = flushHistoryBeforeCommit,
+        )
+
+        if (committed) {
+            // Prioritize this chapter for translation if it's a novel and translation is enabled
+            enqueueTranslationIfNeeded(chapter)
+        }
+
+        return committed
+    }
+
+    private fun buildViewerChapters(
+        chapter: ReaderChapter,
+        pagedChapterPages: Map<Long, Long>,
+    ): ViewerChapters {
         val chapterPos = chapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
-        val newChapters = ViewerChapters(
+        return ViewerChapters(
             chapter,
             pagedAdjacentChapter(
                 chapter,
@@ -447,8 +498,31 @@ class ReaderViewModel @JvmOverloads constructor(
                 pageDelta = 1,
             ),
         )
+    }
 
+    private suspend fun commitViewerChapters(
+        newChapters: ViewerChapters,
+        navigationRequest: ReaderNavigationRequest?,
+        flushHistoryBeforeCommit: Boolean,
+    ): Boolean = navigationCommitMutex.withLock {
+        if (navigationRequest != null && !navigationGuard.isCurrent(navigationRequest)) {
+            return@withLock false
+        }
+
+        if (flushHistoryBeforeCommit) {
+            getCurrentChapter()?.let { leavingChapter ->
+                withContext(NonCancellable) { updateHistory(leavingChapter) }
+            }
+            if (navigationRequest != null && !navigationGuard.isCurrent(navigationRequest)) {
+                return@withLock false
+            }
+        }
+
+        var published = false
         withUIContext {
+            if (navigationRequest != null && !navigationGuard.isCurrent(navigationRequest)) {
+                return@withUIContext
+            }
             mutableState.update {
                 // Add new references first to avoid unnecessary recycling
                 newChapters.ref()
@@ -460,12 +534,12 @@ class ReaderViewModel @JvmOverloads constructor(
                     bookmarked = newChapters.currChapter.chapter.bookmark,
                 )
             }
+            if (flushHistoryBeforeCommit) {
+                restartReadTimer()
+            }
+            published = true
         }
-
-        // Prioritize this chapter for translation if it's a novel and translation is enabled
-        enqueueTranslationIfNeeded(chapter)
-
-        return newChapters
+        published
     }
 
     private suspend fun loadAdjacentPagedPages(current: ReaderChapter): Map<Long, Long> =
@@ -542,19 +616,25 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     private fun loadNewChapter(chapter: ReaderChapter) {
         val loader = loader ?: return
+        val navigationRequest = navigationGuard.begin(ReaderNavigationSource.AUTOMATIC) ?: return
 
         viewModelScope.launchIO {
             logcat { "Loading ${chapter.chapter.url}" }
 
-            flushReadTimerAndRestart()
-
             try {
-                loadChapter(loader, chapter)
+                loadChapter(
+                    loader = loader,
+                    chapter = chapter,
+                    navigationRequest = navigationRequest,
+                    flushHistoryBeforeCommit = true,
+                )
             } catch (e: Throwable) {
                 if (e is CancellationException) {
                     throw e
                 }
                 logcat(LogPriority.ERROR, e)
+            } finally {
+                navigationGuard.finish(navigationRequest)
             }
         }
     }
@@ -562,23 +642,36 @@ class ReaderViewModel @JvmOverloads constructor(
     /**
      * Called when the user is going to load the prev/next chapter through the toolbar buttons.
      */
-    private suspend fun loadAdjacent(chapter: ReaderChapter) {
-        val loader = loader ?: return
+    private suspend fun loadAdjacent(
+        chapter: ReaderChapter,
+        navigationRequest: ReaderNavigationRequest,
+        flushHistoryBeforeCommit: Boolean = false,
+    ): Boolean {
+        val loader = loader ?: return false
 
         logcat { "Loading adjacent ${chapter.chapter.url}" }
 
+        adjacentLoadingRequestId.set(navigationRequest.id)
         mutableState.update { it.copy(isLoadingAdjacentChapter = true) }
-        try {
+        return try {
             withIOContext {
-                loadChapter(loader, chapter)
+                loadChapter(
+                    loader = loader,
+                    chapter = chapter,
+                    navigationRequest = navigationRequest,
+                    flushHistoryBeforeCommit = flushHistoryBeforeCommit,
+                )
             }
         } catch (e: Throwable) {
             if (e is CancellationException) {
                 throw e
             }
             logcat(LogPriority.ERROR, e)
+            false
         } finally {
-            mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
+            if (adjacentLoadingRequestId.compareAndSet(navigationRequest.id, NO_NAVIGATION_REQUEST)) {
+                mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
+            }
         }
     }
 
@@ -683,42 +776,25 @@ class ReaderViewModel @JvmOverloads constructor(
      * Used when switching between already-appended chapters during novel infinite-scroll.
      */
     private fun setActiveChapterWithoutReload(chapter: ReaderChapter) {
+        val navigationRequest = navigationGuard.begin(ReaderNavigationSource.AUTOMATIC) ?: return
         viewModelScope.launchIO {
-            flushReadTimerAndRestart()
+            try {
+                val chapterPages = loadAdjacentPagedPages(chapter)
+                val chapterPos = chapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
+                if (chapterPos < 0) return@launchIO
 
-            val chapterPages = loadAdjacentPagedPages(chapter)
-            val chapterPos = chapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
-            if (chapterPos < 0) return@launchIO
-
-            val newChapters = ViewerChapters(
-                chapter,
-                pagedAdjacentChapter(
-                    chapter,
-                    chapterList.getOrNull(chapterPos - 1),
-                    chapterPages,
-                    pageDelta = -1,
-                ),
-                pagedAdjacentChapter(
-                    chapter,
-                    chapterList.getOrNull(chapterPos + 1),
-                    chapterPages,
-                    pageDelta = 1,
-                ),
-            )
-
-            withUIContext {
-                mutableState.update {
-                    newChapters.ref()
-                    it.viewerChapters?.unref()
-                    chapterToDownload = cancelQueuedDownloads(newChapters.currChapter)
-                    it.copy(
-                        viewerChapters = newChapters,
-                        bookmarked = newChapters.currChapter.chapter.bookmark,
-                    )
+                val newChapters = buildViewerChapters(chapter, chapterPages)
+                val committed = commitViewerChapters(
+                    newChapters = newChapters,
+                    navigationRequest = navigationRequest,
+                    flushHistoryBeforeCommit = true,
+                )
+                if (committed) {
+                    enqueueTranslationIfNeeded(chapter)
                 }
+            } finally {
+                navigationGuard.finish(navigationRequest)
             }
-
-            enqueueTranslationIfNeeded(chapter)
         }
     }
 
@@ -758,21 +834,31 @@ class ReaderViewModel @JvmOverloads constructor(
     fun reloadChapter(fromSource: Boolean = false) {
         val currChapter = state.value.viewerChapters?.currChapter ?: return
         val loader = loader ?: return
+        val navigationRequest = navigationGuard.begin(ReaderNavigationSource.USER) ?: return
 
         viewModelScope.launchIO {
             try {
                 // Reset chapter state to force reload
                 currChapter.state = ReaderChapter.State.Wait
 
-                loadChapter(loader, currChapter, forceFromSource = fromSource)
+                val committed = loadChapter(
+                    loader = loader,
+                    chapter = currChapter,
+                    forceFromSource = fromSource,
+                    navigationRequest = navigationRequest,
+                )
 
                 // Notify the viewer to refresh
-                withUIContext {
-                    state.value.viewer?.setChapters(state.value.viewerChapters!!)
+                if (committed) {
+                    withUIContext {
+                        state.value.viewer?.setChapters(state.value.viewerChapters!!)
+                    }
                 }
             } catch (e: Throwable) {
                 if (e is CancellationException) throw e
                 logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
+            } finally {
+                navigationGuard.finish(navigationRequest)
             }
         }
     }
@@ -1140,18 +1226,6 @@ class ReaderViewModel @JvmOverloads constructor(
         restartReadTimer()
     }
 
-    /**
-     * Flushes the current chapter's read timer, then starts a fresh one, ordered so the flush's
-     * read+clear of [chapterReadStartTime] completes before [restartReadTimer] writes the new start.
-     * A fire-and-forget flush + [restartReadTimer] pair can't guarantee this: the async flush would
-     * observe the already-restarted timer and record a ~0 session duration, losing the chapter that
-     * was just left. The write runs [NonCancellable] to survive the load being cancelled.
-     */
-    private suspend fun flushReadTimerAndRestart() {
-        getCurrentChapter()?.let { withContext(NonCancellable) { updateHistory(it) } }
-        restartReadTimer()
-    }
-
     suspend fun updateHistory() {
         getCurrentChapter()?.let { updateHistory(it) }
     }
@@ -1190,17 +1264,37 @@ class ReaderViewModel @JvmOverloads constructor(
     /**
      * Called from the activity to load and set the next chapter as active.
      */
-    suspend fun loadNextChapter() {
-        val nextChapter = state.value.viewerChapters?.nextChapter ?: return
-        loadAdjacent(nextChapter)
+    suspend fun loadNextChapter(navigationRequest: ReaderNavigationRequest): Boolean {
+        val nextChapter = state.value.viewerChapters?.nextChapter ?: return false
+        return loadAdjacent(
+            chapter = nextChapter,
+            navigationRequest = navigationRequest,
+            flushHistoryBeforeCommit = true,
+        )
     }
 
     /**
      * Called from the activity to load and set the previous chapter as active.
      */
-    suspend fun loadPreviousChapter() {
-        val prevChapter = state.value.viewerChapters?.prevChapter ?: return
-        loadAdjacent(prevChapter)
+    suspend fun loadPreviousChapter(navigationRequest: ReaderNavigationRequest): Boolean {
+        val prevChapter = state.value.viewerChapters?.prevChapter ?: return false
+        return loadAdjacent(
+            chapter = prevChapter,
+            navigationRequest = navigationRequest,
+            flushHistoryBeforeCommit = true,
+        )
+    }
+
+    suspend fun loadChapterById(
+        chapterId: Long,
+        navigationRequest: ReaderNavigationRequest,
+    ): Boolean {
+        val chapter = chapterList.firstOrNull { it.chapter.id == chapterId } ?: return false
+        return loadAdjacent(
+            chapter = chapter,
+            navigationRequest = navigationRequest,
+            flushHistoryBeforeCommit = true,
+        )
     }
 
     /**
@@ -1907,6 +2001,10 @@ class ReaderViewModel @JvmOverloads constructor(
         data class SavedImage(val result: SaveImageResult) : Event
         data class ShareImage(val uri: Uri, val page: ReaderPage) : Event
         data class CopyImage(val uri: Uri) : Event
+    }
+
+    private companion object {
+        const val NO_NAVIGATION_REQUEST = -1L
     }
 }
 

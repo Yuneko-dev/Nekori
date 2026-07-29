@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 enum class BottomBarItem(val id: String) {
     PREV_CHAPTER("prev_chapter"),
     NEXT_CHAPTER("next_chapter"),
+    CHAPTER_LIST("chapter_list"),
     SCROLL_TO_TOP("scroll_to_top"),
     TRANSLATE("translate"),
     AUTO_SCROLL("auto_scroll"),
@@ -30,6 +31,7 @@ data class BottomBarItemState(
 val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.PREV_CHAPTER, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.SCROLL_TO_TOP, defaultEnabled = true),
+    BottomBarItemState(BottomBarItem.CHAPTER_LIST, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.TRANSLATE, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.AUTO_SCROLL, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.TTS, defaultEnabled = true),
