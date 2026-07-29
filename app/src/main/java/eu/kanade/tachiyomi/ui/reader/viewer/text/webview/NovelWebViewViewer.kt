@@ -323,6 +323,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 if (isEditingMode) return false
                 if (activity.isFindInPageOpen()) return false
                 if (e.eventTime - e.downTime >= android.view.ViewConfiguration.getLongPressTimeout()) return true
+                if (webView.hitTestResult.type != WebView.HitTestResult.UNKNOWN_TYPE) return false
+                if (!preferences.novelTapToScroll.get()) {
+                    activity.toggleMenu()
+                    return true
+                }
 
                 val pos = android.graphics.PointF(
                     e.x / container.width.toFloat(),
@@ -1976,15 +1981,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 return true
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (preferences.novelVolumeKeysScroll.get() && !activity.viewModel.state.value.menuVisible) {
-                    if (!isUp) pageScrollBy(1, 0.3)
+                if (preferences.novelVolumeKeysScroll.get()) {
+                    if (!isUp) pageScrollBy(1)
                     return true
                 }
                 return false
             }
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (preferences.novelVolumeKeysScroll.get() && !activity.viewModel.state.value.menuVisible) {
-                    if (!isUp) pageScrollBy(-1, 0.3)
+                if (preferences.novelVolumeKeysScroll.get()) {
+                    if (!isUp) pageScrollBy(-1)
                     return true
                 }
                 return false
@@ -2691,9 +2696,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      * (CSS pixels) rather than container.height (device pixels): window.scrollBy expects CSS pixels,
      * so passing device pixels overshoots by devicePixelRatio and skips content between taps.
      */
-    private fun pageScrollBy(direction: Int, fraction: Double = 0.9) {
+    private fun pageScrollBy(direction: Int, fraction: Double = 0.75) {
         val sign = if (direction < 0) "-" else ""
-        evaluateJavascriptSafe("window.scrollBy(0, $sign(window.innerHeight * $fraction));")
+        evaluateJavascriptSafe(
+            "window.scrollBy({ top: $sign(window.innerHeight * $fraction), behavior: 'smooth' });",
+        )
     }
 
     fun toggleAutoScroll() {
@@ -2818,13 +2825,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     var b = boundaries[idx];
                     var isLast = idx === boundaries.length - 1;
                     var effectiveHeight = Math.max(b.height - (isLast ? viewport : 0), 1);
-                    window.scrollTo(0, b.startOffset + effectiveHeight * frac);
+                    window.scrollTo({ top: b.startOffset + effectiveHeight * frac, behavior: 'instant' });
                 } else {
                     var docHeight = Math.max(
                         document.documentElement.scrollHeight,
                         document.body ? document.body.scrollHeight : 0
                     );
-                    window.scrollTo(0, (docHeight - viewport) * frac);
+                    window.scrollTo({ top: (docHeight - viewport) * frac, behavior: 'instant' });
                 }
                 // A programmatic scrollTo does not reliably fire the page's 'scroll' listener, so the
                 // infinite-scroll threshold check (which lives there) never runs. Dispatch one so a
