@@ -100,11 +100,14 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
         track: Track,
         hasReadChapters: Boolean,
     ): Track {
+        val resolved = api.resolveSeries(track.remote_id)
+        track.remote_id = resolved.id
+        track.tracking_url = resolved.trackingUrl
+        resolved.item?.let { track.title = it.chooseBestTitle() }
+
         val remoteTrack = api.findLibManga(track)
         return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
-            track.title = remoteTrack.title
-            track.remote_id = remoteTrack.remote_id
 
             if (track.status != COMPLETED) {
                 val isRereading = track.status == REREADING
@@ -131,11 +134,24 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
         return api.search(query)
     }
 
+    override suspend fun searchNovels(query: String): List<TrackSearch> {
+        if (query.startsWith(SEARCH_ID_PREFIX)) {
+            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
+                return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+            }
+        }
+
+        return api.searchNovels(query)
+    }
+
     override suspend fun refresh(track: Track): Track {
+        val resolved = api.resolveSeries(track.remote_id)
+        track.remote_id = resolved.id
+        track.tracking_url = resolved.trackingUrl
+        resolved.item?.let { track.title = it.chooseBestTitle() }
+
         val remoteTrack = api.findLibManga(track) ?: throw Exception("Could not find manga")
         track.copyPersonalFrom(remoteTrack)
-        track.remote_id = remoteTrack.remote_id
-        track.title = remoteTrack.title
         return track
     }
 
