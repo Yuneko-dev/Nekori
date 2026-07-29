@@ -74,6 +74,19 @@ iframe {
     max-width: 100%;
 }
 
+img {
+    min-height: 100px;
+    background:
+        rgba(150, 150, 150, 0.2)
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="%23888" stroke-width="5" stroke-dasharray="31.4 31.4"><animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/></circle></svg>')
+        no-repeat center;
+}
+
+img.is-loaded {
+    min-height: 0;
+    background: none;
+}
+
 div:has(> table):not(#LNReader-chapter) {
     overflow: auto;
 }
