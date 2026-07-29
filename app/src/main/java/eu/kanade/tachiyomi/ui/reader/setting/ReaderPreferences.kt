@@ -153,6 +153,11 @@ class ReaderPreferences(
     // Extra console/dialog/file-chooser behavior; fullscreen video uses the always-present client.
     val novelWebViewDevTools: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_webview_devtools", false)
 
+    val novelWebViewRemoteDebugging: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_webview_remote_debugging",
+        false,
+    )
+
     val novelConsoleErrorToast: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_novel_console_error_toast",
         false,

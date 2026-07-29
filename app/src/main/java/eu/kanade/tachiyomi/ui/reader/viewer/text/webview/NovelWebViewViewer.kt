@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.net.Uri
 import android.view.ActionMode
@@ -33,6 +34,7 @@ import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -604,6 +606,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun initWebView() {
+        // This platform switch is process-wide; destroy() restores the build's normal debug state.
+        WebView.setWebContentsDebuggingEnabled(preferences.novelWebViewRemoteDebugging.get())
         attachListener = object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
                 // Remove blocksDescendants from reader_activity.xml's viewer_container parent
@@ -1009,6 +1013,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     override fun destroy() {
         if (isDestroyed) return
         hideFullscreenVideo()
+        WebView.setWebContentsDebuggingEnabled(
+            BuildConfig.DEBUG &&
+                activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+        )
         activity.closeFindInPage(this)
         // Only persist if real progress exists. lastSavedProgress starts at 0 and stays 0
         // until onPageFinished restores or the user scrolls. Saving 0 here on an early

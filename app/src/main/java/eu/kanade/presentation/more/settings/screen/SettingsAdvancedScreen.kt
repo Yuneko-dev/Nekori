@@ -234,6 +234,11 @@ object SettingsAdvancedScreen : SearchableSettings {
             title = stringResource(TDMR.strings.pref_category_novel_webview),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelWebViewRemoteDebugging,
+                    title = stringResource(TDMR.strings.pref_novel_webview_remote_debugging),
+                    subtitle = stringResource(TDMR.strings.pref_novel_webview_remote_debugging_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelWebViewDevTools,
                     title = stringResource(TDMR.strings.pref_novel_webview_devtools),
                     subtitle = stringResource(TDMR.strings.pref_novel_webview_devtools_summary),

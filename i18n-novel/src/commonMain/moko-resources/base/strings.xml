@@ -562,6 +562,8 @@
 
     <!-- Novel WebView (advanced) -->
     <string name="pref_category_novel_webview">Novel WebView</string>
+    <string name="pref_novel_webview_remote_debugging">Chrome remote debugging</string>
+    <string name="pref_novel_webview_remote_debugging_summary">Allow inspecting the Novel Reader WebView from chrome://inspect while the reader is open</string>
     <string name="pref_novel_webview_devtools">WebView console client</string>
     <string name="pref_novel_webview_devtools_summary">Attach a Chrome WebView client so JS alert/confirm/prompt dialogs and file pickers work, and console messages can be surfaced</string>
     <string name="pref_novel_console_error_toast">Toast on console messages</string>
