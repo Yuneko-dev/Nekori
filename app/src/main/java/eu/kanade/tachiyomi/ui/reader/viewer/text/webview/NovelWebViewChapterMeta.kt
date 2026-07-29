@@ -14,7 +14,6 @@ internal object NovelWebViewChapterMeta {
     const val CHAPTER_URL_ATTR = "data-chapter-url"
     const val TSUNDOKU_CHAPTER_ATTR = "data-tsundoku-chapter"
     const val CHAPTER_DIVIDER_CLASS = "tsundoku-chapter-divider"
-    const val TSUNDOKU_CHAPTERS_CONTAINER_ID = "tsundoku-chapters-container"
 
     const val TSUNDOKU_OBJECT_NAME = "Tsundoku"
     const val TSUNDOKU_NOVEL_URL_KEY = "novelUrl"

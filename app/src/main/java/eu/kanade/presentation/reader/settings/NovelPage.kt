@@ -752,6 +752,16 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
         pref = screenModel.preferences.novelSourceCssPriority,
     )
 
+    CheckboxItem(
+        label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_css),
+        pref = screenModel.preferences.novelPluginUseCustomCss,
+    )
+
+    CheckboxItem(
+        label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_js),
+        pref = screenModel.preferences.novelPluginUseCustomJs,
+    )
+
     val cssSnippetsJson by screenModel.preferences.novelCustomCssSnippets.collectAsState()
     val jsSnippetsJson by screenModel.preferences.novelCustomJsSnippets.collectAsState()
 

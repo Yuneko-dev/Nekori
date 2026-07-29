@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.util.lang.Hash
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +25,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import okhttp3.CacheControl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
@@ -39,6 +42,25 @@ import java.nio.charset.StandardCharsets
 class JsPluginManager(
     private val context: Context,
 ) {
+    internal companion object {
+        private const val CUSTOM_JS_KIND = "js"
+        private const val CUSTOM_CSS_KIND = "css"
+        private val CUSTOM_ASSET_FILE = Regex("""^[0-9a-f]{64}\.custom[.-](js|css)$""")
+
+        internal fun isSafePluginId(pluginId: String): Boolean =
+            pluginId.isNotEmpty() &&
+                pluginId != "." &&
+                pluginId != ".." &&
+                pluginId.none { it == '/' || it == '\\' || it == '\u0000' }
+
+        internal fun customAssetFileName(kind: String, content: String): String {
+            require(kind == CUSTOM_JS_KIND || kind == CUSTOM_CSS_KIND)
+            return "${Hash.sha256(content)}.custom.$kind"
+        }
+
+        internal fun isCustomAssetFileName(fileName: String): Boolean = CUSTOM_ASSET_FILE.matches(fileName)
+    }
+
     private val networkHelper: NetworkHelper = Injekt.get()
     private val sourcePreferences: SourcePreferences = Injekt.get()
     private val storageManager: StorageManager = Injekt.get()
@@ -212,26 +234,43 @@ class JsPluginManager(
             _isLoading.value = true
 
             val dir = pluginsDir ?: throw Exception("Plugin directory not available")
+            require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
+            val previousAssets = _installedPlugins.value
+                .find { it.plugin.id == plugin.id }
+                ?.customAssetFiles()
+                .orEmpty()
 
-            // Download plugin code
-            val response = client.newCall(GET(plugin.url)).execute()
-            val code = response.use { resp ->
-                if (!resp.isSuccessful) {
-                    logcat(LogPriority.ERROR) { "Failed to download plugin ${plugin.name}: HTTP ${resp.code}" }
-                    return@withContext false
-                }
-                resp.body?.string() ?: return@withContext false
+            // Fetch every required file before replacing the installed version. A failed update
+            // therefore leaves the previous plugin and its custom assets usable.
+            val code = downloadText(plugin.url)
+            require(code.isNotBlank()) { "Downloaded plugin code is empty" }
+            val customJS = plugin.customJS
+                ?.takeIf(String::isNotBlank)
+                ?.let(::downloadText)
+            val customCSS = plugin.customCSS
+                ?.takeIf(String::isNotBlank)
+                ?.let(::downloadText)
+            val installedMetadata = plugin.copy(
+                customCSSFile = customCSS?.let { customAssetFileName(CUSTOM_CSS_KIND, it) },
+                customJSFile = customJS?.let { customAssetFileName(CUSTOM_JS_KIND, it) },
+                repositoryUrl = repositoryUrl,
+            )
+
+            installedMetadata.customJSFile?.let {
+                writeCustomAsset(dir, it, customJS.orEmpty())
             }
-
-            // Save to disk
+            installedMetadata.customCSSFile?.let {
+                writeCustomAsset(dir, it, customCSS.orEmpty())
+            }
             val pluginFile = dir.replaceFile("${plugin.id}.js") ?: throw Exception("Failed to create plugin file")
             pluginFile.writeUtf8(code)
 
-            // Save metadata
             val metadataFile = dir.replaceFile("${plugin.id}.json") ?: throw Exception("Failed to create metadata file")
             val installedPlugin = InstalledJsPlugin(
-                plugin = plugin,
+                plugin = installedMetadata,
                 code = code,
+                customCSS = customCSS.orEmpty(),
+                customJS = customJS.orEmpty(),
                 installedVersion = plugin.version,
                 repositoryUrl = repositoryUrl,
             )
@@ -243,6 +282,7 @@ class JsPluginManager(
             _installedPlugins.update { current ->
                 current.filter { it.plugin.id != plugin.id } + installedPlugin
             }
+            cleanupCustomAssets(dir, previousAssets)
 
             // Rebuild sources
             rebuildSources()
@@ -272,7 +312,12 @@ class JsPluginManager(
      */
     suspend fun uninstallPlugin(pluginId: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            require(isSafePluginId(pluginId)) { "Unsafe plugin id: $pluginId" }
             val dir = pluginsDir ?: return@withContext false
+            val previousAssets = _installedPlugins.value
+                .find { it.plugin.id == pluginId }
+                ?.customAssetFiles()
+                .orEmpty()
 
             // Delete files
             dir.findFile("$pluginId.js")?.delete()
@@ -282,6 +327,7 @@ class JsPluginManager(
             _installedPlugins.update { current ->
                 current.filter { it.plugin.id != pluginId }
             }
+            cleanupCustomAssets(dir, previousAssets)
 
             // Rebuild sources
             rebuildSources()
@@ -308,9 +354,11 @@ class JsPluginManager(
      */
     suspend fun installPluginFromCode(pluginId: String, code: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            require(isSafePluginId(pluginId)) { "Unsafe plugin id: $pluginId" }
             val dir = pluginsDir ?: throw Exception("Plugin directory not available")
 
             val plugin = extractPluginInfo(code, pluginId)
+            require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
 
             val existing = _installedPlugins.value.find { it.plugin.id == plugin.id }
             if (existing != null && existing.installedVersion >= plugin.version) {
@@ -319,6 +367,7 @@ class JsPluginManager(
                 }
                 return@withContext false
             }
+            val previousAssets = existing?.customAssetFiles().orEmpty()
 
             val pluginFile = dir.replaceFile("${plugin.id}.js") ?: throw Exception("Failed to create plugin file")
             pluginFile.writeUtf8(code)
@@ -336,6 +385,7 @@ class JsPluginManager(
             _installedPlugins.update { current ->
                 current.filter { it.plugin.id != plugin.id } + installedPlugin
             }
+            cleanupCustomAssets(dir, previousAssets)
 
             rebuildSources()
 
@@ -432,7 +482,9 @@ class JsPluginManager(
                 logcat(LogPriority.DEBUG) { "Loading installed plugins from: ${dir.uri}" }
 
                 val allFiles = dir.listFiles()?.toList() ?: emptyList()
-                val jsFiles = allFiles.filter { it.name?.endsWith(".js") == true }
+                val jsFiles = allFiles.filter {
+                    it.name?.endsWith(".js") == true && !isCustomAssetFileName(it.name.orEmpty())
+                }
                 val jsonFiles = allFiles.filter { it.name?.endsWith(".json") == true }
                 logcat(LogPriority.DEBUG) {
                     "Found ${jsFiles.size} .js files and ${jsonFiles.size} .json files in plugins directory"
@@ -448,7 +500,7 @@ class JsPluginManager(
                         }
                         val nameWithoutExtension = file.name?.substringBeforeLast(".") ?: return@mapNotNull null
                         val metadataFile = jsonByName[nameWithoutExtension]
-                        val plugin = if (metadataFile != null) {
+                        var plugin = if (metadataFile != null) {
                             // A stale SAF entry or corrupt metadata can throw on open/parse; fall back to
                             // extracting from code rather than letting the outer catch drop the whole plugin.
                             val parsedMetadata = try {
@@ -507,9 +559,32 @@ class JsPluginManager(
                             }
                         }
 
+                        val (customCSSFile, customCSS) = loadCustomAsset(
+                            dir = dir,
+                            fileName = plugin.customCSSFile,
+                            kind = CUSTOM_CSS_KIND,
+                            url = plugin.customCSS,
+                        )
+                        val (customJSFile, customJS) = loadCustomAsset(
+                            dir = dir,
+                            fileName = plugin.customJSFile,
+                            kind = CUSTOM_JS_KIND,
+                            url = plugin.customJS,
+                        )
+                        if (customCSSFile != plugin.customCSSFile || customJSFile != plugin.customJSFile) {
+                            plugin = plugin.copy(
+                                customCSSFile = customCSSFile,
+                                customJSFile = customJSFile,
+                            )
+                            dir.replaceFile("$nameWithoutExtension.json")
+                                ?.writeText(json.encodeToString(plugin))
+                        }
+
                         InstalledJsPlugin(
                             plugin = plugin,
                             code = code,
+                            customCSS = customCSS,
+                            customJS = customJS,
                             installedVersion = plugin.version,
                             repositoryUrl = plugin.repositoryUrl ?: "",
                         )
@@ -520,6 +595,7 @@ class JsPluginManager(
                 }
 
                 _installedPlugins.value = plugins
+                cleanupCustomAssets(dir)
                 rebuildSources()
 
                 logcat(LogPriority.INFO) { "Loaded ${plugins.size} installed JS plugins" }
@@ -734,6 +810,7 @@ class JsPluginManager(
      * Returns the local cached icon file for a plugin, or null if not cached.
      */
     fun getCachedIconFile(pluginId: String): File? {
+        if (!isSafePluginId(pluginId)) return null
         val file = File(iconsCacheDir, "$pluginId.png")
         return file.takeIf { it.exists() && it.length() > 0 }
     }
@@ -752,7 +829,7 @@ class JsPluginManager(
      */
     private suspend fun cacheIcons(plugins: List<JsPlugin>) = withContext(Dispatchers.IO) {
         for (plugin in plugins) {
-            if (plugin.iconUrl.isBlank()) continue
+            if (plugin.iconUrl.isBlank() || !isSafePluginId(plugin.id)) continue
             val iconFile = File(iconsCacheDir, "${plugin.id}.png")
             if (iconFile.exists() && iconFile.length() > 0) continue
             try {
@@ -770,6 +847,89 @@ class JsPluginManager(
                 logcat(LogPriority.WARN) { "Failed to cache icon for ${plugin.name}: ${e.message}" }
             }
         }
+    }
+
+    private fun downloadText(url: String): String {
+        val cacheBustedUrl = url.toHttpUrl()
+            .newBuilder()
+            .addQueryParameter("t", System.currentTimeMillis().toString())
+            .build()
+        return client.newCall(GET(cacheBustedUrl, cache = CacheControl.FORCE_NETWORK)).execute().use { response ->
+            check(response.isSuccessful) { "HTTP ${response.code} while downloading $url" }
+            response.body.string()
+        }
+    }
+
+    private fun writeCustomAsset(dir: UniFile, fileName: String, content: String) {
+        val kind = fileName.substringAfterLast("custom").removePrefix(".").removePrefix("-")
+        require(fileName == customAssetFileName(kind, content))
+
+        val existing = dir.findFile(fileName)
+        if (existing != null && runCatching { existing.readUtf8() == content }.getOrDefault(false)) return
+
+        val file = dir.replaceFile(fileName) ?: error("Failed to create custom plugin asset")
+        file.writeUtf8(content)
+    }
+
+    private fun loadCustomAsset(
+        dir: UniFile,
+        fileName: String?,
+        kind: String,
+        url: String?,
+    ): Pair<String?, String> {
+        readCustomAsset(dir, fileName, kind)?.let { return fileName to it }
+        val remoteUrl = url?.takeIf(String::isNotBlank) ?: return null to ""
+        return runCatching {
+            val content = downloadText(remoteUrl)
+            val downloadedFileName = customAssetFileName(kind, content)
+            writeCustomAsset(dir, downloadedFileName, content)
+            downloadedFileName to content
+        }.getOrElse {
+            logcat(LogPriority.WARN, it) { "Failed to restore custom plugin $kind asset from $remoteUrl" }
+            null to ""
+        }
+    }
+
+    private fun readCustomAsset(dir: UniFile, fileName: String?, kind: String): String? {
+        if (fileName == null) return null
+        if (!isCustomAssetFileName(fileName) ||
+            !(fileName.endsWith(".custom.$kind") || fileName.endsWith(".custom-$kind"))
+        ) {
+            logcat(LogPriority.WARN) { "Ignoring invalid custom plugin asset name: $fileName" }
+            return null
+        }
+
+        val content = runCatching { dir.findFile(fileName)?.readUtf8() }
+            .getOrElse {
+                logcat(LogPriority.WARN, it) { "Failed to read custom plugin asset: $fileName" }
+                null
+            }
+            ?: return null
+        val hash = Hash.sha256(content)
+        if (fileName != "$hash.custom.$kind" && fileName != "$hash.custom-$kind") {
+            logcat(LogPriority.WARN) { "Ignoring custom plugin asset with mismatched hash: $fileName" }
+            return null
+        }
+        return content
+    }
+
+    private fun InstalledJsPlugin.customAssetFiles(): Set<String> {
+        return setOfNotNull(plugin.customCSSFile, plugin.customJSFile)
+            .filterTo(mutableSetOf(), ::isCustomAssetFileName)
+    }
+
+    private fun cleanupCustomAssets(dir: UniFile, candidates: Set<String>? = null) {
+        if (candidates?.isEmpty() == true) return
+        val referenced = _installedPlugins.value.flatMapTo(mutableSetOf()) { it.customAssetFiles() }
+        dir.listFiles()
+            ?.asSequence()
+            ?.filter { file ->
+                val name = file.name ?: return@filter false
+                isCustomAssetFileName(name) &&
+                    name !in referenced &&
+                    (candidates == null || name in candidates)
+            }
+            ?.forEach { it.delete() }
     }
 
     // UniFile helpers

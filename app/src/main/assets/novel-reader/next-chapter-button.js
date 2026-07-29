@@ -2,7 +2,6 @@
 //
 // Replaces:
 //   __BTN_CONTAINER_ID__     - DOM id of the wrapping div
-//   __SAFE_BOTTOM_VAR__      - safe-area bottom CSS custom property name
 //   __HAS_NEXT_CHAPTER__     - true / false
 //   __FINISHED_TEXT__        - JSON-quoted localized label
 //   __NEXT_CHAPTER_TEXT__    - JSON-quoted localized button label
@@ -14,7 +13,6 @@
 
     var container = document.createElement('div');
     container.id = '__BTN_CONTAINER_ID__';
-    container.style.paddingBottom = 'calc(40px + var(__SAFE_BOTTOM_VAR__, 0px))';
 
     var finished = document.createElement('div');
     finished.className = 'info-text';
@@ -41,5 +39,6 @@
         container.appendChild(message);
     }
 
-    document.body.appendChild(container);
+    var readerUi = document.getElementById('reader-ui') || document.body;
+    readerUi.appendChild(container);
 })();

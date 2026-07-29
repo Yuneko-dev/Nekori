@@ -18,6 +18,8 @@ data class JsPlugin(
     val iconUrl: String,
     val customCSS: String? = null,
     val customJS: String? = null,
+    val customCSSFile: String? = null,
+    val customJSFile: String? = null,
     val contentWarning: Int? = null,
     val contentType: String? = null,
     var repositoryUrl: String? = null,
@@ -118,4 +120,6 @@ data class InstalledJsPlugin(
     val code: String,
     val installedVersion: String,
     val repositoryUrl: String,
+    val customCSS: String = "",
+    val customJS: String = "",
 )

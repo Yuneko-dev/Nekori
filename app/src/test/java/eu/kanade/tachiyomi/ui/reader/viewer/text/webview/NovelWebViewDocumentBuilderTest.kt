@@ -1,7 +1,11 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import eu.kanade.tachiyomi.data.database.models.ChapterImpl
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ProcessedContent
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
+import org.jsoup.Jsoup
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -11,7 +15,6 @@ class NovelWebViewDocumentBuilderTest {
     private fun minimalInput(
         text: String = "<p>Hello</p>",
         isPlainText: Boolean = false,
-        hideChapterTitle: Boolean = false,
         css: String = "body { color: black; }",
         infiniteScrollEnabled: Boolean = false,
         blockMedia: Boolean = false,
@@ -20,11 +23,12 @@ class NovelWebViewDocumentBuilderTest {
         chapter = null,
         style = NovelWebViewStyler.CustomStylePayload(
             css = css,
-            hideChapterTitle = hideChapterTitle,
+            bodyClasses = "",
             backgroundColor = 0xFFFFFFFF.toInt(),
         ),
         themeTokens = ThemeUtils.ThemeTokens(cssVariables = ":root {}", jsObject = "{}"),
         tsundokuScript = "",
+        pluginJavaScript = "",
         infiniteScrollEnabled = infiniteScrollEnabled,
         blockMedia = blockMedia,
     )
@@ -79,7 +83,7 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(html.trimStart().startsWith("<!DOCTYPE html>"))
         assertTrue(html.contains("<head>"))
         assertTrue(html.contains("</head>"))
-        assertTrue(html.contains("<body>"))
+        assertTrue(html.contains("<body"))
         assertTrue(html.contains("</body>"))
         assertTrue(html.contains("</html>"))
     }
@@ -100,6 +104,43 @@ class NovelWebViewDocumentBuilderTest {
     }
 
     @Test
+    fun `assemble loads reader css and exposes LNReader chapter wrapper`() {
+        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
+        assertTrue(html.contains("href=\"${NovelWebViewStyler.READER_CSS_URL}\""))
+        assertTrue(html.contains("""id="LNReader-chapter""""))
+        assertTrue(html.contains("""id="reader-ui""""))
+        val chapterRoot = Jsoup.parse(html).selectFirst("#LNReader-chapter")!!
+        assertEquals("p", chapterRoot.child(0).tagName())
+    }
+
+    @Test
+    fun `assemble only adds Tsundoku chapter wrappers for infinite scroll`() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(infiniteScrollEnabled = true).copy(
+                chapter = ReaderChapter(
+                    ChapterImpl().apply {
+                        id = 1L
+                        url = "/chapter-1"
+                        name = "Chapter 1"
+                    },
+                ),
+            ),
+        )
+        assertTrue(html.contains("<tsundoku-chapter"))
+    }
+
+    @Test
+    fun `assemble runs plugin script before DOMContentLoaded and escapes closing script tags`() {
+        val input = minimalInput().copy(
+            pluginJavaScript = "document.addEventListener('DOMContentLoaded', init); </script><p>unsafe</p>",
+        )
+        val html = NovelWebViewDocumentBuilder.assemble(input)
+        val pluginScript = html.substringAfter("DOMContentLoaded").substringBefore("</script>")
+        assertTrue(pluginScript.contains("<\\/script>"))
+        assertFalse(pluginScript.contains("</script>"))
+    }
+
+    @Test
     fun `assemble escapes malicious closing style in user css`() {
         val evilCss = "body { } </style><script>alert(1)</script><style>"
         val html = NovelWebViewDocumentBuilder.assemble(minimalInput(css = evilCss))
@@ -107,17 +148,6 @@ class NovelWebViewDocumentBuilderTest {
         // (the style tag itself closes correctly; the embedded one is escaped)
         val styleTagContent = html.substringAfter("tsundoku-custom-style\">").substringBefore("</style>")
         assertFalse(styleTagContent.contains("</style>"))
-    }
-
-    @Test
-    fun `assemble hides chapter headings with tsundoku-chapter scoped selector`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput(hideChapterTitle = true))
-        // Selector must be scoped to tsundoku-chapter, not document-wide
-        assertTrue(html.contains("tsundoku-chapter h1:first-of-type"))
-        assertTrue(html.contains("display: none !important"))
-        // Must NOT use the old document-scoped form
-        val styleSection = html.substringAfter("<style>").substringBefore("</style>")
-        assertFalse(styleSection.trimStart().startsWith("h1:first-of-type"))
     }
 
     @Test

@@ -149,6 +149,14 @@ class ReaderPreferences(
         "pref_novel_source_css_priority",
         false,
     )
+    val novelPluginUseCustomCss: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_plugin_use_custom_css",
+        true,
+    )
+    val novelPluginUseCustomJs: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_plugin_use_custom_js",
+        true,
+    )
 
     // Extra console/dialog/file-chooser behavior; fullscreen video uses the always-present client.
     val novelWebViewDevTools: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_webview_devtools", false)

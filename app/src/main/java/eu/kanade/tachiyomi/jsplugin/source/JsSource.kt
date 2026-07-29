@@ -193,6 +193,8 @@ class JsSource(
 
     val iconUrl: String = plugin.iconUrl
     val version: String = plugin.version
+    val customCSS: String get() = installedPlugin.customCSS
+    val customJS: String get() = installedPlugin.customJS
 
     /** Unload this plugin's Hermes context while keeping the process-wide runtime alive. */
     suspend fun releaseRuntime() {
@@ -210,7 +212,9 @@ class JsSource(
     /** True when this source was built from the same plugin version and code. */
     fun isSamePlugin(other: InstalledJsPlugin): Boolean =
         installedPlugin.installedVersion == other.installedVersion &&
-            installedPlugin.code == other.code
+            installedPlugin.code == other.code &&
+            installedPlugin.customCSS == other.customCSS &&
+            installedPlugin.customJS == other.customJS
 
     /** Execute one plugin expression and return its JSON result. */
     private suspend fun executePluginMethod(methodCall: String): String {

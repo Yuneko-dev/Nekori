@@ -69,7 +69,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TAG_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TITLE_ATTR
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_URL_ATTR
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_CHAPTERS_CONTAINER_ID
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_CHAPTER_ATTR
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
@@ -710,6 +709,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     request: WebResourceRequest?,
                 ): WebResourceResponse? {
                     val url = request?.url?.toString() ?: return null
+                    styler.interceptReaderAsset(url)?.let { return it }
                     styler.interceptFont(url)?.let { return it }
                     val fallbackChapterId =
                         currentPage?.chapter?.chapter?.id ?: currentChapters?.currChapter?.chapter?.id
@@ -1456,9 +1456,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 divider.setAttribute('$CHAPTER_PATH_ATTR', ${quoteForJson(chapterUrl.orEmpty())});
                 divider.setAttribute('$CHAPTER_URL_ATTR', ${quoteForJson(toAbsoluteChapterUrl(chapterUrl))});
 
-                var firstChild = document.body.firstChild;
-                document.body.insertBefore(chapterElement, firstChild);
-                document.body.insertBefore(divider, chapterElement);
+                var chaptersContainer = document.getElementById('LNReader-chapter');
+                if (!chaptersContainer) return;
+                var firstChild = chaptersContainer.firstChild;
+                chaptersContainer.insertBefore(chapterElement, firstChild);
+                chaptersContainer.insertBefore(divider, chapterElement);
 
                 // Reading scrollHeight inside rAF forces the pending layout so the delta is exact.
                 // Pin the reading position, rebuild boundaries, then lift the guard.
@@ -1497,15 +1499,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         val js = """
             (function() {
-                var chaptersContainer = document.getElementById('$TSUNDOKU_CHAPTERS_CONTAINER_ID');
-                if (!chaptersContainer) {
-                    chaptersContainer = document.createElement('div');
-                    chaptersContainer.id = '$TSUNDOKU_CHAPTERS_CONTAINER_ID';
-                    while (document.body.firstChild) {
-                        chaptersContainer.appendChild(document.body.firstChild);
-                    }
-                    document.body.appendChild(chaptersContainer);
-                }
+                var chaptersContainer = document.getElementById('LNReader-chapter');
+                if (!chaptersContainer) return;
 
                 var divider = document.createElement('div');
                 divider.className = '$CHAPTER_DIVIDER_CLASS';
@@ -1586,6 +1581,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             style = stylePayload,
             themeTokens = ThemeUtils.getThemeTokens(activity, preferences, preferences.novelTheme.get()),
             tsundokuScript = buildTsundokuScript(),
+            pluginJavaScript = styler.initialPluginJavaScript(),
             infiniteScrollEnabled = preferences.novelInfiniteScroll.get(),
             blockMedia = preferences.novelBlockMedia.get(),
         )
@@ -2099,16 +2095,18 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         if (!document.getElementById(styleId)) {
                             var style = document.createElement('style');
                             style.id = styleId;
-                            style.innerHTML = '${CHAPTER_TAG_NAME}, [${ATTR_DATA_EDITABLE}="1"], body { -webkit-user-select: text !important; user-select: text !important; pointer-events: auto !important; -webkit-tap-highlight-color: transparent; outline: none; } ' +
+                            style.innerHTML = '${CHAPTER_TAG_NAME}, #LNReader-chapter, [${ATTR_DATA_EDITABLE}="1"] { -webkit-user-select: text !important; user-select: text !important; pointer-events: auto !important; -webkit-tap-highlight-color: transparent; outline: none; } ' +
                                 'body { padding-bottom: max(220px, 38vh) !important; }';
                             document.head.appendChild(style);
                         }
 
                         var editTargets = document.querySelectorAll('${CHAPTER_TAG_NAME}');
-                        if (editTargets.length === 0 && document.body) {
-                            document.body.setAttribute('contenteditable', 'true');
-                            document.body.setAttribute('${ATTR_DATA_EDITABLE}', '1');
-                            document.body.setAttribute('tabindex', '0');
+                        if (editTargets.length === 0) {
+                            var chapterRoot = document.getElementById('LNReader-chapter');
+                            if (!chapterRoot) return;
+                            chapterRoot.setAttribute('contenteditable', 'true');
+                            chapterRoot.setAttribute('${ATTR_DATA_EDITABLE}', '1');
+                            chapterRoot.setAttribute('tabindex', '0');
                         } else {
                             for (var i = 0; i < editTargets.length; i++) {
                                 editTargets[i].setAttribute('contenteditable', 'true');
@@ -2154,9 +2152,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                                 var chapterId = nodes[i].getAttribute('${CHAPTER_ID_ATTR}');
                                 contents.push({id: chapterId, content: html});
                             }
-                        } else if (document.body) {
+                        } else {
+                            var chapterRoot = document.getElementById('LNReader-chapter');
+                            if (!chapterRoot) return;
                             var currentId = '${currentChapters?.currChapter?.chapter?.id ?: -1}';
-                            contents.push({id: currentId, content: document.body.innerHTML});
+                            contents.push({id: currentId, content: chapterRoot.innerHTML});
                         }
                         if (window.Android && window.Android.onSaveEditedContent) {
                             window.Android.onSaveEditedContent(JSON.stringify(contents));
@@ -3115,6 +3115,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             var para = -1;
             try {
                 var chapterEl = (node && node.closest) ? node.closest('tsundoku-chapter') : null;
+                if (!chapterEl) chapterEl = document.getElementById('LNReader-chapter');
                 if (chapterEl) {
                     var plain = chapterEl.querySelector('[data-tsundoku-plain-text]');
                     if (plain) {

@@ -57,6 +57,8 @@ internal class NovelWebViewPreferenceObserver(
                 preferences.novelForceTextLowercase.changes().drop(1),
                 preferences.novelRegexReplacements.changes().drop(1),
                 preferences.novelSourceCssPriority.changes().drop(1),
+                preferences.novelPluginUseCustomCss.changes().drop(1),
+                preferences.novelPluginUseCustomJs.changes().drop(1),
                 preferences.novelUseOriginalFonts.changes().drop(1),
             ).collect { onChapterReloadRequested() }
         }

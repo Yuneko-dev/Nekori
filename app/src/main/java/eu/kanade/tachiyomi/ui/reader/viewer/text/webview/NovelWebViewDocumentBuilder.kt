@@ -24,6 +24,7 @@ internal object NovelWebViewDocumentBuilder {
         val style: NovelWebViewStyler.CustomStylePayload,
         val themeTokens: ThemeUtils.ThemeTokens,
         val tsundokuScript: String,
+        val pluginJavaScript: String,
         val infiniteScrollEnabled: Boolean,
         val blockMedia: Boolean,
     )
@@ -34,15 +35,6 @@ internal object NovelWebViewDocumentBuilder {
         val chapterName = chapterModel?.name.orEmpty()
         val chapterNumber = chapterModel?.chapter_number ?: -1f
         val chapterPath = chapterModel?.url.orEmpty()
-
-        val chapterDivider = buildChapterDivider(chapterId, chapterName, chapterNumber, chapterPath, input)
-        val (chapterWrapperStart, chapterWrapperEnd) = buildChapterWrapper(
-            chapterId,
-            chapterName,
-            chapterNumber,
-            chapterPath,
-            input,
-        )
 
         val mediaBlockCss = if (input.blockMedia) {
             "img, video, audio, source, svg, image { display: none !important; }"
@@ -80,29 +72,26 @@ internal object NovelWebViewDocumentBuilder {
             extractBodyOrFallback(input.processed.text)
         }
 
-        val chapterDividerCss = if (input.infiniteScrollEnabled) {
-            """.tsundoku-chapter-divider {
-                        height: 1px;
-                        margin: 32px auto;
-                        padding: 0;
-                        border: none;
-                        border-top: 1px solid currentColor;
-                        opacity: 0.4;
-                        width: 60%;
-                    }"""
+        val chapterContent = if (input.infiniteScrollEnabled) {
+            val chapterDivider = buildChapterDivider(chapterId, chapterName, chapterNumber, chapterPath, input)
+            val (chapterWrapperStart, chapterWrapperEnd) = buildChapterWrapper(
+                chapterId,
+                chapterName,
+                chapterNumber,
+                chapterPath,
+                input,
+            )
+            """
+                $chapterDivider
+                $chapterWrapperStart
+                $finalContent
+                $chapterWrapperEnd
+            """.trimIndent()
         } else {
-            ""
+            finalContent
         }
 
         val escapedInitialStyle = input.style.css.escapeForStyleTag()
-        val hideHeadingCss = if (input.style.hideChapterTitle) {
-            "$CHAPTER_TAG_NAME h1:first-of-type, $CHAPTER_TAG_NAME h2:first-of-type, " +
-                "$CHAPTER_TAG_NAME h3:first-of-type, $CHAPTER_TAG_NAME h4:first-of-type, " +
-                "$CHAPTER_TAG_NAME h5:first-of-type, $CHAPTER_TAG_NAME h6:first-of-type " +
-                "{ display: none !important; }"
-        } else {
-            ""
-        }
 
         val escapedThemeCss = input.themeTokens.cssVariables.escapeForStyleTag()
         val escapedThemeJson = input.themeTokens.jsObject
@@ -111,6 +100,7 @@ internal object NovelWebViewDocumentBuilder {
             .replace("</Script>", "<\\/Script>")
             .replace("</SCRIPT>", "<\\/SCRIPT>")
         val themeExposureScript = "window.TsundokuTheme = $escapedThemeJson;"
+        val pluginScript = input.pluginJavaScript.escapeForScriptTag()
 
         return """
             <!DOCTYPE html>
@@ -118,37 +108,21 @@ internal object NovelWebViewDocumentBuilder {
             <head>
                 <meta charset="UTF-8">
                 <meta id="tsundoku-viewport" name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+                <link rel="stylesheet" href="${NovelWebViewStyler.READER_CSS_URL}">
                 <style>
                     $escapedThemeCss
-                    $chapterDividerCss
-                    tsundoku-chapter {
-                        display: block;
-                        contain: content;
-                    }
-                    img {
-                        max-width: 100%;
-                        height: auto;
-                        display: block;
-                        margin: 8px auto;
-                        min-height: 100px;
-                        background: rgba(150, 150, 150, 0.2) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="%23888" stroke-width="5" stroke-dasharray="31.4 31.4"><animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/></circle></svg>') no-repeat center center;
-                    }
-                    video {
-                        max-width: 100%;
-                        height: auto;
-                    }
-                    $hideHeadingCss
                     $mediaBlockCss
                 </style>
                 <style id="tsundoku-custom-style">$escapedInitialStyle</style>
                 <script>${input.tsundokuScript}</script>
                 <script>$themeExposureScript</script>
             </head>
-            <body>
-                $chapterDivider
-                $chapterWrapperStart
-                $finalContent
-                $chapterWrapperEnd
+            <body class="${input.style.bodyClasses}">
+                <div id="LNReader-chapter">
+                    $chapterContent
+                </div>
+                <div id="reader-ui"></div>
+                ${if (pluginScript.isBlank()) "" else "<script>$pluginScript</script>"}
             </body>
             </html>
         """.trimIndent()
@@ -210,6 +184,9 @@ internal object NovelWebViewDocumentBuilder {
 
     internal fun String.escapeForStyleTag(): String =
         replace(Regex("</style>", RegexOption.IGNORE_CASE)) { "<\\/" + it.value.substring(2) }
+
+    internal fun String.escapeForScriptTag(): String =
+        replace(Regex("</script>", RegexOption.IGNORE_CASE)) { "<\\/" + it.value.substring(2) }
 
     const val PLAIN_TEXT_CLASS = "tsundoku-plain-text"
     const val ATTR_DATA_PLAIN_TEXT = "data-tsundoku-plain-text"

@@ -14,36 +14,6 @@
         return;
     }
 
-    var style = document.createElement('style');
-    style.id = 'tsundoku-reader-ui-style';
-    style.textContent =
-        '.next-button,.info-text{margin-left:0;margin-right:0;border-radius:50px;' +
-        'background-color:var(--md-sys-color-primary);font-family:inherit;font-size:16px;border-width:0;user-select:none;}' +
-        '.next-button{color:var(--md-sys-color-on-primary)!important;min-height:40px;text-overflow:ellipsis;' +
-        'overflow:hidden;white-space:nowrap;padding:0 16px;width:100%;}' +
-        '.info-text{background-color:transparent;text-align:center;border:none;margin:0;color:inherit;' +
-        'padding-top:16px;padding-bottom:16px;}' +
-        '.hidden{visibility:hidden;}' +
-        '.highlight{color:var(--tsundoku-reader-text)!important;background-color:color-mix(in srgb,' +
-        'var(--tsundoku-reader-text) 20%,var(--tsundoku-reader-background));}' +
-        '.highlight *{color:var(--tsundoku-reader-text)!important;background-color:transparent;}' +
-        '#Image-Modal{position:fixed;left:0;top:0;user-select:none;z-index:9999998;}' +
-        '#Image-Modal.show{display:flex;height:100%;width:100%;background-color:color-mix(in srgb,' +
-        'var(--md-sys-color-surface) 90%,transparent);align-items:center;justify-content:center;overflow:scroll;}' +
-        '#Image-Modal-img{display:block;width:100%;max-width:100%;min-height:0;margin:0;background:none;}' +
-        '#TTS-Controller{position:fixed;top:50%;left:20px;opacity:.5;z-index:9999999;}' +
-        '#TTS-Controller button{background:color-mix(in srgb,var(--tsundoku-reader-background) 85%,' +
-        'var(--tsundoku-reader-text) 15%);outline:none;border-width:1px;border-style:solid;' +
-        'border-color:color-mix(in srgb,var(--tsundoku-reader-text) 30%,var(--tsundoku-reader-background) 70%);' +
-        'display:flex;justify-items:center;align-items:center;padding:4px;border-radius:100%;transition:.5s;' +
-        'box-shadow:0 2px 8px rgba(0,0,0,.15);touch-action:none;}' +
-        '#TTS-Controller.active{opacity:1;}' +
-        '#TTS-Controller.active button{padding:16px;}' +
-        '#TTS-Controller svg{fill:var(--tsundoku-reader-text);width:20px;height:20px;}' +
-        '#TTS-Controller.active svg{width:24px;height:24px;}' +
-        'b[data-tsundoku-bionic]{font-weight:700;}';
-    document.head.appendChild(style);
-
     var volumeIcon =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M552-152v-75q86-23 139-93.5T744-480q0-89-53.5-158.5T552-734v-75q116 25 190 117t74 211q0 119-73.5 211.5T552-152ZM144-385v-192h144l192-192v576L288-385H144Zm408 55v-302q45 20 70.5 61t25.5 90q0 49-25.5 89.5T552-330Z"/></svg>';
     var pauseIcon =
@@ -60,7 +30,8 @@
     var modalImage = document.createElement('img');
     modalImage.id = 'Image-Modal-img';
     modal.appendChild(modalImage);
-    document.body.appendChild(modal);
+    var readerUi = document.getElementById('reader-ui') || document.body;
+    readerUi.appendChild(modal);
 
     function viewportMeta() {
         var meta = document.querySelector('meta[name="viewport"]');
@@ -130,7 +101,7 @@
     ttsButton.setAttribute('title', __TTS_CONTROL_LABEL__);
     ttsButton.innerHTML = volumeIcon;
     controller.appendChild(ttsButton);
-    document.body.appendChild(controller);
+    readerUi.appendChild(controller);
 
     var pointerStart = null;
     var hoverElement = null;

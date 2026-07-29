@@ -1,9 +1,12 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import android.view.View
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import androidx.core.net.toUri
 import eu.kanade.presentation.reader.settings.CodeSnippet
+import eu.kanade.tachiyomi.jsplugin.JsPluginManager
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelProgress
@@ -18,6 +21,9 @@ import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.io.ByteArrayInputStream
 
 internal class NovelWebViewStyler(
     private val activity: ReaderActivity,
@@ -29,7 +35,7 @@ internal class NovelWebViewStyler(
 
     data class CustomStylePayload(
         val css: String,
-        val hideChapterTitle: Boolean,
+        val bodyClasses: String,
         val backgroundColor: Int,
     )
 
@@ -66,6 +72,11 @@ internal class NovelWebViewStyler(
         val textColorHex = ThemeUtils.colorToHex(finalTextColor)
 
         val customCss = preferences.novelCustomCss.get()
+        val pluginCustomCss = currentJsSource()
+            ?.customCSS
+            .orEmpty()
+            .takeIf { preferences.novelPluginUseCustomCss.get() }
+            .orEmpty()
         val useOriginalFonts = preferences.novelUseOriginalFonts.get()
 
         val cssSnippetsJson = preferences.novelCustomCssSnippets.get()
@@ -79,18 +90,12 @@ internal class NovelWebViewStyler(
 
         val (fontFaceDeclaration, effectiveFontFamily) = resolveFontFace(fontFamily, useOriginalFonts)
 
-        val sourceCssPriority = preferences.novelSourceCssPriority.get()
-        val styleImportance = if (sourceCssPriority) "" else " !important"
-        val fontFamilyLine = if (useOriginalFonts) "" else "font-family: $effectiveFontFamily $styleImportance;"
-
         val textSelect = if (preferences.novelTextSelectable.get()) "text" else "none"
 
-        val (fontInheritOverride, headingSizeRules) = fontOverrideCss(sourceCssPriority, useOriginalFonts)
-
         val hideChapterTitleCss = if (hideChapterTitle) {
-            "$CHAPTER_TAG_NAME h1:first-of-type, $CHAPTER_TAG_NAME h2:first-of-type, " +
-                "$CHAPTER_TAG_NAME h3:first-of-type, $CHAPTER_TAG_NAME h4:first-of-type, " +
-                "$CHAPTER_TAG_NAME h5:first-of-type, $CHAPTER_TAG_NAME h6:first-of-type " +
+            "#LNReader-chapter h1:first-of-type, #LNReader-chapter h2:first-of-type, " +
+                "#LNReader-chapter h3:first-of-type, #LNReader-chapter h4:first-of-type, " +
+                "#LNReader-chapter h5:first-of-type, #LNReader-chapter h6:first-of-type " +
                 "{ display: none !important; }"
         } else {
             ""
@@ -98,85 +103,46 @@ internal class NovelWebViewStyler(
 
         val css = """
             $fontFaceDeclaration
-            html {
-                scroll-behavior: smooth;
-                overflow-x: hidden;
-                word-wrap: break-word;
-                -webkit-text-size-adjust: 100%;
+            :root {
+                --reader-font-size: ${fontSize}px;
+                --reader-font-family: $effectiveFontFamily;
+                --reader-line-height: $lineHeight;
+                --reader-margin-top: ${marginTop}px;
+                --reader-margin-right: ${marginRight}px;
+                --reader-margin-bottom: ${marginBottom}px;
+                --reader-margin-left: ${marginLeft}px;
+                --reader-text-color: $textColorHex;
+                --reader-background-color: $bgColorHex;
+                --reader-text-align: $textAlign;
+                --reader-user-select: $textSelect;
+                --reader-paragraph-indent: ${paragraphIndent}em;
+                --reader-paragraph-spacing: ${paragraphSpacing}em;
             }
-            body {
-                font-size: ${fontSize}px$styleImportance;
-                $fontFamilyLine
-                line-height: $lineHeight$styleImportance;
-                margin: ${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px$styleImportance;
-                color: $textColorHex$styleImportance;
-                background-color: $bgColorHex$styleImportance;
-                text-align: $textAlign$styleImportance;
-                -webkit-user-select: $textSelect$styleImportance;
-                user-select: $textSelect$styleImportance;
-            }
-            p {
-                text-indent: ${paragraphIndent}em$styleImportance;
-                margin-top: ${paragraphSpacing}em$styleImportance;
-                margin-bottom: ${paragraphSpacing}em$styleImportance;
-            }
-            * {
-                color: inherit$styleImportance;
-                $fontInheritOverride
-            }
-            a {
-                color: var(--md-sys-color-primary)$styleImportance;
-            }
-            hr {
-                margin-top: 20px;
-                margin-bottom: 20px;
-            }
-            sup {
-                line-height: 0.1em;
-            }
-            img, video, iframe {
-                display: block;
-                width: auto;
-                height: auto;
-                max-width: 100%;
-            }
-            div:has(> table) {
-                overflow: auto;
-            }
-            table {
-                background-color: var(--md-sys-color-on-primary);
-                border-collapse: collapse;
-                color: var(--md-sys-color-primary)$styleImportance;
-            }
-            th {
-                font-weight: bold;
-            }
-            td {
-                padding: 10px;
-                text-align: center;
-            }
-            table, th, td {
-                border: 1px solid var(--md-sys-color-outline);
-            }
-            ::selection {
-                color: var(--md-sys-color-on-secondary);
-                background-color: var(--md-sys-color-secondary);
-            }
-            ::-moz-selection {
-                color: var(--md-sys-color-on-secondary);
-                background-color: var(--md-sys-color-secondary);
-            }
-            $headingSizeRules
             $hideChapterTitleCss
+            $pluginCustomCss
             $customCss
             $enabledSnippetsCss
         """.trimIndent().replace("\n", " ")
 
         return CustomStylePayload(
             css = css,
-            hideChapterTitle = hideChapterTitle,
+            bodyClasses = buildList {
+                if (!preferences.novelSourceCssPriority.get()) add("tsundoku-reader-force-style")
+                if (useOriginalFonts) add("tsundoku-reader-original-font")
+            }.joinToString(" "),
             backgroundColor = finalBgColor,
         )
+    }
+
+    fun initialPluginJavaScript(): String {
+        if (!preferences.novelPluginUseCustomJs.get()) return ""
+        return currentJsSource()?.customJS.orEmpty()
+    }
+
+    private fun currentJsSource(): JsSource? {
+        (activity.viewModel.getSource() as? JsSource)?.let { return it }
+        val sourceId = activity.viewModel.manga?.source ?: return null
+        return Injekt.get<JsPluginManager>().getSource(sourceId) as? JsSource
     }
 
     private fun resolveFontFace(fontFamily: String, useOriginalFonts: Boolean): Pair<String, String> {
@@ -224,6 +190,14 @@ internal class NovelWebViewStyler(
                 "Access-Control-Allow-Origin" to "*",
                 "Cache-Control" to "max-age=31536000",
             )
+        }
+    }
+
+    fun interceptReaderAsset(url: String): WebResourceResponse? {
+        if (url != READER_CSS_URL) return null
+        val bytes = NovelWebViewJsAssets.load(activity, "reader.css").toByteArray(Charsets.UTF_8)
+        return WebResourceResponse("text/css", "UTF-8", ByteArrayInputStream(bytes)).apply {
+            responseHeaders = mapOf("Cache-Control" to "no-store")
         }
     }
 
@@ -283,7 +257,6 @@ internal class NovelWebViewStyler(
             "next-chapter-button.js",
             mapOf(
                 "BTN_CONTAINER_ID" to ID_NEXT_CHAPTER_BTN_CONTAINER,
-                "SAFE_BOTTOM_VAR" to NovelWebViewChapterMeta.CSS_VAR_SAFE_BOTTOM,
                 "HAS_NEXT_CHAPTER" to (nextChapterName != null).toString(),
                 "FINISHED_TEXT" to quoteForJson(
                     activity.stringResource(TDMR.strings.reader_chapter_finished, chapterName),
@@ -340,22 +313,10 @@ internal class NovelWebViewStyler(
     companion object {
         const val STYLE_ID_CUSTOM = "tsundoku-custom-style"
         const val ID_NEXT_CHAPTER_BTN_CONTAINER = "next-chapter-btn-container"
+        const val READER_CSS_URL = "https://tsundoku.reader/assets/reader.css"
 
         // Sentinel URL the injected @font-face points at; resolved by interceptFont() in the
         // WebView's shouldInterceptRequest. Never hits the network.
         const val FONT_URL_PREFIX = "https://tsundoku.font/custom"
-
-        internal fun fontOverrideCss(sourceCssPriority: Boolean, useOriginalFonts: Boolean): Pair<String, String> {
-            if (sourceCssPriority) return "" to ""
-            val ffInherit = if (useOriginalFonts) "" else " font-family: inherit !important;"
-            val starOverride = "font-size: inherit !important;$ffInherit"
-            val headings = "h1 { font-size: 2em !important; } " +
-                "h2 { font-size: 1.5em !important; } " +
-                "h3 { font-size: 1.17em !important; } " +
-                "h4 { font-size: 1em !important; } " +
-                "h5 { font-size: 0.83em !important; } " +
-                "h6 { font-size: 0.67em !important; }"
-            return starOverride to headings
-        }
     }
 }

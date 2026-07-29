@@ -554,6 +554,8 @@
     <string name="novel_vertical_scrollbar_left">Vertical left</string>
     <string name="novel_vertical_scrollbar_right">Vertical right</string>
     <string name="pref_novel_css_snippets">CSS Snippets</string>
+    <string name="pref_novel_plugin_use_custom_css">Use plugin custom CSS</string>
+    <string name="pref_novel_plugin_use_custom_js">Use plugin custom JavaScript</string>
 
     <!-- Novel Download Throttling (category headers only) -->
     <string name="pref_category_novel_downloads">Downloads</string>

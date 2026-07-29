@@ -1,0 +1,331 @@
+/* LNReader reader CSS, with its variables mapped to Tsundoku. */
+
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
+}
+
+::selection {
+    color: var(--md-sys-color-on-secondary);
+    background-color: var(--md-sys-color-secondary);
+}
+
+::-moz-selection {
+    color: var(--md-sys-color-on-secondary);
+    background-color: var(--md-sys-color-secondary);
+}
+
+body {
+    margin-right: 0;
+    margin-left: 0;
+    padding-top: var(--reader-margin-top);
+    padding-bottom: calc(40px + var(--reader-margin-bottom) + var(--tsundoku-safe-bottom, 0px));
+
+    font-size: var(--reader-font-size);
+    font-family: var(--reader-font-family);
+    line-height: var(--reader-line-height);
+    color: var(--reader-text-color);
+    background-color: var(--reader-background-color);
+    text-align: var(--reader-text-align);
+    -webkit-user-select: var(--reader-user-select);
+    user-select: var(--reader-user-select);
+}
+
+body:not(.page-reader) .transition-chapter {
+    display: none !important;
+}
+
+.transition-chapter {
+    padding-right: var(--reader-margin-right);
+    padding-left: var(--reader-margin-left);
+}
+
+#LNReader-chapter {
+    padding-right: var(--reader-margin-right);
+    padding-left: var(--reader-margin-left);
+}
+
+#LNReader-chapter p {
+    margin-block-start: var(--reader-paragraph-spacing);
+    margin-block-end: var(--reader-paragraph-spacing);
+    text-indent: var(--reader-paragraph-indent);
+}
+
+hr {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+a {
+    color: var(--md-sys-color-primary);
+}
+
+sup {
+    line-height: .1em;
+}
+
+img,
+video,
+iframe {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+}
+
+div:has(> table):not(#LNReader-chapter) {
+    overflow: auto;
+}
+
+table {
+    color: var(--md-sys-color-primary);
+    background-color: var(--md-sys-color-on-primary);
+    border-collapse: collapse;
+}
+
+th {
+    font-weight: bold;
+}
+
+td {
+    padding: 10px;
+    text-align: center;
+}
+
+table,
+th,
+td {
+    border: 1px solid var(--md-sys-color-outline);
+}
+
+.hidden {
+    visibility: hidden;
+}
+
+.next-button,
+.info-text {
+    margin-right: var(--reader-margin-right);
+    margin-left: var(--reader-margin-left);
+    border-width: 0;
+    border-radius: 50px;
+    background-color: var(--md-sys-color-primary);
+    font-family: var(--reader-font-family);
+    font-size: 16px;
+    user-select: none;
+}
+
+.next-button {
+    width: calc(100% - var(--reader-margin-left) - var(--reader-margin-right));
+    min-height: 40px;
+    padding: 0 16px;
+    overflow: hidden;
+    color: var(--md-sys-color-on-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.info-text {
+    margin: 0;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    border: none;
+    color: inherit;
+    background-color: transparent;
+    text-align: center;
+}
+
+.d-none {
+    display: none;
+}
+
+#reader-footer-wrapper {
+    position: fixed;
+    z-index: 9999999;
+    bottom: var(--tsundoku-safe-bottom, 0px);
+    left: 0;
+    width: 100%;
+}
+
+#reader-footer {
+    display: flex;
+    flex: 3;
+    padding: .2rem 2rem;
+    color: var(--reader-text-color);
+    background-color: var(--reader-background-color);
+    font-size: 1rem;
+    text-align: center;
+    user-select: none;
+}
+
+.reader-footer-item {
+    flex: 1;
+}
+
+.reader-footer-item:first-child {
+    text-align: left;
+}
+
+.reader-footer-item:last-child {
+    text-align: right;
+}
+
+.highlight {
+    color: var(--reader-text-color) !important;
+    background-color: color-mix(
+        in srgb,
+        var(--reader-text-color) 20%,
+        var(--reader-background-color)
+    );
+}
+
+.highlight * {
+    color: var(--reader-text-color) !important;
+    background-color: transparent;
+}
+
+#Image-Modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    user-select: none;
+}
+
+#Image-Modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+    background-color: color-mix(in srgb, var(--md-sys-color-surface) 90%, transparent);
+}
+
+/* LNReader targets #Image img; Tsundoku uses a single explicit modal image. */
+#Image-Modal-img {
+    display: block;
+    width: 100%;
+}
+
+#TTS-Controller {
+    position: fixed;
+    top: 50%;
+    left: 20px;
+    opacity: .5;
+}
+
+#TTS-Controller button {
+    display: flex;
+    align-items: center;
+    justify-items: center;
+    padding: 4px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: color-mix(
+        in srgb,
+        var(--reader-text-color) 30%,
+        var(--reader-background-color) 70%
+    );
+    border-radius: 100%;
+    outline: none;
+    background: color-mix(
+        in srgb,
+        var(--reader-background-color) 85%,
+        var(--reader-text-color) 15%
+    );
+    box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+    transition: .5s;
+}
+
+#TTS-Controller.active {
+    opacity: 1;
+}
+
+#TTS-Controller.active button {
+    padding: 16px;
+}
+
+#TTS-Controller svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--reader-text-color);
+}
+
+#TTS-Controller.active svg {
+    width: 24px;
+    height: 24px;
+}
+
+#TTS-Controller.loading button {
+    position: relative;
+}
+
+#TTS-Controller.loading button::after {
+    position: absolute;
+    inset: -2px;
+    border: 2px solid transparent;
+    border-top-color: var(--reader-text-color);
+    border-radius: 50%;
+    animation: tts-spin 1s linear infinite;
+    pointer-events: none;
+    content: "";
+}
+
+@keyframes tts-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Tsundoku-only rules. */
+
+body.tsundoku-reader-force-style {
+    font-size: var(--reader-font-size) !important;
+    line-height: var(--reader-line-height) !important;
+    color: var(--reader-text-color) !important;
+    background-color: var(--reader-background-color) !important;
+    text-align: var(--reader-text-align) !important;
+    -webkit-user-select: var(--reader-user-select) !important;
+    user-select: var(--reader-user-select) !important;
+}
+
+body.tsundoku-reader-force-style:not(.tsundoku-reader-original-font) {
+    font-family: var(--reader-font-family) !important;
+}
+
+tsundoku-chapter {
+    display: block;
+    contain: content;
+}
+
+.tsundoku-chapter-divider {
+    width: 60%;
+    height: 1px;
+    margin: 32px auto;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid currentcolor;
+    opacity: .4;
+}
+
+#Image-Modal {
+    z-index: 9999998;
+}
+
+#Image-Modal-img {
+    max-width: 100%;
+    min-height: 0;
+    margin: 0;
+    background: none;
+}
+
+#TTS-Controller {
+    z-index: 9999999;
+}
+
+#TTS-Controller button {
+    touch-action: none;
+}
+
+b[data-tsundoku-bionic] {
+    font-weight: 700;
+}
