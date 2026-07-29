@@ -2611,9 +2611,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      */
     private fun pageScrollBy(direction: Int, fraction: Double = 0.9) {
         val sign = if (direction < 0) "-" else ""
-        evaluateJavascriptSafe(
-            "window.scrollBy({ top: $sign(window.innerHeight * $fraction), behavior: 'smooth' });",
-        )
+        evaluateJavascriptSafe("window.scrollBy(0, $sign(window.innerHeight * $fraction));")
     }
 
     fun toggleAutoScroll() {
