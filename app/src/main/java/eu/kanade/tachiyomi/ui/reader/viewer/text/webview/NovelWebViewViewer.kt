@@ -199,6 +199,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     private var isDestroyed = false
     private var isEditingMode = false
+    private var activeFindQuery = ""
 
     private var isAutoScrolling = false
     private var autoScrollStartAttempt = 0
@@ -219,10 +220,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     // Reader-chrome obstruction pushed from ReaderActivity: the transient reader menu bars (shown
     // only with the menu) plus system bars. The novel status bar is NOT here - it gets real layout
     // space via viewer_container padding. Exposed as --tsundoku-safe-top/bottom +
-    // Tsundoku.runtime.menuVisible so fixed elements clear the menu. Re-applied on each fresh-DOM load.
-    // Menu visibility itself isn't cached here -- pushReaderChrome() reads it live off the ViewModel
-    // so a DOM reload can't race a stale value against buildTsundokuScript()'s live read of the same
-    // state and clobber it back (or fire a spurious/missed menuvisibilitychange event).
+    // Tsundoku.runtime.menuVisible so fixed elements clear the menu or find bar. Re-applied on each
+    // fresh-DOM load.
+    private var chromeMenuVisible = activity.viewModel.state.value.menuVisible
     private var chromeSafeTopDp = 0f
     private var chromeSafeBottomDp = 0f
 
@@ -299,6 +299,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 if (isEditingMode) return false
+                if (activity.isFindInPageOpen()) return false
                 if (e.eventTime - e.downTime >= android.view.ViewConfiguration.getLongPressTimeout()) return true
 
                 val pos = android.graphics.PointF(
@@ -812,6 +813,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             isLongClickable = true
 
             setOnTouchListener { _, event ->
+                if (activity.isFindInPageOpen() && event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    activity.dismissFindInPageIme()
+                }
                 gestureDetector.onTouchEvent(event)
                 false
             }
@@ -945,6 +949,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     override fun destroy() {
         if (isDestroyed) return
+        activity.closeFindInPage(this)
         // Only persist if real progress exists. lastSavedProgress starts at 0 and stays 0
         // until onPageFinished restores or the user scrolls. Saving 0 here on an early
         // teardown (orientation lock recreates the activity before restore runs) would
@@ -1443,6 +1448,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         processed: ProcessedContent,
         chapter: ReaderChapter? = null,
     ) {
+        activity.closeFindInPage(this)
+
         val chapterModel = chapter?.chapter
         val chapterId = chapterModel?.id ?: -1L
         val chapterPath = chapterModel?.url.orEmpty()
@@ -1542,6 +1549,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         NovelWebViewChapterMeta.toAbsoluteChapterUrl(chapterPath, activity.viewModel.manga?.url)
 
     private fun buildTsundokuScript(): String {
+        val readerChromeVisible = activity.isReaderChromeVisible()
         val context = NovelWebViewChapterMeta.TsundokuScriptContext(
             novelUrl = resolvedMangaUrl(),
             currentChapter = getCurrentTsundokuChapter(),
@@ -1554,8 +1562,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             isInfiniteScroll = preferences.novelInfiniteScroll.get(),
             textSelectionBlocked = !preferences.novelTextSelectable.get(),
             forcedLowercase = preferences.novelForceTextLowercase.get(),
-            menuVisible = activity.viewModel.state.value.menuVisible,
-            immersive = !activity.viewModel.state.value.menuVisible,
+            menuVisible = readerChromeVisible,
+            immersive = !readerChromeVisible,
             ttsState = currentTtsState(),
             loadingChapter = !webChapterContentReady,
         )
@@ -1595,11 +1603,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     fun onMenuVisibilityChanged(visible: Boolean) {
+        val chromeVisible = visible || activity.isFindInPageOpen()
+        chromeMenuVisible = chromeVisible
         dispatchTsundokuEvent(
             NovelWebViewChapterMeta.EVENT_MENU_VISIBILITY,
-            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_MENU_VISIBLE_KEY} = $visible; " +
-                "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_IMMERSIVE_KEY} = ${!visible};",
-            "{ menuVisible: $visible, immersive: ${!visible} }",
+            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_MENU_VISIBLE_KEY} = $chromeVisible; " +
+                "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_IMMERSIVE_KEY} = ${!chromeVisible};",
+            "{ menuVisible: $chromeVisible, immersive: ${!chromeVisible} }",
         )
     }
 
@@ -1630,6 +1640,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     /** Called from ReaderActivity when the menu or reader-chrome insets change. */
     fun onReaderChromeChanged(menuVisible: Boolean, safeTopDp: Float, safeBottomDp: Float) {
+        chromeMenuVisible = menuVisible
         chromeSafeTopDp = safeTopDp
         chromeSafeBottomDp = safeBottomDp
         pushReaderChrome()
@@ -1649,7 +1660,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 "SAFE_BOTTOM" to chromeSafeBottomDp.toString(),
                 "OBJECT" to NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME,
                 "MENU_KEY" to NovelWebViewChapterMeta.TSUNDOKU_MENU_VISIBLE_KEY,
-                "MENU_VISIBLE" to activity.viewModel.state.value.menuVisible.toString(),
+                "MENU_VISIBLE" to chromeMenuVisible.toString(),
                 "EVENT" to NovelWebViewChapterMeta.EVENT_MENU_VISIBILITY,
             ),
         )
@@ -1657,6 +1668,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun showLoadingIndicator(message: String = "Loading...") {
+        activity.closeFindInPage(this)
+
         val theme = preferences.novelTheme.get()
         val backgroundColor = preferences.novelBackgroundColor.get()
         val fontColor = preferences.novelFontColor.get()
@@ -1701,6 +1714,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun displayError(error: Throwable) {
+        activity.closeFindInPage(this)
+
         val fmt = ErrorFormatter.format(error)
         logcat(LogPriority.ERROR) { "NovelWebViewViewer: Chapter load failed\n${fmt.stackTrace}" }
 
@@ -1770,6 +1785,41 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     override fun moveToPage(page: ReaderPage) {
+    }
+
+    fun openFindInPage(onResult: (Int, Int, Boolean) -> Unit) {
+        webView.setFindListener(
+            WebView.FindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                onResult(activeMatchOrdinal, numberOfMatches, isDoneCounting)
+            },
+        )
+    }
+
+    fun findInPage(query: String) {
+        activeFindQuery = query
+        if (query.isEmpty()) {
+            webView.clearMatches()
+        } else {
+            webView.findAllAsync(query)
+        }
+    }
+
+    fun findNext(forward: Boolean) {
+        if (activeFindQuery.isNotEmpty()) {
+            webView.findNext(forward)
+        }
+    }
+
+    fun closeFindInPage() {
+        activeFindQuery = ""
+        webView.clearMatches()
+        webView.setFindListener(null)
+    }
+
+    private fun refreshFindInPage() {
+        if (activeFindQuery.isNotEmpty()) {
+            webView.findAllAsync(activeFindQuery)
+        }
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
@@ -2060,14 +2110,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         @JavascriptInterface
         fun onScrollRestoreComplete(token: Int) {
             // Only the latest restore may lift the guard; ignore stale completions.
-            activity.runOnUiThread { liftRestoreGuard(token) }
+            activity.runOnUiThread {
+                liftRestoreGuard(token)
+                refreshFindInPage()
+            }
         }
 
         @JavascriptInterface
         fun onInfiniteScrollAppendComplete(@Suppress("UNUSED_PARAMETER") chapterId: Long) {
-            // No-op: the TTS handoff is now driven directly from loadNextChapterForTts after the
-            // append completes, instead of waiting on this requestAnimationFrame-fired callback
-            // (which is paused while the activity is backgrounded, stalling background TTS).
+            // TTS handoff is driven directly from loadNextChapterForTts; this foreground callback
+            // only refreshes an active native find after the appended DOM has settled.
+            activity.runOnUiThread { refreshFindInPage() }
         }
 
         @JavascriptInterface

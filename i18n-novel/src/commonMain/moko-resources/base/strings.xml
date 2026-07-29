@@ -942,6 +942,9 @@
     <string name="novel_error_cat_source_unsupported">Source does not support this operation</string>
     <string name="novel_error_cat_out_of_memory">Out of memory — chapter may be too large</string>
     <string name="novel_error_cat_unknown">Error (%s)</string>
+    <string name="action_find_in_chapter">Find in chapter</string>
+    <string name="find_previous_match">Previous match</string>
+    <string name="find_next_match">Next match</string>
 
     <string name="pref_novel_status_bar">Reading status bar</string>
     <string name="pref_novel_status_bar_show_time">Show current time</string>

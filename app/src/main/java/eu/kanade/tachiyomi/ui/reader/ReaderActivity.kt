@@ -30,7 +30,9 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
@@ -225,6 +227,67 @@ class ReaderActivity : BaseActivity() {
 
     // Quotes functionality
     private var showQuotesSheet by mutableStateOf(false)
+    private var findInPageState by mutableStateOf<NovelFindInPageState?>(null)
+    private var findInPageViewer: NovelWebViewViewer? = null
+    private val consumedFindShortcutKeys = mutableSetOf<Int>()
+
+    internal fun isFindInPageOpen(): Boolean = findInPageState != null
+
+    internal fun isReaderChromeVisible(): Boolean =
+        viewModel.state.value.menuVisible || isFindInPageOpen()
+
+    internal fun dismissFindInPageIme() {
+        windowInsetsController.hide(WindowInsetsCompat.Type.ime())
+    }
+
+    private fun openFindInPage() {
+        val viewer = viewModel.state.value.viewer as? NovelWebViewViewer ?: return
+        if (findInPageViewer !== viewer) {
+            findInPageViewer?.closeFindInPage()
+            findInPageViewer = viewer
+            findInPageState = NovelFindInPageState(focusRequestId = 1)
+            viewer.openFindInPage { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                runOnUiThread {
+                    if (findInPageViewer === viewer) {
+                        findInPageState = findInPageState?.withResult(
+                            activeMatchOrdinal = activeMatchOrdinal,
+                            numberOfMatches = numberOfMatches,
+                            isDoneCounting = isDoneCounting,
+                        )
+                    }
+                }
+            }
+        } else {
+            findInPageState = findInPageState?.let {
+                it.copy(focusRequestId = it.focusRequestId + 1)
+            }
+        }
+    }
+
+    private fun updateFindInPageQuery(query: String) {
+        findInPageState = findInPageState?.withQuery(query)
+        findInPageViewer?.findInPage(query)
+    }
+
+    private fun navigateFindInPage(forward: Boolean) {
+        if (findInPageState?.hasMatches == true) {
+            findInPageViewer?.findNext(forward)
+        }
+    }
+
+    internal fun closeFindInPage(expectedViewer: NovelWebViewViewer? = null) {
+        val owner = findInPageViewer
+        if (expectedViewer != null && owner !== expectedViewer) {
+            expectedViewer.closeFindInPage()
+            return
+        }
+        if (owner == null) return
+
+        findInPageViewer = null
+        findInPageState = null
+        owner.closeFindInPage()
+        dismissFindInPageIme()
+    }
 
     /**
      * Called when the activity is created. Initializes the presenter and configuration.
@@ -398,6 +461,8 @@ class ReaderActivity : BaseActivity() {
         }
 
         val isNovelViewer = state.viewer is NovelWebViewViewer
+        val findInPageOpen = findInPageState != null
+        val readerChromeVisible = state.menuVisible || findInPageOpen
         val statusBarAtBottomEdge = novelStatusBarPosition != "top"
 
         // Pad viewer_container by the status bar's height on its docked edge so content never renders
@@ -420,19 +485,18 @@ class ReaderActivity : BaseActivity() {
         val onTopBarHeight = remember { { px: Int -> menuTopBarPx.intValue = px } }
         val onBottomBarHeight = remember { { px: Int -> menuBottomBarPx.intValue = px } }
         val webViewer = state.viewer as? NovelWebViewViewer
-        val menuVisible = state.menuVisible
-        LaunchedEffect(webViewer, menuVisible, density) {
+        LaunchedEffect(webViewer, readerChromeVisible, density) {
             val viewer = webViewer ?: return@LaunchedEffect
             snapshotFlow {
                 with(density) { menuTopBarPx.intValue.toDp().value to menuBottomBarPx.intValue.toDp().value }
             }
                 .distinctUntilChanged()
-                .collect { (top, bottom) -> viewer.onReaderChromeChanged(menuVisible, top, bottom) }
+                .collect { (top, bottom) -> viewer.onReaderChromeChanged(readerChromeVisible, top, bottom) }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
             val isNovelMode = state.viewer is NovelWebViewViewer
-            if (!state.menuVisible && showPageNumber && !isNovelMode) {
+            if (!readerChromeVisible && showPageNumber && !isNovelMode) {
                 ReaderPageIndicator(
                     currentPage = state.currentPage,
                     totalPages = state.totalPages,
@@ -446,7 +510,7 @@ class ReaderActivity : BaseActivity() {
 
             val statusBarAtBottom = novelStatusBarPosition != "top"
             val ttsOverlayBottomPadding = if (
-                isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !state.menuVisible
+                isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !readerChromeVisible
             ) {
                 with(density) { statusBarHeightPx.toDp() }
             } else {
@@ -460,7 +524,7 @@ class ReaderActivity : BaseActivity() {
                 onBottomBarHeight = onBottomBarHeight,
             )
 
-            if (isNovelMode && !state.menuVisible && novelStatusBarEnabled) {
+            if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
                 val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
                 val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
                 val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
@@ -725,6 +789,8 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isFindInPageOpen()) return super.onKeyUp(keyCode, event)
+
         if (keyCode == KeyEvent.KEYCODE_N) {
             loadNextChapter()
             return true
@@ -739,8 +805,65 @@ class ReaderActivity : BaseActivity() {
      * Dispatches a key event. If the viewer doesn't handle it, call the default implementation.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (handleFindInPageShortcut(event)) return true
+        if (isFindInPageOpen()) return super.dispatchKeyEvent(event)
+
         val handled = viewModel.state.value.viewer?.handleKeyEvent(event) ?: false
         return handled || super.dispatchKeyEvent(event)
+    }
+
+    private fun handleFindInPageShortcut(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_UP && consumedFindShortcutKeys.remove(event.keyCode)) {
+            return true
+        }
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+
+        val isEnterKey = event.keyCode == KeyEvent.KEYCODE_ENTER ||
+            event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+        val action = when {
+            event.keyCode == KeyEvent.KEYCODE_F &&
+                event.hasModifiers(KeyEvent.META_CTRL_ON) -> FindShortcutAction.OPEN
+            event.keyCode == KeyEvent.KEYCODE_G &&
+                event.hasModifiers(KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) ->
+                FindShortcutAction.PREVIOUS
+            event.keyCode == KeyEvent.KEYCODE_G &&
+                event.hasModifiers(KeyEvent.META_CTRL_ON) -> FindShortcutAction.NEXT
+            event.keyCode == KeyEvent.KEYCODE_F3 &&
+                event.hasModifiers(KeyEvent.META_SHIFT_ON) -> FindShortcutAction.PREVIOUS
+            event.keyCode == KeyEvent.KEYCODE_F3 && event.hasNoModifiers() -> FindShortcutAction.NEXT
+            isFindInPageOpen() &&
+                isEnterKey &&
+                event.hasModifiers(KeyEvent.META_SHIFT_ON) -> FindShortcutAction.PREVIOUS
+            isFindInPageOpen() &&
+                isEnterKey &&
+                event.hasNoModifiers() -> FindShortcutAction.NEXT
+            isFindInPageOpen() &&
+                event.keyCode == KeyEvent.KEYCODE_ESCAPE &&
+                event.hasNoModifiers() -> FindShortcutAction.CLOSE
+            else -> null
+        } ?: return false
+
+        consumedFindShortcutKeys += event.keyCode
+        if (event.repeatCount == 0) {
+            when (action) {
+                FindShortcutAction.OPEN -> openFindInPage()
+                FindShortcutAction.NEXT -> {
+                    if (isFindInPageOpen()) navigateFindInPage(forward = true) else openFindInPage()
+                }
+                FindShortcutAction.PREVIOUS -> {
+                    if (isFindInPageOpen()) navigateFindInPage(forward = false) else openFindInPage()
+                }
+                FindShortcutAction.CLOSE -> closeFindInPage()
+            }
+        }
+        return true
+    }
+
+    private enum class FindShortcutAction {
+        OPEN,
+        NEXT,
+        PREVIOUS,
+        CLOSE,
     }
 
     /**
@@ -877,6 +1000,12 @@ class ReaderActivity : BaseActivity() {
 
             NovelReaderAppBars(
                 visible = state.menuVisible,
+                findInPageState = findInPageState,
+                onFindInPage = ::openFindInPage,
+                onFindQueryChange = ::updateFindInPageQuery,
+                onFindPrevious = { navigateFindInPage(forward = false) },
+                onFindNext = { navigateFindInPage(forward = true) },
+                onCloseFindInPage = { closeFindInPage() },
 
                 novelTitle = state.manga?.title,
                 chapterTitle = formattedChapterTitle,
@@ -1025,6 +1154,15 @@ class ReaderActivity : BaseActivity() {
 
             androidx.activity.compose.BackHandler(enabled = isEditing && state.hasUnsavedChanges) {
                 showEditSaveDialog = true
+            }
+
+            val imeVisible = WindowInsets.isImeVisible
+            androidx.activity.compose.BackHandler(enabled = findInPageState != null) {
+                if (imeVisible) {
+                    dismissFindInPageIme()
+                } else {
+                    closeFindInPage()
+                }
             }
 
             if (showEditSaveDialog) {

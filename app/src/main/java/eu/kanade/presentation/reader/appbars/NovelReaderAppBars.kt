@@ -28,18 +28,25 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NavigateBefore
 import androidx.compose.material.icons.automirrored.outlined.NavigateNext
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FastForward
 import androidx.compose.material.icons.outlined.FastRewind
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RecordVoiceOver
@@ -63,17 +70,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.tachiyomi.ui.reader.NovelFindInPageState
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -94,6 +109,12 @@ private val VERTICAL_PROGRESS_EDGE_INSET = 3.dp
 @Composable
 fun NovelReaderAppBars(
     visible: Boolean,
+    findInPageState: NovelFindInPageState?,
+    onFindInPage: () -> Unit,
+    onFindQueryChange: (String) -> Unit,
+    onFindPrevious: () -> Unit,
+    onFindNext: () -> Unit,
+    onCloseFindInPage: () -> Unit,
 
     // Top bar
     novelTitle: String?,
@@ -165,9 +186,13 @@ fun NovelReaderAppBars(
 
     // onSizeChanged doesn't fire a final 0 when AnimatedVisibility removes the bars, so clear the
     // reported heights here when the menu hides.
-    LaunchedEffect(visible) {
-        if (!visible) {
+    val findInPageOpen = findInPageState != null
+
+    LaunchedEffect(visible, findInPageOpen) {
+        if (!visible && !findInPageOpen) {
             onTopBarHeight(0)
+        }
+        if (!visible || findInPageOpen) {
             onBottomBarHeight(0)
         }
     }
@@ -175,30 +200,44 @@ fun NovelReaderAppBars(
     Box(modifier = Modifier.fillMaxHeight()) {
         Column(modifier = Modifier.fillMaxHeight()) {
             AnimatedVisibility(
-                visible = visible,
+                visible = visible || findInPageOpen,
                 enter = slideInVertically(initialOffsetY = { -it }, animationSpec = readerBarsSlideAnimationSpec) +
                     fadeIn(animationSpec = readerBarsFadeAnimationSpec),
                 exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = readerBarsSlideAnimationSpec) +
                     fadeOut(animationSpec = readerBarsFadeAnimationSpec),
             ) {
-                NovelReaderTopBar(
-                    modifier = Modifier
-                        .onSizeChanged { onTopBarHeight(it.height) }
-                        .background(backgroundColor)
-                        .clickable(onClick = onClickTopAppBar),
-                    novelTitle = novelTitle,
-                    chapterTitle = chapterTitle,
-                    navigateUp = navigateUp,
-                    bookmarked = bookmarked,
-                    onToggleBookmarked = onToggleBookmarked,
-                    onOpenInWebView = onOpenInWebView,
-                    onOpenInBrowser = onOpenInBrowser,
-                    onShare = onShare,
-                    onReloadLocal = onReloadLocal,
-                    onReloadSource = onReloadSource,
-                    onEditBottomBar = onEditBottomBar,
-                    onRetranslate = onRetranslate,
-                )
+                if (findInPageState != null) {
+                    NovelFindInPageBar(
+                        state = findInPageState,
+                        onQueryChange = onFindQueryChange,
+                        onPrevious = onFindPrevious,
+                        onNext = onFindNext,
+                        onClose = onCloseFindInPage,
+                        modifier = Modifier
+                            .onSizeChanged { onTopBarHeight(it.height) }
+                            .background(backgroundColor),
+                    )
+                } else {
+                    NovelReaderTopBar(
+                        modifier = Modifier
+                            .onSizeChanged { onTopBarHeight(it.height) }
+                            .background(backgroundColor)
+                            .clickable(onClick = onClickTopAppBar),
+                        novelTitle = novelTitle,
+                        chapterTitle = chapterTitle,
+                        navigateUp = navigateUp,
+                        bookmarked = bookmarked,
+                        onToggleBookmarked = onToggleBookmarked,
+                        onFindInPage = onFindInPage,
+                        onOpenInWebView = onOpenInWebView,
+                        onOpenInBrowser = onOpenInBrowser,
+                        onShare = onShare,
+                        onReloadLocal = onReloadLocal,
+                        onReloadSource = onReloadSource,
+                        onEditBottomBar = onEditBottomBar,
+                        onRetranslate = onRetranslate,
+                    )
+                }
             }
 
             Box(
@@ -206,7 +245,7 @@ fun NovelReaderAppBars(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                if (visible && showProgressSlider &&
+                if (!findInPageOpen && visible && showProgressSlider &&
                     (
                         progressSliderMode == PROGRESS_SLIDER_MODE_VERTICAL_LEFT ||
                             progressSliderMode == PROGRESS_SLIDER_MODE_VERTICAL_RIGHT
@@ -233,7 +272,7 @@ fun NovelReaderAppBars(
                     )
                 }
 
-                if (ttsControlsVisible) {
+                if (!findInPageOpen && ttsControlsVisible) {
                     NovelTtsControlsOverlay(
                         isTtsActive = isTtsActive,
                         isTtsPaused = isTtsPaused,
@@ -249,7 +288,7 @@ fun NovelReaderAppBars(
             }
 
             AnimatedVisibility(
-                visible = visible,
+                visible = visible && !findInPageOpen,
                 enter = slideInVertically(initialOffsetY = { it }, animationSpec = readerBarsSlideAnimationSpec) +
                     fadeIn(animationSpec = readerBarsFadeAnimationSpec),
                 exit = slideOutVertically(targetOffsetY = { it }, animationSpec = readerBarsSlideAnimationSpec) +
@@ -307,12 +346,117 @@ fun NovelReaderAppBars(
 }
 
 @Composable
+private fun NovelFindInPageBar(
+    state: NovelFindInPageState,
+    onQueryChange: (String) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(state.focusRequestId) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    AppBar(
+        modifier = modifier,
+        backgroundColor = Color.Transparent,
+        titleContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BasicTextField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focusRequester),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (state.hasMatches) onNext()
+                        },
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            if (state.query.isEmpty()) {
+                                Text(
+                                    text = stringResource(TDMR.strings.action_find_in_chapter),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                )
+                Text(
+                    text = state.statusText,
+                    modifier = Modifier
+                        .padding(start = MaterialTheme.padding.small)
+                        .widthIn(min = 40.dp),
+                    color = if (state.isNoMatch) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        },
+        actions = {
+            IconButton(
+                enabled = state.hasMatches,
+                onClick = onPrevious,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.KeyboardArrowUp,
+                    contentDescription = stringResource(TDMR.strings.find_previous_match),
+                )
+            }
+            IconButton(
+                enabled = state.hasMatches,
+                onClick = onNext,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = stringResource(TDMR.strings.find_next_match),
+                )
+            }
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = stringResource(MR.strings.action_close),
+                )
+            }
+        },
+    )
+}
+
+@Composable
 private fun NovelReaderTopBar(
     novelTitle: String?,
     chapterTitle: String?,
     navigateUp: () -> Unit,
     bookmarked: Boolean,
     onToggleBookmarked: () -> Unit,
+    onFindInPage: () -> Unit,
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
@@ -346,6 +490,12 @@ private fun NovelReaderTopBar(
                                 Icons.Outlined.BookmarkBorder
                             },
                             onClick = onToggleBookmarked,
+                        ),
+                    )
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(TDMR.strings.action_find_in_chapter),
+                            onClick = onFindInPage,
                         ),
                     )
                     add(
