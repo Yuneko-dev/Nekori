@@ -58,7 +58,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,7 +69,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.data.font.FontManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import kotlinx.serialization.Serializable
@@ -80,7 +78,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.InlineSettingsChipRow
-import tachiyomi.presentation.core.components.RadioSelectItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.StepperItem
@@ -122,16 +119,6 @@ private val novelThemes = listOf(
     TDMR.strings.novel_theme_custom to "custom",
 )
 
-// System fonts - always available
-private val systemFonts = listOf(
-    TDMR.strings.novel_font_sans_serif to "sans-serif",
-    TDMR.strings.novel_font_serif to "serif",
-    TDMR.strings.novel_font_monospace to "monospace",
-    TDMR.strings.novel_font_georgia to "Georgia, serif",
-    TDMR.strings.novel_font_times to "Times New Roman, serif",
-    TDMR.strings.novel_font_arial to "Arial, sans-serif",
-)
-
 private val textAlignments = listOf(
     Icons.AutoMirrored.Outlined.FormatAlignLeft to "left",
     Icons.Outlined.FormatAlignCenter to "center",
@@ -167,26 +154,14 @@ private val backgroundColors = listOf(
 
 @Composable
 internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel) {
-    val context = LocalContext.current
     val fontFamily by screenModel.preferences.novelFontFamily.collectAsState()
     val textAlign by screenModel.preferences.novelTextAlign.collectAsState()
     val autoSplitEnabled by screenModel.preferences.novelAutoSplitText.collectAsState()
     val autoSplitWordCount by screenModel.preferences.novelAutoSplitWordCount.collectAsState()
 
-    // Load custom fonts from FontManager
-    val fontManager = remember { FontManager(context) }
-    val resolvedSystemFonts = systemFonts.map { (labelRes, value) -> stringResource(labelRes) to value }
-    val allFonts by produceState(initialValue = resolvedSystemFonts) {
-        val customFonts = fontManager.getInstalledFonts().map { font ->
-            font.name to font.path
-        }
-        value = resolvedSystemFonts + customFonts
-    }
-
     // Font Family
-    RadioSelectItem(
-        label = stringResource(TDMR.strings.pref_font_family),
-        options = allFonts,
+    NovelFontSelectItem(
+        title = stringResource(TDMR.strings.pref_font_family),
         selected = fontFamily,
         onSelect = { screenModel.preferences.novelFontFamily.set(it) },
         defaultValue = screenModel.preferences.novelFontFamily.defaultValue(),

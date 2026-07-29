@@ -2,11 +2,17 @@ package eu.kanade.presentation.more.settings.screen
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
+import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
+import eu.kanade.presentation.reader.settings.rememberNovelFontOptions
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -24,6 +30,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val readerPref = remember { Injekt.get<ReaderPreferences>() }
         return listOf(
             readerPref.novelFontSize,
+            readerPref.novelFontFamily,
             readerPref.novelLineHeight,
             readerPref.novelAutoScrollSpeed,
             readerPref.novelParagraphIndent,
@@ -191,18 +198,33 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         readerPreferences.novelFontSize.set(it)
                     },
                 ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = readerPreferences.novelFontFamily,
-                    entries = mapOf(
-                        "sans-serif" to "Sans Serif",
-                        "serif" to "Serif",
-                        "monospace" to "Monospace",
-                        "Georgia, serif" to "Georgia",
-                        "Times New Roman, serif" to "Times New Roman",
-                        "Arial, sans-serif" to "Arial",
-                    ).toMap(),
+                Preference.PreferenceItem.CustomPreference(
                     title = stringResource(TDMR.strings.pref_font_family),
-                ),
+                ) {
+                    val title = stringResource(TDMR.strings.pref_font_family)
+                    val selected by readerPreferences.novelFontFamily.collectAsState()
+                    val options = rememberNovelFontOptions()
+                    val selectedOption = options.find { it.value == selected }
+                    var showDialog by remember { mutableStateOf(false) }
+
+                    TextPreferenceWidget(
+                        title = title,
+                        subtitle = selectedOption?.label ?: selected,
+                        onPreferenceClick = { showDialog = true },
+                    )
+                    if (showDialog) {
+                        NovelFontPickerDialog(
+                            title = title,
+                            options = options,
+                            selected = selected,
+                            onSelect = {
+                                readerPreferences.novelFontFamily.set(it)
+                                showDialog = false
+                            },
+                            onDismissRequest = { showDialog = false },
+                        )
+                    }
+                },
                 Preference.PreferenceItem.TextPreference(
                     title = "Font Manager",
                     subtitle = "Download or import custom fonts",

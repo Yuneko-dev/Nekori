@@ -52,12 +52,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -73,8 +74,10 @@ import eu.kanade.tachiyomi.data.font.FontInfo
 import eu.kanade.tachiyomi.data.font.FontManager
 import eu.kanade.tachiyomi.data.font.GoogleFontInfo
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -83,7 +86,6 @@ class FontManagerScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         val screenModel = rememberScreenModel { FontManagerScreenModel() }
@@ -371,6 +373,13 @@ private fun FontItem(
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
 ) {
+    val fontManager = remember { Injekt.get<FontManager>() }
+    val previewFontFamily by produceState<FontFamily?>(null, fontInfo.path) {
+        value = withContext(Dispatchers.IO) {
+            fontManager.getTypeface(fontInfo)?.let(::FontFamily)
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -392,7 +401,9 @@ private fun FontItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = fontInfo.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = previewFontFamily,
+                    ),
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

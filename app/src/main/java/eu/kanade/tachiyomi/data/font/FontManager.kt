@@ -399,9 +399,10 @@ class FontManager(
     fun getTypeface(fontInfo: FontInfo): Typeface? {
         if (!fontInfo.isCustom) {
             return when (fontInfo.path) {
+                "sans-serif" -> Typeface.SANS_SERIF
                 "serif" -> Typeface.SERIF
                 "monospace" -> Typeface.MONOSPACE
-                else -> Typeface.SANS_SERIF
+                else -> Typeface.create(fontInfo.path.substringBefore(',').trim(), Typeface.NORMAL)
             }
         }
 
