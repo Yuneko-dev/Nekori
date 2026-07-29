@@ -45,6 +45,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.NovelWebViewNetworkMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.NovelConfig
@@ -720,7 +721,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         currentPage?.chapter?.chapter?.id ?: currentChapters?.currChapter?.chapter?.id
                     val fallbackLoader = activity.viewModel.state.value.viewerChapters?.currChapter?.pageLoader
                     imageCache.intercept(url, fallbackChapterId, fallbackLoader)?.let { return it }
-                    interceptPluginImage(request)?.let { return it }
+                    if (preferences.novelWebViewNetworkMode.get() == NovelWebViewNetworkMode.NETWORK_HELPER) {
+                        interceptNetworkRequest(request)?.let { return it }
+                    }
                     return super.shouldInterceptRequest(view, request)
                 }
 
@@ -1629,22 +1632,33 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         else -> null
     }
 
-    private fun interceptPluginImage(request: WebResourceRequest): WebResourceResponse? {
-        val source = activity.viewModel.getSource() as? JsSource ?: return null
+    private fun interceptNetworkRequest(request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
-        if (request.isForMainFrame || !url.startsWith("http")) return null
+        if (request.url.scheme != "http" && request.url.scheme != "https") return null
         val acceptsImages = request.requestHeaders.entries.any { (name, value) ->
             name.equals("Accept", ignoreCase = true) && "image/" in value
         }
         val looksLikeImage = IMAGE_URL_REGEX.containsMatchIn(request.url.path.orEmpty())
-        if (!acceptsImages && !looksLikeImage) return null
+        val imageRequestInit = if (acceptsImages || looksLikeImage) {
+            (activity.viewModel.getSource() as? JsSource)?.currentImageRequestInit()
+        } else {
+            null
+        }
+        if (imageRequestInit == null && !request.method.equals("GET", true) &&
+            !request.method.equals("HEAD", true)
+        ) {
+            return null
+        }
 
         return runCatching {
-            val init = source.currentImageRequestInit()
             val networkRequest = Request.Builder().apply {
                 url(url)
                 request.requestHeaders.forEach { (name, value) -> header(name, value) }
-                applyJsImageRequestInit(init)
+                if (imageRequestInit != null) {
+                    applyJsImageRequestInit(imageRequestInit)
+                } else if (request.method.equals("HEAD", true)) {
+                    head()
+                }
             }.build()
             val response = networkHelper.client.newCall(networkRequest).execute()
             val responseBody = response.body
@@ -1657,9 +1671,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 response.headers.toMultimap().mapValues { (_, values) -> values.joinToString(", ") },
                 responseBody.byteStream(),
             )
-        }.onFailure {
-            logcat(LogPriority.WARN) { "Failed to load plugin image $url: ${it.message}" }
-        }.getOrNull()
+        }.getOrElse {
+            logcat(LogPriority.WARN) { "Failed to load WebView resource $url: ${it.message}" }
+            WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                502,
+                "Bad Gateway",
+                emptyMap(),
+                ByteArray(0).inputStream(),
+            )
+        }
     }
 
     private fun toAbsoluteChapterUrl(chapterPath: String?): String =

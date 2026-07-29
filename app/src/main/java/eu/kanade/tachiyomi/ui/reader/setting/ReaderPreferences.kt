@@ -105,6 +105,11 @@ class ReaderPreferences(
         BOTH(MR.strings.tapping_inverted_both, shouldInvertHorizontal = true, shouldInvertVertical = true),
     }
 
+    enum class NovelWebViewNetworkMode {
+        CHROMIUM,
+        NETWORK_HELPER,
+    }
+
     // region Novel
     val novelFontSize: Preference<Int> = preferenceStore.getInt("pref_novel_font_size", 16)
     val novelFontFamily: Preference<String> = preferenceStore.getString("pref_novel_font_family", "sans-serif")
@@ -168,6 +173,11 @@ class ReaderPreferences(
     val novelWebViewRemoteDebugging: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_novel_webview_remote_debugging",
         false,
+    )
+
+    val novelWebViewNetworkMode: Preference<NovelWebViewNetworkMode> = preferenceStore.getEnum(
+        "pref_novel_webview_network_mode",
+        NovelWebViewNetworkMode.CHROMIUM,
     )
 
     val novelConsoleErrorToast: Preference<Boolean> = preferenceStore.getBoolean(

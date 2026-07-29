@@ -565,6 +565,11 @@
 
     <!-- Novel WebView (advanced) -->
     <string name="pref_category_novel_webview">Novel WebView</string>
+    <string name="pref_novel_webview_network_mode">Network request handling</string>
+    <string name="pref_novel_webview_network_chromium">Chromium / WebView</string>
+    <string name="pref_novel_webview_network_chromium_summary">Load HTTP and HTTPS resources directly in WebView for better performance</string>
+    <string name="pref_novel_webview_network_interceptor">Application network interceptor</string>
+    <string name="pref_novel_webview_network_interceptor_summary">Route HTTP and HTTPS resources through NetworkHelper for plugin image options and anti-bot handling</string>
     <string name="pref_novel_webview_remote_debugging">Chrome remote debugging</string>
     <string name="pref_novel_webview_remote_debugging_summary">Allow inspecting the Novel Reader WebView from chrome://inspect while the reader is open</string>
     <string name="pref_novel_webview_devtools">WebView console client</string>

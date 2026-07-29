@@ -84,6 +84,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.NovelWebViewNetworkMode
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.powerManager
@@ -233,6 +234,26 @@ object SettingsAdvancedScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_category_novel_webview),
             preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = readerPreferences.novelWebViewNetworkMode,
+                    entries = mapOf(
+                        NovelWebViewNetworkMode.CHROMIUM to
+                            stringResource(TDMR.strings.pref_novel_webview_network_chromium),
+                        NovelWebViewNetworkMode.NETWORK_HELPER to
+                            stringResource(TDMR.strings.pref_novel_webview_network_interceptor),
+                    ),
+                    title = stringResource(TDMR.strings.pref_novel_webview_network_mode),
+                    subtitleProvider = { value, _ ->
+                        stringResource(
+                            when (value) {
+                                NovelWebViewNetworkMode.CHROMIUM ->
+                                    TDMR.strings.pref_novel_webview_network_chromium_summary
+                                NovelWebViewNetworkMode.NETWORK_HELPER ->
+                                    TDMR.strings.pref_novel_webview_network_interceptor_summary
+                            },
+                        )
+                    },
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelWebViewRemoteDebugging,
                     title = stringResource(TDMR.strings.pref_novel_webview_remote_debugging),
