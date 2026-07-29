@@ -2,6 +2,7 @@ package eu.kanade.presentation.components
 
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -219,38 +220,40 @@ fun AppBarActions(
 
     val overflowActions = actions.filterIsInstance<AppBar.OverflowAction>()
     if (overflowActions.isNotEmpty()) {
-        TooltipBox(
-            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-            tooltip = {
-                PlainTooltip {
-                    Text(stringResource(MR.strings.action_menu_overflow_description))
-                }
-            },
-            state = rememberTooltipState(),
-            focusable = false,
-        ) {
-            IconButton(
-                onClick = { showMenu = !showMenu },
+        Box {
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = {
+                    PlainTooltip {
+                        Text(stringResource(MR.strings.action_menu_overflow_description))
+                    }
+                },
+                state = rememberTooltipState(),
+                focusable = false,
             ) {
-                Icon(
-                    Icons.Outlined.MoreVert,
-                    contentDescription = stringResource(MR.strings.action_menu_overflow_description),
-                )
+                IconButton(
+                    onClick = { showMenu = !showMenu },
+                ) {
+                    Icon(
+                        Icons.Outlined.MoreVert,
+                        contentDescription = stringResource(MR.strings.action_menu_overflow_description),
+                    )
+                }
             }
-        }
 
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            overflowActions.map {
-                DropdownMenuItem(
-                    onClick = {
-                        it.onClick()
-                        showMenu = false
-                    },
-                    text = { Text(it.title, fontWeight = FontWeight.Normal) },
-                )
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+            ) {
+                overflowActions.map {
+                    DropdownMenuItem(
+                        onClick = {
+                            it.onClick()
+                            showMenu = false
+                        },
+                        text = { Text(it.title, fontWeight = FontWeight.Normal) },
+                    )
+                }
             }
         }
     }

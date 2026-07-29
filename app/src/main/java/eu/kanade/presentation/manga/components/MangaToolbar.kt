@@ -3,12 +3,9 @@ package eu.kanade.presentation.manga.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -27,14 +24,11 @@ import eu.kanade.presentation.manga.DownloadAction
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.theme.active
 
 @Composable
 fun MangaToolbar(
     title: String,
-    hasFilters: Boolean,
     navigateUp: () -> Unit,
-    onClickFilter: () -> Unit,
     onClickShare: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
     onClickEditCategory: (() -> Unit)?,
@@ -49,7 +43,6 @@ fun MangaToolbar(
     onClickTranslateDownloaded: (() -> Unit)? = null,
     onClickExportEpub: (() -> Unit)? = null,
     onClickScrollToTop: (() -> Unit)? = null,
-    onClickScrollToLastRead: (() -> Unit)? = null,
     onClickScrollToBottom: (() -> Unit)? = null,
 
     // For action mode
@@ -87,7 +80,6 @@ fun MangaToolbar(
                 )
             }
 
-            val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
                 actions = buildList {
                     if (isActionMode) {
@@ -125,15 +117,6 @@ fun MangaToolbar(
                             ),
                         )
                     }
-                    if (onClickScrollToLastRead != null) {
-                        add(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.last_read_chapter),
-                                icon = Icons.Outlined.Bookmark,
-                                onClick = onClickScrollToLastRead,
-                            ),
-                        )
-                    }
                     if (onClickScrollToBottom != null) {
                         add(
                             AppBar.Action(
@@ -143,15 +126,6 @@ fun MangaToolbar(
                             ),
                         )
                     }
-
-                    add(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_filter),
-                            icon = Icons.Outlined.FilterList,
-                            iconTint = filterTint,
-                            onClick = onClickFilter,
-                        ),
-                    )
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_webview_refresh),

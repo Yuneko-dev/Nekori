@@ -64,7 +64,6 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
-import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import tachiyomi.domain.chapter.model.Chapter
@@ -365,9 +364,7 @@ private fun MangaScreenSmallImpl(
             )
             MangaToolbar(
                 title = state.manga.title,
-                hasFilters = state.filterActive,
                 navigateUp = navigateUp,
-                onClickFilter = onFilterClicked,
                 onClickShare = onShareClicked,
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
@@ -383,20 +380,6 @@ private fun MangaScreenSmallImpl(
                 onClickExportEpub = onExportEpubClicked,
                 onClickScrollToTop = {
                     scrollScope.launch { chapterListState.animateScrollToItem(0) }
-                },
-                onClickScrollToLastRead = {
-                    val targetChapter = state.chapters.getNextUnread(state.manga)
-                    if (targetChapter != null) {
-                        val targetIndex = listItem.indexOfFirst {
-                            it is ChapterList.Item && it.chapter.id == targetChapter.id
-                        }
-                        if (targetIndex != -1) {
-                            scrollScope.launch {
-                                val halfHeight = chapterListState.layoutInfo.viewportSize.height / 2
-                                chapterListState.animateScrollToItem(targetIndex + 4, scrollOffset = -halfHeight)
-                            }
-                        }
-                    }
                 },
                 onClickScrollToBottom = {
                     scrollScope.launch { chapterListState.animateScrollToItem(listItem.size + 3) }
@@ -545,6 +528,7 @@ private fun MangaScreenSmallImpl(
                         }
                         ChapterHeader(
                             enabled = !isAnySelected,
+                            hasFilters = state.filterActive,
                             chapterCount = chapters.size,
                             missingChapterCount = missingChapterCount,
                             onClick = onFilterClicked,
@@ -680,9 +664,7 @@ fun MangaScreenLargeImpl(
             MangaToolbar(
                 modifier = Modifier.onSizeChanged { topBarHeight = it.height },
                 title = state.manga.title,
-                hasFilters = state.filterActive,
                 navigateUp = navigateUp,
-                onClickFilter = onFilterButtonClicked,
                 onClickShare = onShareClicked,
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
@@ -698,20 +680,6 @@ fun MangaScreenLargeImpl(
                 onClickExportEpub = onExportEpubClicked,
                 onClickScrollToTop = {
                     scrollScope.launch { chapterListState.animateScrollToItem(0) }
-                },
-                onClickScrollToLastRead = {
-                    val targetChapter = state.chapters.getNextUnread(state.manga)
-                    if (targetChapter != null) {
-                        val targetIndex = listItem.indexOfFirst {
-                            it is ChapterList.Item && it.chapter.id == targetChapter.id
-                        }
-                        if (targetIndex != -1) {
-                            scrollScope.launch {
-                                val halfHeight = chapterListState.layoutInfo.viewportSize.height / 2
-                                chapterListState.animateScrollToItem(targetIndex + 1, scrollOffset = -halfHeight)
-                            }
-                        }
-                    }
                 },
                 onClickScrollToBottom = {
                     scrollScope.launch { chapterListState.animateScrollToItem(listItem.size) }
@@ -862,6 +830,7 @@ fun MangaScreenLargeImpl(
                                 }
                                 ChapterHeader(
                                     enabled = !isAnySelected,
+                                    hasFilters = state.filterActive,
                                     chapterCount = chapters.size,
                                     missingChapterCount = missingChapterCount,
                                     onClick = onFilterButtonClicked,
