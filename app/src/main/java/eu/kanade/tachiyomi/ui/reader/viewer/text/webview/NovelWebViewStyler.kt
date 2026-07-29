@@ -16,6 +16,8 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import logcat.logcat
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.novel.TDMR
 
 internal class NovelWebViewStyler(
     private val activity: ReaderActivity,
@@ -96,6 +98,12 @@ internal class NovelWebViewStyler(
 
         val css = """
             $fontFaceDeclaration
+            html {
+                scroll-behavior: smooth;
+                overflow-x: hidden;
+                word-wrap: break-word;
+                -webkit-text-size-adjust: 100%;
+            }
             body {
                 font-size: ${fontSize}px$styleImportance;
                 $fontFamilyLine
@@ -115,6 +123,48 @@ internal class NovelWebViewStyler(
             * {
                 color: inherit$styleImportance;
                 $fontInheritOverride
+            }
+            a {
+                color: var(--md-sys-color-primary)$styleImportance;
+            }
+            hr {
+                margin-top: 20px;
+                margin-bottom: 20px;
+            }
+            sup {
+                line-height: 0.1em;
+            }
+            img, video, iframe {
+                display: block;
+                width: auto;
+                height: auto;
+                max-width: 100%;
+            }
+            div:has(> table) {
+                overflow: auto;
+            }
+            table {
+                background-color: var(--md-sys-color-on-primary);
+                border-collapse: collapse;
+                color: var(--md-sys-color-primary)$styleImportance;
+            }
+            th {
+                font-weight: bold;
+            }
+            td {
+                padding: 10px;
+                text-align: center;
+            }
+            table, th, td {
+                border: 1px solid var(--md-sys-color-outline);
+            }
+            ::selection {
+                color: var(--md-sys-color-on-secondary);
+                background-color: var(--md-sys-color-secondary);
+            }
+            ::-moz-selection {
+                color: var(--md-sys-color-on-secondary);
+                background-color: var(--md-sys-color-secondary);
             }
             $headingSizeRules
             $hideChapterTitleCss
@@ -227,17 +277,45 @@ internal class NovelWebViewStyler(
         if (enabledSnippetsJs.isNotBlank()) evaluateJs(enabledSnippetsJs)
     }
 
-    fun injectNextChapterButton(hasNextChapter: Boolean) {
-        if (!hasNextChapter) return
+    fun injectNextChapterButton(chapterName: String, nextChapterName: String?) {
         val js = NovelWebViewJsAssets.loadWith(
             activity,
             "next-chapter-button.js",
             mapOf(
                 "BTN_CONTAINER_ID" to ID_NEXT_CHAPTER_BTN_CONTAINER,
                 "SAFE_BOTTOM_VAR" to NovelWebViewChapterMeta.CSS_VAR_SAFE_BOTTOM,
+                "HAS_NEXT_CHAPTER" to (nextChapterName != null).toString(),
+                "FINISHED_TEXT" to quoteForJson(
+                    activity.stringResource(TDMR.strings.reader_chapter_finished, chapterName),
+                ),
+                "NEXT_CHAPTER_TEXT" to quoteForJson(
+                    activity.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()),
+                ),
+                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(activity.stringResource(TDMR.strings.reader_no_next_chapter)),
             ),
         )
         evaluateJs(js)
+    }
+
+    fun injectReaderUi() {
+        val js = NovelWebViewJsAssets.loadWith(
+            activity,
+            "reader-ui.js",
+            mapOf(
+                "BIONIC_ENABLED" to preferences.novelBionicReading.get().toString(),
+                "TTS_STATE_EVENT" to NovelWebViewChapterMeta.EVENT_TTS_STATE,
+                "TTS_CONTROL_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_tts_control)),
+                "IMAGE_CLOSE_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_image_close)),
+            ),
+        )
+        evaluateJs(js)
+    }
+
+    fun setBionicReading(enabled: Boolean) {
+        evaluateJs(
+            "(function(){var r=window.$TSUNDOKU_OBJECT_NAME&&window.$TSUNDOKU_OBJECT_NAME.runtime;" +
+                "if(r&&r.readerUi&&r.readerUi.setBionic)r.readerUi.setBionic($enabled);})();",
+        )
     }
 
     fun injectScrollTracking() {

@@ -115,6 +115,7 @@ class TtsController(
                         }
                     }
                 } else if (isLastChunk) {
+                    isTtsAutoPlay = false
                     callbacks.runOnUiThread {
                         callbacks.onClearHighlights()
                     }

@@ -220,6 +220,8 @@ class ReaderPreferences(
     // Use source's original fonts (don't force a specific font family)
     val novelUseOriginalFonts: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_use_original_fonts", false)
 
+    val novelBionicReading: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_bionic_reading", false)
+
     // Keep screen on while reading
     val novelKeepScreenOn: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_keep_screen_on", false)
 

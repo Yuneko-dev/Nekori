@@ -237,6 +237,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = "Use original fonts (WebView only)",
                     subtitle = "Preserve fonts from the source website",
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelBionicReading,
+                    title = stringResource(TDMR.strings.pref_novel_bionic_reading),
+                ),
             ),
         )
     }

@@ -85,6 +85,14 @@ class NovelWebViewDocumentBuilderTest {
     }
 
     @Test
+    fun `assemble locks page zoom until the image modal opens`() {
+        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
+        assertTrue(html.contains("id=\"tsundoku-viewport\""))
+        assertTrue(html.contains("maximum-scale=1"))
+        assertTrue(html.contains("user-scalable=no"))
+    }
+
+    @Test
     fun `assemble embeds custom css in style tag`() {
         val css = "body { font-size: 18px; }"
         val html = NovelWebViewDocumentBuilder.assemble(minimalInput(css = css))

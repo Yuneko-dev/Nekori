@@ -1,8 +1,12 @@
-// Inject a "Next Chapter →" button at the bottom of the WebView content.
+// LNReader-compatible chapter ending for the non-infinite reader.
 //
 // Replaces:
-//   __BTN_CONTAINER_ID__ - DOM id of the wrapping div
-//   __SAFE_BOTTOM_VAR__  - safe-area bottom CSS custom property name
+//   __BTN_CONTAINER_ID__     - DOM id of the wrapping div
+//   __SAFE_BOTTOM_VAR__      - safe-area bottom CSS custom property name
+//   __HAS_NEXT_CHAPTER__     - true / false
+//   __FINISHED_TEXT__        - JSON-quoted localized label
+//   __NEXT_CHAPTER_TEXT__    - JSON-quoted localized button label
+//   __NO_NEXT_CHAPTER_TEXT__ - JSON-quoted localized end-of-novel label
 
 (function () {
     var existing = document.getElementById('__BTN_CONTAINER_ID__');
@@ -10,21 +14,32 @@
 
     var container = document.createElement('div');
     container.id = '__BTN_CONTAINER_ID__';
-    // Bottom padding clears the reader menu / nav bar so the button isn't hidden at chapter end.
-    container.style.cssText = 'padding: 32px 16px calc(32px + var(__SAFE_BOTTOM_VAR__, 0px)); text-align: center;';
+    container.style.paddingBottom = 'calc(40px + var(__SAFE_BOTTOM_VAR__, 0px))';
 
-    var bg = getComputedStyle(document.body).backgroundColor || 'transparent';
-    var fg = getComputedStyle(document.body).color || '#000000';
+    var finished = document.createElement('div');
+    finished.className = 'info-text';
+    finished.textContent = __FINISHED_TEXT__;
+    container.appendChild(finished);
 
-    var btn = document.createElement('button');
-    btn.textContent = 'Next Chapter →';
-    btn.style.cssText = 'width: 100%; padding: 12px 24px; font-size: 16px; ' +
-        'background-color: ' + bg + '; color: ' + fg + '; ' +
-        'border: 2px solid ' + fg + '; border-radius: 8px; ' +
-        'cursor: pointer; text-transform: none; opacity: 0.8;';
-    btn.onclick = function () {
-        Android.loadNextChapter();
-    };
-    container.appendChild(btn);
+    if (__HAS_NEXT_CHAPTER__) {
+        var button = document.createElement('button');
+        button.className = 'next-button';
+        button.type = 'button';
+        button.textContent = __NEXT_CHAPTER_TEXT__;
+        button.addEventListener('click', function (event) {
+            event.stopPropagation();
+            if (window.Android && window.Android.suppressReaderGestures) {
+                window.Android.suppressReaderGestures();
+            }
+            window.Android.loadNextChapter();
+        });
+        container.appendChild(button);
+    } else {
+        var message = document.createElement('div');
+        message.className = 'info-text';
+        message.textContent = __NO_NEXT_CHAPTER_TEXT__;
+        container.appendChild(message);
+    }
+
     document.body.appendChild(container);
 })();

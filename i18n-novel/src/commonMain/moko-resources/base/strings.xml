@@ -518,6 +518,7 @@
     <string name="pref_novel_hide_chapter_title">Hide chapter title in content</string>
     <string name="pref_novel_chapter_title_display">Chapter title format</string>
     <string name="pref_novel_use_original_fonts">Use source\'s original fonts</string>
+    <string name="pref_novel_bionic_reading">Bionic reading</string>
     <string name="pref_novel_margin_left">Left margin</string>
     <string name="pref_novel_margin_right">Right margin</string>
     <string name="pref_novel_margin_top">Top margin</string>
@@ -535,6 +536,11 @@
     <string name="pref_novel_tts">Text to speech</string>
     <string name="tts_prev_paragraph">Previous paragraph</string>
     <string name="tts_next_paragraph">Next paragraph</string>
+    <string name="reader_tts_control">Text to speech. Drag to choose where reading starts</string>
+    <string name="reader_image_close">Close image</string>
+    <string name="reader_chapter_finished">Finished: %1$s</string>
+    <string name="reader_next_chapter">Next: %1$s</string>
+    <string name="reader_no_next_chapter">There\'s no next chapter</string>
     <string name="pref_novel_infinite_scroll">Infinite scroll (auto-load next chapter)</string>
     <string name="pref_novel_progress_slider">Show progress slider</string>
     <string name="pref_novel_scrollbar_mode">Progress slider</string>

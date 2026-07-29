@@ -197,6 +197,11 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel)
         pref = screenModel.preferences.novelUseOriginalFonts,
     )
 
+    CheckboxItem(
+        label = stringResource(TDMR.strings.pref_novel_bionic_reading),
+        pref = screenModel.preferences.novelBionicReading,
+    )
+
     // Text Alignment
     InlineSettingsChipRow(TDMR.strings.pref_novel_text_align) {
         textAlignments.forEach { (icon, value) ->

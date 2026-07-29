@@ -101,6 +101,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         const val ID_EDIT_MODE_STYLE = "edit-mode-style"
         const val SEEK_ECHO_SUPPRESS_MS = 350L
         const val AUTO_SCROLL_START_VERIFY_MS = 400L
+        const val READER_UI_GESTURE_SUPPRESS_MS = 600L
         val IMAGE_URL_REGEX = Regex("\\.(?:avif|gif|jpe?g|png|svg|webp)$", RegexOption.IGNORE_CASE)
         const val AUTO_SCROLL_MAX_START_ATTEMPTS = 3
 
@@ -153,6 +154,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var attachListener: View.OnAttachStateChangeListener? = null
     private var currentPage: ReaderPage? = null
     private var currentChapters: ViewerChapters? = null
+    private var readerUiModalOpen = false
+    private var suppressReaderGesturesUntil = 0L
+    private var pendingTtsParagraphIndex: Int? = null
     private val imageCache = NovelWebViewImageCache(activity.cacheDir, scope)
 
     private var lastSavedProgress = 0f
@@ -287,6 +291,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 velocityX: Float,
                 velocityY: Float,
             ): Boolean {
+                if (readerUiModalOpen || android.os.SystemClock.uptimeMillis() < suppressReaderGesturesUntil) {
+                    return true
+                }
                 if (isEditingMode) return false
                 if (!preferences.novelSwipeNavigation.get()) return false
                 return handleNovelFlingGesture(
@@ -300,6 +307,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (readerUiModalOpen || android.os.SystemClock.uptimeMillis() < suppressReaderGesturesUntil) {
+                    return true
+                }
                 if (isEditingMode) return false
                 if (activity.isFindInPageOpen()) return false
                 if (e.eventTime - e.downTime >= android.view.ViewConfiguration.getLongPressTimeout()) return true
@@ -351,7 +361,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 override fun onInitialized(pendingRequest: TtsController.StartRequest?) {
                     when (pendingRequest) {
                         TtsController.StartRequest.NORMAL -> startTts()
-                        TtsController.StartRequest.VIEWPORT -> startTtsFromViewport()
+                        TtsController.StartRequest.VIEWPORT -> {
+                            pendingTtsParagraphIndex?.let {
+                                pendingTtsParagraphIndex = null
+                                startTtsAtParagraph(it)
+                            } ?: startTtsFromViewport()
+                        }
                         null -> {}
                     }
                 }
@@ -365,6 +380,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onClearHighlights() {
                     clearWebViewTtsHighlight()
+                    dispatchTtsState()
                 }
 
                 override fun onLastChunkDone() {
@@ -662,8 +678,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 domStorageEnabled = true
                 loadWithOverviewMode = true
                 useWideViewPort = true
-                setSupportZoom(false)
-                builtInZoomControls = false
+                // The document viewport disables page zoom during normal reading. Keep native
+                // zoom support available so the in-page image viewer can enable pinch zoom only
+                // while its modal is open.
+                setSupportZoom(true)
+                builtInZoomControls = true
                 displayZoomControls = false
                 cacheMode = WebSettings.LOAD_DEFAULT
                 val shouldBlock = preferences.novelBlockMedia.get()
@@ -702,15 +721,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     // inject only on the first genuine chapter load.
                     if (docState != DocState.LOADING_REAL) return
                     docState = DocState.READY
+                    readerUiModalOpen = false
 
                     styler.injectScript { buildTsundokuScript() }
                     styler.injectScrollTracking()
+                    styler.injectReaderUi()
                     // Fresh DOM lost the --tsundoku-safe-* vars and menuVisible flag; re-apply them.
                     pushReaderChrome()
                     restoreScrollPosition()
                     syncShortChapterProgressIfNeeded()
                     if (!preferences.novelInfiniteScroll.get()) {
-                        styler.injectNextChapterButton(currentChapters?.nextChapter != null)
+                        styler.injectNextChapterButton(
+                            chapterName = currentChapters?.currChapter?.chapter?.name.orEmpty(),
+                            nextChapterName = currentChapters?.nextChapter?.chapter?.name,
+                        )
                     }
                     if (isEditingMode) {
                         toggleEditMode(true)
@@ -725,7 +749,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         ttsController.pendingStartRequest = null
                         when (request) {
                             TtsController.StartRequest.NORMAL -> startTts()
-                            TtsController.StartRequest.VIEWPORT -> startTtsFromViewport()
+                            TtsController.StartRequest.VIEWPORT -> {
+                                pendingTtsParagraphIndex?.let {
+                                    pendingTtsParagraphIndex = null
+                                    startTtsAtParagraph(it)
+                                } ?: startTtsFromViewport()
+                            }
                         }
                     }
                     // A full reload replaces window, dropping the autoscroll rAF loop; re-arm it
@@ -851,7 +880,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         NovelWebViewPreferenceObserver(
             preferences = preferences,
             scope = scope,
-            onStyleChanged = { styler.injectStyles() },
+            onStyleChanged = {
+                styler.injectStyles()
+                styler.setBionicReading(preferences.novelBionicReading.get())
+            },
             onScriptChanged = { styler.injectScript { buildTsundokuScript() } },
             onChapterReloadRequested = {
                 // Force a full pipeline re-run so the new prefs take effect.
@@ -1937,9 +1969,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
 
+        if (isEditing) {
+            // Bionic spans are presentation only; remove them before content becomes editable so
+            // they cannot interfere with the caret or leak into saved chapter HTML.
+            styler.setBionicReading(false)
+        }
         this.isEditingMode = isEditing
         styler.injectScript { buildTsundokuScript() }
         updateChapterMetaJs()
+        if (isEditing) styler.injectReaderUi()
 
         if (isEditing) {
             // Focusing a contenteditable for the keyboard scrolls Chromium to the top; snapshot the
@@ -2071,7 +2109,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             })();
         """.trimIndent()
 
-        webView.evaluateJavascript(script, null)
+        webView.evaluateJavascript(script) {
+            if (!isEditing) styler.injectReaderUi()
+        }
     }
 
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
@@ -2175,6 +2215,43 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             // TTS handoff is driven directly from loadNextChapterForTts; this foreground callback
             // only refreshes an active native find after the appended DOM has settled.
             activity.runOnUiThread { refreshFindInPage() }
+        }
+
+        @JavascriptInterface
+        fun suppressReaderGestures() {
+            activity.runOnUiThread {
+                suppressReaderGesturesUntil = android.os.SystemClock.uptimeMillis() + READER_UI_GESTURE_SUPPRESS_MS
+            }
+        }
+
+        @JavascriptInterface
+        fun setReaderUiModalOpen(open: Boolean) {
+            activity.runOnUiThread {
+                readerUiModalOpen = open
+                if (!open) {
+                    suppressReaderGesturesUntil =
+                        android.os.SystemClock.uptimeMillis() + READER_UI_GESTURE_SUPPRESS_MS
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun toggleTts() {
+            activity.runOnUiThread {
+                when {
+                    ttsController.isPaused() -> resumeTts()
+                    ttsController.isSpeaking() -> pauseTts()
+                    isTtsActive() -> stopTts()
+                    else -> startTtsFromViewport()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun startTtsAtParagraph(index: Int) {
+            activity.runOnUiThread {
+                this@NovelWebViewViewer.startTtsAtParagraph(index.coerceAtLeast(0))
+            }
         }
 
         @JavascriptInterface
@@ -2756,6 +2833,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             "TTS (WebView): stopTts called ts=${System.currentTimeMillis()} currentChapterIndex=$currentChapterIndex, ttsCurrentChunkIndex=${ttsController.ttsCurrentChunkIndex}, ttsResumeChunkIndex=${ttsController.ttsResumeChunkIndex}, ttsPlaybackChapterIndex=${ttsController.ttsPlaybackChapterIndex}, ttsPlaybackChapterId=${ttsController.ttsPlaybackChapterId}"
         }
         pendingTtsAutoStartOnLoad = false
+        pendingTtsParagraphIndex = null
         // Drop a pending real-load signal so a stale onPageFinished after stop can't inject; leave a
         // committed READY/ERROR document intact.
         if (docState == DocState.LOADING_REAL) docState = DocState.LOADING
@@ -2836,19 +2914,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         if (!ttsController.ttsInitialized) {
             logcat(LogPriority.WARN) { "TTS (WebView): Not initialized yet" }
+            pendingTtsParagraphIndex = null
             ttsController.pendingStartRequest = TtsController.StartRequest.VIEWPORT
+            dispatchTtsState()
             return
         }
 
         ttsController.pendingStartRequest = null
-        ttsController.isTtsAutoPlay = true
-        dispatchTtsState()
         if (!webChapterContentReady) {
             // Still loading; defer so onPageFinished re-runs the viewport start once content is in.
+            pendingTtsParagraphIndex = null
             ttsController.pendingStartRequest = TtsController.StartRequest.VIEWPORT
+            dispatchTtsState()
             return
         }
-        val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(
             """
             (function() {
@@ -2873,17 +2952,42 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             """.trimIndent(),
         ) { rawIndex ->
             val firstVisibleParagraphIndex = rawIndex.trim('"').toIntOrNull() ?: 0
-            evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
-                val text = unescapeJsResult(result)
+            startTtsAtParagraph(firstVisibleParagraphIndex)
+        }
+    }
 
-                if (text.isNotBlank() && text != "null") {
-                    ttsController.ttsViewportParagraphIndex = firstVisibleParagraphIndex.coerceAtLeast(0)
-                    ttsController.hasViewportStartOverride = true
-                    ttsController.speak(text, chapterIdx, chapterId)
-                } else {
-                    logcat(LogPriority.WARN) { "TTS (WebView): No text available for viewport start" }
-                }
+    private fun startTtsAtParagraph(index: Int) {
+        ensureTtsInitialized()
+
+        if (!ttsController.ttsInitialized) {
+            pendingTtsParagraphIndex = index.coerceAtLeast(0)
+            ttsController.pendingStartRequest = TtsController.StartRequest.VIEWPORT
+            dispatchTtsState()
+            return
+        }
+
+        if (!webChapterContentReady) {
+            pendingTtsParagraphIndex = index.coerceAtLeast(0)
+            ttsController.pendingStartRequest = TtsController.StartRequest.VIEWPORT
+            dispatchTtsState()
+            return
+        }
+
+        pendingTtsParagraphIndex = null
+        ttsController.pendingStartRequest = null
+        ttsController.isTtsAutoPlay = true
+        dispatchTtsState()
+        val (chapterIdx, chapterId) = getTtsChapterContext()
+        evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
+            val text = unescapeJsResult(result)
+            if (text.isBlank() || text == "null") {
+                logcat(LogPriority.WARN) { "TTS (WebView): No text available for selected paragraph" }
+                stopTts()
+                return@evaluateJavascriptSafe
             }
+            ttsController.ttsViewportParagraphIndex = index.coerceAtLeast(0)
+            ttsController.hasViewportStartOverride = true
+            ttsController.speak(text, chapterIdx, chapterId)
         }
     }
 
