@@ -5,16 +5,10 @@ import eu.kanade.tachiyomi.source.isNovelSource
 
 class NovelGlobalSearchScreenModel(
     initialQuery: String = "",
-    initialExtensionFilter: String? = null,
 ) : SearchScreenModel(State(searchQuery = initialQuery)) {
 
     init {
-        extensionFilter = initialExtensionFilter
-        if (initialQuery.isNotBlank() || !initialExtensionFilter.isNullOrBlank()) {
-            if (extensionFilter != null) {
-                // we're going to use custom extension filter instead
-                setSourceFilter(SourceFilter.All)
-            }
+        if (initialQuery.isNotBlank()) {
             search()
         }
     }

@@ -74,8 +74,6 @@ class LibraryPreferences(
 
     val autoUpdateThrottle: Preference<Int> = preferenceStore.getInt("pref_library_update_throttle_ms", 3000)
 
-    val joinedLibrary: Preference<Boolean> = preferenceStore.getBoolean("pref_joined_library", true)
-
     val showContinueReadingButton: Preference<Boolean> = preferenceStore.getBoolean(
         "display_continue_reading_button",
         false,

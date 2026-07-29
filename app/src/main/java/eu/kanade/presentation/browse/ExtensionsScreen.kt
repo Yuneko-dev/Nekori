@@ -151,7 +151,11 @@ private fun ExtensionContent(
 ) {
     val context = LocalContext.current
     var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
-    val installGranted = rememberRequestPackageInstallsPermissionState(initialValue = true)
+    val installGranted = if (state.installer == null) {
+        true
+    } else {
+        rememberRequestPackageInstallsPermissionState(initialValue = true)
+    }
 
     FastScrollLazyColumn(
         contentPadding = contentPadding + topSmallPaddingValues,

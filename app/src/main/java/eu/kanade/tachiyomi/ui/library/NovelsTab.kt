@@ -59,6 +59,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -66,8 +67,6 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 data object NovelsTab : Tab {
 
@@ -76,11 +75,9 @@ data object NovelsTab : Tab {
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
             val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_library_enter)
-            val libraryPreferences = remember { Injekt.get<tachiyomi.domain.library.service.LibraryPreferences>() }
-            val isJoined by libraryPreferences.joinedLibrary.collectAsState()
             return TabOptions(
                 index = 0u,
-                title = if (isJoined) stringResource(MR.strings.label_library) else "Novels",
+                title = stringResource(TDMR.strings.label_novels),
                 icon = rememberAnimatedVectorPainter(image, isSelected),
             )
         }
@@ -96,12 +93,13 @@ data object NovelsTab : Tab {
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
 
-        val libraryPreferences = remember { Injekt.get<tachiyomi.domain.library.service.LibraryPreferences>() }
-        val isJoined by libraryPreferences.joinedLibrary.collectAsState()
-        val libraryType = if (isJoined) LibraryScreenModel.LibraryType.All else LibraryScreenModel.LibraryType.Novel
-        val screenModel = rememberScreenModel { LibraryScreenModel(type = libraryType) }
+        val screenModel = rememberScreenModel {
+            LibraryScreenModel(type = LibraryScreenModel.LibraryType.Novel)
+        }
         val settingsScreenModel =
-            rememberScreenModel { LibrarySettingsScreenModel(type = libraryType) }
+            rememberScreenModel {
+                LibrarySettingsScreenModel(type = LibraryScreenModel.LibraryType.Novel)
+            }
         val state by screenModel.state.collectAsState()
         val titleMaxLines by settingsScreenModel.libraryPreferences.titleMaxLines.changes().collectAsState(
             settingsScreenModel.libraryPreferences.titleMaxLines.get(),
@@ -137,7 +135,7 @@ data object NovelsTab : Tab {
         Scaffold(
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
-                    defaultTitle = if (isJoined) stringResource(MR.strings.label_library) else "Novels",
+                    defaultTitle = stringResource(TDMR.strings.label_novels),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
                     page = state.coercedActiveCategoryIndex,
                 )

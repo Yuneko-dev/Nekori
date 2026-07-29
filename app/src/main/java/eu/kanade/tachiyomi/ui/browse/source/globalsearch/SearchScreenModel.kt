@@ -7,7 +7,6 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.ioCoroutineScope
-import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isNovelSource
 import kotlinx.coroutines.Job
@@ -35,7 +34,6 @@ abstract class SearchScreenModel(
     initialState: State = State(),
     sourcePreferences: SourcePreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
-    private val extensionManager: ExtensionManager = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
@@ -50,8 +48,6 @@ abstract class SearchScreenModel(
 
     private var lastQuery: String? = null
     private var lastSourceFilter: SourceFilter? = null
-
-    protected var extensionFilter: String? = null
 
     open val sortComparator = { map: Map<Source, SearchItemResult> ->
         compareBy<Source>(
@@ -91,19 +87,7 @@ abstract class SearchScreenModel(
             )
     }
 
-    private fun getSelectedSources(): List<Source> {
-        val enabledSources = getEnabledSources()
-
-        val filter = extensionFilter
-        if (filter.isNullOrEmpty()) {
-            return enabledSources
-        }
-
-        return extensionManager.installedExtensionsFlow.value
-            .filter { it.pkgName == filter }
-            .flatMap { it.sources }
-            .filter { it in enabledSources }
-    }
+    protected open fun getSelectedSources(): List<Source> = getEnabledSources()
 
     fun updateSearchQuery(query: String?) {
         mutableState.update { it.copy(searchQuery = query) }

@@ -58,14 +58,11 @@ object SettingsLibraryScreen : SearchableSettings {
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
         val sourcePreferences = remember { Injekt.get<SourcePreferences>() }
         val allCategories by getCategories.subscribe().collectAsState(initial = emptyList())
-        val isJoined by libraryPreferences.joinedLibrary.changes().collectAsState(
-            initial = libraryPreferences.joinedLibrary.get(),
-        )
 
         return listOf(
             getCategoriesGroup(LocalNavigator.currentOrThrow, allCategories, libraryPreferences),
             getGlobalUpdateGroup(allCategories, libraryPreferences),
-            getBehaviorGroup(libraryPreferences, sourcePreferences, isJoined),
+            getBehaviorGroup(libraryPreferences, sourcePreferences),
         )
     }
 
@@ -236,7 +233,6 @@ object SettingsLibraryScreen : SearchableSettings {
     private fun getBehaviorGroup(
         libraryPreferences: LibraryPreferences,
         sourcePreferences: SourcePreferences,
-        isJoined: Boolean,
     ): Preference.PreferenceGroup {
         val preferenceItems = buildList {
             add(
@@ -336,15 +332,6 @@ object SettingsLibraryScreen : SearchableSettings {
                     subtitle = "Sort tags on novel detail page by name instead of source order",
                 ),
             )
-            if (!isJoined) {
-                add(
-                    Preference.PreferenceItem.SwitchPreference(
-                        preference = libraryPreferences.mangaReadProgress100,
-                        title = "Restore position in completed manga chapters",
-                        subtitle = "Resume manga chapters from where you left off even when already marked as read",
-                    ),
-                )
-            }
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.novelReadProgress100,
