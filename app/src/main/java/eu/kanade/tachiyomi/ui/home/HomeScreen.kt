@@ -37,6 +37,7 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.discord.DiscordRpcManager
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
@@ -87,6 +88,15 @@ object HomeScreen : Screen() {
             tab = NovelsTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
+            val discordRpc = remember { Injekt.get<DiscordRpcManager>() }
+            LaunchedEffect(tabNavigator.current) {
+                if (tabNavigator.current == NovelsTab) {
+                    discordRpc.showLibrary()
+                } else {
+                    discordRpc.showApp()
+                }
+            }
+
             // Provide usable navigator to content screen
             CompositionLocalProvider(LocalNavigator provides navigator) {
                 Scaffold(

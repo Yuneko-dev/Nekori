@@ -63,6 +63,7 @@ import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import eu.kanade.tachiyomi.discord.DiscordAuth
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionReposScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
@@ -95,6 +96,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 class MainActivity : BaseActivity() {
@@ -555,13 +558,18 @@ class MainActivity : BaseActivity() {
                 null
             }
             Intent.ACTION_VIEW -> {
-                // Handling opening of backup files
-                if (intent.data.toString().endsWith(".tachibk")) {
+                if (Injekt.get<DiscordAuth>().handleRedirect(intent.data)) {
+                    // OAuth callback is handled asynchronously by DiscordAuth.
+                } else if (intent.data.toString().endsWith(".tachibk")) {
+                    // Handling opening of backup files
                     navigator.popUntilRoot()
                     navigator.push(RestoreBackupScreen(intent.data.toString()))
-                }
-                // Deep link to add LNReader JS repo
-                else if (intent.scheme == "lnreader" && intent.data?.host == "repo" && intent.data?.path == "/add") {
+                } else if (
+                    intent.scheme == "lnreader" &&
+                    intent.data?.host == "repo" &&
+                    intent.data?.path == "/add"
+                ) {
+                    // Deep link to add LNReader JS repo
                     intent.data?.getQueryParameter("url")?.let { repoUrl ->
                         navigator.popUntilRoot()
                         navigator.push(NovelExtensionReposScreen(repoUrl))

@@ -21,6 +21,14 @@ class SecurityPreferences(
 
     val hideNotificationContent: Preference<Boolean> = preferenceStore.getBoolean("hide_notification_content", false)
 
+    val mixedBlockReadingProgress = preferenceStore.getBoolean("mixed_block_reading_progress", false)
+    val mixedBlockReadingHistory = preferenceStore.getBoolean("mixed_block_reading_history", false)
+    val mixedBlockDiscordRpc = preferenceStore.getBoolean("mixed_block_discord_rpc", false)
+
+    val nsfwBlockReadingProgress = preferenceStore.getBoolean("nsfw_block_reading_progress", false)
+    val nsfwBlockReadingHistory = preferenceStore.getBoolean("nsfw_block_reading_history", false)
+    val nsfwBlockDiscordRpc = preferenceStore.getBoolean("nsfw_block_discord_rpc", true)
+
     /**
      * For app lock. Will be set when there is a pending timed lock.
      * Otherwise, this pref should be deleted.

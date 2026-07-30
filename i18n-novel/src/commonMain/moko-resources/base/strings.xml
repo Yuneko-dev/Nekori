@@ -986,4 +986,30 @@
     <string name="novel_status_bar_element_chapter">Chapter</string>
     <string name="novel_status_bar_element_progress">Progress</string>
     <string name="novel_status_bar_element_battery">Battery</string>
+    <!-- Discord Rich Presence -->
+    <string name="pref_category_discord">Discord Rich Presence</string>
+    <string name="pref_discord_summary">Share browsing and reading activity with Discord</string>
+    <string name="discord_not_connected">Not connected to Discord</string>
+    <string name="discord_login">Login with Discord</string>
+    <string name="discord_logout">Logout</string>
+    <string name="discord_connected_as">Connected as %1$s</string>
+    <string name="discord_rpc_settings">Rich Presence</string>
+    <string name="discord_enable_rpc">Enable Discord Rich Presence</string>
+    <string name="discord_enable_rpc_summary">Connect to Discord and publish enabled activity</string>
+    <string name="discord_show_app">Show app and library activity</string>
+    <string name="discord_show_app_summary">Show when Tsundoku or the library is open</string>
+    <string name="discord_show_browsing">Show browsing activity</string>
+    <string name="discord_show_browsing_summary">Show sources currently being browsed</string>
+    <string name="discord_show_reading">Show novel and chapter activity</string>
+    <string name="discord_show_reading_summary">Show the novel or chapter currently open</string>
+    <string name="discord_authorizing">Waiting for Discord authorization…</string>
+    <string name="discord_error">Discord error: %1$s</string>
+
+    <!-- Sensitive content privacy -->
+    <string name="sensitive_content">Sensitive content</string>
+    <string name="sensitive_content_mixed">Mixed sources</string>
+    <string name="sensitive_content_nsfw">NSFW sources</string>
+    <string name="sensitive_block_reading_progress">Block saving reading progress</string>
+    <string name="sensitive_block_reading_history">Block saving reading history</string>
+    <string name="sensitive_block_discord_rpc">Block Discord Rich Presence</string>
 </resources>

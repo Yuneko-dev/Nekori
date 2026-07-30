@@ -219,16 +219,22 @@ object SettingsMainScreen : Screen() {
             screen = SettingsBrowseScreen,
         ),
         Item(
-            titleRes = MR.strings.label_data_storage,
-            subtitleRes = MR.strings.pref_backup_summary,
-            icon = Icons.Outlined.Storage,
-            screen = SettingsDataScreen,
-        ),
-        Item(
             titleRes = MR.strings.pref_category_security,
             subtitleRes = MR.strings.pref_security_summary,
             icon = Icons.Outlined.Security,
             screen = SettingsSecurityScreen,
+        ),
+        Item(
+            titleRes = TDMR.strings.pref_category_discord,
+            subtitleRes = TDMR.strings.pref_discord_summary,
+            icon = DiscordIcon,
+            screen = SettingsDiscordScreen,
+        ),
+        Item(
+            titleRes = MR.strings.label_data_storage,
+            subtitleRes = MR.strings.pref_backup_summary,
+            icon = Icons.Outlined.Storage,
+            screen = SettingsDataScreen,
         ),
         Item(
             titleRes = MR.strings.pref_category_advanced,

@@ -15,7 +15,6 @@ import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.toSManga
-import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.reader.appbars.BottomBarItemState
@@ -30,6 +29,7 @@ import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
 import eu.kanade.tachiyomi.data.translation.TranslationService
+import eu.kanade.tachiyomi.discord.SensitiveContentPolicy
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.Source
@@ -139,13 +139,13 @@ class ReaderViewModel @JvmOverloads constructor(
     private val readingSessionRepository: ReadingSessionRepository = Injekt.get(),
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val setMangaViewerFlags: SetMangaViewerFlags = Injekt.get(),
-    private val getIncognitoState: GetIncognitoState = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val translationPreferences: TranslationPreferences = Injekt.get(),
     private val translationService: TranslationService = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val novelStructureRepository: NovelStructureRepository = Injekt.get(),
     private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
+    private val sensitiveContentPolicy: SensitiveContentPolicy = Injekt.get(),
 ) : ViewModel() {
     private val quoteManager: QuoteManager by lazy {
         QuoteManager(Injekt.get<Application>())
@@ -328,7 +328,6 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private val pendingTranslationAheadChapterIds = mutableSetOf<Long>()
 
-    private val incognitoMode: Boolean by lazy { getIncognitoState.await(manga?.source) }
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
 
     /** Serializes novel progress saves to prevent concurrent saves racing each other. */
@@ -965,7 +964,11 @@ class ReaderViewModel @JvmOverloads constructor(
         // the read timer. Duration is added by the timer flush, so 0 here only sets last_read.
         // Dedup by chapter id so repeated same-chapter calls don't each fire a history write.
         val chapterId = chapter?.id
-        if (!incognitoMode && chapterId != null && chapterId != lastStampedHistoryChapterId) {
+        if (
+            !sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_HISTORY, manga?.source) &&
+            chapterId != null &&
+            chapterId != lastStampedHistoryChapterId
+        ) {
             lastStampedHistoryChapterId = chapterId
             viewModelScope.launchNonCancellable {
                 upsertHistory.await(HistoryUpdate(chapterId, Date(), 0))
@@ -982,7 +985,7 @@ class ReaderViewModel @JvmOverloads constructor(
     fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
         val selectedChapter = page.chapter
 
-        if (incognitoMode) return
+        if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source)) return
 
         viewModelScope.launchNonCancellable {
             // Serialize saves so concurrent calls don't race each other and save
@@ -1151,7 +1154,10 @@ class ReaderViewModel @JvmOverloads constructor(
         readerChapter.requestedPage = pageIndex
         chapterPageIndex = pageIndex
 
-        if (!incognitoMode && page.status !is Page.State.Error) {
+        if (
+            !sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source) &&
+            page.status !is Page.State.Error
+        ) {
             readerChapter.chapter.last_page_read = pageIndex
 
             // For novel chapters each chapter has exactly 1 page (the full text).
@@ -1234,7 +1240,10 @@ class ReaderViewModel @JvmOverloads constructor(
      * Saves the chapter last read history if incognito mode isn't on.
      */
     private suspend fun updateHistory(readerChapter: ReaderChapter) = historyMutex.withLock {
-        if (incognitoMode) return@withLock
+        if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_HISTORY, manga?.source)) {
+            chapterReadStartTime = null
+            return@withLock
+        }
 
         val chapterId = readerChapter.chapter.id!!
         val endTime = Date()
@@ -1321,8 +1330,8 @@ class ReaderViewModel @JvmOverloads constructor(
         }
     }
 
-    fun getChapterUrl(): String? {
-        val sChapter = getCurrentChapter()?.chapter ?: return null
+    fun getChapterUrl(chapter: Chapter? = getCurrentChapter()?.chapter): String? {
+        val sChapter = chapter ?: return null
         val source = getSource() ?: return null
 
         return try {
@@ -1699,7 +1708,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * will run in a background thread and errors are ignored.
      */
     private fun updateTrackChapterRead(readerChapter: ReaderChapter) {
-        if (incognitoMode) return
+        if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source)) return
 
         val manga = manga ?: return
         val chapterId = readerChapter.chapter.id ?: return

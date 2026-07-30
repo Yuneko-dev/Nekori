@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.isAuthenticationSupport
 import eu.kanade.tachiyomi.util.system.telemetryIncluded
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -30,11 +31,52 @@ object SettingsSecurityScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val securityPreferences = remember { Injekt.get<SecurityPreferences>() }
         val privacyPreferences = remember { Injekt.get<PrivacyPreferences>() }
-        return buildList(2) {
+        return buildList(4) {
             add(getSecurityGroup(securityPreferences))
+            add(getSensitiveContentGroup(securityPreferences, mixed = true))
+            add(getSensitiveContentGroup(securityPreferences, mixed = false))
             if (!telemetryIncluded) return@buildList
             add(getFirebaseGroup(privacyPreferences))
         }
+    }
+
+    @Composable
+    private fun getSensitiveContentGroup(
+        securityPreferences: SecurityPreferences,
+        mixed: Boolean,
+    ): Preference.PreferenceGroup {
+        val sourceLabel = stringResource(
+            if (mixed) TDMR.strings.sensitive_content_mixed else TDMR.strings.sensitive_content_nsfw,
+        )
+        return Preference.PreferenceGroup(
+            title = "${stringResource(TDMR.strings.sensitive_content)} — $sourceLabel",
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = if (mixed) {
+                        securityPreferences.mixedBlockReadingProgress
+                    } else {
+                        securityPreferences.nsfwBlockReadingProgress
+                    },
+                    title = stringResource(TDMR.strings.sensitive_block_reading_progress),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = if (mixed) {
+                        securityPreferences.mixedBlockReadingHistory
+                    } else {
+                        securityPreferences.nsfwBlockReadingHistory
+                    },
+                    title = stringResource(TDMR.strings.sensitive_block_reading_history),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = if (mixed) {
+                        securityPreferences.mixedBlockDiscordRpc
+                    } else {
+                        securityPreferences.nsfwBlockDiscordRpc
+                    },
+                    title = stringResource(TDMR.strings.sensitive_block_discord_rpc),
+                ),
+            ),
+        )
     }
 
     @Composable

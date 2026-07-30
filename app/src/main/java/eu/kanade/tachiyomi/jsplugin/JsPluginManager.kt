@@ -468,6 +468,16 @@ class JsPluginManager(
         return _jsSources.value.find { it.id == sourceId }
     }
 
+    fun contentWarningForSource(sourceId: Long?): Int? {
+        return sourceId?.let { id ->
+            _installedPlugins.value.firstOrNull { it.plugin.sourceId() == id }?.plugin?.contentWarning
+        }
+    }
+
+    fun iconUrlForSource(sourceId: Long): String? {
+        return _installedPlugins.value.firstOrNull { it.plugin.sourceId() == sourceId }?.plugin?.iconUrl
+    }
+
     // Private helpers
 
     private fun loadInstalledPlugins() {

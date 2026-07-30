@@ -44,6 +44,7 @@ import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.discord.DiscordRpcManager
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
@@ -77,6 +78,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 class MangaScreen(
     private val mangaId: Long,
@@ -112,12 +115,15 @@ class MangaScreen(
 
         val successState = state as MangaScreenModel.State.Success
         val hasWebViewSupport = remember { successState.source is HttpSource || successState.source is JsSource }
+        val discordRpc = remember { Injekt.get<DiscordRpcManager>() }
 
         LaunchedEffect(successState.manga, screenModel.source) {
+            var novelUrl: String? = null
             if (hasWebViewSupport) {
                 try {
                     withIOContext {
-                        assistUrl = getMangaUrl(screenModel.manga, screenModel.source)
+                        novelUrl = getMangaUrl(screenModel.manga, screenModel.source)
+                        assistUrl = novelUrl
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -125,6 +131,12 @@ class MangaScreen(
                     logcat(LogPriority.ERROR, e) { "Failed to get manga URL" }
                 }
             }
+            discordRpc.showNovel(
+                sourceId = successState.manga.source,
+                novelName = successState.manga.title,
+                cover = successState.manga.thumbnailUrl,
+                novelUrl = novelUrl,
+            )
         }
 
         MangaScreen(

@@ -284,6 +284,7 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.appCompat)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.constraintLayout)
     implementation(libs.androidx.core)
     implementation(libs.androidx.coreSplashScreen)
