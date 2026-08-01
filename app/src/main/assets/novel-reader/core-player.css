@@ -28,7 +28,7 @@
   top: var(--tsundoku-safe-top, 0);
   left: 0;
   width: 100%;
-  max-height: 50vh;
+  max-height: 75vh;
   background-color: rgba(0, 0, 0, 0.85) !important;
   color: #00ff00 !important;
   font: 12px / normal monospace !important;
@@ -37,12 +37,15 @@
   box-sizing: border-box;
   overflow-y: auto;
   z-index: 9999;
-  pointer-events: none; /* so it doesn't block video interaction */
+  overscroll-behavior: contain;
+  pointer-events: none;
+  touch-action: pan-y;
   display: none;
 }
 
 #lnreader-debug-overlay.active {
   display: block;
+  pointer-events: auto;
 }
 
 #lnreader-debug-overlay .lnreader-debug-msg {
@@ -52,4 +55,41 @@
   font: inherit !important;
   text-align: left !important;
   word-wrap: break-word;
+}
+
+#lnreader-debug-toggle {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--reader-text-color) 30%, transparent);
+  border-radius: 50%;
+  background: color-mix(
+    in srgb,
+    var(--reader-background-color) 85%,
+    var(--reader-text-color) 15%
+  );
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  color: var(--reader-text-color);
+  opacity: .7;
+}
+
+#lnreader-debug-toggle svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+#lnreader-debug-toggle[aria-expanded="true"] {
+  opacity: 1;
 }

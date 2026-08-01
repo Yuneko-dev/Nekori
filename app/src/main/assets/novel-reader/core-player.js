@@ -53,6 +53,24 @@
         this.debugOverlay.classList.add("active");
       }
       document.body.appendChild(this.debugOverlay);
+      if (this.isDebugMode) {
+        const debugToggle = document.createElement("button");
+        debugToggle.id = "lnreader-debug-toggle";
+        debugToggle.type = "button";
+        debugToggle.setAttribute("aria-label", "Hide player log");
+        debugToggle.setAttribute("aria-expanded", "true");
+        debugToggle.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 7 4 5-4 5m6 0h8"/></svg>';
+        debugToggle.addEventListener("click", () => {
+          const visible = this.debugOverlay.classList.toggle("active");
+          debugToggle.setAttribute("aria-expanded", String(visible));
+          debugToggle.setAttribute(
+            "aria-label",
+            visible ? "Hide player log" : "Show player log"
+          );
+        });
+        document.body.appendChild(debugToggle);
+      }
       if (chapterEl) {
         chapterEl.appendChild(this.container);
       } else {
