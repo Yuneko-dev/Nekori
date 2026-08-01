@@ -441,7 +441,10 @@ actual class LocalNovelSource : CatalogueSource, UnmeteredSource {
                     chapterFile.epubReader(context).use { epub ->
                         if (chapterFragment != null) {
                             // Multi-chapter EPUB: read specific chapter
-                            epub.getChapterContent(chapterFragment)
+                            NovelAssetRewriter.rewriteEpubChapterLinks(
+                                epub.getChapterContent(chapterFragment),
+                                chapterFragment,
+                            )
                         } else {
                             // Single chapter EPUB: read all content
                             epub.getTextContent()

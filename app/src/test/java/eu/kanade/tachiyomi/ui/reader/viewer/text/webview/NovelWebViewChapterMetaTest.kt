@@ -3,14 +3,35 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.htmlAttributeEscape
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.jsEscape
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.resolveEpubChapterUrl
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.resolveWebViewBaseUrl
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.toAbsoluteChapterUrl
+import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NovelWebViewChapterMetaTest {
+
+    @Test
+    fun `resolveEpubChapterUrl combines the book url with an encoded entry`() {
+        val navigationUrl = NOVEL_EPUB_CHAPTER_SCHEME +
+            java.net.URLEncoder.encode("OEBPS/Text/chapter-2.xhtml#start", "UTF-8")
+
+        assertEquals(
+            "Local/Book.epub#OEBPS/Text/chapter-2.xhtml#start",
+            resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter-1.xhtml", navigationUrl),
+        )
+    }
+
+    @Test
+    fun `resolveEpubChapterUrl rejects traversal and non EPUB navigation`() {
+        val traversal = NOVEL_EPUB_CHAPTER_SCHEME + java.net.URLEncoder.encode("../secret", "UTF-8")
+
+        assertEquals(null, resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter.xhtml", traversal))
+        assertEquals(null, resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter.xhtml", "https://example.com"))
+    }
 
     // jsEscape
 

@@ -8,6 +8,14 @@ import org.junit.jupiter.api.Test
 class HtmlUtilsTest {
 
     @Test
+    fun `GFM markdown keeps a bare URL as a clickable link`() {
+        val html = NovelMarkdownUtils.toHtml("Website: https://example.com/novel?id=1")
+
+        assertTrue(html.contains("href=\"https://example.com/novel?id=1\""))
+        assertTrue(html.contains("https://example.com/novel?id=1"))
+    }
+
+    @Test
     fun `toHtml escapes unsafe html in plain text`() {
         // Pass .txt extension to force plain text detection
         val content = "Hi\nLine break\n<quote> para <quote>\n\n<bold> should not be bold"

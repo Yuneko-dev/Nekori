@@ -522,8 +522,13 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
             document.getElementsByTag("title").remove()
 
             val fragmentHtml = effectiveFragment?.let { extractFragmentHtml(document, it) }.orEmpty()
+            val embeddedStyles = document.head()
+                .select("style, link[rel=stylesheet]")
+                .joinToString("\n") { it.outerHtml() }
             when {
-                fragmentHtml.isNotBlank() -> fragmentHtml
+                fragmentHtml.isNotBlank() -> listOf(embeddedStyles, fragmentHtml)
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n")
                 bodyOnly -> document.body().html().ifBlank { document.outerHtml() }
                 else -> document.outerHtml()
             }

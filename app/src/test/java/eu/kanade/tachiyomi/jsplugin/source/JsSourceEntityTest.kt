@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test
 class JsSourceEntityTest {
 
     @Test
+    fun `normalizePluginDescription preserves markdown autolinks`() {
+        val input = "Read more at <https://example.com/novel>"
+
+        assertEquals(input, JsSource.normalizePluginDescription(input))
+    }
+
+    @Test
+    fun `normalizePluginDescription converts actual HTML to plain text`() {
+        val input = "<p>Hello &amp; welcome</p><div>to <b>Tsundoku</b></div>"
+
+        assertEquals("Hello & welcome\n\nto Tsundoku", JsSource.normalizePluginDescription(input))
+    }
+
+    @Test
     fun `plugin paths keep their original shape and repair legacy absolute urls`() {
         assertEquals("/works/123", JsSource.normalizePluginPath("/works/123"))
         assertEquals("works/123", JsSource.normalizePluginPath("works/123"))

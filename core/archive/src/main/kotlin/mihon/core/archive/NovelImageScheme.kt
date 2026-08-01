@@ -7,3 +7,6 @@ package mihon.core.archive
  * WebView/text-view image loaders), so they can't drift on the literal.
  */
 const val NOVEL_IMAGE_SCHEME = "tsundoku-novel-image://"
+
+/** Internal EPUB chapter link handled by the native reader instead of Chromium. */
+const val NOVEL_EPUB_CHAPTER_SCHEME = "tsundoku-epub://chapter/"

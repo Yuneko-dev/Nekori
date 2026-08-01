@@ -69,6 +69,18 @@ class NovelWebViewDocumentBuilderTest {
     }
 
     @Test
+    fun `extractBodyOrFallback keeps embedded styles from document head`() {
+        val html = "<html><head><style>.chapter { color: red; }</style></head>" +
+            "<body><p class=\"chapter\">Content</p></body></html>"
+
+        val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(html)
+
+        assertTrue(result.contains(".chapter { color: red; }"))
+        assertTrue(result.contains("<p class=\"chapter\">Content</p>"))
+        assertFalse(result.contains("<head>"))
+    }
+
+    @Test
     fun `extractBodyOrFallback returns input unchanged when html is a fragment`() {
         val fragment = "<p>Just a paragraph</p>"
         val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(fragment)

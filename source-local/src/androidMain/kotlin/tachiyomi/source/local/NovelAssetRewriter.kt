@@ -1,5 +1,6 @@
 package tachiyomi.source.local
 
+import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
 import mihon.core.archive.NOVEL_IMAGE_SCHEME
 
 internal object NovelAssetRewriter {
@@ -27,6 +28,10 @@ internal object NovelAssetRewriter {
         RegexOption.IGNORE_CASE,
     )
     private val MD_IMAGE_REGEX = Regex("""(!\[[^\]]*]\()([^)\s]+)""")
+    private val ANCHOR_TAG_REGEX = Regex(
+        "<a\\b(?:\"[^\"]*\"|'[^']*'|[^>])*>",
+        RegexOption.IGNORE_CASE,
+    )
     private val ABSOLUTE_SCHEME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:|^//")
 
     fun rewrite(content: String, ext: String, toScheme: (String) -> String?): String {
@@ -35,6 +40,36 @@ internal object NovelAssetRewriter {
             "md", "markdown" -> rewriteHtml(rewriteMarkdownImages(content, toScheme), toScheme)
             else -> content
         }
+    }
+
+    fun rewriteEpubChapterLinks(content: String, currentHref: String): String {
+        val currentPath = decodePath(currentHref.substringBefore('#')).replace('\\', '/')
+        val baseDir = currentPath.substringBeforeLast('/', "")
+        return ANCHOR_TAG_REGEX.replace(content) { tag ->
+            URL_ATTR_REGEX.replace(tag.value) { attr ->
+                if (!attr.groupValues[1].equals("href", ignoreCase = true)) return@replace attr.value
+                val quote = attr.groupValues[3]
+                val rawHref = if (quote.isNotEmpty()) attr.groupValues[4] else attr.groupValues[5]
+                val target = resolveEpubChapterHref(baseDir, currentPath, rawHref) ?: return@replace attr.value
+                val encoded = java.net.URLEncoder.encode(target, "UTF-8")
+                "${attr.groupValues[1]}${attr.groupValues[2]}$quote$NOVEL_EPUB_CHAPTER_SCHEME$encoded$quote"
+            }
+        }
+    }
+
+    private fun resolveEpubChapterHref(baseDir: String, currentPath: String, rawHref: String): String? {
+        val href = decodePath(rawHref.trim()).replace('\\', '/')
+        if (href.isBlank() || href.startsWith("//") || ABSOLUTE_SCHEME_REGEX.containsMatchIn(href)) return null
+
+        val fragment = href.substringAfter('#', "").takeIf { '#' in href }
+        val rawPath = href.substringBefore('#').substringBefore('?')
+        val resolvedPath = if (rawPath.isBlank()) {
+            currentPath
+        } else {
+            resolveArchivePath(if (rawPath.startsWith('/')) "" else baseDir, rawPath.removePrefix("/"))
+                ?: return null
+        }
+        return if (fragment != null) "$resolvedPath#$fragment" else resolvedPath
     }
 
     private fun rewriteHtml(content: String, toScheme: (String) -> String?): String {

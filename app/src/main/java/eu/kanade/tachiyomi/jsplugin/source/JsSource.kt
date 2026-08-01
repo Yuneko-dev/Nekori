@@ -124,6 +124,13 @@ class JsSource(
                 fixDoubleEncodedEntities(raw)
             }
 
+        /** Keep LNReader Markdown intact while converting summaries that are actually HTML. */
+        internal fun normalizePluginDescription(raw: String?): String? = raw
+            ?.let { if (looksLikeHtml(it)) normalizeHtmlDescription(it) else it }
+            ?.let(::stripInvalidChars)
+            ?.trim()
+            ?.ifBlank { null }
+
         /** Fixes `&amp;lt;` → `&lt;`, `&amp;nbsp;` → `&nbsp;`, etc. for HTML content. */
         internal fun fixDoubleEncodedEntities(html: String): String {
             if (!html.contains("&amp;")) return html
@@ -958,11 +965,11 @@ class JsSource(
                 title = obj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: existing.title
                 author = obj["author"]?.jsonPrimitive?.content?.decodeEntities() ?: existing.author
                 artist = obj["artist"]?.jsonPrimitive?.content?.decodeEntities()
-                description = normalizeHtmlDescription(
+                description = normalizePluginDescription(
                     obj["summary"]?.jsonPrimitive?.content
                         ?: obj["desc"]?.jsonPrimitive?.content
                         ?: obj["description"]?.jsonPrimitive?.content,
-                )?.let { stripInvalidChars(it) }
+                )
                 genre = obj["genres"]?.jsonPrimitive?.content?.decodeEntities()
                     ?: obj["tags"]?.jsonPrimitive?.content?.decodeEntities()
                     ?: obj["genre"]?.jsonPrimitive?.content?.decodeEntities()

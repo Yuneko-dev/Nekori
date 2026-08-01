@@ -1305,6 +1305,18 @@ class ReaderViewModel @JvmOverloads constructor(
         )
     }
 
+    fun findChapterIdByUrl(url: String): Long? {
+        chapterList.firstOrNull { it.chapter.url == url }?.chapter?.id?.let { return it }
+
+        val bookUrl = url.substringBefore('#')
+        val entryPath = url.substringAfter('#', "").substringBefore('#')
+        if (entryPath.isBlank()) return null
+        return chapterList.firstOrNull { chapter ->
+            chapter.chapter.url.substringBefore('#') == bookUrl &&
+                chapter.chapter.url.substringAfter('#', "").substringBefore('#') == entryPath
+        }?.chapter?.id
+    }
+
     /**
      * Returns the currently active chapter.
      */

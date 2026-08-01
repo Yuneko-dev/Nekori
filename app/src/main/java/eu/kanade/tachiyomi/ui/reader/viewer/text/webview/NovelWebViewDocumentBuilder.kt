@@ -187,12 +187,18 @@ internal object NovelWebViewDocumentBuilder {
 
     internal fun extractBodyOrFallback(html: String): String = try {
         val doc = org.jsoup.Jsoup.parse(html)
+        val embeddedStyles = doc.head()
+            .select("style, link[rel=stylesheet]")
+            .joinToString("\n") { it.outerHtml() }
         val body = doc.body()
-        when {
+        val bodyHtml = when {
             body.hasText() -> body.html()
             body.children().isNotEmpty() -> body.html()
             else -> html
         }
+        listOf(embeddedStyles, bodyHtml)
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
     } catch (_: Exception) {
         html
     }

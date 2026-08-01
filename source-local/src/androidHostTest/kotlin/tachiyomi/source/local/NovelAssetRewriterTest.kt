@@ -1,5 +1,6 @@
 package tachiyomi.source.local
 
+import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -11,6 +12,37 @@ import java.net.URLEncoder
 class NovelAssetRewriterTest {
 
     private fun scheme(path: String) = NovelAssetRewriter.SCHEME + URLEncoder.encode(path, "UTF-8")
+
+    private fun chapterScheme(path: String) = NOVEL_EPUB_CHAPTER_SCHEME + URLEncoder.encode(path, "UTF-8")
+
+    @Test
+    fun `rewrites relative EPUB chapter links against the current entry`() {
+        val html = """<a href="../Text/chapter-2.xhtml#start">Next</a>"""
+
+        val out = NovelAssetRewriter.rewriteEpubChapterLinks(html, "OEBPS/nav/toc.xhtml")
+
+        assertEquals("""<a href="${chapterScheme("OEBPS/Text/chapter-2.xhtml#start")}">Next</a>""", out)
+    }
+
+    @Test
+    fun `rewrites fragment-only EPUB links to the current entry`() {
+        val out = NovelAssetRewriter.rewriteEpubChapterLinks(
+            """<a href="#part-2">Part 2</a>""",
+            "OEBPS/Text/chapter.xhtml#part-1",
+        )
+
+        assertEquals(
+            """<a href="${chapterScheme("OEBPS/Text/chapter.xhtml#part-2")}">Part 2</a>""",
+            out,
+        )
+    }
+
+    @Test
+    fun `leaves external EPUB links untouched`() {
+        val html = """<a href="https://example.com">Web</a><a href="mailto:a@example.com">Mail</a>"""
+
+        assertEquals(html, NovelAssetRewriter.rewriteEpubChapterLinks(html, "OEBPS/Text/chapter.xhtml"))
+    }
 
     @Test
     fun `rewrites relative img src`() {

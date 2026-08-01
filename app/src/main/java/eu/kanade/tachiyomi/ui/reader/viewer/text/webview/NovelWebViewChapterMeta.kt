@@ -2,7 +2,9 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.HtmlUtils
+import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
 import java.net.URI
+import java.net.URLDecoder
 
 internal object NovelWebViewChapterMeta {
 
@@ -123,6 +125,18 @@ internal object NovelWebViewChapterMeta {
         } catch (_: Exception) {
             base
         }
+    }
+
+    fun resolveEpubChapterUrl(currentChapterUrl: String?, navigationUrl: String): String? {
+        if (!navigationUrl.startsWith(NOVEL_EPUB_CHAPTER_SCHEME)) return null
+        val bookUrl = currentChapterUrl?.substringBefore('#')?.takeIf { it.endsWith(".epub", ignoreCase = true) }
+            ?: return null
+        val href = runCatching {
+            URLDecoder.decode(navigationUrl.removePrefix(NOVEL_EPUB_CHAPTER_SCHEME), "UTF-8")
+        }.getOrNull()?.replace('\\', '/')?.takeIf { it.isNotBlank() } ?: return null
+        val path = href.substringBefore('#')
+        if (path.startsWith('/') || path.split('/').any { it == ".." }) return null
+        return "$bookUrl#$href"
     }
 
     fun buildChapterJson(chapter: ReaderChapter?, novelUrl: String?): String {

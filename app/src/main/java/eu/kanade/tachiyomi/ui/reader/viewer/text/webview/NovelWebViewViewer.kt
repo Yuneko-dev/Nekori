@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.ReaderNavigationSource
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
@@ -738,6 +739,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
 
             webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val targetUrl = NovelWebViewChapterMeta.resolveEpubChapterUrl(
+                        currentPage?.chapter?.chapter?.url,
+                        request?.url?.toString().orEmpty(),
+                    ) ?: return false
+                    navigateToEpubChapter(targetUrl)
+                    return true
+                }
+
                 override fun shouldInterceptRequest(
                     view: WebView?,
                     request: WebResourceRequest?,
@@ -1489,7 +1499,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         chapterUrl: String?,
     ) {
         val plainTextMode = processed.isPlainText
-        val escapedContent = quoteForJson(processed.text)
+        val escapedContent = quoteForJson(processed.renderableText())
         val token = ++scrollRestoreToken
 
         val js = """
@@ -1554,7 +1564,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun appendHtmlContent(processed: ProcessedContent, chapterId: Long, chapterName: String, chapterNumber: Float, chapterUrl: String?) {
         val plainTextMode = processed.isPlainText
-        val escapedContent = quoteForJson(processed.text)
+        val escapedContent = quoteForJson(processed.renderableText())
 
         val js = """
             (function() {
@@ -1613,6 +1623,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Appended chapter $chapterId (${loadedChapterIds.size} total)" }
     }
+
+    private fun ProcessedContent.renderableText(): String =
+        if (isPlainText) text else NovelWebViewDocumentBuilder.extractBodyOrFallback(text)
 
     private suspend fun loadHtmlContent(
         processed: ProcessedContent,
@@ -1778,6 +1791,26 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun toAbsoluteChapterUrl(chapterPath: String?): String =
         NovelWebViewChapterMeta.toAbsoluteChapterUrl(chapterPath, activity.viewModel.manga?.url)
+
+    private fun navigateToEpubChapter(targetUrl: String) {
+        val targetChapterId = activity.viewModel.findChapterIdByUrl(targetUrl) ?: run {
+            logcat(LogPriority.WARN) { "EPUB link target is not present in the chapter list: $targetUrl" }
+            return
+        }
+        val request = activity.viewModel.beginChapterNavigation(ReaderNavigationSource.USER) ?: return
+        scope.launch {
+            try {
+                stopAutoScroll()
+                stopTts()
+                flushProgress()
+                if (activity.viewModel.loadChapterById(targetChapterId, request)) {
+                    scrollToLoadedChapter(targetChapterId)
+                }
+            } finally {
+                activity.viewModel.finishChapterNavigation(request)
+            }
+        }
+    }
 
     private fun buildTsundokuScript(): String {
         val readerChromeVisible = activity.isReaderChromeVisible()
