@@ -561,19 +561,13 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
     if (effectiveNavigationModeNovel != 0 &&
         effectiveNavigationModeNovel != ReaderPreferences.TAPZONE_CENTER_INDEX
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(
-                stringResource(MR.strings.pref_read_with_tapping_inverted),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            SettingsChipRow("") {
-                ReaderPreferences.TappingInvertMode.entries.forEach { entry ->
-                    FilterChip(
-                        selected = entry == novelNavInverted,
-                        onClick = { screenModel.preferences.novelNavInverted.set(entry) },
-                        label = { Text(stringResource(entry.titleRes)) },
-                    )
-                }
+        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
+            ReaderPreferences.TappingInvertMode.entries.forEach { entry ->
+                FilterChip(
+                    selected = entry == novelNavInverted,
+                    onClick = { screenModel.preferences.novelNavInverted.set(entry) },
+                    label = { Text(stringResource(entry.titleRes)) },
+                )
             }
         }
     }
@@ -606,37 +600,34 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
         stringResource(TDMR.strings.novel_vertical_scrollbar_left) to "vertical_left",
         stringResource(TDMR.strings.novel_vertical_scrollbar_right) to "vertical_right",
     )
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(stringResource(TDMR.strings.pref_novel_scrollbar_mode), style = MaterialTheme.typography.bodyMedium)
-        SettingsChipRow("") {
-            scrollbarModeOptions.forEach { (label, value) ->
-                FilterChip(
-                    selected = scrollbarMode == value,
-                    onClick = {
-                        when (value) {
-                            "none" -> {
-                                screenModel.preferences.novelShowProgressSlider.set(false)
-                                screenModel.preferences.novelVerticalScrollbar.set(false)
-                            }
-                            "horizontal" -> {
-                                screenModel.preferences.novelShowProgressSlider.set(true)
-                                screenModel.preferences.novelVerticalScrollbar.set(false)
-                            }
-                            "vertical_left" -> {
-                                screenModel.preferences.novelShowProgressSlider.set(true)
-                                screenModel.preferences.novelVerticalScrollbarPosition.set("left")
-                                screenModel.preferences.novelVerticalScrollbar.set(true)
-                            }
-                            "vertical_right" -> {
-                                screenModel.preferences.novelShowProgressSlider.set(true)
-                                screenModel.preferences.novelVerticalScrollbarPosition.set("right")
-                                screenModel.preferences.novelVerticalScrollbar.set(true)
-                            }
+    SettingsChipRow(TDMR.strings.pref_novel_scrollbar_mode) {
+        scrollbarModeOptions.forEach { (label, value) ->
+            FilterChip(
+                selected = scrollbarMode == value,
+                onClick = {
+                    when (value) {
+                        "none" -> {
+                            screenModel.preferences.novelShowProgressSlider.set(false)
+                            screenModel.preferences.novelVerticalScrollbar.set(false)
                         }
-                    },
-                    label = { Text(label) },
-                )
-            }
+                        "horizontal" -> {
+                            screenModel.preferences.novelShowProgressSlider.set(true)
+                            screenModel.preferences.novelVerticalScrollbar.set(false)
+                        }
+                        "vertical_left" -> {
+                            screenModel.preferences.novelShowProgressSlider.set(true)
+                            screenModel.preferences.novelVerticalScrollbarPosition.set("left")
+                            screenModel.preferences.novelVerticalScrollbar.set(true)
+                        }
+                        "vertical_right" -> {
+                            screenModel.preferences.novelShowProgressSlider.set(true)
+                            screenModel.preferences.novelVerticalScrollbarPosition.set("right")
+                            screenModel.preferences.novelVerticalScrollbar.set(true)
+                        }
+                    }
+                },
+                label = { Text(label) },
+            )
         }
     }
 
@@ -667,24 +658,20 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
 
     // Auto-load next chapter at percentage (only relevant when infinite scroll is enabled)
     val autoLoadAt by screenModel.preferences.novelAutoLoadNextChapterAt.collectAsState()
+    val effectiveAutoLoadAt = if (autoLoadAt <= 0) 95 else autoLoadAt.coerceIn(50, 100)
     LaunchedEffect(autoLoadAt) {
-        // Older installs may have persisted 0; treat it as legacy/unset and normalize to default.
-        if (autoLoadAt <= 0) {
-            screenModel.preferences.novelAutoLoadNextChapterAt.set(95)
+        if (autoLoadAt != effectiveAutoLoadAt) {
+            screenModel.preferences.novelAutoLoadNextChapterAt.set(effectiveAutoLoadAt)
         }
     }
     if (infiniteScrollEnabled) {
-        val effectiveAutoLoadAt = if (autoLoadAt > 0) autoLoadAt else 95
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(stringResource(TDMR.strings.pref_novel_auto_load_next_at), style = MaterialTheme.typography.bodyMedium)
-            SliderItem(
-                label = "",
-                value = effectiveAutoLoadAt,
-                valueRange = 1..99,
-                valueString = "$effectiveAutoLoadAt%",
-                onChange = { screenModel.preferences.novelAutoLoadNextChapterAt.set(it) },
-            )
-        }
+        SliderItem(
+            label = stringResource(TDMR.strings.pref_novel_auto_load_next_at),
+            value = effectiveAutoLoadAt,
+            valueRange = 50..100,
+            valueString = "$effectiveAutoLoadAt%",
+            onChange = { screenModel.preferences.novelAutoLoadNextChapterAt.set(it) },
+        )
     }
 
     // Status Bar
