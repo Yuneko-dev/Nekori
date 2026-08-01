@@ -26,6 +26,11 @@ class TranslationCachePolicyTest {
     }
 
     @Test
+    fun `force retranslate bypasses an existing cache entry`() {
+        assertFalse(TranslationCachePolicy.shouldServeCached(cached(), forceRetranslate = true))
+    }
+
+    @Test
     fun `cached translations served regardless of source hash drift`() {
         // The policy intentionally ignores hash compatibility — once a chapter has been
         // translated, opening or re-opening it must NOT hit the translation API. Even if

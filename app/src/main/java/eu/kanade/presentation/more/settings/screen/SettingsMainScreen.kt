@@ -201,6 +201,12 @@ object SettingsMainScreen : Screen() {
             screen = SettingsNovelDownloadScreen,
         ),
         Item(
+            titleRes = TDMR.strings.pref_category_ai,
+            subtitleRes = TDMR.strings.pref_ai_summary,
+            icon = AiIcon,
+            screen = SettingsAiScreen,
+        ),
+        Item(
             titleRes = TDMR.strings.pref_category_translation,
             subtitleRes = TDMR.strings.pref_translation_enabled_summary,
             icon = Icons.Outlined.Translate,

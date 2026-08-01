@@ -5,6 +5,7 @@ package eu.kanade.tachiyomi.ui.library
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
@@ -85,6 +86,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
+import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.isLocalNovel
@@ -113,11 +115,13 @@ class LibraryScreenModel(
     private val downloadCache: DownloadCache = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get(),
+    private val translationPreferences: TranslationPreferences = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val type: LibraryType = LibraryType.All,
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
     val snackbarHostState: SnackbarHostState = SnackbarHostState()
+    val isTranslationEnabled by translationPreferences.translationEnabled().asState(screenModelScope)
 
     private val itemCache = HashMap<Long, LibraryItem>()
     private val itemCacheMangaRef = HashMap<Long, LibraryManga>()
@@ -936,6 +940,7 @@ class LibraryScreenModel(
      * Only processes chapters that haven't been translated yet.
      */
     fun translateSelectedNovels() {
+        if (!translationPreferences.translationEnabled().get()) return
         val translationService: TranslationService = Injekt.get()
         val mangas = state.value.selectedManga.filter { manga ->
             manga.isNovel

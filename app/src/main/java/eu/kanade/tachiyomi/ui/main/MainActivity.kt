@@ -534,7 +534,17 @@ class MainActivity : BaseActivity() {
             }
             Intent.ACTION_APPLICATION_PREFERENCES -> {
                 navigator.popUntilRoot()
-                navigator.push(SettingsScreen())
+                val destination = intent.getIntExtra(EXTRA_SETTINGS_DESTINATION, -1)
+                navigator.push(
+                    if (destination == SettingsScreen.Destination.Translation.id) {
+                        SettingsScreen(
+                            SettingsScreen.Destination.Translation,
+                            finishActivityOnExit = intent.getBooleanExtra(EXTRA_FINISH_SETTINGS_ON_EXIT, false),
+                        )
+                    } else {
+                        SettingsScreen()
+                    },
+                )
                 null
             }
             Intent.ACTION_SEARCH, Intent.ACTION_SEND, "com.google.android.gms.actions.SEARCH_ACTION" -> {
@@ -678,6 +688,8 @@ class MainActivity : BaseActivity() {
         const val INTENT_SEARCH = "eu.kanade.tachiyomi.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
+        const val EXTRA_SETTINGS_DESTINATION = "settings_destination"
+        const val EXTRA_FINISH_SETTINGS_ON_EXIT = "finish_settings_on_exit"
     }
 }
 

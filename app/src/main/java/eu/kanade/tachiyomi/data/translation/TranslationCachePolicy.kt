@@ -8,7 +8,7 @@ import tachiyomi.domain.translation.model.TranslatedChapter
  *
  * Contract: once a chapter has any cached translation for a target language, neither the
  * auto-enqueue path nor the inline translate path may hit the translation API. Re-translation
- * is only allowed via the explicit `forceRetranslate=true` flow on [TranslationService.enqueue].
+ * is only allowed via an explicit `forceRetranslate=true` request.
  */
 object TranslationCachePolicy {
 
@@ -16,7 +16,8 @@ object TranslationCachePolicy {
      * @return true when the inline [TranslationService.translateChapterContent] call must
      * return the cached translation instead of calling the API.
      */
-    fun shouldServeCached(cached: TranslatedChapter?): Boolean = cached != null
+    fun shouldServeCached(cached: TranslatedChapter?, forceRetranslate: Boolean = false): Boolean =
+        cached != null && !forceRetranslate
 
     /**
      * @return true when the reader's auto-enqueue path should skip enqueuing a translation

@@ -1,6 +1,11 @@
 package eu.kanade.presentation.reader.appbars
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -57,6 +62,7 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +77,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -90,6 +97,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.ui.reader.NovelFindInPageState
+import eu.kanade.tachiyomi.ui.reader.TranslationUiStatus
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -153,6 +161,9 @@ fun NovelReaderAppBars(
     isAutoScrolling: Boolean,
     onToggleAutoScroll: () -> Unit,
     isTranslating: Boolean,
+    translationMasterEnabled: Boolean,
+    translationStatus: TranslationUiStatus,
+    translationProgress: Float,
     onToggleTranslation: () -> Unit,
     onLongPressTranslation: () -> Unit,
     onRetranslate: (() -> Unit)? = null,
@@ -332,6 +343,9 @@ fun NovelReaderAppBars(
                         isAutoScrolling = isAutoScrolling,
                         onToggleAutoScroll = onToggleAutoScroll,
                         isTranslating = isTranslating,
+                        translationMasterEnabled = translationMasterEnabled,
+                        translationStatus = translationStatus,
+                        translationProgress = translationProgress,
                         onToggleTranslation = onToggleTranslation,
                         onLongPressTranslation = onLongPressTranslation,
                         isTtsActive = isTtsActive,
@@ -575,6 +589,9 @@ private fun NovelReaderBottomBar(
     isAutoScrolling: Boolean,
     onToggleAutoScroll: () -> Unit,
     isTranslating: Boolean,
+    translationMasterEnabled: Boolean,
+    translationStatus: TranslationUiStatus,
+    translationProgress: Float,
     onToggleTranslation: () -> Unit,
     onLongPressTranslation: () -> Unit,
     isTtsActive: Boolean,
@@ -588,9 +605,12 @@ private fun NovelReaderBottomBar(
     onQuotes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val enabledItems = remember(items, isWebView, ttsEnabled) {
+    val enabledItems = remember(items, isWebView, ttsEnabled, translationMasterEnabled) {
         items.filter {
-            it.enabled && it.item.isAvailable(ttsEnabled) && (isWebView || it.item != BottomBarItem.EDIT)
+            it.enabled &&
+                it.item.isAvailable(ttsEnabled) &&
+                (isWebView || it.item != BottomBarItem.EDIT) &&
+                (translationMasterEnabled || it.item != BottomBarItem.TRANSLATE)
         }
     }
 
@@ -680,6 +700,33 @@ private fun NovelReaderBottomBar(
                                 },
                                 modifier = Modifier.size(iconSize),
                             )
+                            if (translationStatus == TranslationUiStatus.TRANSLATED) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.align(Alignment.BottomEnd).size(11.dp),
+                                )
+                            }
+                            if (translationStatus == TranslationUiStatus.LOADING) {
+                                val rotation by rememberInfiniteTransition(label = "translation-progress").animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 360f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(durationMillis = 6_000, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Restart,
+                                    ),
+                                    label = "translation-progress-rotation",
+                                )
+                                CircularProgressIndicator(
+                                    progress = { translationProgress.coerceIn(0.02f, 0.99f) },
+                                    modifier = Modifier
+                                        .size(iconSize + 8.dp)
+                                        .rotate(rotation),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
                         }
                     }
 

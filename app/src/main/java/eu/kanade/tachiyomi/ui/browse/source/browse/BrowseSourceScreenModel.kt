@@ -23,6 +23,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import eu.kanade.tachiyomi.data.translation.PendingTitleTranslations
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -63,6 +64,7 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.source.local.LocalNovelSource
@@ -722,18 +724,27 @@ class BrowseSourceScreenModel(
 
     // Translation
     private var translationJob: kotlinx.coroutines.Job? = null
+    private val pendingTranslationIds = PendingTitleTranslations()
+    private val translationChannel = Channel<Manga>(Channel.BUFFERED)
+
+    init {
+        screenModelScope.launch {
+            translationPreferences.translationEnabled().changes().collect { enabled ->
+                if (!enabled && state.value.translateTitles) stopTitleTranslation()
+            }
+        }
+    }
 
     fun toggleTranslateTitles() {
+        if (!translationPreferences.translationEnabled().get()) return
         val newState = !state.value.translateTitles
         logcat(LogPriority.DEBUG) { "toggleTranslateTitles: $newState" }
         mutableState.update { it.copy(translateTitles = newState) }
 
         if (newState) {
-            // Start translating titles when enabled
             translateCurrentTitles()
         } else {
-            // Cancel any ongoing translation
-            translationJob?.cancel()
+            stopTitleTranslation()
         }
     }
 
@@ -747,99 +758,87 @@ class BrowseSourceScreenModel(
         translationJob?.cancel()
         translationJob = screenModelScope.launchIO {
             try {
-                val engine = translationEngineManager.getSelectedEngine()
+                val engine = translationEngineManager.getEngine()
+                    ?: error("Translation engine is not configured")
                 val targetLang = translationPreferences.targetLanguage().get()
                 logcat { "Translation enabled: engine=${engine.name}, target=$targetLang" }
 
                 // Clear stale translations so items get re-translated with current settings
-                mutableState.update { it.copy(translatedTitles = emptyMap()) }
+                mutableState.update { it.copy(translatedTitles = emptyMap(), translationError = null) }
+                runTitleTranslationWorker()
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 logcat(LogPriority.ERROR) { "Failed to initialize translation: ${e.message}" }
-                // Disable translate titles if engine init fails
-                mutableState.update { it.copy(translateTitles = false) }
+                pendingTranslationIds.clear()
+                mutableState.update {
+                    it.copy(translateTitles = false, translatingTitles = false, translationError = e.message)
+                }
             }
         }
     }
 
-    private val translationChannel = Channel<Manga>(Channel.UNLIMITED)
+    private suspend fun runTitleTranslationWorker() {
+        while (state.value.translateTitles) {
+            val batch = mutableListOf(translationChannel.receive())
+            delay(500)
+            while (batch.size < 10) {
+                batch += translationChannel.tryReceive().getOrNull() ?: break
+            }
+            if (!state.value.translateTitles) continue
 
-    init {
-        screenModelScope.launchIO {
-            while (isActive) {
-                val batch = mutableListOf<Manga>()
-                try {
-                    // Wait for first item
-                    val first = translationChannel.receive()
-                    batch.add(first)
+            val engine = translationEngineManager.getSelectedEngine()
+            val toTranslate = batch.filterNot { state.value.translatedTitles.containsKey(it.id) }.distinctBy { it.id }
+            if (toTranslate.isEmpty()) continue
 
-                    // Wait a bit to collect more items for the batch
-                    delay(500)
-
-                    // Drain channel up to batch size
-                    while (batch.size < 10) {
-                        val next = translationChannel.tryReceive().getOrNull()
-                        if (next != null) {
-                            batch.add(next)
-                        } else {
-                            break
-                        }
-                    }
-
-                    if (!state.value.translateTitles) continue
-
-                    try {
-                        val engine = translationEngineManager.getSelectedEngine()
-                        val targetLang = translationPreferences.targetLanguage().get()
-                        val sourceLang = translationPreferences.sourceLanguage().get()
-
-                        // Filter out already translated titles
-                        val toTranslate = batch.filter { manga ->
-                            !state.value.translatedTitles.containsKey(manga.id)
-                        }.distinctBy { it.id }
-
-                        if (toTranslate.isNotEmpty()) {
-                            val titles = toTranslate.map { it.title }
-                            val result = engine.translate(titles, sourceLang, targetLang)
-
-                            when (result) {
-                                is TranslationResult.Success -> {
-                                    val newTranslations = toTranslate.mapIndexed { index, manga ->
-                                        manga.id to result.translatedTexts.getOrNull(index).orEmpty()
-                                    }.toMap()
-
-                                    mutableState.update { state ->
-                                        state.copy(
-                                            translatedTitles = state.translatedTitles + newTranslations,
-                                        )
-                                    }
-                                }
-                                is TranslationResult.Error -> {
-                                    logcat(LogPriority.ERROR) { "Translation failed: ${result.message}" }
-                                }
-                            }
-
-                            // Rate limiting delay
-                            if (engine.isRateLimited) {
-                                delay(translationPreferences.rateLimitDelayMs().get().toLong())
-                            }
-                        }
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR) { "Failed to translate titles: ${e.message}" }
-                    }
-                } catch (e: Exception) {
-                    // Ignore channel closed or other errors
+            mutableState.update { it.copy(translatingTitles = true) }
+            val result = translationEngineManager.translate(
+                TranslationRequest(
+                    texts = toTranslate.map { it.title },
+                    sourceLanguage = translationPreferences.sourceLanguage().get(),
+                    targetLanguage = translationPreferences.targetLanguage().get(),
+                ),
+            )
+            when (result) {
+                is TranslationResult.Success -> {
+                    val translated = toTranslate.mapIndexedNotNull { index, manga ->
+                        result.translatedTexts.getOrNull(index)?.trim()
+                            ?.takeIf { it.isNotEmpty() && it != manga.title }
+                            ?.let { manga.id to it }
+                    }.toMap()
+                    mutableState.update { it.copy(translatedTitles = it.translatedTitles + translated) }
                 }
+                is TranslationResult.Error -> error(result.message)
+            }
+            pendingTranslationIds.complete(toTranslate.map { it.id })
+            mutableState.update { it.copy(translatingTitles = false) }
+            if (engine.isRateLimited) {
+                delay(translationPreferences.rateLimitDelayMs().get().toLong())
             }
         }
+    }
+
+    private fun stopTitleTranslation() {
+        translationJob?.cancel()
+        translationJob = null
+        while (translationChannel.tryReceive().isSuccess) {
+            // Drain queued items so enabling again starts from the visible list.
+        }
+        pendingTranslationIds.clear()
+        mutableState.update { it.copy(translateTitles = false, translatingTitles = false) }
+    }
+
+    fun clearTranslationError() {
+        mutableState.update { it.copy(translationError = null) }
     }
 
     /**
      * Translate a single manga title
      */
     fun translateManga(manga: Manga) {
-        if (!state.value.translateTitles) return
+        if (!state.value.translateTitles || !translationPreferences.translationEnabled().get()) return
         if (state.value.translatedTitles.containsKey(manga.id)) return
-        translationChannel.trySend(manga)
+        if (!pendingTranslationIds.add(manga.id)) return
+        if (translationChannel.trySend(manga).isFailure) pendingTranslationIds.complete(listOf(manga.id))
     }
 
     /**
@@ -984,6 +983,8 @@ class BrowseSourceScreenModel(
         val selection: Set<Manga> = emptySet(),
         val translateTitles: Boolean = false,
         val translatedTitles: Map<Long, String> = emptyMap(),
+        val translatingTitles: Boolean = false,
+        val translationError: String? = null,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }

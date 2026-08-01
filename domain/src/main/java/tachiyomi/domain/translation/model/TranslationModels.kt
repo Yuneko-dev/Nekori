@@ -45,7 +45,6 @@ data class TranslationTask(
     val mangaTitle: String = "",
     val sourceLanguage: String,
     val targetLanguage: String,
-    val engineId: Long,
     val priority: Int = 0, // Higher = more priority (manually read chapters get higher priority)
     val status: TranslationStatus = TranslationStatus.QUEUED,
     val errorMessage: String? = null,

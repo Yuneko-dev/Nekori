@@ -1,21 +1,29 @@
-@file:Suppress("ktlint:standard:max-line-length")
-
 package eu.kanade.presentation.more.settings.screen
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
-import kotlinx.coroutines.launch
-import tachiyomi.domain.translation.model.TranslationResult
+import eu.kanade.tachiyomi.data.translation.TranslationService
+import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -25,16 +33,17 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 object SettingsTranslationScreen : SearchableSettings {
-
-    override val supportsReset: Boolean get() = true
+    override val supportsReset = true
 
     @Composable
     override fun getAdditionalResetPreferences(): List<tachiyomi.core.common.preference.Preference<*>> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
         return listOf(
+            prefs.requestRetryCount(),
             prefs.rateLimitDelayMs(),
             prefs.translationTimeoutMs(),
             prefs.maxParallelTranslations(),
+            prefs.selectedEngineId(),
         )
     }
 
@@ -44,14 +53,33 @@ object SettingsTranslationScreen : SearchableSettings {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val translationPreferences = remember { Injekt.get<TranslationPreferences>() }
-        val engineManager = remember { Injekt.get<TranslationEngineManager>() }
-        val translationService = remember { Injekt.get<eu.kanade.tachiyomi.data.translation.TranslationService>() }
+        val prefs = remember { Injekt.get<TranslationPreferences>() }
+        val engines = remember { Injekt.get<TranslationEngineManager>() }
+        val ai = remember { Injekt.get<AiSettingsStore>() }
+        val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
+        val enabled by prefs.translationEnabled().collectAsState()
+        if (!enabled) {
+            return listOf(
+                Preference.PreferenceGroup(
+                    title = stringResource(TDMR.strings.pref_translation_general),
+                    preferenceItems = listOf(masterPreference(prefs)),
+                ),
+            )
+        }
 
+        val engineId by prefs.selectedEngineId().collectAsState()
+        val sourceLanguage by prefs.sourceLanguage().collectAsState()
+        val targetLanguage by prefs.targetLanguage().collectAsState()
+        val providersJson by prefs.aiProvidersJson().collectAsState()
+        val promptsJson by prefs.systemPromptsJson().collectAsState()
+        val activeProviderId by prefs.activeAiProviderId().collectAsState()
+        val activePromptId by prefs.activeSystemPromptId().collectAsState()
+        val providers = remember(providersJson) { ai.providers() }
+        val prompts = remember(promptsJson) { ai.prompts() }
         val progress by translationService.progressState.collectAsState()
         val isPaused by translationService.isPaused.collectAsState()
-        val queueStatusText = when {
+        val queueStatus = when {
             progress.isCancelling -> stringResource(MR.strings.pref_translation_status_cancelling)
             progress.isRunning && isPaused -> stringResource(
                 MR.strings.pref_translation_status_paused,
@@ -67,500 +95,274 @@ object SettingsTranslationScreen : SearchableSettings {
             )
             else -> stringResource(MR.strings.pref_translation_status_idle)
         }
-
-        return listOf(
-            getGeneralGroup(translationPreferences, engineManager),
-            Preference.PreferenceGroup(
-                title = stringResource(MR.strings.pref_translation_queue),
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.TextPreference(
-                        title = stringResource(MR.strings.pref_translation_queue),
-                        subtitle = queueStatusText,
-                        onClick = {
-                            navigator.push(eu.kanade.tachiyomi.ui.download.DownloadQueueScreen(initialTab = 1))
-                        },
-                    ),
+        val selectedEngine = engines.engines.firstOrNull { it.id.key == engineId } ?: engines.engines.first()
+        val languageEntries = selectedEngine.supportedLanguages.toMap()
+        val groups = mutableListOf<Preference>()
+        groups += Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_translation_general),
+            preferenceItems = listOf(masterPreference(prefs)),
+        )
+        groups += Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_translation_engine),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(TDMR.strings.pref_translation_engine),
+                    content = {
+                        SettingsDropdownField(
+                            label = stringResource(TDMR.strings.pref_translation_engine),
+                            value = selectedEngine,
+                            values = engines.engines,
+                            valueLabel = { it.name },
+                            onSelected = { prefs.selectedEngineId().set(it.id.key) },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    },
                 ),
             ),
-            getRateLimitGroup(translationPreferences),
-        ) + getEngineConfigGroups(translationPreferences, engineManager)
-    }
-
-    @Composable
-    private fun getGeneralGroup(
-        prefs: TranslationPreferences,
-        engineManager: TranslationEngineManager,
-    ): Preference.PreferenceGroup {
-        val enabled by prefs.translationEnabled().collectAsState()
-        val selectedEngineId by prefs.selectedEngineId().collectAsState()
-        val sourceLanguage by prefs.sourceLanguage().collectAsState()
-        val targetLanguage by prefs.targetLanguage().collectAsState()
-        val chunkSize by prefs.translationChunkSize().collectAsState()
-        val anchoringEnabled by prefs.contextualAnchoringEnabled().collectAsState()
-        val anchoringParagraphs by prefs.contextualAnchoringParagraphs().collectAsState()
-
-        val engines = engineManager.engines
-        val engineEntries = engines.associate { it.id.toString() to it.name }.toMap()
-
-        val selectedEngine = engines.find { it.id == selectedEngineId } ?: engines.first()
-        val languageEntries = selectedEngine.supportedLanguages.associate { it.first to it.second }.toMap()
-
-        return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_general),
+        )
+        groups += Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_translation_languages),
             preferenceItems = listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.translationEnabled(),
-                    title = stringResource(TDMR.strings.pref_translation_enabled),
-                    subtitle = stringResource(TDMR.strings.pref_translation_enabled_summary),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = prefs.selectedEngineId(),
-                    title = stringResource(TDMR.strings.pref_translation_engine),
-                    subtitle =
-                    selectedEngine.name +
-                        if (selectedEngine.isOffline) {
-                            stringResource(
-                                MR.strings.pref_translation_offline_suffix,
-                            )
-                        } else {
-                            ""
-                        },
-                    entries = engineEntries.mapKeys { it.key.toLong() }.toMap(),
-                    enabled = enabled,
-                ),
                 Preference.PreferenceItem.BasicListPreference(
                     value = sourceLanguage,
-                    title = stringResource(TDMR.strings.pref_translation_source_language),
-                    subtitle = languageEntries[sourceLanguage] ?: sourceLanguage,
                     entries = languageEntries,
-                    onValueChanged = { newValue ->
-                        prefs.sourceLanguage().set(newValue)
-                        true
-                    },
-                    enabled = enabled,
+                    title = stringResource(TDMR.strings.pref_translation_source_language),
+                    onValueChanged = prefs.sourceLanguage()::set,
                 ),
                 Preference.PreferenceItem.BasicListPreference(
                     value = targetLanguage,
+                    entries = languageEntries.filterKeys { it != "auto" },
                     title = stringResource(TDMR.strings.pref_translation_target_language),
-                    subtitle = languageEntries[targetLanguage] ?: targetLanguage,
-                    entries = languageEntries.filterKeys { it != "auto" }.toMap(),
-                    onValueChanged = { newValue ->
-                        prefs.targetLanguage().set(newValue)
-                        true
-                    },
-                    enabled = enabled,
+                    onValueChanged = prefs.targetLanguage()::set,
                 ),
+            ),
+        )
+        engineConfiguration(engineId, prefs, providers, prompts, activeProviderId, activePromptId, ai) {
+            navigator.push(SettingsAiScreen)
+        }?.let(groups::add)
+        groups += behaviorGroup(prefs)
+        groups += Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_translation_queue),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_translation_queue),
+                    subtitle = queueStatus,
+                    onClick = { navigator.push(DownloadQueueScreen(initialTab = 1)) },
+                ),
+            ),
+        )
+        groups += rateLimitGroup(prefs)
+        return groups
+    }
+
+    @Composable
+    private fun masterPreference(prefs: TranslationPreferences) = Preference.PreferenceItem.SwitchPreference(
+        preference = prefs.translationEnabled(),
+        title = stringResource(TDMR.strings.pref_translation_enabled),
+        subtitle = stringResource(TDMR.strings.pref_translation_enabled_summary),
+    )
+
+    @Composable
+    private fun engineConfiguration(
+        engineKey: String,
+        prefs: TranslationPreferences,
+        providers: List<tachiyomi.domain.translation.model.AIProvider>,
+        prompts: List<tachiyomi.domain.translation.model.SystemPrompt>,
+        activeProviderId: String,
+        activePromptId: String,
+        ai: AiSettingsStore,
+        openAiSettings: () -> Unit,
+    ): Preference.PreferenceGroup? {
+        val engine = TranslationEngineId.fromKey(engineKey)
+        val items = when (engine) {
+            TranslationEngineId.LLM -> listOf(
+                if (providers.isEmpty()) {
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(TDMR.strings.pref_ai_active_provider),
+                        subtitle = stringResource(TDMR.strings.pref_ai_no_active_provider),
+                        onClick = openAiSettings,
+                    )
+                } else {
+                    Preference.PreferenceItem.BasicListPreference(
+                        value = activeProviderId,
+                        entries = providers.associate { it.id to it.alias },
+                        title = stringResource(TDMR.strings.pref_ai_active_provider),
+                        onValueChanged = ai::setActiveProvider,
+                    )
+                },
+                Preference.PreferenceItem.BasicListPreference(
+                    value = activePromptId,
+                    entries = prompts.associate { it.id to it.name },
+                    title = stringResource(TDMR.strings.pref_ai_active_prompt),
+                    onValueChanged = ai::setActivePrompt,
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.structuredOutput(),
+                    title = stringResource(TDMR.strings.pref_translation_structured_output),
+                    subtitle = stringResource(TDMR.strings.pref_translation_structured_output_summary),
+                ),
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(TDMR.strings.pref_category_ai),
+                    content = {
+                        OutlinedButton(
+                            onClick = openAiSettings,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        ) {
+                            Icon(Icons.Outlined.Settings, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text(stringResource(TDMR.strings.pref_category_ai))
+                        }
+                    },
+                ),
+            )
+            TranslationEngineId.LIBRE -> listOf(
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = prefs.libreTranslateUrl(),
+                    title = stringResource(TDMR.strings.pref_translation_libretranslate_url),
+                ),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = prefs.libreTranslateApiKey(),
+                    title = stringResource(MR.strings.pref_translation_api_key),
+                ),
+            )
+            TranslationEngineId.DEEPL -> listOf(
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = prefs.deepLApiKey(),
+                    title = stringResource(MR.strings.pref_translation_api_key),
+                ),
+            )
+            TranslationEngineId.GOOGLE_CLOUD -> listOf(
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = prefs.googleApiKey(),
+                    title = stringResource(MR.strings.pref_translation_api_key),
+                ),
+            )
+            TranslationEngineId.GOOGLE_FREE -> emptyList()
+        }
+        if (items.isEmpty()) return null
+        return Preference.PreferenceGroup(
+            title = stringResource(
+                if (engine == TranslationEngineId.LLM) {
+                    TDMR.strings.pref_translation_llm
+                } else {
+                    TDMR.strings.pref_translation_api_keys
+                },
+            ),
+            preferenceItems = items,
+        )
+    }
+
+    @Composable
+    private fun behaviorGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
+        val chunkSize by prefs.translationChunkSize().collectAsState()
+        val anchoringEnabled by prefs.contextualAnchoringEnabled().collectAsState()
+        val anchoringParagraphs by prefs.contextualAnchoringParagraphs().collectAsState()
+        return Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_translation_behavior),
+            preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.autoDownloadBeforeTranslate(),
                     title = stringResource(TDMR.strings.pref_translation_auto_download),
                     subtitle = stringResource(TDMR.strings.pref_translation_auto_download_summary),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.autoTranslateDownloads(),
                     title = stringResource(TDMR.strings.pref_translation_auto_translate),
                     subtitle = stringResource(TDMR.strings.pref_translation_auto_translate_summary),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.replaceTitle(),
                     title = stringResource(MR.strings.pref_translation_replace_title),
                     subtitle = stringResource(MR.strings.pref_translation_replace_title_desc),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.saveTranslatedTitleAsAlternative(),
                     title = stringResource(MR.strings.pref_translation_save_alt_titles),
                     subtitle = stringResource(MR.strings.pref_translation_save_alt_titles_desc),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.translateTags(),
                     title = stringResource(MR.strings.pref_translation_translate_tags),
                     subtitle = stringResource(MR.strings.pref_translation_translate_tags_desc),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.smartAutoTranslate(),
                     title = stringResource(MR.strings.pref_translation_smart_auto),
                     subtitle = stringResource(MR.strings.pref_translation_smart_auto_desc),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = chunkSize,
-                    valueRange = 1..500,
                     title = stringResource(MR.strings.pref_translation_chunk_size),
                     subtitle = stringResource(MR.strings.pref_translation_chunk_paragraphs_rec),
                     valueString = "$chunkSize ${stringResource(MR.strings.pref_translation_chunk_paragraphs)}",
-                    onValueChanged = { prefs.translationChunkSize().set(it) },
+                    valueRange = 1..500,
+                    onValueChanged = prefs.translationChunkSize()::set,
+                    preference = prefs.translationChunkSize(),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.contextualAnchoringEnabled(),
                     title = stringResource(MR.strings.pref_translation_contextual_anchoring),
                     subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_desc),
-                    enabled = enabled,
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = anchoringParagraphs,
-                    valueRange = 1..10,
                     title = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs),
                     subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs_desc),
                     valueString = "$anchoringParagraphs",
-                    onValueChanged = { prefs.contextualAnchoringParagraphs().set(it) },
-                    enabled = anchoringEnabled && enabled,
+                    valueRange = 1..10,
+                    onValueChanged = prefs.contextualAnchoringParagraphs()::set,
+                    preference = prefs.contextualAnchoringParagraphs(),
+                    enabled = anchoringEnabled,
                 ),
             ),
         )
     }
 
     @Composable
-    private fun getRateLimitGroup(
-        prefs: TranslationPreferences,
-    ): Preference.PreferenceGroup {
-        val rateLimitDelay by prefs.rateLimitDelayMs().collectAsState()
+    private fun rateLimitGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
+        val retries by prefs.requestRetryCount().collectAsState()
+        val delay by prefs.rateLimitDelayMs().collectAsState()
+        val timeout by prefs.translationTimeoutMs().collectAsState()
         val maxParallel by prefs.maxParallelTranslations().collectAsState()
-        val timeoutMs by prefs.translationTimeoutMs().collectAsState()
-
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_rate_limit),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SliderPreference(
-                    value = rateLimitDelay,
-                    valueRange = 500..10000,
-                    title = stringResource(TDMR.strings.pref_translation_rate_limit_delay),
-                    subtitle = stringResource(TDMR.strings.pref_translation_rate_limit_delay_summary),
-                    valueString = "${rateLimitDelay}ms",
-                    onValueChanged = { prefs.rateLimitDelayMs().set(it) },
+                    value = retries,
+                    title = stringResource(TDMR.strings.pref_translation_retry_count),
+                    valueString = "$retries",
+                    valueRange = 0..5,
+                    onValueChanged = prefs.requestRetryCount()::set,
+                    preference = prefs.requestRetryCount(),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (timeoutMs / 1000).toInt(),
-                    valueRange = 30..300,
+                    value = delay,
+                    title = stringResource(TDMR.strings.pref_translation_rate_limit_delay),
+                    subtitle = stringResource(TDMR.strings.pref_translation_rate_limit_delay_summary),
+                    valueString = "${delay}ms",
+                    valueRange = 500..10_000,
+                    onValueChanged = prefs.rateLimitDelayMs()::set,
+                    preference = prefs.rateLimitDelayMs(),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = (timeout / 1_000).toInt(),
                     title = stringResource(TDMR.strings.pref_translation_timeout),
                     subtitle = stringResource(TDMR.strings.pref_translation_timeout_summary),
-                    valueString = "${timeoutMs / 1000}s",
-                    onValueChanged = { prefs.translationTimeoutMs().set(it.toLong() * 1000) },
+                    valueString = "${timeout / 1_000}s",
+                    valueRange = 30..300,
+                    onValueChanged = { prefs.translationTimeoutMs().set(it * 1_000L) },
+                    preference = prefs.translationTimeoutMs(),
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = maxParallel,
-                    valueRange = 1..10,
                     title = stringResource(TDMR.strings.pref_translation_max_parallel),
                     subtitle = stringResource(TDMR.strings.pref_translation_max_parallel_summary),
                     valueString = "$maxParallel",
-                    onValueChanged = { prefs.maxParallelTranslations().set(it) },
-                ),
-            ),
-        )
-    }
-
-    @Composable
-    private fun getEngineConfigGroups(
-        prefs: TranslationPreferences,
-        engineManager: TranslationEngineManager,
-    ): List<Preference.PreferenceGroup> {
-        val sourceLanguage by prefs.sourceLanguage().collectAsState()
-        val targetLanguage by prefs.targetLanguage().collectAsState()
-        val scope = rememberCoroutineScope()
-
-        // Per-engine test state
-        val testResults = remember { mutableMapOf<Long, String>() }
-        var testingEngineId by remember { mutableStateOf<Long?>(null) }
-
-        // Collect all preference states
-        val openAiKey by prefs.openAiApiKey().collectAsState()
-        val nvidiaNimBaseUrl by prefs.nvidiaNimBaseUrl().collectAsState()
-        val nvidiaNimApiKey by prefs.nvidiaNimApiKey().collectAsState()
-        val nvidiaNimModel by prefs.nvidiaNimModel().collectAsState()
-        val deepSeekKey by prefs.deepSeekApiKey().collectAsState()
-        val systranKey by prefs.systranApiKey().collectAsState()
-        val deepLKey by prefs.deepLApiKey().collectAsState()
-        val googleKey by prefs.googleApiKey().collectAsState()
-        val libreTranslateUrl by prefs.libreTranslateUrl().collectAsState()
-        val libreTranslateKey by prefs.libreTranslateApiKey().collectAsState()
-        val ollamaUrl by prefs.ollamaUrl().collectAsState()
-        val ollamaModel by prefs.ollamaModel().collectAsState()
-        val customHttpUrl by prefs.customHttpUrl().collectAsState()
-        val customHttpApiKey by prefs.customHttpApiKey().collectAsState()
-        val customHttpResponsePath by prefs.customHttpResponsePath().collectAsState()
-        val geminiKey by prefs.geminiApiKey().collectAsState()
-        val geminiModel by prefs.geminiModel().collectAsState()
-
-        // Pre-resolve strings for non-composable testButton function
-        val testEngineFormat = stringResource(MR.strings.pref_translation_test_engine)
-        val testingStr = stringResource(MR.strings.pref_translation_testing)
-        val testSendStr = stringResource(MR.strings.pref_translation_test_send)
-        val testTextStr = stringResource(MR.strings.pref_translation_test_text)
-
-        fun testButton(engine: tachiyomi.domain.translation.model.TranslationEngine): Preference.PreferenceItem.TextPreference {
-            val engineId = engine.id
-            val engineConfigured = engine.isConfigured()
-            return Preference.PreferenceItem.TextPreference(
-                title = testEngineFormat.format(engine.name),
-                subtitle = when {
-                    testingEngineId == engineId -> testingStr
-                    testResults.containsKey(engineId) -> testResults[engineId]!!
-                    !engineConfigured -> "Not configured"
-                    else -> testSendStr
-                },
-                enabled = testingEngineId == null && engineConfigured,
-                onClick = {
-                    if (engineConfigured) {
-                        testingEngineId = engineId
-                        testResults.remove(engineId)
-                        scope.launch {
-                            try {
-                                val result = engine.translate(
-                                    listOf(testTextStr),
-                                    sourceLanguage,
-                                    targetLanguage,
-                                )
-                                testResults[engineId] = when (result) {
-                                    is TranslationResult.Success ->
-                                        "✓ ${result.translatedTexts.joinToString(" | ")}"
-                                    is TranslationResult.Error ->
-                                        "✗ ${result.message}"
-                                }
-                            } catch (e: Exception) {
-                                testResults[engineId] = "✗ ${e.message ?: e.javaClass.simpleName}"
-                            } finally {
-                                testingEngineId = null
-                            }
-                        }
-                    }
-                },
-            )
-        }
-
-        return listOf(
-            // OpenAI
-            Preference.PreferenceGroup(
-                title = "OpenAI",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.openAiApiKey(),
-                        title = stringResource(TDMR.strings.pref_translation_openai_key),
-                        subtitle = if (openAiKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.openAiSystemPrompt(),
-                        title = stringResource(MR.strings.pref_translation_system_prompt),
-                        subtitle = stringResource(MR.strings.pref_translation_system_prompt_desc),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.openAiUserPrompt(),
-                        title = stringResource(MR.strings.pref_translation_user_prompt),
-                        subtitle = stringResource(MR.strings.pref_translation_user_prompt_desc),
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("OpenAI") }),
-                ),
-            ),
-            // NVIDIA NIM
-            Preference.PreferenceGroup(
-                title = "NVIDIA NIM",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.nvidiaNimBaseUrl(),
-                        title = stringResource(MR.strings.pref_translation_api_url),
-                        subtitle = if (nvidiaNimBaseUrl.isNotBlank()) {
-                            nvidiaNimBaseUrl
-                        } else {
-                            stringResource(
-                                TDMR.strings.not_set,
-                            )
-                        },
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.nvidiaNimApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (nvidiaNimApiKey.isNotBlank()) {
-                            "••••••••"
-                        } else {
-                            stringResource(
-                                TDMR.strings.not_set,
-                            )
-                        },
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.nvidiaNimModel(),
-                        title = stringResource(TDMR.strings.pref_translation_ollama_model),
-                        subtitle = nvidiaNimModel.ifBlank { stringResource(TDMR.strings.not_set) },
-                    ),
-                    testButton(engineManager.getEngineById(TranslationEngineManager.ENGINE_NVIDIA_NIM)!!),
-                ),
-            ),
-            // DeepSeek
-            Preference.PreferenceGroup(
-                title = "DeepSeek",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.deepSeekApiKey(),
-                        title = stringResource(TDMR.strings.pref_translation_deepseek_key),
-                        subtitle = if (deepSeekKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("DeepSeek") }),
-                ),
-            ),
-            // DeepL
-            Preference.PreferenceGroup(
-                title = "DeepL",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.deepLApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (deepLKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("DeepL") }),
-                ),
-            ),
-            // SYSTRAN
-            Preference.PreferenceGroup(
-                title = "SYSTRAN",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.systranApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (systranKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("SYSTRAN") }),
-                ),
-            ),
-            // Google Translate (Paid)
-            Preference.PreferenceGroup(
-                title = "Google Translate",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.googleApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (googleKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    testButton(engineManager.engines.first { it.name == "Google Translate" }),
-                ),
-            ),
-            // Google Translate Free (Scraper)
-            Preference.PreferenceGroup(
-                title = "Google Translate (Free)",
-                preferenceItems = listOf(
-                    testButton(engineManager.engines.first { it.name.contains("Scraper") }),
-                ),
-            ),
-            // Gemini (Google AI)
-            Preference.PreferenceGroup(
-                title = "Gemini (Google AI)",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.geminiApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (geminiKey.isNotBlank()) "••••••••" else stringResource(TDMR.strings.not_set),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.geminiModel(),
-                        title = stringResource(TDMR.strings.pref_translation_ollama_model),
-                        subtitle = geminiModel.ifBlank { "gemini-2.0-flash" },
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("Gemini") }),
-                ),
-            ),
-            // LibreTranslate
-            Preference.PreferenceGroup(
-                title = "LibreTranslate",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.libreTranslateUrl(),
-                        title = stringResource(TDMR.strings.pref_translation_libretranslate_url),
-                        subtitle = libreTranslateUrl,
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.libreTranslateApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (libreTranslateKey.isNotBlank()) {
-                            "••••••••"
-                        } else {
-                            stringResource(
-                                TDMR.strings.not_set,
-                            )
-                        },
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("Libre") }),
-                ),
-            ),
-            // Ollama
-            Preference.PreferenceGroup(
-                title = "Ollama",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.ollamaUrl(),
-                        title = stringResource(TDMR.strings.pref_translation_ollama_url),
-                        subtitle = ollamaUrl,
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.ollamaModel(),
-                        title = stringResource(TDMR.strings.pref_translation_ollama_model),
-                        subtitle = ollamaModel,
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.ollamaPrompt(),
-                        title = stringResource(MR.strings.pref_translation_custom_prompt),
-                        subtitle = stringResource(MR.strings.pref_translation_user_prompt_desc),
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("Ollama") }),
-                ),
-            ),
-            // HuggingFace
-            Preference.PreferenceGroup(
-                title = "HuggingFace",
-                preferenceItems = listOf(
-                    testButton(engineManager.engines.first { it.name.contains("Hugging") }),
-                ),
-            ),
-            // Custom HTTP
-            Preference.PreferenceGroup(
-                title = "Custom HTTP",
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.customHttpUrl(),
-                        title = stringResource(MR.strings.pref_translation_api_url),
-                        subtitle = if (customHttpUrl.isNotBlank()) {
-                            customHttpUrl
-                        } else {
-                            stringResource(
-                                TDMR.strings.not_set,
-                            )
-                        },
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.customHttpApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
-                        subtitle = if (customHttpApiKey.isNotBlank()) {
-                            "••••••••"
-                        } else {
-                            stringResource(
-                                TDMR.strings.not_set,
-                            )
-                        },
-                    ),
-                    Preference.PreferenceItem.ListPreference(
-                        preference = prefs.customHttpMethod(),
-                        title = stringResource(MR.strings.pref_translation_request_method),
-                        entries = mapOf(
-                            "POST" to "POST",
-                            "GET" to "GET",
-                        ),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.customHttpHeaders(),
-                        title = stringResource(MR.strings.pref_translation_custom_headers),
-                        subtitle = stringResource(MR.strings.pref_translation_custom_headers_desc),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.customHttpRequestTemplate(),
-                        title = stringResource(MR.strings.pref_translation_request_template),
-                        subtitle = stringResource(MR.strings.pref_translation_request_template_desc),
-                    ),
-                    Preference.PreferenceItem.EditTextPreference(
-                        preference = prefs.customHttpResponsePath(),
-                        title = stringResource(MR.strings.pref_translation_response_path),
-                        subtitle = customHttpResponsePath.ifBlank { "translatedText" },
-                    ),
-                    testButton(engineManager.engines.first { it.name.contains("Custom") }),
+                    valueRange = 1..10,
+                    onValueChanged = prefs.maxParallelTranslations()::set,
+                    preference = prefs.maxParallelTranslations(),
                 ),
             ),
         )

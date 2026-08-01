@@ -99,6 +99,7 @@ import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.translation.model.ChapterRef
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
+import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.isLocal
@@ -143,6 +144,7 @@ class MangaScreenModel(
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get(),
     private val translationService: TranslationService = Injekt.get(),
+    private val translationPreferences: TranslationPreferences = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
@@ -175,6 +177,7 @@ class MangaScreenModel(
     var autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
 
     private val skipFiltered by readerPreferences.skipFiltered.asState(screenModelScope)
+    val isTranslationEnabled by translationPreferences.translationEnabled().asState(screenModelScope)
 
     val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in libraryPreferences.autoUpdateMangaRestrictions.get()
@@ -1640,6 +1643,7 @@ class MangaScreenModel(
      * Translate manga details (title, description, tags) and save translated title to alternative titles.
      */
     fun translateMangaDetails() {
+        if (!translationPreferences.translationEnabled().get()) return
         val manga = successState?.manga ?: return
         updateSuccessState { it.copy(dialog = Dialog.TranslateMangaDetails(manga)) }
     }
@@ -1714,6 +1718,7 @@ class MangaScreenModel(
      * @param forceRetranslate if true, retranslate even already-translated chapters.
      */
     fun translateDownloadedChapters(forceRetranslate: Boolean = false) {
+        if (!translationPreferences.translationEnabled().get()) return
         val state = successState ?: return
         val manga = state.manga
 
@@ -1757,6 +1762,8 @@ class MangaScreenModel(
                 forceRetranslate,
             )
 
+            if (!translationPreferences.translationEnabled().get()) return@launchIO
+
             // Start background worker with notification
             TranslationJob.start(context)
 
@@ -1772,6 +1779,7 @@ class MangaScreenModel(
      * Queue selected chapters for translation.
      */
     fun translateSelectedChapters(chapters: List<Chapter>, forceRetranslate: Boolean = false) {
+        if (!translationPreferences.translationEnabled().get()) return
         val state = successState ?: return
         val manga = state.manga
 
@@ -1798,6 +1806,7 @@ class MangaScreenModel(
                 TranslationService.PRIORITY_NORMAL,
                 forceRetranslate,
             )
+            if (!translationPreferences.translationEnabled().get()) return@launchIO
             TranslationJob.start(context)
 
             withUIContext {

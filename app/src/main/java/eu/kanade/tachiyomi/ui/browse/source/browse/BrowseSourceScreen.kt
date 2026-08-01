@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -49,6 +50,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -83,6 +85,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -132,6 +135,9 @@ data class BrowseSourceScreen(
 
         // Back confirmation state
         val sourcePreferences = remember { Injekt.get<SourcePreferences>() }
+        val translationPreferences = remember { Injekt.get<TranslationPreferences>() }
+        val translationEnabled by translationPreferences.translationEnabled().changes()
+            .collectAsState(translationPreferences.translationEnabled().get())
         val confirmBackAfterPages by sourcePreferences.confirmBackAfterPages.changes().collectAsState(initial = 0)
         val showPageNumber by sourcePreferences.showPageNumber.changes().collectAsState(initial = false)
         val skipCoverLoading by sourcePreferences.skipCoverLoading.changes().collectAsState(initial = false)
@@ -169,6 +175,13 @@ data class BrowseSourceScreen(
         val snackbarHostState = remember { SnackbarHostState() }
         var showMassImportDialog by remember { mutableStateOf(false) }
         var lastImportResult by remember { mutableStateOf<Triple<Int, Int, Int>?>(null) }
+
+        LaunchedEffect(state.translationError) {
+            state.translationError?.let {
+                snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+                screenModel.clearTranslationError()
+            }
+        }
 
         val mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
 
@@ -363,13 +376,20 @@ data class BrowseSourceScreen(
                         FilterChip(
                             selected = state.translateTitles,
                             onClick = screenModel::toggleTranslateTitles,
+                            enabled = translationEnabled,
                             leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.Translate,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(FilterChipDefaults.IconSize),
-                                )
+                                if (state.translatingTitles) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                        strokeWidth = 2.dp,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Translate,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                }
                             },
                             label = {
                                 Text(text = stringResource(TDMR.strings.action_translate))

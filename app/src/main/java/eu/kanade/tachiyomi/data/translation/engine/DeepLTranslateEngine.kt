@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.data.translation.engine
 
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -10,10 +12,14 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import tachiyomi.domain.translation.model.TranslationEngine
+import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.IOException
+import java.net.SocketTimeoutException
 
 /**
  * DeepL translation engine.
@@ -27,7 +33,7 @@ class DeepLTranslateEngine(
 
     private val client: OkHttpClient get() = networkHelper.client
 
-    override val id: Long = ENGINE_ID
+    override val id = TranslationEngineId.DEEPL
     override val name: String = "DeepL"
     override val requiresApiKey: Boolean = true
     override val isRateLimited: Boolean = true
@@ -100,11 +106,8 @@ class DeepLTranslateEngine(
         return preferences.deepLApiKey().get().isNotBlank()
     }
 
-    override suspend fun translate(
-        texts: List<String>,
-        sourceLanguage: String,
-        targetLanguage: String,
-    ): TranslationResult = withContext(Dispatchers.IO) {
+    override suspend fun translate(request: TranslationRequest): TranslationResult = withContext(Dispatchers.IO) {
+        val (texts, sourceLanguage, targetLanguage) = request
         val apiKey = preferences.deepLApiKey().get()
 
         if (apiKey.isBlank()) {
@@ -124,6 +127,12 @@ class DeepLTranslateEngine(
             )
         } catch (e: TranslationException) {
             TranslationResult.Error(e.message ?: "Translation failed", e.errorCode)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SocketTimeoutException) {
+            TranslationResult.Error(e.message ?: "Request timed out", TranslationResult.ErrorCode.TIMEOUT)
+        } catch (e: IOException) {
+            TranslationResult.Error(e.message ?: "Network request failed", TranslationResult.ErrorCode.NETWORK_ERROR)
         } catch (e: Exception) {
             TranslationResult.Error(
                 e.message ?: "Unknown error",
@@ -157,7 +166,7 @@ class DeepLTranslateEngine(
             formBodyBuilder.add("source_lang", sourceLanguage.uppercase())
         }
 
-        // Optional: preserve formatting
+        formBodyBuilder.add("tag_handling", "html")
         formBodyBuilder.add("preserve_formatting", "1")
 
         val request = Request.Builder()
@@ -166,15 +175,17 @@ class DeepLTranslateEngine(
             .header("Authorization", "DeepL-Auth-Key $apiKey")
             .build()
 
-        val response = client.newCall(request).execute()
+        val response = client.newCall(request).await()
         val responseBody = response.use { it.body.string() }
 
         if (!response.isSuccessful) {
             val errorCode = when (response.code) {
                 401, 403 -> TranslationResult.ErrorCode.API_KEY_INVALID
-                429 -> TranslationResult.ErrorCode.RATE_LIMITED
+                408 -> TranslationResult.ErrorCode.TIMEOUT
+                425, 429 -> TranslationResult.ErrorCode.RATE_LIMITED
                 456 -> TranslationResult.ErrorCode.QUOTA_EXCEEDED
-                503 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
+                in 500..599 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
+                in 400..499 -> TranslationResult.ErrorCode.REQUEST_INVALID
                 else -> TranslationResult.ErrorCode.UNKNOWN
             }
 
@@ -202,8 +213,4 @@ class DeepLTranslateEngine(
         message: String,
         val errorCode: TranslationResult.ErrorCode,
     ) : Exception(message)
-
-    companion object {
-        const val ENGINE_ID = 6L
-    }
 }

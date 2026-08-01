@@ -197,8 +197,10 @@ data object NovelsTab : Tab {
                         screenModel.clearSelection()
                     },
                     onUpdateClicked = screenModel::openUpdateSelectedDialog,
-                    onTranslateClicked = {
-                        screenModel.translateSelectedNovels()
+                    onTranslateClicked = if (screenModel.isTranslationEnabled) {
+                        screenModel::translateSelectedNovels
+                    } else {
+                        null
                     },
                     onExportEpubClicked = screenModel::openExportEpubDialog,
                 )

@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
+import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationCache
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationService
@@ -161,7 +162,8 @@ class AppModule(val app: Application) : InjektModule {
 
         // Translation services
         addSingletonFactory { TranslationCache(app) }
-        addSingletonFactory { TranslationEngineManager(app, get()) }
+        addSingletonFactory { AiSettingsStore(get(), get()) }
+        addSingletonFactory { TranslationEngineManager(get()) }
         addSingletonFactory { TranslationService(app) }
 
         // JS Plugin management (LNReader-style plugins)

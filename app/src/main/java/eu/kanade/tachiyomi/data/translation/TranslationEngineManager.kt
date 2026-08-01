@@ -1,19 +1,14 @@
 package eu.kanade.tachiyomi.data.translation
 
-import android.content.Context
-import eu.kanade.tachiyomi.data.translation.engine.CustomHttpTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.DeepLTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.DeepSeekTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.GeminiTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.GoogleTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.GoogleTranslateScraperEngine
-import eu.kanade.tachiyomi.data.translation.engine.HuggingFaceTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.LibreTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.NvidiaNimTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.OllamaTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.OpenAITranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.SystranTranslateEngine
+import eu.kanade.tachiyomi.data.translation.engine.LlmTranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngine
+import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationRequest
+import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -23,7 +18,6 @@ import uy.kohesive.injekt.api.get
  * Provides access to available engines and manages the selected engine.
  */
 class TranslationEngineManager(
-    private val context: Context = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
 ) {
     /**
@@ -31,18 +25,11 @@ class TranslationEngineManager(
      */
     val engines: List<TranslationEngine> by lazy {
         listOf(
-            LibreTranslateEngine(), // Free, open-source
-            OpenAITranslateEngine(), // Paid, high quality
-            NvidiaNimTranslateEngine(), // OpenAI-compatible NIM endpoint
-            DeepSeekTranslateEngine(), // Paid, affordable
-            OllamaTranslateEngine(), // Local AI, free
-            HuggingFaceTranslateEngine(), // Free, limited languages
-            SystranTranslateEngine(), // Paid, enterprise quality
-            DeepLTranslateEngine(), // Paid, high quality
-            GoogleTranslateEngine(), // Paid, comprehensive
-            GeminiTranslateEngine(), // Paid, Google AI
-            GoogleTranslateScraperEngine(), // Free, scraper
-            CustomHttpTranslateEngine(), // Custom HTTP endpoint
+            GoogleTranslateScraperEngine(),
+            LlmTranslationEngine(),
+            LibreTranslateEngine(),
+            DeepLTranslateEngine(),
+            GoogleTranslateEngine(),
         )
     }
 
@@ -51,13 +38,13 @@ class TranslationEngineManager(
      */
     fun getSelectedEngine(): TranslationEngine {
         val selectedId = preferences.selectedEngineId().get()
-        return engines.find { it.id == selectedId } ?: engines.first()
+        return engines.find { it.id.key == selectedId } ?: engines.first()
     }
 
     /**
      * Get an engine by its ID.
      */
-    fun getEngineById(id: Long): TranslationEngine? {
+    fun getEngineById(id: TranslationEngineId): TranslationEngine? {
         return engines.find { it.id == id }
     }
 
@@ -65,28 +52,7 @@ class TranslationEngineManager(
      * Set the selected translation engine.
      */
     fun setSelectedEngine(engine: TranslationEngine) {
-        preferences.selectedEngineId().set(engine.id)
-    }
-
-    /**
-     * Get engines that work offline (no rate limiting needed).
-     */
-    fun getOfflineEngines(): List<TranslationEngine> {
-        return engines.filter { it.isOffline }
-    }
-
-    /**
-     * Get engines that require rate limiting.
-     */
-    fun getRateLimitedEngines(): List<TranslationEngine> {
-        return engines.filter { it.isRateLimited }
-    }
-
-    /**
-     * Check if the selected engine requires rate limiting.
-     */
-    fun selectedEngineRequiresRateLimit(): Boolean {
-        return getSelectedEngine().isRateLimited
+        preferences.selectedEngineId().set(engine.id.key)
     }
 
     /**
@@ -104,19 +70,7 @@ class TranslationEngineManager(
         return getSelectedEngine().supportedLanguages
     }
 
-    /**
-     * Engine IDs for reference.
-     */
-    companion object {
-        const val ENGINE_GOOGLE_ML_KIT = 0L
-        const val ENGINE_LIBRE_TRANSLATE = 1L
-        const val ENGINE_OPENAI = 2L
-        const val ENGINE_DEEPSEEK = 3L
-        const val ENGINE_OLLAMA = 4L
-        const val ENGINE_SYSTRAN = 5L
-        const val ENGINE_DEEPL = 6L
-        const val ENGINE_GOOGLE = 7L
-        const val ENGINE_GEMINI = 8L
-        const val ENGINE_NVIDIA_NIM = 11L
-    }
+    suspend fun translate(request: TranslationRequest): TranslationResult = TranslationRetryPolicy.execute(
+        retries = preferences.requestRetryCount().get(),
+    ) { getSelectedEngine().translate(request) }
 }

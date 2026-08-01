@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -65,12 +67,16 @@ fun TranslationLanguageSelectDialog(
     autoTranslateEnabled: Boolean,
     onToggleAutoTranslate: (Boolean) -> Unit,
     onSelectLanguage: (String) -> Unit,
+    onRetranslate: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         DialogContent(
             currentLanguage = currentLanguage,
             autoTranslateEnabled = autoTranslateEnabled,
             onToggleAutoTranslate = onToggleAutoTranslate,
+            onRetranslate = onRetranslate,
+            onOpenSettings = onOpenSettings,
             onSelectLanguage = { code ->
                 onSelectLanguage(code)
                 onDismissRequest()
@@ -85,6 +91,8 @@ private fun DialogContent(
     autoTranslateEnabled: Boolean,
     onToggleAutoTranslate: (Boolean) -> Unit,
     onSelectLanguage: (String) -> Unit,
+    onRetranslate: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     var selected by remember { mutableStateOf(currentLanguage) }
 
@@ -111,6 +119,18 @@ private fun DialogContent(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = MaterialTheme.padding.medium),
         )
+
+        ActionRow(
+            title = stringResource(TDMR.strings.action_retranslate),
+            icon = Icons.Outlined.Refresh,
+            onClick = onRetranslate,
+        )
+        ActionRow(
+            title = stringResource(TDMR.strings.action_translation_settings),
+            icon = Icons.Outlined.Settings,
+            onClick = onOpenSettings,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             modifier = Modifier
@@ -165,6 +185,22 @@ private fun DialogContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ActionRow(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null)
+        Spacer(Modifier.width(16.dp))
+        Text(title, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

@@ -7,7 +7,7 @@ interface TranslationEngine {
     /**
      * Unique identifier for this engine.
      */
-    val id: Long
+    val id: TranslationEngineId
 
     /**
      * Display name of the engine.
@@ -38,16 +38,10 @@ interface TranslationEngine {
     /**
      * Translate a list of text segments.
      *
-     * @param texts List of text segments to translate
-     * @param sourceLanguage Source language code (e.g., "en", "auto")
-     * @param targetLanguage Target language code (e.g., "zh", "ja")
+     * @param request Text segments, language pair, and optional context.
      * @return Result containing translated texts or error
      */
-    suspend fun translate(
-        texts: List<String>,
-        sourceLanguage: String,
-        targetLanguage: String,
-    ): TranslationResult
+    suspend fun translate(request: TranslationRequest): TranslationResult
 
     /**
      * Translate a single text.
@@ -57,7 +51,7 @@ interface TranslationEngine {
         sourceLanguage: String,
         targetLanguage: String,
     ): TranslationResult {
-        return translate(listOf(text), sourceLanguage, targetLanguage)
+        return translate(TranslationRequest(listOf(text), sourceLanguage, targetLanguage))
     }
 
     /**
@@ -96,6 +90,9 @@ sealed class TranslationResult {
         LANGUAGE_NOT_SUPPORTED,
         TEXT_TOO_LONG,
         SERVICE_UNAVAILABLE,
+        REQUEST_INVALID,
+        STRUCTURED_OUTPUT_INVALID,
+        TIMEOUT,
     }
 }
 
@@ -140,7 +137,87 @@ object LanguageCodes {
         "bn" to "Bengali",
     )
 
+    val GOOGLE_TRANSLATE_LANGUAGES = (
+        COMMON_LANGUAGES + listOf(
+            "af" to "Afrikaans",
+            "sq" to "Albanian",
+            "am" to "Amharic",
+            "hy" to "Armenian",
+            "az" to "Azerbaijani",
+            "eu" to "Basque",
+            "be" to "Belarusian",
+            "bs" to "Bosnian",
+            "bg" to "Bulgarian",
+            "ca" to "Catalan",
+            "ceb" to "Cebuano",
+            "ny" to "Chichewa",
+            "zh-CN" to "Chinese (Simplified)",
+            "co" to "Corsican",
+            "hr" to "Croatian",
+            "eo" to "Esperanto",
+            "et" to "Estonian",
+            "fy" to "Frisian",
+            "gl" to "Galician",
+            "ka" to "Georgian",
+            "gu" to "Gujarati",
+            "ht" to "Haitian Creole",
+            "ha" to "Hausa",
+            "haw" to "Hawaiian",
+            "iw" to "Hebrew",
+            "hmn" to "Hmong",
+            "is" to "Icelandic",
+            "ig" to "Igbo",
+            "ga" to "Irish",
+            "jw" to "Javanese",
+            "kn" to "Kannada",
+            "kk" to "Kazakh",
+            "km" to "Khmer",
+            "ku" to "Kurdish (Kurmanji)",
+            "ky" to "Kyrgyz",
+            "lo" to "Lao",
+            "la" to "Latin",
+            "lv" to "Latvian",
+            "lt" to "Lithuanian",
+            "lb" to "Luxembourgish",
+            "mk" to "Macedonian",
+            "mg" to "Malagasy",
+            "ml" to "Malayalam",
+            "mt" to "Maltese",
+            "mi" to "Maori",
+            "mr" to "Marathi",
+            "mn" to "Mongolian",
+            "my" to "Myanmar (Burmese)",
+            "ne" to "Nepali",
+            "ps" to "Pashto",
+            "pa" to "Punjabi",
+            "sm" to "Samoan",
+            "gd" to "Scots Gaelic",
+            "sr" to "Serbian",
+            "st" to "Sesotho",
+            "sn" to "Shona",
+            "sd" to "Sindhi",
+            "si" to "Sinhala",
+            "sk" to "Slovak",
+            "sl" to "Slovenian",
+            "so" to "Somali",
+            "su" to "Sundanese",
+            "sw" to "Swahili",
+            "tg" to "Tajik",
+            "ta" to "Tamil",
+            "te" to "Telugu",
+            "ur" to "Urdu",
+            "uz" to "Uzbek",
+            "cy" to "Welsh",
+            "xh" to "Xhosa",
+            "yi" to "Yiddish",
+            "yo" to "Yoruba",
+            "zu" to "Zulu",
+        )
+        )
+        .distinctBy { it.first }
+        .let { languages -> languages.take(1) + languages.drop(1).sortedBy { it.second } }
+
     fun getDisplayName(code: String): String {
-        return COMMON_LANGUAGES.find { it.first == code }?.second ?: code
+        return GOOGLE_TRANSLATE_LANGUAGES.find { it.first == code }?.second ?: code
     }
 }

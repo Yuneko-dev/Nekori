@@ -776,6 +776,23 @@ class ReaderActivity : BaseActivity() {
                             viewModel.toggleTranslation() // Turn on with new language
                         }
                     },
+                    onRetranslate = {
+                        onDismissRequest()
+                        viewModel.retranslateCurrentChapter()
+                    },
+                    onOpenSettings = {
+                        onDismissRequest()
+                        startActivity(
+                            Intent(this@ReaderActivity, MainActivity::class.java).apply {
+                                action = Intent.ACTION_APPLICATION_PREFERENCES
+                                putExtra(
+                                    MainActivity.EXTRA_SETTINGS_DESTINATION,
+                                    eu.kanade.tachiyomi.ui.setting.SettingsScreen.Destination.Translation.id,
+                                )
+                                putExtra(MainActivity.EXTRA_FINISH_SETTINGS_ON_EXIT, true)
+                            },
+                        )
+                    },
                 )
             }
             is ReaderViewModel.Dialog.PageActions -> {
@@ -1233,6 +1250,9 @@ class ReaderActivity : BaseActivity() {
                 isAutoScrolling = isAutoScrolling,
                 onToggleAutoScroll = onToggleAutoScroll,
                 isTranslating = state.isTranslating,
+                translationMasterEnabled = state.translationMasterEnabled,
+                translationStatus = state.translationStatus,
+                translationProgress = state.translationProgress,
                 onToggleTranslation = viewModel::toggleTranslation,
                 onLongPressTranslation = viewModel::openTranslationLanguageDialog,
                 onRetranslate = if (state.isTranslating) viewModel::retranslateCurrentChapter else null,

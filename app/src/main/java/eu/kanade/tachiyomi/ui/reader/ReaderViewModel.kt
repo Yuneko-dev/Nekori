@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
+import eu.kanade.tachiyomi.data.translation.TranslationRequestTracker
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.discord.SensitiveContentPolicy
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
@@ -120,6 +121,14 @@ import tachiyomi.domain.chapter.model.Chapter as DomainChapter
 /**
  * Presenter used by the activity to perform background operations.
  */
+enum class TranslationUiStatus {
+    ORIGINAL,
+    LOADING,
+    TRANSLATED,
+    ERROR,
+    CANCELLED,
+}
+
 class ReaderViewModel @JvmOverloads constructor(
     private val savedState: SavedStateHandle,
     private val sourceManager: SourceManager = Injekt.get(),
@@ -153,6 +162,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private val mutableState = MutableStateFlow(
         State(
+            translationMasterEnabled = translationPreferences.translationEnabled().get(),
             isTranslating = translationPreferences.translationEnabled().get() &&
                 translationPreferences.smartAutoTranslate().get(),
         ),
@@ -336,6 +346,8 @@ class ReaderViewModel @JvmOverloads constructor(
     private val navigationCommitMutex = Mutex()
     private val navigationGuard = ReaderNavigationGuard()
     private val adjacentLoadingRequestId = AtomicLong(NO_NAVIGATION_REQUEST)
+    private val translationRequests = TranslationRequestTracker()
+    private val forceRetranslateChapterId = AtomicLong(NO_NAVIGATION_REQUEST)
 
     /**
      * Serializes history writes so the read+clear of [chapterReadStartTime] is atomic. A pause flush
@@ -345,6 +357,23 @@ class ReaderViewModel @JvmOverloads constructor(
     private val historyMutex = Mutex()
 
     init {
+        translationPreferences.translationEnabled().changes()
+            .onEach { enabled ->
+                mutableState.update {
+                    it.copy(
+                        translationMasterEnabled = enabled,
+                        isTranslating = if (enabled) it.isTranslating else false,
+                        translationStatus = if (enabled) it.translationStatus else TranslationUiStatus.ORIGINAL,
+                        translationProgress = if (enabled) it.translationProgress else 0f,
+                    )
+                }
+                if (!enabled) {
+                    translationRequests.invalidate()
+                    eventChannel.send(Event.ReloadWithTranslation)
+                }
+            }
+            .launchIn(viewModelScope)
+
         // To save state
         state.map { it.viewerChapters?.currChapter }
             .distinctUntilChanged()
@@ -1386,9 +1415,15 @@ class ReaderViewModel @JvmOverloads constructor(
      * When toggled off, triggers reload to show original content.
      */
     fun toggleTranslation() {
+        if (!state.value.translationMasterEnabled) return
         val newState = !state.value.isTranslating
+        translationRequests.invalidate()
         mutableState.update {
-            it.copy(isTranslating = newState)
+            it.copy(
+                isTranslating = newState,
+                translationStatus = if (newState) TranslationUiStatus.LOADING else TranslationUiStatus.ORIGINAL,
+                translationProgress = 0f,
+            )
         }
 
         // Send event to reload content with new translation state
@@ -1406,7 +1441,14 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     fun disableTranslation() {
         if (state.value.isTranslating) {
-            mutableState.update { it.copy(isTranslating = false) }
+            translationRequests.invalidate()
+            mutableState.update {
+                it.copy(
+                    isTranslating = false,
+                    translationStatus = TranslationUiStatus.ORIGINAL,
+                    translationProgress = 0f,
+                )
+            }
         }
     }
 
@@ -1415,18 +1457,18 @@ class ReaderViewModel @JvmOverloads constructor(
      * Deletes existing translation and re-enqueues for translation.
      */
     fun retranslateCurrentChapter() {
-        val currentManga = manga ?: return
-        val chapter = getCurrentChapter()?.chapter?.toDomainChapter() ?: return
-
-        viewModelScope.launchIO {
-            translationService.enqueue(
-                manga = currentManga,
-                chapter = chapter,
-                priority = TranslationService.PRIORITY_MANUAL_READ,
-                forceRetranslate = true,
+        if (!state.value.translationMasterEnabled) return
+        val chapterId = getCurrentChapter()?.chapter?.id ?: return
+        forceRetranslateChapterId.set(chapterId)
+        translationRequests.invalidate()
+        mutableState.update {
+            it.copy(
+                isTranslating = true,
+                translationStatus = TranslationUiStatus.LOADING,
+                translationProgress = 0f,
             )
-            // Enable translation mode and reload
-            mutableState.update { it.copy(isTranslating = true) }
+        }
+        viewModelScope.launchIO {
             try {
                 eventChannel.send(Event.ReloadWithTranslation)
             } catch (e: Exception) {
@@ -1507,13 +1549,77 @@ class ReaderViewModel @JvmOverloads constructor(
 
             if (detected != null && detected.equals(target, ignoreCase = true)) {
                 logcat(LogPriority.DEBUG) { "translateContent: skipping - source lang matches target ($detected)" }
+                mutableState.update {
+                    it.copy(
+                        isTranslating = false,
+                        translationStatus = TranslationUiStatus.ORIGINAL,
+                        translationProgress = 0f,
+                    )
+                }
                 return content
             }
         }
-        return translationService.translateChapterContent(
-            content = content,
-            locator = buildTranslationLocator(chapterId),
-        )
+        val locator = buildTranslationLocator(chapterId)
+        val isCurrentChapter = chapterId == getCurrentChapter()?.chapter?.id
+        val requestGeneration = if (isCurrentChapter) {
+            translationRequests.begin()
+        } else {
+            -1L
+        }
+        val force = chapterId != null && forceRetranslateChapterId.compareAndSet(chapterId, NO_NAVIGATION_REQUEST)
+        if (isCurrentChapter) {
+            val cached = !force && locator != null && translationService.hasTranslation(locator)
+            mutableState.update {
+                it.copy(
+                    translationStatus = if (cached) TranslationUiStatus.TRANSLATED else TranslationUiStatus.LOADING,
+                    translationProgress = if (cached) 1f else 0f,
+                )
+            }
+        }
+        return try {
+            val translated = translationService.translateChapterContent(
+                content = content,
+                locator = locator,
+                forceRetranslate = force,
+                onProgress = { progress ->
+                    if (
+                        isCurrentChapter &&
+                        translationRequests.canCommit(requestGeneration) &&
+                        state.value.isTranslating
+                    ) {
+                        mutableState.update { it.copy(translationProgress = progress.coerceIn(0f, 1f)) }
+                    }
+                },
+            )
+            if (
+                isCurrentChapter &&
+                translationRequests.canCommit(requestGeneration) &&
+                state.value.isTranslating
+            ) {
+                mutableState.update {
+                    it.copy(translationStatus = TranslationUiStatus.TRANSLATED, translationProgress = 1f)
+                }
+            }
+            translated
+        } catch (e: CancellationException) {
+            if (isCurrentChapter && translationRequests.canCommit(requestGeneration)) {
+                mutableState.update {
+                    it.copy(translationStatus = TranslationUiStatus.CANCELLED, translationProgress = 0f)
+                }
+            }
+            throw e
+        } catch (e: Exception) {
+            if (isCurrentChapter && translationRequests.canCommit(requestGeneration)) {
+                mutableState.update {
+                    it.copy(
+                        isTranslating = false,
+                        translationStatus = TranslationUiStatus.ERROR,
+                        translationProgress = 0f,
+                    )
+                }
+            }
+            throw e
+        }
     }
 
     /**
@@ -1784,6 +1890,9 @@ class ReaderViewModel @JvmOverloads constructor(
          * Whether translation is enabled for the current chapter.
          */
         val isTranslating: Boolean = false,
+        val translationMasterEnabled: Boolean = false,
+        val translationStatus: TranslationUiStatus = TranslationUiStatus.ORIGINAL,
+        val translationProgress: Float = 0f,
 
         /**
          * WebView viewer used to display novel content.

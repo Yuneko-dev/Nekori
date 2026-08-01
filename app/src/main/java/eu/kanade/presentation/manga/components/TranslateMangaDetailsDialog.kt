@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,9 +26,11 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -71,21 +72,12 @@ fun TranslateMangaDetailsDialog(
         error = null
 
         try {
-            val engine = translationEngineManager.getSelectedEngine()
-            if (engine == null) {
-                error = "No translation engine configured. Please configure one in Settings > Translation."
-                isTranslating = false
-                return@LaunchedEffect
-            }
-
             val sourceLang = translationPreferences.sourceLanguage().get()
             val targetLang = translationPreferences.targetLanguage().get()
 
             // Translate title
-            val titleResult = engine.translateSingle(
-                manga.title,
-                sourceLanguage = sourceLang,
-                targetLanguage = targetLang,
+            val titleResult = translationEngineManager.translate(
+                TranslationRequest(listOf(manga.title), sourceLang, targetLang),
             )
             when (titleResult) {
                 is TranslationResult.Success -> {
@@ -100,10 +92,8 @@ fun TranslateMangaDetailsDialog(
             // Translate description if present
             manga.description?.let { desc ->
                 if (desc.isNotBlank()) {
-                    val descResult = engine.translateSingle(
-                        desc,
-                        sourceLanguage = sourceLang,
-                        targetLanguage = targetLang,
+                    val descResult = translationEngineManager.translate(
+                        TranslationRequest(listOf(desc), sourceLang, targetLang),
                     )
                     when (descResult) {
                         is TranslationResult.Success -> {
@@ -120,7 +110,9 @@ fun TranslateMangaDetailsDialog(
             // Translate genres if present
             val genres = manga.genre
             if (!genres.isNullOrEmpty()) {
-                val genresResult = engine.translate(genres, sourceLanguage = sourceLang, targetLanguage = targetLang)
+                val genresResult = translationEngineManager.translate(
+                    TranslationRequest(genres, sourceLang, targetLang),
+                )
                 when (genresResult) {
                     is TranslationResult.Success -> {
                         translatedGenres = genresResult.translatedTexts
@@ -190,38 +182,18 @@ fun TranslateMangaDetailsDialog(
                         )
 
                         // Checkbox to add to alt titles
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = addToAltTitles,
-                                onCheckedChange = { addToAltTitles = it },
-                            )
-                            Text(
-                                text = stringResource(TDMR.strings.translate_details_add_alt_titles),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                        LabeledCheckbox(
+                            label = stringResource(TDMR.strings.translate_details_add_alt_titles),
+                            checked = addToAltTitles,
+                            onCheckedChange = { addToAltTitles = it },
+                        )
 
                         // Checkbox to save tags to notes
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = saveTagsToNotes,
-                                onCheckedChange = { saveTagsToNotes = it },
-                            )
-                            Text(
-                                text = stringResource(TDMR.strings.translate_details_save_tags_notes),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                        LabeledCheckbox(
+                            label = stringResource(TDMR.strings.translate_details_save_tags_notes),
+                            checked = saveTagsToNotes,
+                            onCheckedChange = { saveTagsToNotes = it },
+                        )
                     }
 
                     // Original description
@@ -284,39 +256,19 @@ fun TranslateMangaDetailsDialog(
                             )
 
                             // Checkbox to save translated genres
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Checkbox(
-                                    checked = translateGenres,
-                                    onCheckedChange = { translateGenres = it },
-                                )
-                                Text(
-                                    text = stringResource(TDMR.strings.translate_details_save_genres),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
+                            LabeledCheckbox(
+                                label = stringResource(TDMR.strings.translate_details_save_genres),
+                                checked = translateGenres,
+                                onCheckedChange = { translateGenres = it },
+                            )
 
                             // Checkbox to merge genres (add to existing) or replace
                             if (translateGenres) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 4.dp, start = 24.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Checkbox(
-                                        checked = mergeGenres,
-                                        onCheckedChange = { mergeGenres = it },
-                                    )
-                                    Text(
-                                        text = stringResource(TDMR.strings.translate_details_merge_genres),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
+                                LabeledCheckbox(
+                                    label = stringResource(TDMR.strings.translate_details_merge_genres),
+                                    checked = mergeGenres,
+                                    onCheckedChange = { mergeGenres = it },
+                                )
                             }
                         }
                     }

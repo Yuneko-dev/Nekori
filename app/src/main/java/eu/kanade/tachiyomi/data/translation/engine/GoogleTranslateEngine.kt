@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.data.translation.engine
 
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -10,10 +12,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.domain.translation.model.TranslationEngine
+import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.IOException
+import java.net.SocketTimeoutException
 
 /**
  * Google Translate engine using the Cloud Translation API v2.
@@ -27,8 +33,8 @@ class GoogleTranslateEngine(
 
     private val client: OkHttpClient get() = networkHelper.client
 
-    override val id: Long = ENGINE_ID
-    override val name: String = "Google Translate"
+    override val id = TranslationEngineId.GOOGLE_CLOUD
+    override val name: String = "Google Cloud Translation"
     override val requiresApiKey: Boolean = true
     override val isRateLimited: Boolean = true
     override val isOffline: Boolean = false
@@ -98,7 +104,7 @@ class GoogleTranslateEngine(
         val q: List<String>,
         val target: String,
         val source: String? = null,
-        val format: String = "text",
+        val format: String = "html",
     )
 
     @Serializable
@@ -129,11 +135,8 @@ class GoogleTranslateEngine(
         return preferences.googleApiKey().get().isNotBlank()
     }
 
-    override suspend fun translate(
-        texts: List<String>,
-        sourceLanguage: String,
-        targetLanguage: String,
-    ): TranslationResult = withContext(Dispatchers.IO) {
+    override suspend fun translate(request: TranslationRequest): TranslationResult = withContext(Dispatchers.IO) {
+        val (texts, sourceLanguage, targetLanguage) = request
         val apiKey = preferences.googleApiKey().get()
 
         if (apiKey.isBlank()) {
@@ -152,6 +155,12 @@ class GoogleTranslateEngine(
             )
         } catch (e: TranslationException) {
             TranslationResult.Error(e.message ?: "Translation failed", e.errorCode)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SocketTimeoutException) {
+            TranslationResult.Error(e.message ?: "Request timed out", TranslationResult.ErrorCode.TIMEOUT)
+        } catch (e: IOException) {
+            TranslationResult.Error(e.message ?: "Network request failed", TranslationResult.ErrorCode.NETWORK_ERROR)
         } catch (e: Exception) {
             TranslationResult.Error(
                 e.message ?: "Unknown error",
@@ -186,15 +195,17 @@ class GoogleTranslateEngine(
             .header("Content-Type", "application/json")
             .build()
 
-        val response = client.newCall(request).execute()
+        val response = client.newCall(request).await()
         val responseBody = response.use { it.body.string() }
 
         if (!response.isSuccessful) {
             val errorCode = when (response.code) {
                 401, 403 -> TranslationResult.ErrorCode.API_KEY_INVALID
-                429 -> TranslationResult.ErrorCode.RATE_LIMITED
+                408 -> TranslationResult.ErrorCode.TIMEOUT
+                425, 429 -> TranslationResult.ErrorCode.RATE_LIMITED
                 402 -> TranslationResult.ErrorCode.QUOTA_EXCEEDED
-                503 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
+                in 500..599 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
+                in 400..499 -> TranslationResult.ErrorCode.REQUEST_INVALID
                 else -> TranslationResult.ErrorCode.UNKNOWN
             }
 
@@ -222,8 +233,4 @@ class GoogleTranslateEngine(
         message: String,
         val errorCode: TranslationResult.ErrorCode,
     ) : Exception(message)
-
-    companion object {
-        const val ENGINE_ID = 7L
-    }
 }

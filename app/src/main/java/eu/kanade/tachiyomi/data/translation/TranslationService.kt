@@ -5,12 +5,7 @@ import eu.kanade.tachiyomi.data.download.ChapterContentReader
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
-import eu.kanade.tachiyomi.data.translation.engine.DeepSeekTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.GeminiTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.LibreTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.NvidiaNimTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.OllamaTranslateEngine
-import eu.kanade.tachiyomi.data.translation.engine.OpenAITranslateEngine
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.coroutines.CancellationException
@@ -18,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,8 +33,11 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.model.TranslatedChapter
+import tachiyomi.domain.translation.model.TranslationContext
+import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationLocator
 import tachiyomi.domain.translation.model.TranslationProgress
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.TranslationStatus
 import tachiyomi.domain.translation.model.TranslationTask
@@ -48,6 +48,7 @@ import uy.kohesive.injekt.api.get
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.exp
 
 /**
  * Service for managing translation queue and executing translations.
@@ -150,7 +151,6 @@ class TranslationService(
             mangaTitle = manga.title,
             sourceLanguage = translationPreferences.sourceLanguage().get(),
             targetLanguage = translationPreferences.targetLanguage().get(),
-            engineId = 0L,
             priority = priority,
             status = TranslationStatus.QUEUED,
             retryCount = 0,
@@ -446,17 +446,14 @@ class TranslationService(
         }
 
         // Extract and preserve media tags (delegated — fix SRP)
-        val (contentWithoutImages, _) = TranslationHtmlUtils.extractImages(allContent)
-
-        // Extract text from HTML (delegated — fix DRY 2.4)
-        val plainText = TranslationHtmlUtils.extractTextFromHtml(contentWithoutImages)
-        val paragraphs = TranslationHtmlUtils.splitParagraphsPreserving(plainText)
+        val translationPlan = TranslationHtmlUtils.prepareTranslation(allContent)
+        val paragraphs = translationPlan.texts
 
         logcat(LogPriority.DEBUG) { "Translating ${paragraphs.size} paragraphs for chapter ${chapter.name}" }
 
         // Group paragraphs into chunks to improve translation quality
         val chunkSize = translationPreferences.translationChunkSize().get()
-        val chunks = TranslationHtmlUtils.buildChunks(paragraphs, chunkSize)
+        val chunks = paragraphs.chunked(chunkSize.coerceAtLeast(1))
 
         logcat(LogPriority.DEBUG) { "Grouped into ${chunks.size} chunks (size=$chunkSize)" }
 
@@ -483,7 +480,7 @@ class TranslationService(
         if (existingTmpParagraphs.isNotEmpty() && !task.forceRetranslate) {
             var coveredParagraphs = 0
             for ((i, chunk) in chunks.withIndex()) {
-                val chunkParagraphCount = TranslationHtmlUtils.splitParagraphsPreserving(chunk).size
+                val chunkParagraphCount = chunk.size
                 coveredParagraphs += chunkParagraphCount
                 if (coveredParagraphs <= existingTmpParagraphs.size) {
                     resumeFromChunk = i + 1
@@ -499,10 +496,14 @@ class TranslationService(
         // Translate chapter title
         var translatedTitle: String? = null
         try {
-            val titleResult = engine.translate(listOf(chapter.name), task.sourceLanguage, task.targetLanguage)
+            val titleResult = translationEngineManager.translate(
+                TranslationRequest(listOf(chapter.name), task.sourceLanguage, task.targetLanguage),
+            )
             if (titleResult is TranslationResult.Success) {
                 translatedTitle = titleResult.translatedTexts.firstOrNull()?.trim()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "Failed to translate chapter title: ${chapter.name}" }
         }
@@ -516,13 +517,13 @@ class TranslationService(
 
         var failedChunkIndex = -1
         // Contextual anchoring: send previous raw + translated paragraphs as context for LLM engines
-        val isLlmEngine = engine.id in LLM_ENGINE_IDS
+        val isLlmEngine = engine.id == TranslationEngineId.LLM
         val anchoringEnabled = translationPreferences.contextualAnchoringEnabled().get()
         val anchoringParagraphs = translationPreferences.contextualAnchoringParagraphs().get()
         val useAnchoring = isLlmEngine && anchoringEnabled && anchoringParagraphs > 0
 
         // Build per-chunk paragraph lists for context tracking
-        val chunkParagraphsList = chunks.map { c -> TranslationHtmlUtils.splitParagraphsPreserving(c) }
+        val chunkParagraphsList = chunks
         // Track the raw paragraphs of the previously translated chunk
         var previousRawParagraphs = emptyList<String>()
         // Track the translated paragraphs of the previous chunk
@@ -552,45 +553,39 @@ class TranslationService(
 
             // Check for cancellation
             if (_progressState.value.isCancelling) {
-                savePartialTranslation(locator, task, engine.id.toString(), allTranslated, translatedTitle)
+                savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
                 throw CancellationException("Translation cancelled by user")
             }
 
             logcat(LogPriority.DEBUG) {
-                "Sending chunk ${chunkIndex + 1}/${chunks.size} for translation (${chunk.length} chars)"
-            }
-
-            // Build the text to send, optionally wrapping with context for LLM engines
-            val textToSend = if (useAnchoring && chunkIndex > 0 && previousRawParagraphs.isNotEmpty()) {
-                buildContextualAnchoringPrompt(
-                    rawContext = previousRawParagraphs.takeLast(anchoringParagraphs),
-                    translatedContext = previousTranslatedParagraphs.takeLast(anchoringParagraphs),
-                    chunk = chunk,
-                    expectedParagraphs = chunkParagraphsList[chunkIndex].size,
-                )
-            } else {
-                chunk
+                "Sending chunk ${chunkIndex + 1}/${chunks.size} for translation " +
+                    "(${chunk.sumOf(String::length)} chars)"
             }
 
             var chunkSuccess = false
             for (attempt in 1..MAX_CHUNK_RETRIES) {
                 try {
-                    val result = engine.translate(listOf(textToSend), task.sourceLanguage, task.targetLanguage)
+                    val result = translationEngineManager.translate(
+                        TranslationRequest(
+                            texts = chunkParagraphsList[chunkIndex],
+                            sourceLanguage = task.sourceLanguage,
+                            targetLanguage = task.targetLanguage,
+                            context = if (useAnchoring && chunkIndex > 0) {
+                                TranslationContext(
+                                    previousSourceParagraphs = previousRawParagraphs.takeLast(anchoringParagraphs),
+                                    previousTranslatedParagraphs = previousTranslatedParagraphs
+                                        .takeLast(anchoringParagraphs),
+                                )
+                            } else {
+                                null
+                            },
+                        ),
+                    )
                     when (result) {
                         is TranslationResult.Success -> {
-                            val translated = result.translatedTexts.firstOrNull() ?: ""
-                            // Strip any contextual anchoring markers that the LLM might echo back
-                            val cleanedTranslation = if (useAnchoring && chunkIndex > 0) {
-                                TranslationHtmlUtils.stripContextLeakage(translated)
-                            } else {
-                                translated
-                            }
-                            val translatedParagraphs = TranslationHtmlUtils.splitParagraphsPreserving(
-                                cleanedTranslation,
-                            )
                             // Update previous chunk tracking for next iteration
                             previousRawParagraphs = chunkParagraphsList[chunkIndex]
-                            previousTranslatedParagraphs = translatedParagraphs.ifEmpty { listOf(cleanedTranslation) }
+                            previousTranslatedParagraphs = result.translatedTexts
                             allTranslated.addAll(previousTranslatedParagraphs)
                             chunkSuccess = true
                         }
@@ -606,7 +601,7 @@ class TranslationService(
                     }
                     break
                 } catch (e: CancellationException) {
-                    savePartialTranslation(locator, task, engine.id.toString(), allTranslated, translatedTitle)
+                    savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
                     throw e
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) {
@@ -645,7 +640,7 @@ class TranslationService(
         if (failedChunkIndex >= 0) {
             // Save partial translation as .tmp for resume
             if (allTranslated.isNotEmpty()) {
-                savePartialTranslation(locator, task, engine.id.toString(), allTranslated, translatedTitle)
+                savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
                 logcat(LogPriority.WARN) {
                     "Saved partial translation (${allTranslated.size} paragraphs) for chapter ${chapter.name}"
                 }
@@ -659,14 +654,19 @@ class TranslationService(
         if (allTranslated.isEmpty()) throw IllegalStateException("No translation returned")
 
         // Build final HTML (single source of truth — fix DRY 2.1, HTML escaping — fix 6.5)
-        val translatedHtml = TranslationHtmlUtils.buildTranslatedHtml(translatedTitle, allTranslated)
+        val translatedBody = translationPlan.apply(allTranslated)
+        val translatedHtml = if (translatedTitle.isNullOrBlank()) {
+            translatedBody
+        } else {
+            "<h1>${TranslationHtmlUtils.escapeHtml(translatedTitle.trim())}</h1>$translatedBody"
+        }
 
         // Save the complete translation
         val translatedChapter = TranslatedChapter(
             chapterId = task.chapterId,
             mangaId = task.mangaId,
             targetLanguage = task.targetLanguage,
-            engineId = engine.id.toString(),
+            engineId = engine.id.key,
             translatedContent = translatedHtml,
             dateTranslated = System.currentTimeMillis(),
         )
@@ -677,27 +677,6 @@ class TranslationService(
         _progressState.update { current ->
             current.copy(currentChapterProgress = 1f)
         }
-    }
-
-    /** Build the contextual-anchoring prompt sent to LLM engines. */
-    private fun buildContextualAnchoringPrompt(
-        rawContext: List<String>,
-        translatedContext: List<String>,
-        chunk: String,
-        expectedParagraphs: Int,
-    ): String = buildString {
-        appendLine("You are translating a novel.")
-        appendLine("Below is previous context. Do NOT translate it.")
-        appendLine("=== PREVIOUS RAW ===")
-        appendLine(rawContext.joinToString("\n\n"))
-        appendLine("=== PREVIOUS TRANSLATION ===")
-        appendLine(translatedContext.joinToString("\n\n"))
-        appendLine("=== TEXT TO TRANSLATE (RETURN ONLY THIS SECTION) ===")
-        appendLine(chunk)
-        appendLine("Translate ONLY the section under \"TEXT TO TRANSLATE\".")
-        appendLine("Preserve paragraph breaks exactly.")
-        appendLine("Do not merge or split paragraphs.")
-        append("Return exactly $expectedParagraphs paragraphs.")
     }
 
     /**
@@ -875,7 +854,9 @@ class TranslationService(
         logcat(LogPriority.DEBUG) {
             "Translation: sending ${text.length} chars via ${engine.name} ($sourceLanguage → $targetLanguage)"
         }
-        val result = engine.translateSingle(text, sourceLanguage, targetLanguage)
+        val result = translationEngineManager.translate(
+            TranslationRequest(listOf(text), sourceLanguage, targetLanguage),
+        )
         when (result) {
             is TranslationResult.Success -> logcat(LogPriority.DEBUG) {
                 "Translation: received ${result.translatedTexts.firstOrNull()?.length ?: 0} chars"
@@ -889,7 +870,7 @@ class TranslationService(
 
     /**
      * Translate chapter content in real-time (for reader).
-     * Extracts text from HTML, translates it, and reconstructs the HTML structure.
+     * Translates the same HTML fragments as LNReader and writes them back into the original DOM.
      * Saves translations to database for future use.
      */
     suspend fun translateChapterContent(
@@ -897,6 +878,8 @@ class TranslationService(
         locator: TranslationLocator? = null,
         sourceLanguage: String? = null,
         targetLanguage: String? = null,
+        forceRetranslate: Boolean = false,
+        onProgress: (Float) -> Unit = {},
     ): String {
         if (!translationPreferences.translationEnabled().get()) {
             return content
@@ -910,62 +893,76 @@ class TranslationService(
             return content
         }
 
-        if (locator != null) {
+        if (locator != null && !forceRetranslate) {
             val existingTranslation = translatedChapterRepository.getTranslatedChapter(locator, tgtLang)
-            if (TranslationCachePolicy.shouldServeCached(existingTranslation)) {
+            if (TranslationCachePolicy.shouldServeCached(existingTranslation, forceRetranslate)) {
                 logcat(LogPriority.DEBUG) { "Using cached translation for ${locator.chapterName} (lang: $tgtLang)" }
                 return existingTranslation!!.translatedContent
             }
         }
 
-        // Extract and preserve image tags before translation
-        val (contentWithoutImages, preservedImages) = TranslationHtmlUtils.extractImages(content)
-
-        // Extract plain text from HTML for translation
-        val plainText = TranslationHtmlUtils.extractTextFromHtml(contentWithoutImages)
+        val translationPlan = TranslationHtmlUtils.prepareTranslation(content)
 
         logcat(LogPriority.DEBUG) {
             "translateChapterContent: chapter=${locator?.chapterName} srcLang=$srcLang tgtLang=$tgtLang " +
-                "plainText=${plainText.length} chars"
+                "segments=${translationPlan.texts.size}"
         }
+        if (translationPlan.texts.isEmpty()) return content
 
-        // Translate the plain text
-        return when (val result = translateText(plainText, srcLang, tgtLang)) {
-            is TranslationResult.Success -> {
-                val translatedText = result.translatedTexts.firstOrNull() ?: return content
-                var translatedHtml = TranslationHtmlUtils.wrapTextInHtml(translatedText)
-
-                // Reinsert preserved image tags
-                if (preservedImages.isNotEmpty()) {
-                    translatedHtml = TranslationHtmlUtils.reinsertImages(translatedHtml, preservedImages)
-                }
-
-                if (locator != null) {
-                    val engine = translationEngineManager.getEngine()
-                    val translatedChapter = TranslatedChapter(
-                        chapterId = 0,
-                        mangaId = 0,
-                        targetLanguage = tgtLang,
-                        engineId = engine?.id?.toString() ?: "unknown",
-                        translatedContent = translatedHtml,
-                        dateTranslated = System.currentTimeMillis(),
-                    )
-                    try {
-                        translatedChapterRepository.upsertTranslation(locator, translatedChapter)
-                        logcat(LogPriority.DEBUG) { "Saved translation for ${locator.chapterName} (lang: $tgtLang)" }
-                    } catch (e: CancellationException) {
-                        logcat(LogPriority.DEBUG) { "Translation save was cancelled for ${locator.chapterName}" }
-                        throw e
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e) { "Failed to save translation" }
+        val chunks = translationPlan.texts.chunked(translationPreferences.translationChunkSize().get().coerceAtLeast(1))
+        val translatedSegments = mutableListOf<String>()
+        onProgress(0f)
+        coroutineScope {
+            chunks.forEachIndexed { index, texts ->
+                val startedAt = System.nanoTime()
+                val progressJob = launch {
+                    while (isActive) {
+                        delay(100)
+                        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000.0
+                        val estimated = 0.99 * (1 - exp(-elapsedMs / 30_000.0))
+                        onProgress(((index + estimated) / chunks.size).toFloat())
                     }
                 }
-
-                translatedHtml
+                try {
+                    when (
+                        val result = translationEngineManager.translate(
+                            TranslationRequest(texts, srcLang, tgtLang),
+                        )
+                    ) {
+                        is TranslationResult.Success -> translatedSegments += result.translatedTexts
+                        is TranslationResult.Error -> {
+                            logcat(LogPriority.WARN) { "Translation failed: ${result.message}" }
+                            throw IllegalStateException(result.message)
+                        }
+                    }
+                } finally {
+                    progressJob.cancelAndJoin()
+                }
+                onProgress((index + 1f) / chunks.size)
             }
-            is TranslationResult.Error -> {
-                logcat(LogPriority.WARN) { "Translation failed: ${result.message}" }
-                throw IllegalStateException(result.message)
+        }
+
+        val translatedHtml = translationPlan.apply(translatedSegments)
+        return translatedHtml.also {
+            if (locator != null) {
+                val engine = translationEngineManager.getEngine()
+                val translatedChapter = TranslatedChapter(
+                    chapterId = 0,
+                    mangaId = 0,
+                    targetLanguage = tgtLang,
+                    engineId = engine?.id?.key ?: "unknown",
+                    translatedContent = translatedHtml,
+                    dateTranslated = System.currentTimeMillis(),
+                )
+                try {
+                    translatedChapterRepository.upsertTranslation(locator, translatedChapter)
+                    logcat(LogPriority.DEBUG) { "Saved translation for ${locator.chapterName} (lang: $tgtLang)" }
+                } catch (e: CancellationException) {
+                    logcat(LogPriority.DEBUG) { "Translation save was cancelled for ${locator.chapterName}" }
+                    throw e
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to save translation" }
+                }
             }
         }
     }
@@ -1038,15 +1035,6 @@ class TranslationService(
         const val PRIORITY_NORMAL = 50
         const val PRIORITY_HIGH = 100
         const val PRIORITY_MANUAL_READ = 200
-
-        /** Engine IDs for LLM-based engines that support contextual anchoring. */
-        val LLM_ENGINE_IDS = setOf(
-            OpenAITranslateEngine.ENGINE_ID,
-            NvidiaNimTranslateEngine.ENGINE_ID,
-            DeepSeekTranslateEngine.ENGINE_ID,
-            OllamaTranslateEngine.ENGINE_ID,
-            GeminiTranslateEngine.ENGINE_ID,
-        )
 
         /** Max retries per chunk before giving up. */
         private const val MAX_CHUNK_RETRIES = 2

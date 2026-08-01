@@ -17,6 +17,7 @@ import tachiyomi.domain.manga.model.CustomMangaInfo.Companion.writeSourceInto
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.source.local.isLocal
@@ -312,7 +313,7 @@ class UpdateManga(
             return false
         }
 
-        val engine = engineManager.getEngine() ?: run {
+        if (engineManager.getEngine() == null) {
             logcat(LogPriority.WARN) { "Translation engine not configured" }
             return false
         }
@@ -332,7 +333,9 @@ class UpdateManga(
 
         // Translate title if needed
         if (replaceTitle || saveAsAlternative) {
-            val titleResult = engine.translateSingle(manga.title, sourceLanguage, targetLanguage)
+            val titleResult = engineManager.translate(
+                TranslationRequest(listOf(manga.title), sourceLanguage, targetLanguage),
+            )
             when (titleResult) {
                 is TranslationResult.Success -> {
                     val translatedTitle = titleResult.translatedTexts.firstOrNull()
@@ -364,7 +367,7 @@ class UpdateManga(
         // Translate tags if needed
         val genres = manga.genre
         if (translateTags && !genres.isNullOrEmpty()) {
-            val tagsResult = engine.translate(genres, sourceLanguage, targetLanguage)
+            val tagsResult = engineManager.translate(TranslationRequest(genres, sourceLanguage, targetLanguage))
             when (tagsResult) {
                 is TranslationResult.Success -> {
                     val translatedTags = tagsResult.translatedTexts

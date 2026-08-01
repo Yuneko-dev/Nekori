@@ -228,8 +228,12 @@ class MangaScreen(
             } else {
                 null
             },
-            onTranslateClicked = screenModel::translateMangaDetails,
-            onTranslateDownloadedClicked = screenModel::translateDownloadedChapters,
+            onTranslateClicked = if (screenModel.isTranslationEnabled) screenModel::translateMangaDetails else null,
+            onTranslateDownloadedClicked = if (screenModel.isTranslationEnabled) {
+                { screenModel.translateDownloadedChapters() }
+            } else {
+                null
+            },
             onExportEpubClicked = screenModel::showExportEpubDialog.takeIf { successState.isNovel },
             showSourceName = successState.showSourceName,
             onToggleSourceNameVisibility = screenModel::toggleSourceNameVisibility,
@@ -239,11 +243,15 @@ class MangaScreen(
             onMultiDeleteClicked = screenModel::showDeleteChapterDialog,
             onMultiRemoveFromDbClicked = screenModel::showRemoveChaptersFromDbDialog,
             onMultiDeleteTranslationClicked = screenModel::deleteTranslations,
-            onTranslateSelectedClicked = { chapters ->
-                screenModel.translateSelectedChapters(chapters, forceRetranslate = false)
+            onTranslateSelectedClicked = if (screenModel.isTranslationEnabled) {
+                { chapters -> screenModel.translateSelectedChapters(chapters, forceRetranslate = false) }
+            } else {
+                null
             },
-            onRetranslateSelectedClicked = { chapters ->
-                screenModel.translateSelectedChapters(chapters, forceRetranslate = true)
+            onRetranslateSelectedClicked = if (screenModel.isTranslationEnabled) {
+                { chapters -> screenModel.translateSelectedChapters(chapters, forceRetranslate = true) }
+            } else {
+                null
             },
             onChapterSwipe = screenModel::chapterSwipe,
             onChapterSelected = screenModel::toggleSelection,

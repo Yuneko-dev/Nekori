@@ -182,7 +182,11 @@ data object LibraryTab : Tab {
                         }
                         screenModel.clearSelection()
                     },
-                    onTranslateClicked = screenModel::translateSelectedNovels,
+                    onTranslateClicked = if (screenModel.isTranslationEnabled) {
+                        screenModel::translateSelectedNovels
+                    } else {
+                        null
+                    },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },

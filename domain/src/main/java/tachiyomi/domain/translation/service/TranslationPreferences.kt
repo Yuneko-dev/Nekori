@@ -1,6 +1,9 @@
 package tachiyomi.domain.translation.service
 
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.domain.translation.model.SystemPrompt
+import tachiyomi.domain.translation.model.TranslationEngineId
 
 /**
  * Preferences for translation services.
@@ -19,10 +22,33 @@ class TranslationPreferences(
     /**
      * Selected translation engine ID.
      */
-    fun selectedEngineId() = preferenceStore.getLong(
+    fun selectedEngineId() = preferenceStore.getString(
         "translation_engine_id",
-        0L, // Default to first engine (usually Google ML Kit)
+        TranslationEngineId.GOOGLE_FREE.key,
     )
+
+    fun aiProvidersJson() = preferenceStore.getString("translation_ai_providers", "[]")
+
+    fun activeAiProviderId() = preferenceStore.getString("translation_active_ai_provider", "")
+
+    fun aiProviderApiKey(providerId: String) = preferenceStore.getString(
+        Preference.privateKey("translation_ai_provider_key_$providerId"),
+        "",
+    )
+
+    fun systemPromptsJson() = preferenceStore.getString(
+        "translation_system_prompts",
+        """[{"id":"${SystemPrompt.DEFAULT_ID}","name":"Default","guidelines":""}]""",
+    )
+
+    fun activeSystemPromptId() = preferenceStore.getString(
+        "translation_active_system_prompt",
+        SystemPrompt.DEFAULT_ID,
+    )
+
+    fun structuredOutput() = preferenceStore.getBoolean("translation_structured_output", true)
+
+    fun requestRetryCount() = preferenceStore.getInt("translation_request_retry_count", 2)
 
     /**
      * Source language code for translation.
@@ -89,54 +115,9 @@ class TranslationPreferences(
         false,
     )
 
-    /**
-     * Maximum parallel translation tasks for offline engines.
-     */
     fun maxParallelTranslations() = preferenceStore.getInt(
         "translation_max_parallel",
         3,
-    )
-
-    // API Keys for various services
-
-    /**
-     * OpenAI API key.
-     */
-    fun openAiApiKey() = preferenceStore.getString(
-        "translation_openai_api_key",
-        "",
-    )
-
-    /**
-     * NVIDIA NIM base URL.
-     */
-    fun nvidiaNimBaseUrl() = preferenceStore.getString(
-        "translation_nvidia_nim_base_url",
-        "http://localhost:8000",
-    )
-
-    /**
-     * NVIDIA NIM API key (optional).
-     */
-    fun nvidiaNimApiKey() = preferenceStore.getString(
-        "translation_nvidia_nim_api_key",
-        "",
-    )
-
-    /**
-     * NVIDIA NIM model name.
-     */
-    fun nvidiaNimModel() = preferenceStore.getString(
-        "translation_nvidia_nim_model",
-        "",
-    )
-
-    /**
-     * DeepSeek API key.
-     */
-    fun deepSeekApiKey() = preferenceStore.getString(
-        "translation_deepseek_api_key",
-        "",
     )
 
     /**
@@ -151,15 +132,7 @@ class TranslationPreferences(
      * LibreTranslate API key (optional).
      */
     fun libreTranslateApiKey() = preferenceStore.getString(
-        "translation_libretranslate_api_key",
-        "",
-    )
-
-    /**
-     * SYSTRAN API key.
-     */
-    fun systranApiKey() = preferenceStore.getString(
-        "translation_systran_api_key",
+        Preference.privateKey("translation_libretranslate_api_key"),
         "",
     )
 
@@ -167,7 +140,7 @@ class TranslationPreferences(
      * DeepL API key.
      */
     fun deepLApiKey() = preferenceStore.getString(
-        "translation_deepl_api_key",
+        Preference.privateKey("translation_deepl_api_key"),
         "",
     )
 
@@ -175,66 +148,8 @@ class TranslationPreferences(
      * Google Cloud Translation API key.
      */
     fun googleApiKey() = preferenceStore.getString(
-        "translation_google_api_key",
+        Preference.privateKey("translation_google_api_key"),
         "",
-    )
-
-    /**
-     * Ollama server URL for local AI translation.
-     */
-    fun ollamaUrl() = preferenceStore.getString(
-        "translation_ollama_url",
-        "http://localhost:11434",
-    )
-
-    /**
-     * Ollama model name.
-     */
-    fun ollamaModel() = preferenceStore.getString(
-        "translation_ollama_model",
-        "llama3",
-    )
-
-    /**
-     * Custom prompt template for Ollama.
-     * Supports {SOURCE_LANG}, {TARGET_LANG}, and {TEXT} placeholders.
-     */
-    fun ollamaPrompt() = preferenceStore.getString(
-        "translation_ollama_prompt",
-        "",
-    )
-
-    /**
-     * Custom system prompt for OpenAI/GPT models.
-     */
-    fun openAiSystemPrompt() = preferenceStore.getString(
-        "translation_openai_system_prompt",
-        "",
-    )
-
-    /**
-     * Custom user prompt template for OpenAI/GPT models.
-     * Supports {SOURCE_LANG}, {TARGET_LANG}, and {TEXT} placeholders.
-     */
-    fun openAiUserPrompt() = preferenceStore.getString(
-        "translation_openai_user_prompt",
-        "",
-    )
-
-    /**
-     * Whether to enable real-time translation while reading.
-     */
-    fun realTimeTranslation() = preferenceStore.getBoolean(
-        "translation_realtime",
-        false,
-    )
-
-    /**
-     * Cache translated content for faster re-reading.
-     */
-    fun cacheTranslations() = preferenceStore.getBoolean(
-        "translation_cache_enabled",
-        true,
     )
 
     /**
@@ -282,64 +197,6 @@ class TranslationPreferences(
         true,
     )
 
-    // Custom HTTP Translation Engine Settings
-
-    /**
-     * Custom HTTP translation API URL.
-     * Should accept POST requests with JSON body.
-     */
-    fun customHttpUrl() = preferenceStore.getString(
-        "translation_custom_http_url",
-        "",
-    )
-
-    /**
-     * Custom HTTP API key (sent in Authorization header).
-     */
-    fun customHttpApiKey() = preferenceStore.getString(
-        "translation_custom_http_api_key",
-        "",
-    )
-
-    /**
-     * Custom HTTP request method: POST or GET.
-     * GET sends no body; placeholders are substituted URL-encoded into the URL.
-     */
-    fun customHttpMethod() = preferenceStore.getString(
-        "translation_custom_http_method",
-        "POST",
-    )
-
-    /**
-     * Custom HTTP extra headers as ;- or newline-separated "Name: Value" pairs.
-     * Override the default Content-Type/Authorization headers on name match.
-     * {apiKey} in a value is replaced with the configured API key.
-     * Example: x-api-key: {apiKey}; Accept: application/json
-     */
-    fun customHttpHeaders() = preferenceStore.getString(
-        "translation_custom_http_headers",
-        "",
-    )
-
-    /**
-     * Custom HTTP request template.
-     * Use placeholders: {text}, {texts}, {source}, {target}
-     * Example: {"q": "{text}", "source": "{source}", "target": "{target}"}
-     */
-    fun customHttpRequestTemplate() = preferenceStore.getString(
-        "translation_custom_http_request_template",
-        """{"q": {texts}, "source": "{source}", "target": "{target}"}""",
-    )
-
-    /**
-     * Custom HTTP response JSON path for extracting translated text.
-     * Use dot notation: translatedText or result.translations[0].text
-     */
-    fun customHttpResponsePath() = preferenceStore.getString(
-        "translation_custom_http_response_path",
-        "translatedText",
-    )
-
     /**
      * Maximum chunk size per translation batch (in paragraphs).
      */
@@ -365,17 +222,5 @@ class TranslationPreferences(
     fun contextualAnchoringParagraphs() = preferenceStore.getInt(
         "translation_contextual_anchoring_paragraphs",
         2,
-    )
-
-    // Gemini (Google AI)
-
-    fun geminiApiKey() = preferenceStore.getString(
-        "translation_gemini_api_key",
-        "",
-    )
-
-    fun geminiModel() = preferenceStore.getString(
-        "translation_gemini_model",
-        "gemini-2.0-flash",
     )
 }

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.translation
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 
 /**
@@ -18,6 +19,81 @@ object TranslationHtmlUtils {
 
     /** CSS selector for elements that must survive the translate round-trip. */
     private const val MEDIA_SELECTOR = "img, figure, picture, video, source, svg"
+    private const val TRANSLATABLE_SELECTOR = "p, div, span, h1, h2, h3, h4, h5, h6, li, td, th"
+    private const val BLOCK_SELECTOR = "p, div, h1, h2, h3, h4, h5, h6, li, td, th, ul, ol, blockquote, pre, table"
+
+    class TranslationPlan internal constructor(
+        private val body: Element,
+        val texts: List<String>,
+        private val targets: List<TranslationTarget>,
+    ) {
+        fun apply(translations: List<String>): String {
+            require(translations.size == targets.size) {
+                "Expected ${targets.size} translations, received ${translations.size}"
+            }
+            targets.zip(translations).forEach { (target, translation) -> target.replace(translation) }
+            return body.html()
+        }
+    }
+
+    internal sealed interface TranslationTarget {
+        fun replace(translation: String)
+
+        class Html(private val element: Element) : TranslationTarget {
+            override fun replace(translation: String) {
+                element.html(translation)
+            }
+        }
+
+        class Text(private val node: TextNode) : TranslationTarget {
+            override fun replace(translation: String) {
+                node.text(translation)
+            }
+        }
+    }
+
+    /**
+     * Builds a LNReader-compatible translation plan: translate leaf block HTML and direct text nodes,
+     * then write the results into the original DOM instead of rebuilding the chapter from plain text.
+     */
+    fun prepareTranslation(html: String): TranslationPlan {
+        val document = Jsoup.parseBodyFragment(html)
+        document.outputSettings().prettyPrint(false)
+        val texts = mutableListOf<String>()
+        val targets = mutableListOf<TranslationTarget>()
+
+        fun visit(element: Element) {
+            val isTranslatable = element.`is`(TRANSLATABLE_SELECTOR)
+            if (isTranslatable && element.children().none { it.`is`(BLOCK_SELECTOR) }) {
+                val innerHtml = element.html().trim()
+                if (innerHtml.isNotEmpty() && element.text().isNotBlank()) {
+                    texts += innerHtml
+                    targets += TranslationTarget.Html(element)
+                }
+                return
+            }
+
+            element.childNodes().forEach { node ->
+                when (node) {
+                    is TextNode -> if (isTranslatable) {
+                        val text = node.text().trim()
+                        if (text.isNotEmpty()) {
+                            texts += text
+                            targets += TranslationTarget.Text(node)
+                        }
+                    }
+                    is Element -> visit(node)
+                }
+            }
+        }
+        visit(document.body())
+
+        if (texts.isEmpty() && document.body().text().isNotBlank()) {
+            texts += document.body().html().trim()
+            targets += TranslationTarget.Html(document.body())
+        }
+        return TranslationPlan(document.body(), texts, targets)
+    }
 
     /**
      * Replace media elements with unique placeholders so they are not mangled
