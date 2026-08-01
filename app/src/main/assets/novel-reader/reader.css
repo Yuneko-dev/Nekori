@@ -52,6 +52,21 @@ body:not(.page-reader) .transition-chapter {
     text-indent: var(--reader-paragraph-indent);
 }
 
+#LNReader-chapter tsundoku-chapter {
+    display: block;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+#LNReader-chapter tsundoku-chapter * {
+    white-space: normal;
+}
+
+#LNReader-chapter tsundoku-chapter pre,
+#LNReader-chapter tsundoku-chapter pre code {
+    white-space: pre-wrap;
+}
+
 hr {
     margin-top: 20px;
     margin-bottom: 20px;

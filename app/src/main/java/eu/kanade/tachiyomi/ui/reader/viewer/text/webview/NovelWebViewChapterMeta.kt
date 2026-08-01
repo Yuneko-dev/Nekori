@@ -38,6 +38,8 @@ internal object NovelWebViewChapterMeta {
     // bridge. Dispatched from JS, not Kotlin, so there is no per-frame bridge hop.
     const val EVENT_PROGRESS = "tsundoku:progresschange"
 
+    const val READER_DOCUMENT_BASE_URL = "https://tsundoku.reader/"
+
     // Safe-area CSS custom properties: the reader menu bar heights the page must clear (0 while the
     // menu is hidden). Single source of truth for both the injector and the CSS that reads them.
     const val CSS_VAR_SAFE_TOP = "--tsundoku-safe-top"
@@ -112,7 +114,7 @@ internal object NovelWebViewChapterMeta {
         // itself, exactly like a normal page load. Prefer the chapter path, then the novel path.
         val base = sourceBaseUrl?.trim().takeUnless { it.isNullOrBlank() }
             ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-            ?: return null
+            ?: return READER_DOCUMENT_BASE_URL
         val relative = repaired?.trim().takeUnless { it.isNullOrBlank() }
             ?: HtmlUtils.normalizeUrl(novelUrl)?.trim().takeUnless { it.isNullOrBlank() }
             ?: return base

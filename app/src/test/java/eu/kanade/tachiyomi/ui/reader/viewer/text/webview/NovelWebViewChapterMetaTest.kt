@@ -169,9 +169,9 @@ class NovelWebViewChapterMetaTest {
     }
 
     @Test
-    fun `resolveWebViewBaseUrl returns null when neither is absolute http`() {
-        assertEquals(null, resolveWebViewBaseUrl("/foo", null))
-        assertEquals(null, resolveWebViewBaseUrl(null, null))
+    fun `resolveWebViewBaseUrl uses the private reader origin for local content`() {
+        assertEquals("https://tsundoku.reader/", resolveWebViewBaseUrl("/foo", null))
+        assertEquals("https://tsundoku.reader/", resolveWebViewBaseUrl(null, null))
     }
 
     // buildChapterJson
