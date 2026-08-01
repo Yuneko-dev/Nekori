@@ -16,7 +16,7 @@ class NovelDownloadPreferences(
      */
     fun enableRequestThrottling() = preferenceStore.getBoolean(
         "novel_request_throttling_enabled",
-        true,
+        false,
     )
 
     /**

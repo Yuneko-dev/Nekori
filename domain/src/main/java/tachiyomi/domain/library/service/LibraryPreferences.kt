@@ -14,7 +14,7 @@ class LibraryPreferences(
 
     val displayMode: Preference<LibraryDisplayMode> = preferenceStore.getObjectFromString(
         "pref_display_mode_library",
-        LibraryDisplayMode.default,
+        LibraryDisplayMode.ComfortableGrid,
         LibraryDisplayMode.Serializer::serialize,
         LibraryDisplayMode.Serializer::deserialize,
     )
@@ -196,7 +196,7 @@ class LibraryPreferences(
 
     // region Badges
 
-    val downloadBadge: Preference<Boolean> = preferenceStore.getBoolean("display_download_badge", false)
+    val downloadBadge: Preference<Boolean> = preferenceStore.getBoolean("display_download_badge", true)
 
     val unreadBadge: Preference<Boolean> = preferenceStore.getBoolean("display_unread_badge", true)
 
@@ -275,12 +275,12 @@ class LibraryPreferences(
 
     val displayChapterByNameOrNumber: Preference<Long> = preferenceStore.getLong(
         "default_chapter_display_by_name_or_number",
-        Manga.CHAPTER_DISPLAY_BOTH,
+        Manga.CHAPTER_DISPLAY_NAME,
     )
 
     val sortChapterByAscendingOrDescending: Preference<Long> = preferenceStore.getLong(
         "default_chapter_sort_by_ascending_or_descending",
-        Manga.CHAPTER_SORT_DESC,
+        Manga.CHAPTER_SORT_ASC,
     )
 
     fun setChapterSettingsDefault(manga: Manga) {
