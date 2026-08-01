@@ -177,7 +177,12 @@ class ReaderPreferences(
 
     val novelWebViewNetworkMode: Preference<NovelWebViewNetworkMode> = preferenceStore.getEnum(
         "pref_novel_webview_network_mode",
-        NovelWebViewNetworkMode.CHROMIUM,
+        NovelWebViewNetworkMode.NETWORK_HELPER,
+    )
+
+    val novelWebViewLocalProxyEnabled: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_webview_local_proxy_enabled",
+        false,
     )
 
     val novelConsoleErrorToast: Preference<Boolean> = preferenceStore.getBoolean(

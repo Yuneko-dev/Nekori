@@ -256,6 +256,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelWebViewLocalProxyEnabled,
+                    title = stringResource(TDMR.strings.pref_novel_webview_local_proxy),
+                    subtitle = stringResource(TDMR.strings.pref_novel_webview_local_proxy_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelWebViewRemoteDebugging,
                     title = stringResource(TDMR.strings.pref_novel_webview_remote_debugging),
                     subtitle = stringResource(TDMR.strings.pref_novel_webview_remote_debugging_summary),

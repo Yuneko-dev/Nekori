@@ -375,9 +375,8 @@ class ReaderActivity : BaseActivity() {
             .distinctUntilChanged()
             .onEach { isLoading ->
                 // Skip loading dialog for infinite scroll - the viewer handles inline indicators
-                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
-                val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
-                if (isNovelViewer && infiniteScrollEnabled) {
+                val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
+                if (novelViewer?.isInfiniteScrollEnabled() == true) {
                     // Don't show popup for infinite scroll - viewer shows inline indicators
                     return@onEach
                 }
@@ -1672,9 +1671,8 @@ class ReaderActivity : BaseActivity() {
                 if (!committed) return@launch
                 (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("next")
                 // Only reset to page 0 if NOT using infinite scroll for novel viewers
-                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
-                val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
-                if (!(isNovelViewer && infiniteScrollEnabled)) {
+                val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
+                if (novelViewer?.isInfiniteScrollEnabled() != true) {
                     moveToPageIndex(0)
                 }
             } finally {
@@ -1696,9 +1694,8 @@ class ReaderActivity : BaseActivity() {
                 if (!committed) return@launch
                 (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("prev")
                 // Only reset to page 0 if NOT using infinite scroll for novel viewers
-                val isNovelViewer = viewModel.state.value.viewer is NovelWebViewViewer
-                val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.get()
-                if (!(isNovelViewer && infiniteScrollEnabled)) {
+                val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
+                if (novelViewer?.isInfiniteScrollEnabled() != true) {
                     moveToPageIndex(0)
                 }
             } finally {

@@ -27,6 +27,8 @@ internal object NovelWebViewDocumentBuilder {
         val pluginJavaScript: String,
         val infiniteScrollEnabled: Boolean,
         val blockMedia: Boolean,
+        val compatConfigJson: String = "{}",
+        val chapterDirectives: NovelWebViewChapterDirectives = NovelWebViewChapterDirectives(),
     )
 
     fun assemble(input: DocumentInput): String {
@@ -101,6 +103,15 @@ internal object NovelWebViewDocumentBuilder {
             .replace("</SCRIPT>", "<\\/SCRIPT>")
         val themeExposureScript = "window.TsundokuTheme = $escapedThemeJson;"
         val pluginScript = input.pluginJavaScript.escapeForScriptTag()
+        val videoAssets = if (input.chapterDirectives.video != null) {
+            """
+                <link rel="stylesheet" href="$ASSET_ROOT/core-player.css">
+                <script src="$ASSET_ROOT/hls.min.js"></script>
+                <script src="$ASSET_ROOT/core-player.js"></script>
+            """.trimIndent()
+        } else {
+            ""
+        }
 
         return """
             <!DOCTYPE html>
@@ -116,12 +127,16 @@ internal object NovelWebViewDocumentBuilder {
                 <style id="tsundoku-custom-style">$escapedInitialStyle</style>
                 <script>${input.tsundokuScript}</script>
                 <script>$themeExposureScript</script>
+                ${input.chapterDirectives.metadataHtml}
             </head>
             <body class="${input.style.bodyClasses}">
                 <div id="LNReader-chapter">
                     $chapterContent
                 </div>
                 <div id="reader-ui"></div>
+                <script id="lnreader-compat-config" type="application/json">${input.compatConfigJson}</script>
+                <script src="$ASSET_ROOT/lnreader-compat.js"></script>
+                $videoAssets
                 ${if (pluginScript.isBlank()) "" else "<script>$pluginScript</script>"}
             </body>
             </html>
@@ -190,4 +205,5 @@ internal object NovelWebViewDocumentBuilder {
 
     const val PLAIN_TEXT_CLASS = "tsundoku-plain-text"
     const val ATTR_DATA_PLAIN_TEXT = "data-tsundoku-plain-text"
+    private const val ASSET_ROOT = "https://tsundoku.reader/assets"
 }

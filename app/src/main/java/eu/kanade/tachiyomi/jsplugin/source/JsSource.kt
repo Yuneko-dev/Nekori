@@ -65,6 +65,9 @@ class JsSource(
 
     @Volatile private var webStorageUtilized = false
 
+    val allowsInfiniteScroll: Boolean
+        get() = plugin.allowsInfiniteScroll()
+
     // parseNovel details and chapter list share one response.
     private val chaptersCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
     private val novelStructures = java.util.concurrent.ConcurrentHashMap<String, NovelStructure>()
@@ -91,7 +94,7 @@ class JsSource(
 
     companion object {
         private const val BROWSE_PROBE_TTL_MS = 60_000L
-        private const val PLUGIN_CALL_TIMEOUT_MS = 30_000L
+        private const val PLUGIN_CALL_TIMEOUT_MS = 90_000L
 
         private val HTML_TAG_REGEX = Regex(
             "<(?:p|div|br|span|h[1-6]|ul|ol|li|a|img|table|blockquote|strong|em|b|i|code)\\b",

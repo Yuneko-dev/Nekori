@@ -180,4 +180,37 @@ class NovelWebViewDocumentBuilderTest {
         )
         assertFalse(html.contains("tsundoku-chapter-divider"))
     }
+
+    @Test
+    fun `compat runtime loads before plugin custom JavaScript`() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(pluginJavaScript = "window.pluginStarted = true"),
+        )
+
+        assertTrue(html.indexOf("lnreader-compat.js") < html.indexOf("window.pluginStarted"))
+    }
+
+    @Test
+    fun `video runtime is loaded only for video chapters`() {
+        val textHtml = NovelWebViewDocumentBuilder.assemble(minimalInput())
+        val videoHtml = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(
+                chapterDirectives = NovelWebViewChapterDirectives(
+                    video = VideoChapter(
+                        mode = VideoChapter.Mode.LAZY,
+                        type = null,
+                        url = null,
+                        debug = false,
+                        playerType = null,
+                        disableProgress = false,
+                    ),
+                ),
+            ),
+        )
+
+        assertFalse(textHtml.contains("core-player.js"))
+        assertTrue(videoHtml.contains("hls.min.js"))
+        assertTrue(videoHtml.contains("core-player.js"))
+        assertTrue(videoHtml.contains("core-player.css"))
+    }
 }

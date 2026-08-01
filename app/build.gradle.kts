@@ -302,6 +302,7 @@ dependencies {
 
     // Networking
     implementation(libs.bundles.okhttp)
+    implementation(libs.nanohttpd)
     implementation(libs.okio)
     implementation(libs.conscrypt) // TLS 1.3 support for Android < 10
 

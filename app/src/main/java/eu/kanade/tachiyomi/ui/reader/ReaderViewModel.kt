@@ -762,9 +762,8 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     private fun shouldSetActiveWithoutReload(chapter: ReaderChapter): Boolean {
-        val isNovelViewer = state.value.viewer is NovelWebViewViewer
-        if (!isNovelViewer) return false
-        if (!readerPreferences.novelInfiniteScroll.get()) return false
+        val novelViewer = state.value.viewer as? NovelWebViewViewer ?: return false
+        if (!novelViewer.isInfiniteScrollEnabled()) return false
 
         val pages = chapter.pages ?: return false
         return pages.isNotEmpty() && chapter.state !is ReaderChapter.State.Error

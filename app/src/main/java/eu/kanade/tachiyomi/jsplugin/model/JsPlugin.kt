@@ -44,6 +44,8 @@ data class JsPlugin(
 
     fun hasAdultContentWarning(): Boolean = contentWarning in (CONTENT_WARNING_SAFE + 1)..3
 
+    fun allowsInfiniteScroll(): Boolean = contentType != CONTENT_TYPE_VIDEO && contentType != CONTENT_TYPE_MIXED
+
     /**
      * Unique identifier combining plugin ID and repository URL for disambiguation
      */

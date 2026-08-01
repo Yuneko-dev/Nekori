@@ -26,6 +26,14 @@ class JsPluginModelTest {
         assertFalse(plugin(contentWarning = 1).hasAdultContentWarning())
     }
 
+    @Test
+    fun `mixed and video plugins disable infinite scroll`() {
+        assertFalse(plugin(contentType = "mixed").allowsInfiniteScroll())
+        assertFalse(plugin(contentType = "video").allowsInfiniteScroll())
+        assertTrue(plugin(contentType = "image").allowsInfiniteScroll())
+        assertTrue(plugin().allowsInfiniteScroll())
+    }
+
     private fun plugin(
         contentWarning: Int = 0,
         contentType: String? = null,

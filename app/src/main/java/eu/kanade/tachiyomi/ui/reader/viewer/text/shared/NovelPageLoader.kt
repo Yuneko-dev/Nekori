@@ -33,6 +33,9 @@ object NovelPageLoader {
             logcat(LogPriority.DEBUG) { "$tag: page text already available, text.length=${page.text?.length ?: 0}" }
             return true
         }
+        if (page.status is Page.State.Ready) {
+            page.status = Page.State.Queue
+        }
 
         var loadJob: kotlinx.coroutines.Job? = null
         if (page.status is Page.State.Error) {

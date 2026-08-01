@@ -35,6 +35,7 @@ class NetworkHelper(
             .addInterceptor(UncaughtExceptionInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
             .addInterceptor(rateLimitInterceptor)
+            .addNetworkInterceptor(AdditionalCookieInterceptor())
 
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {

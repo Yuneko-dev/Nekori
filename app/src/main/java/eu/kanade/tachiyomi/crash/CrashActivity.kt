@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.crash
 
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import androidx.core.view.WindowCompat
@@ -20,8 +21,11 @@ class CrashActivity : BaseActivity() {
             CrashScreen(
                 exception = exception,
                 onRestartClick = {
-                    finishAffinity()
-                    startActivity(Intent(this@CrashActivity, MainActivity::class.java))
+                    startActivity(
+                        Intent.makeRestartActivityTask(
+                            ComponentName(this@CrashActivity, MainActivity::class.java),
+                        ),
+                    )
                 },
             )
         }

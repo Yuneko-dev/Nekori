@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import android.view.View
-import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import androidx.core.net.toUri
 import eu.kanade.presentation.reader.settings.CodeSnippet
@@ -23,7 +22,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.io.ByteArrayInputStream
 
 internal class NovelWebViewStyler(
     private val activity: ReaderActivity,
@@ -190,14 +188,6 @@ internal class NovelWebViewStyler(
                 "Access-Control-Allow-Origin" to "*",
                 "Cache-Control" to "max-age=31536000",
             )
-        }
-    }
-
-    fun interceptReaderAsset(url: String): WebResourceResponse? {
-        if (url != READER_CSS_URL) return null
-        val bytes = NovelWebViewJsAssets.load(activity, "reader.css").toByteArray(Charsets.UTF_8)
-        return WebResourceResponse("text/css", "UTF-8", ByteArrayInputStream(bytes)).apply {
-            responseHeaders = mapOf("Cache-Control" to "no-store")
         }
     }
 

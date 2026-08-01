@@ -77,7 +77,7 @@ data object NovelsTab : Tab {
             val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_library_enter)
             return TabOptions(
                 index = 0u,
-                title = stringResource(TDMR.strings.label_novels),
+                title = stringResource(MR.strings.label_library),
                 icon = rememberAnimatedVectorPainter(image, isSelected),
             )
         }
@@ -135,7 +135,7 @@ data object NovelsTab : Tab {
         Scaffold(
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
-                    defaultTitle = stringResource(TDMR.strings.label_novels),
+                    defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
                     page = state.coercedActiveCategoryIndex,
                 )
