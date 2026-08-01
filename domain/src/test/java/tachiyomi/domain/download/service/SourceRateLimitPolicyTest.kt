@@ -20,7 +20,10 @@ class SourceRateLimitPolicyTest {
             every { getRateLimitCandidates() } returns candidates.toList()
             every { this@mockk.isInitialized } returns MutableStateFlow(isInitialized)
         }
-        val resolver = RateLimitResolver(NovelDownloadPreferences(InMemoryPreferenceStore()))
+        val preferences = NovelDownloadPreferences(InMemoryPreferenceStore()).apply {
+            enableRequestThrottling().set(true)
+        }
+        val resolver = RateLimitResolver(preferences)
         return SourceRateLimitPolicy(sourceManager, resolver)
     }
 

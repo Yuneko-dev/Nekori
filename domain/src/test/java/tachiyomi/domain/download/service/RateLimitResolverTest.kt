@@ -12,6 +12,7 @@ class RateLimitResolverTest {
 
     private fun resolver(): Pair<NovelDownloadPreferences, RateLimitResolver> {
         val prefs = NovelDownloadPreferences(InMemoryPreferenceStore())
+        prefs.enableRequestThrottling().set(true)
         return prefs to RateLimitResolver(prefs)
     }
 
