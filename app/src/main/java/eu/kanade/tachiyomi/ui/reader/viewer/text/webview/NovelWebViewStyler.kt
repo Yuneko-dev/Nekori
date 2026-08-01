@@ -266,12 +266,19 @@ internal class NovelWebViewStyler(
             "reader-ui.js",
             mapOf(
                 "BIONIC_ENABLED" to preferences.novelBionicReading.get().toString(),
+                "TTS_ENABLED" to preferences.novelTtsEnabled.get().toString(),
                 "TTS_STATE_EVENT" to NovelWebViewChapterMeta.EVENT_TTS_STATE,
                 "TTS_CONTROL_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_tts_control)),
                 "IMAGE_CLOSE_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_image_close)),
             ),
         )
         evaluateJs(js)
+    }
+
+    fun setTtsEnabled(enabled: Boolean) {
+        evaluateJs(
+            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerUi?.setTtsEnabled?.($enabled);",
+        )
     }
 
     fun setBionicReading(enabled: Boolean) {

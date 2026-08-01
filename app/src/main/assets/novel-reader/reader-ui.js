@@ -2,6 +2,7 @@
 //
 // Replaces:
 //   __BIONIC_ENABLED__       - true / false
+//   __TTS_ENABLED__          - true / false
 //   __TTS_STATE_EVENT__      - runtime event name
 //   __TTS_CONTROL_LABEL__ / __IMAGE_CLOSE_LABEL__   - JSON-quoted localized labels
 
@@ -10,6 +11,7 @@
     var runtime = (window.Tsundoku.runtime = window.Tsundoku.runtime || {});
     if (runtime.readerUi) {
         runtime.readerUi.setBionic(__BIONIC_ENABLED__);
+        runtime.readerUi.setTtsEnabled(__TTS_ENABLED__);
         runtime.readerUi.refresh();
         return;
     }
@@ -106,6 +108,7 @@
 
     var pointerStart = null;
     var hoverElement = null;
+    var ttsEnabled = __TTS_ENABLED__;
     var readableSelector = "p,li,blockquote,h1,h2,h3,h4,h5,h6,pre";
 
     function readableElements() {
@@ -157,6 +160,7 @@
     }
 
     controller.addEventListener("pointerdown", function (event) {
+        if (!ttsEnabled) return;
         event.preventDefault();
         event.stopPropagation();
         if (window.Android && window.Android.suppressReaderGestures) {
@@ -227,7 +231,16 @@
     }
 
     function updateVisibility() {
-        controller.classList.toggle("hidden", !!runtime.isEditMode);
+        controller.classList.toggle("hidden", !ttsEnabled || !!runtime.isEditMode);
+    }
+
+    function setTtsEnabled(enabled) {
+        ttsEnabled = !!enabled;
+        if (!ttsEnabled) {
+            pointerStart = null;
+            clearHighlight();
+        }
+        updateVisibility();
     }
 
     window.addEventListener("__TTS_STATE_EVENT__", updateTtsState);
@@ -342,6 +355,7 @@
             updateVisibility();
         },
         setBionic: setBionic,
+        setTtsEnabled: setTtsEnabled,
         closeImage: hideImage,
     };
     setBionic(__BIONIC_ENABLED__);

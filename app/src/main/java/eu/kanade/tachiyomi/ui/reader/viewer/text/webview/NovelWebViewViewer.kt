@@ -150,6 +150,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private lateinit var webView: WebView
     private var loadingIndicator: ReaderProgressIndicator? = null
     private val preferences: ReaderPreferences by injectLazy()
+    private val isTtsEnabled: Boolean
+        get() = preferences.novelTtsEnabled.get()
     private val libraryPreferences: tachiyomi.domain.library.service.LibraryPreferences by injectLazy()
     private val networkHelper: NetworkHelper by injectLazy()
     private val contentPipeline = ContentPipeline(preferences)
@@ -404,6 +406,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             scope = scope,
             callbacks = object : TtsController.Callbacks {
                 override fun onInitialized(pendingRequest: TtsController.StartRequest?) {
+                    if (!isTtsEnabled) {
+                        ttsController.pendingStartRequest = null
+                        pendingTtsParagraphIndex = null
+                        return
+                    }
                     when (pendingRequest) {
                         TtsController.StartRequest.NORMAL -> startTts()
                         TtsController.StartRequest.VIEWPORT -> {
@@ -429,6 +436,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 }
 
                 override fun onLastChunkDone() {
+                    if (!isTtsEnabled) return
                     val nextAlreadyLoaded = isInfiniteScrollEnabled() &&
                         loadedChapters.getOrNull(ttsController.ttsPlaybackChapterIndex + 1) != null
                     if (nextAlreadyLoaded) {
@@ -2477,6 +2485,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         @JavascriptInterface
         fun toggleTts() {
             activity.runOnUiThread {
+                if (!isTtsEnabled) return@runOnUiThread
                 when {
                     ttsController.isPaused() -> resumeTts()
                     ttsController.isSpeaking() -> pauseTts()
@@ -2489,6 +2498,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         @JavascriptInterface
         fun startTtsAtParagraph(index: Int) {
             activity.runOnUiThread {
+                if (!isTtsEnabled) return@runOnUiThread
                 this@NovelWebViewViewer.startTtsAtParagraph(index.coerceAtLeast(0))
             }
         }
@@ -3039,7 +3049,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ttsController.ensureInitialized()
     }
 
+    fun setTtsEnabled(enabled: Boolean) {
+        if (!enabled && isTtsActive()) stopTts(preserveChapterLoad = true)
+        styler.setTtsEnabled(enabled)
+    }
+
     fun startTts() {
+        if (!isTtsEnabled) return
         if (isVideoChapter()) {
             stopTts()
             return
@@ -3063,6 +3079,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
         val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
+            if (!isTtsEnabled) return@evaluateJavascriptSafe
             val text = unescapeJsResult(result)
 
             if (text.isNotBlank() && text != "null") {
@@ -3085,7 +3102,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    fun stopTts() {
+    fun stopTts(preserveChapterLoad: Boolean = false) {
         logcat(LogPriority.DEBUG) {
             "TTS (WebView): stopTts called ts=${System.currentTimeMillis()} currentChapterIndex=$currentChapterIndex, ttsCurrentChunkIndex=${ttsController.ttsCurrentChunkIndex}, ttsResumeChunkIndex=${ttsController.ttsResumeChunkIndex}, ttsPlaybackChapterIndex=${ttsController.ttsPlaybackChapterIndex}, ttsPlaybackChapterId=${ttsController.ttsPlaybackChapterId}"
         }
@@ -3093,7 +3110,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         pendingTtsParagraphIndex = null
         // Drop a pending real-load signal so a stale onPageFinished after stop can't inject; leave a
         // committed READY/ERROR document intact.
-        if (docState == DocState.LOADING_REAL) docState = DocState.LOADING
+        if (!preserveChapterLoad && docState == DocState.LOADING_REAL) docState = DocState.LOADING
         ttsController.stop()
         handoffState = TtsHandoffState.Idle
         dispatchTtsState()
@@ -3124,6 +3141,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     fun resumeTts() {
+        if (!isTtsEnabled) return
         ttsController.resume()
         dispatchTtsState()
     }
@@ -3137,6 +3155,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun stepTtsParagraph(delta: Int) {
+        if (!isTtsEnabled) return
         ttsController.stepParagraph(delta) { startTtsFromViewport() }
     }
 
@@ -3167,6 +3186,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     fun getTtsProgressPercent(): Int = ttsController.getProgressPercent()
 
     fun startTtsFromViewport() {
+        if (!isTtsEnabled) return
         if (isVideoChapter()) {
             stopTts()
             return
@@ -3218,6 +3238,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun startTtsAtParagraph(index: Int) {
+        if (!isTtsEnabled) return
         if (isVideoChapter()) {
             stopTts()
             return
@@ -3244,6 +3265,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         dispatchTtsState()
         val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
+            if (!isTtsEnabled) return@evaluateJavascriptSafe
             val text = unescapeJsResult(result)
             if (text.isBlank() || text == "null") {
                 logcat(LogPriority.WARN) { "TTS (WebView): No text available for selected paragraph" }

@@ -13,4 +13,11 @@ class AppbarItemConfigTest {
 
         items.first { it.item == BottomBarItem.CHAPTER_LIST }.enabled shouldBe true
     }
+
+    @Test
+    fun `TTS item is unavailable only while master TTS is disabled`() {
+        BottomBarItem.TTS.isAvailable(ttsEnabled = false) shouldBe false
+        BottomBarItem.TTS.isAvailable(ttsEnabled = true) shouldBe true
+        BottomBarItem.CHAPTER_LIST.isAvailable(ttsEnabled = false) shouldBe true
+    }
 }

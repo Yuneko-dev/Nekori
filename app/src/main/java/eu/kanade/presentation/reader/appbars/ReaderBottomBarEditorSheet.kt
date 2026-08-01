@@ -42,6 +42,7 @@ fun BottomBarEditorSheet(
     // Pass in a lambda to resolve display info per item (icon + label)
     // so this composable stays generic and free of reader-specific context
     itemInfo: @Composable (BottomBarItem) -> Pair<ImageVector, String>,
+    itemEnabled: (BottomBarItem) -> Boolean = { true },
 ) {
     val mutableItems = remember(items) { items.toMutableStateList() }
 
@@ -90,6 +91,7 @@ fun BottomBarEditorSheet(
                             Text(label, modifier = Modifier.weight(1f))
                             Switch(
                                 checked = itemState.enabled,
+                                enabled = itemEnabled(itemState.item),
                                 onCheckedChange = { checked ->
                                     val idx = mutableItems.indexOf(itemState)
                                     if (idx != -1) mutableItems[idx] = itemState.copy(enabled = checked)

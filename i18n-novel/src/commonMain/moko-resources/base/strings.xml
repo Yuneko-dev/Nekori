@@ -535,6 +535,7 @@
     <string name="pref_novel_rendering_mode">Rendering mode</string>
     <string name="pref_novel_auto_load_next_at">Auto-load next chapter at %</string>
     <string name="pref_novel_tts">Text to speech</string>
+    <string name="pref_novel_tts_enabled">Enable text to speech</string>
     <string name="tts_prev_paragraph">Previous paragraph</string>
     <string name="tts_next_paragraph">Next paragraph</string>
     <string name="reader_tts_control">Text to speech. Drag to choose where reading starts</string>
@@ -1014,4 +1015,8 @@
     <string name="sensitive_block_reading_progress">Block saving reading progress</string>
     <string name="sensitive_block_reading_history">Block saving reading history</string>
     <string name="sensitive_block_discord_rpc">Block Discord Rich Presence</string>
+
+    <string name="external_link_dialog_title">Open external link?</string>
+    <string name="external_link_dialog_message">This link will open in another app. Do you want to continue?</string>
+    <string name="action_open_external_link">Open</string>
 </resources>

@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -56,30 +55,30 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
         }
     }
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_show_page_number),
         pref = screenModel.preferences.showPageNumber,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_fullscreen),
         pref = screenModel.preferences.fullscreen,
     )
 
     val isFullscreen by screenModel.preferences.fullscreen.collectAsState()
     if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(MR.strings.pref_cutout_short),
             pref = screenModel.preferences.drawUnderCutout,
         )
     }
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_keep_screen_on),
         pref = screenModel.preferences.keepScreenOn,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_flash_page),
         pref = screenModel.preferences.flashOnPageChange,
     )

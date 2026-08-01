@@ -49,7 +49,7 @@ class CategoryScreen : Screen() {
             CategoryDialog.Create -> {
                 CategoryCreateDialog(
                     onDismissRequest = screenModel::dismissDialog,
-                    onCreate = { name, contentType -> screenModel.createCategory(name, contentType) },
+                    onCreate = screenModel::createCategory,
                     categories = successState.categories.fastMap { it.name }.toList(),
                 )
             }

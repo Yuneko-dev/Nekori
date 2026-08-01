@@ -20,6 +20,8 @@ enum class BottomBarItem(val id: String) {
     QUOTES("quotes"),
 }
 
+fun BottomBarItem.isAvailable(ttsEnabled: Boolean): Boolean = this != BottomBarItem.TTS || ttsEnabled
+
 data class BottomBarItemState(
     val item: BottomBarItem,
     val enabled: Boolean = true, // whether it appears in the bar

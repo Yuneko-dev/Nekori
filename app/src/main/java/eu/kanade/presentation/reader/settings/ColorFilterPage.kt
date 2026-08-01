@@ -14,7 +14,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFi
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -23,7 +22,7 @@ import tachiyomi.presentation.core.util.collectAsState
 @Composable
 internal fun ColumnScope.ColorFilterPage(screenModel: ReaderSettingsScreenModel) {
     val customBrightness by screenModel.preferences.customBrightness.collectAsState()
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_custom_brightness),
         pref = screenModel.preferences.customBrightness,
     )
@@ -47,7 +46,7 @@ internal fun ColumnScope.ColorFilterPage(screenModel: ReaderSettingsScreenModel)
     }
 
     val colorFilter by screenModel.preferences.colorFilter.collectAsState()
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_custom_color_filter),
         pref = screenModel.preferences.colorFilter,
     )
@@ -114,11 +113,11 @@ internal fun ColumnScope.ColorFilterPage(screenModel: ReaderSettingsScreenModel)
         }
     }
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_grayscale),
         pref = screenModel.preferences.grayscale,
     )
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_inverted_colors),
         pref = screenModel.preferences.invertedColors,
     )

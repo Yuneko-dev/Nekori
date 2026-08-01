@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -72,6 +73,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -98,6 +101,7 @@ import org.intellij.markdown.ast.findChildOfType
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.TextButton
 import tachiyomi.presentation.core.components.material.padding
@@ -695,6 +699,48 @@ private fun MangaSummary(
 ) {
     val preferences = remember { Injekt.get<UiPreferences>() }
     val loadImages = remember { preferences.imagesInDescription.get() }
+    val uriHandler = LocalUriHandler.current
+    var externalUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    val confirmingUriHandler = remember {
+        object : UriHandler {
+            override fun openUri(uri: String) {
+                externalUrl = uri
+            }
+        }
+    }
+
+    externalUrl?.let { url ->
+        AlertDialog(
+            onDismissRequest = { externalUrl = null },
+            title = { Text(stringResource(TDMR.strings.external_link_dialog_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(TDMR.strings.external_link_dialog_message))
+                    Text(
+                        text = url,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        externalUrl = null
+                        runCatching { uriHandler.openUri(url) }
+                    },
+                ) {
+                    Text(stringResource(TDMR.strings.action_open_external_link))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { externalUrl = null }) {
+                    Text(stringResource(MR.strings.action_cancel))
+                }
+            },
+        )
+    }
+
     val animProgress by animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
         label = "summary",
@@ -723,15 +769,17 @@ private fun MangaSummary(
                         onEditNotes = onEditNotesClicked,
                     )
                     SelectionContainer {
-                        MarkdownRender(
-                            content = description,
-                            modifier = Modifier.secondaryItemAlpha(),
-                            annotator = descriptionAnnotator(
+                        CompositionLocalProvider(LocalUriHandler provides confirmingUriHandler) {
+                            MarkdownRender(
+                                content = description,
+                                modifier = Modifier.secondaryItemAlpha(),
+                                annotator = descriptionAnnotator(
+                                    loadImages = loadImages,
+                                    linkStyle = getMarkdownLinkStyle().toSpanStyle(),
+                                ),
                                 loadImages = loadImages,
-                                linkStyle = getMarkdownLinkStyle().toSpanStyle(),
-                            ),
-                            loadImages = loadImages,
-                        )
+                            )
+                        }
                     }
                 }
             },

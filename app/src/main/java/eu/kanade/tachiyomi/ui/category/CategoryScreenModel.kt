@@ -48,9 +48,9 @@ class CategoryScreenModel(
         }
     }
 
-    fun createCategory(name: String, contentType: Int = Category.CONTENT_TYPE_ALL) {
+    fun createCategory(name: String) {
         screenModelScope.launch {
-            when (createCategoryWithName.await(name, contentType)) {
+            when (createCategoryWithName.await(name, Category.CONTENT_TYPE_NOVEL)) {
                 is CreateCategoryWithName.Result.InternalError -> _events.send(CategoryEvent.InternalError)
                 else -> {}
             }

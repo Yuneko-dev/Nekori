@@ -34,7 +34,6 @@ import androidx.compose.material.icons.outlined.FormatAlignJustify
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -49,6 +48,7 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,7 +76,6 @@ import kotlinx.serialization.json.Json
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
-import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.InlineSettingsChipRow
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
@@ -167,12 +166,12 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel)
         defaultValue = screenModel.preferences.novelFontFamily.defaultValue(),
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_use_original_fonts),
         pref = screenModel.preferences.novelUseOriginalFonts,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_bionic_reading),
         pref = screenModel.preferences.novelBionicReading,
     )
@@ -251,7 +250,7 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel)
     HorizontalDivider()
 
     // Auto-split paragraphs
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.novel_auto_split),
         pref = screenModel.preferences.novelAutoSplitText,
     )
@@ -434,13 +433,13 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
     }
 
     // Hide Chapter Title in Content
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_hide_chapter_title),
         pref = screenModel.preferences.novelHideChapterTitle,
     )
 
     // Force Lowercase Text
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.novel_force_lowercase),
         pref = screenModel.preferences.novelForceTextLowercase,
     )
@@ -464,7 +463,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
 
     // Custom Brightness
     val novelCustomBrightness by screenModel.preferences.novelCustomBrightness.collectAsState()
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_custom_brightness),
         pref = screenModel.preferences.novelCustomBrightness,
     )
@@ -481,13 +480,13 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
     }
 
     // Keep Screen On
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_keep_screen_on),
         pref = screenModel.preferences.novelKeepScreenOn,
     )
 
     // Block Media (images, videos, audio)
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_block_media),
         pref = screenModel.preferences.novelBlockMedia,
     )
@@ -507,7 +506,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
     )
 
     // Volume Keys to Scroll
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
         pref = screenModel.preferences.novelVolumeKeysScroll,
     )
@@ -580,13 +579,13 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
     }
 
     // Swipe Navigation
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_swipe_navigation),
         pref = screenModel.preferences.novelSwipeNavigation,
     )
 
     // Text Selection
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_text_selectable),
         pref = screenModel.preferences.novelTextSelectable,
     )
@@ -660,10 +659,10 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
 
     // Infinite Scroll
     val infiniteScrollEnabled by screenModel.preferences.novelInfiniteScroll.collectAsState()
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_infinite_scroll),
         checked = infiniteScrollEnabled,
-        onClick = { screenModel.preferences.novelInfiniteScroll.set(!infiniteScrollEnabled) },
+        onCheckedChange = screenModel.preferences.novelInfiniteScroll::set,
     )
 
     // Auto-load next chapter at percentage (only relevant when infinite scroll is enabled)
@@ -691,38 +690,36 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
     // Status Bar
     HorizontalDivider()
     val statusBarEnabled by screenModel.preferences.novelStatusBarEnabled.collectAsState()
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_status_bar),
         pref = screenModel.preferences.novelStatusBarEnabled,
     )
     if (statusBarEnabled) {
         val statusBarPosition by screenModel.preferences.novelStatusBarPosition.collectAsState()
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_at_top),
             checked = statusBarPosition == "top",
-            onClick = {
-                screenModel.preferences.novelStatusBarPosition.set(
-                    if (statusBarPosition == "top") "bottom" else "top",
-                )
+            onCheckedChange = { atTop ->
+                screenModel.preferences.novelStatusBarPosition.set(if (atTop) "top" else "bottom")
             },
         )
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_time),
             pref = screenModel.preferences.novelStatusBarShowTime,
         )
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_battery),
             pref = screenModel.preferences.novelStatusBarShowBattery,
         )
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_chapter_number),
             pref = screenModel.preferences.novelStatusBarShowChapterNumber,
         )
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_chapter_title),
             pref = screenModel.preferences.novelStatusBarShowChapterTitle,
         )
-        CheckboxItem(
+        ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_progress),
             pref = screenModel.preferences.novelStatusBarShowProgress,
         )
@@ -748,28 +745,28 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
     RegexReplacementSection(screenModel)
 
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Enable embedded CSS",
         pref = screenModel.preferences.enableEpubStyles,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Enable embedded JS",
         pref = screenModel.preferences.enableEpubJs,
     )
 
     // Allow user to choose whether source CSS has priority over reader theme
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Source CSS priority",
         pref = screenModel.preferences.novelSourceCssPriority,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_css),
         pref = screenModel.preferences.novelPluginUseCustomCss,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_js),
         pref = screenModel.preferences.novelPluginUseCustomJs,
     )
@@ -1101,7 +1098,7 @@ private fun SnippetEditDialog(
                             .padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(
+                        Switch(
                             checked = runOnAppend,
                             onCheckedChange = { runOnAppend = it },
                         )
@@ -1383,7 +1380,7 @@ private fun RegexEditDialog(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Checkbox(
+                    Switch(
                         checked = isRegex,
                         onCheckedChange = {
                             isRegex = it
@@ -1414,7 +1411,7 @@ private fun RegexEditDialog(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(
+                        Switch(
                             checked = matchWholeWord,
                             onCheckedChange = {
                                 matchWholeWord = it
@@ -1432,7 +1429,7 @@ private fun RegexEditDialog(
                         modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(
+                        Switch(
                             checked = caseSensitive,
                             onCheckedChange = {
                                 caseSensitive = it
@@ -1554,6 +1551,16 @@ private fun RegexEditDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
+    val ttsEnabled by screenModel.preferences.novelTtsEnabled.collectAsState()
+
+    Spacer(modifier = Modifier.height(8.dp))
+    ReaderSwitchItem(
+        label = stringResource(TDMR.strings.pref_novel_tts_enabled),
+        pref = screenModel.preferences.novelTtsEnabled,
+    )
+
+    if (!ttsEnabled) return
+
     val context = LocalContext.current
     val ttsSpeed by screenModel.preferences.novelTtsSpeed.collectAsState()
     val ttsPitch by screenModel.preferences.novelTtsPitch.collectAsState()
@@ -1611,8 +1618,6 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
             tts.shutdown()
         }
     }
-
-    Spacer(modifier = Modifier.height(8.dp))
 
     // Section Header
     Text(
@@ -1684,13 +1689,13 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
     )
 
     // Auto-play next chapter
-    CheckboxItem(
+    ReaderSwitchItem(
         label = stringResource(TDMR.strings.pref_novel_tts_auto_next),
         pref = screenModel.preferences.novelTtsAutoNextChapter,
     )
 
     // Enable TTS highlighting
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Enable paragraph highlighting during TTS",
         pref = screenModel.preferences.novelTtsEnableHighlight,
     )
@@ -1771,18 +1776,18 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
             }
         }
 
-        CheckboxItem(
+        ReaderSwitchItem(
             label = "Keep highlighted paragraph in view",
             pref = screenModel.preferences.novelTtsKeepHighlightInView,
         )
     }
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Auto-start TTS when opening controls panel",
         pref = screenModel.preferences.novelTtsAutoStartOnPanelOpen,
     )
 
-    CheckboxItem(
+    ReaderSwitchItem(
         label = "Keep TTS running in background",
         pref = screenModel.preferences.novelTtsBackgroundPlayback,
     )

@@ -84,6 +84,7 @@ import eu.kanade.presentation.reader.appbars.BottomBarItem
 import eu.kanade.presentation.reader.appbars.NovelReaderAppBars
 import eu.kanade.presentation.reader.appbars.QuotesSheet
 import eu.kanade.presentation.reader.appbars.bottomBarItemInfo
+import eu.kanade.presentation.reader.appbars.isAvailable
 import eu.kanade.presentation.reader.deserializeStatusBarOrder
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.presentation.util.formatChapterNumber
@@ -488,7 +489,6 @@ class ReaderActivity : BaseActivity() {
         val novelStatusBarSize by readerPreferences.novelStatusBarSize.collectAsState()
         val novelStatusBarShowCharging by readerPreferences.novelStatusBarShowCharging.collectAsState()
         val novelStatusBarOrderRaw by readerPreferences.novelStatusBarOrder.collectAsState()
-        val novelTtsControlsActive by readerPreferences.novelTtsControlsVisible.collectAsState()
         val novelTheme by readerPreferences.novelTheme.collectAsState()
         val novelBgColorInt by readerPreferences.novelBackgroundColor.collectAsState()
         val novelFontColorInt by readerPreferences.novelFontColor.collectAsState()
@@ -1091,7 +1091,20 @@ class ReaderActivity : BaseActivity() {
 
             var isTtsActive by remember { mutableStateOf(false) }
             var isTtsPaused by remember { mutableStateOf(false) }
-            var ttsControlsVisible by remember { mutableStateOf(readerPreferences.novelTtsControlsVisible.get()) }
+            val ttsEnabled by readerPreferences.novelTtsEnabled.collectAsState()
+            val storedTtsControlsVisible by readerPreferences.novelTtsControlsVisible.collectAsState()
+            val ttsControlsVisible = ttsEnabled && storedTtsControlsVisible
+
+            LaunchedEffect(novelViewer, ttsEnabled) {
+                novelViewer.setTtsEnabled(ttsEnabled)
+                if (!ttsEnabled) {
+                    readerPreferences.novelTtsControlsVisible.set(false)
+                    stopBackgroundTtsIfRunning()
+                    stopTtsNotificationSync()
+                    isTtsActive = false
+                    isTtsPaused = false
+                }
+            }
             // Re-sync the pause/play button on menu open and chapter change. Chapter nav
             // stops TTS without a button tap, so key on chapter id to reset it.
             LaunchedEffect(state.menuVisible, state.novelVisibleChapter?.id) {
@@ -1225,10 +1238,11 @@ class ReaderActivity : BaseActivity() {
                 onRetranslate = if (state.isTranslating) viewModel::retranslateCurrentChapter else null,
                 isTtsActive = isTtsActive,
                 isTtsPaused = isTtsPaused,
+                ttsEnabled = ttsEnabled,
                 ttsControlsVisible = ttsControlsVisible,
-                onToggleTtsControls = {
+                onToggleTtsControls = toggleTtsControls@{
+                    if (!ttsEnabled) return@toggleTtsControls
                     val nowVisible = !ttsControlsVisible
-                    ttsControlsVisible = nowVisible
                     readerPreferences.novelTtsControlsVisible.set(nowVisible)
                     if (nowVisible) {
                         if (!isTtsActive && readerPreferences.novelTtsAutoStartOnPanelOpen.get()) {
@@ -1381,6 +1395,7 @@ class ReaderActivity : BaseActivity() {
                             isTtsPaused = isTtsPaused,
                         )
                     },
+                    itemEnabled = { it.isAvailable(ttsEnabled) },
                 )
             }
         }
@@ -1409,6 +1424,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun startBackgroundTtsIfEnabled() {
+        if (!readerPreferences.novelTtsEnabled.get()) return
         if (readerPreferences.novelTtsBackgroundPlayback.get()) {
             // No placeholder notification: the caller's syncBackgroundTtsState() starts
             // the service with the real novel/chapter title.
@@ -1422,7 +1438,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun syncBackgroundTtsState() {
-        if (!readerPreferences.novelTtsBackgroundPlayback.get()) {
+        if (!readerPreferences.novelTtsEnabled.get() || !readerPreferences.novelTtsBackgroundPlayback.get()) {
             stopBackgroundTtsIfRunning()
             return
         }
@@ -1496,11 +1512,15 @@ class ReaderActivity : BaseActivity() {
 
     private fun stopAnyActiveNovelTts() {
         (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
-            if (viewer.isTtsSpeaking() || viewer.isTtsPaused()) viewer.stopTts()
+            if (viewer.isTtsActive()) viewer.stopTts()
         }
     }
 
     private fun togglePauseResumeFromNotification() {
+        if (!readerPreferences.novelTtsEnabled.get()) {
+            stopTtsFromNotification()
+            return
+        }
         (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
             if (viewer.isTtsSpeaking()) {
                 viewer.pauseTts()
@@ -1512,6 +1532,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun stepTtsParagraph(isNext: Boolean) {
+        if (!readerPreferences.novelTtsEnabled.get()) return
         val viewer = viewModel.state.value.viewer as? NovelWebViewViewer ?: return
         val step = if (isNext) viewer::ttsNextParagraph else viewer::ttsPreviousParagraph
         startBackgroundTtsIfEnabled()

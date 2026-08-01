@@ -1,7 +1,6 @@
 package eu.kanade.presentation.category.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,7 +19,6 @@ import androidx.compose.ui.Modifier
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -50,23 +48,10 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                     .padding(MaterialTheme.padding.medium)
                     .draggableHandle(),
             )
-            Column(
+            Text(
+                text = category.name,
                 modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = category.name,
-                )
-                val contentTypeText = when (category.contentType) {
-                    Category.CONTENT_TYPE_MANGA -> stringResource(TDMR.strings.category_content_type_manga)
-                    Category.CONTENT_TYPE_NOVEL -> stringResource(TDMR.strings.category_content_type_novel)
-                    else -> stringResource(TDMR.strings.category_content_type_all)
-                }
-                Text(
-                    text = contentTypeText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            )
             IconButton(onClick = onRename) {
                 Icon(
                     imageVector = Icons.Outlined.Edit,

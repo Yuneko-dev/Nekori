@@ -158,6 +158,7 @@ fun NovelReaderAppBars(
     onRetranslate: (() -> Unit)? = null,
     isTtsActive: Boolean,
     isTtsPaused: Boolean,
+    ttsEnabled: Boolean,
     ttsControlsVisible: Boolean,
     onToggleTtsControls: () -> Unit,
     onToggleTts: () -> Unit,
@@ -274,7 +275,7 @@ fun NovelReaderAppBars(
                     )
                 }
 
-                if (!findInPageOpen && ttsControlsVisible) {
+                if (!findInPageOpen && ttsEnabled && ttsControlsVisible) {
                     NovelTtsControlsOverlay(
                         isTtsActive = isTtsActive,
                         isTtsPaused = isTtsPaused,
@@ -334,6 +335,7 @@ fun NovelReaderAppBars(
                         onToggleTranslation = onToggleTranslation,
                         onLongPressTranslation = onLongPressTranslation,
                         isTtsActive = isTtsActive,
+                        ttsEnabled = ttsEnabled,
                         ttsControlsVisible = ttsControlsVisible,
                         onToggleTtsControls = onToggleTtsControls,
                         onLongPressTts = onLongPressTts,
@@ -576,6 +578,7 @@ private fun NovelReaderBottomBar(
     onToggleTranslation: () -> Unit,
     onLongPressTranslation: () -> Unit,
     isTtsActive: Boolean,
+    ttsEnabled: Boolean,
     ttsControlsVisible: Boolean,
     onToggleTtsControls: () -> Unit,
     onLongPressTts: () -> Unit,
@@ -585,8 +588,10 @@ private fun NovelReaderBottomBar(
     onQuotes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val enabledItems = remember(items, isWebView) {
-        items.filter { it.enabled && (isWebView || it.item != BottomBarItem.EDIT) }
+    val enabledItems = remember(items, isWebView, ttsEnabled) {
+        items.filter {
+            it.enabled && it.item.isAvailable(ttsEnabled) && (isWebView || it.item != BottomBarItem.EDIT)
+        }
     }
 
     Box(modifier = modifier) {
