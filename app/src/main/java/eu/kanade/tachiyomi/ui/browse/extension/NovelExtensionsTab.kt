@@ -75,11 +75,9 @@ fun novelExtensionsTab(
                 },
                 onOpenExtension = {
                     if (it is Extension.JsPlugin) {
-                        it.sources.firstOrNull()?.let { source ->
-                            navigator.push(
-                                eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen(source.id),
-                            )
-                        }
+                        navigator.push(
+                            eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen(it.pkgName),
+                        )
                     }
                 },
                 onTrustExtension = {},

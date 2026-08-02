@@ -76,13 +76,18 @@ fun ExtensionDetailsScreen(
 ) {
     val uriHandler = LocalUriHandler.current
     val url = remember(state.extension) {
+        val repositoryUrl = when (val extension = state.extension) {
+            is Extension.Installed -> extension.store?.indexUrl
+            is Extension.JsPlugin -> extension.repoUrl
+            else -> null
+        }
         val regex = """https://raw.githubusercontent.com/(.+?)/(.+?)/.+""".toRegex()
-        regex.find(state.extension?.store?.indexUrl.orEmpty())
+        regex.find(repositoryUrl.orEmpty())
             ?.let {
                 val (user, repo) = it.destructured
                 "https://github.com/$user/$repo"
             }
-            ?: state.extension?.store?.indexUrl
+            ?: repositoryUrl
     }
 
     Scaffold(
@@ -151,7 +156,7 @@ fun ExtensionDetailsScreen(
 @Composable
 private fun ExtensionDetails(
     contentPadding: PaddingValues,
-    extension: Extension.Installed,
+    extension: Extension,
     sources: List<ExtensionSourceItem>,
     incognitoMode: Boolean,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
@@ -165,7 +170,7 @@ private fun ExtensionDetails(
     ScrollbarLazyColumn(
         contentPadding = contentPadding,
     ) {
-        if (extension.isObsolete) {
+        if (extension is Extension.Installed && extension.isObsolete) {
             item {
                 WarningBanner(MR.strings.obsolete_extension_message)
             }
@@ -176,13 +181,16 @@ private fun ExtensionDetails(
                 extension = extension,
                 extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
-                onClickAppInfo = {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", extension.pkgName, null)
-                        context.startActivity(this)
+                onClickAppInfo = if (extension is Extension.Installed && extension.isShared) {
+                    {
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", extension.pkgName, null)
+                            context.startActivity(this)
+                        }
                     }
-                    Unit
-                }.takeIf { extension.isShared },
+                } else {
+                    null
+                },
                 onClickAgeRating = {
                     showNsfwWarning = true
                 },
@@ -254,6 +262,8 @@ private fun DetailsHeader(
                             if (store != null) {
                                 append("Repository: ${store.indexUrl}")
                             }
+                        } else if (extension is Extension.JsPlugin) {
+                            append("\n\nRepository: ${extension.repoUrl}")
                         }
                     }
                     context.copyToClipboard("Extension Debug information", extDebugInfo)
@@ -273,7 +283,9 @@ private fun DetailsHeader(
                 textAlign = TextAlign.Center,
             )
 
-            val strippedPkgName = extension.pkgName.substringAfter("eu.kanade.tachiyomi.extension.")
+            val strippedPkgName = extension.pkgName
+                .removePrefix("eu.kanade.tachiyomi.extension.")
+                .removePrefix("app.tsundoku.jsplugin.")
 
             Text(
                 text = strippedPkgName,
@@ -334,10 +346,11 @@ private fun DetailsHeader(
                 Text(stringResource(MR.strings.ext_uninstall))
             }
 
-            if (onClickAppInfo != null) {
+            if (onClickAppInfo != null || extension is Extension.JsPlugin) {
                 Button(
                     modifier = Modifier.weight(1f),
-                    onClick = onClickAppInfo,
+                    enabled = onClickAppInfo != null,
+                    onClick = { onClickAppInfo?.invoke() },
                 ) {
                     Text(
                         text = stringResource(MR.strings.ext_app_info),

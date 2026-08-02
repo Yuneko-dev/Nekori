@@ -11,14 +11,18 @@ class GetExtensionSources(
 ) {
 
     fun subscribe(extension: Extension.Installed): Flow<List<ExtensionSourceItem>> {
-        val isMultiSource = extension.sources.size > 1
+        return subscribe(extension.sources)
+    }
+
+    fun subscribe(sources: List<Source>): Flow<List<ExtensionSourceItem>> {
+        val isMultiSource = sources.size > 1
         val isMultiLangSingleSource =
-            isMultiSource && extension.sources.map { it.name }.distinct().size == 1
+            isMultiSource && sources.map { it.name }.distinct().size == 1
 
         return preferences.disabledSources.changes().map { disabledSources ->
             fun Source.isEnabled() = id.toString() !in disabledSources
 
-            extension.sources
+            sources
                 .map { source ->
                     ExtensionSourceItem(
                         source = source,

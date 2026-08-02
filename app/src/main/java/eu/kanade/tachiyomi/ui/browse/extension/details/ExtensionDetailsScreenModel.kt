@@ -11,13 +11,19 @@ import eu.kanade.domain.source.interactor.ToggleSource
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
+import eu.kanade.tachiyomi.jsplugin.JsPluginManager
+import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.browse.extension.toExtension
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -38,6 +44,7 @@ class ExtensionDetailsScreenModel(
     private val toggleSource: ToggleSource = Injekt.get(),
     private val toggleIncognito: ToggleIncognito = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
+    private val jsPluginManager: JsPluginManager = Injekt.get(),
 ) : StateScreenModel<ExtensionDetailsScreenModel.State>(State()) {
 
     private val _events: Channel<ExtensionDetailsEvent> = Channel()
@@ -46,41 +53,71 @@ class ExtensionDetailsScreenModel(
     init {
         screenModelScope.launch {
             launch {
-                extensionManager.installedExtensionsFlow
-                    .map { it.firstOrNull { extension -> extension.pkgName == pkgName } }
-                    .collectLatest { extension ->
-                        if (extension == null) {
-                            _events.send(ExtensionDetailsEvent.Uninstalled)
-                            return@collectLatest
-                        }
-                        mutableState.update { state ->
-                            state.copy(extension = extension)
+                if (pkgName.startsWith(JsPlugin.PKG_PREFIX)) {
+                    combine(
+                        jsPluginManager.installedPlugins,
+                        jsPluginManager.isInitialized,
+                    ) { installed, initialized ->
+                        if (!initialized) return@combine null
+                        installed.firstOrNull { it.plugin.pkgName() == pkgName }
+                    }.collectLatest { installed ->
+                        if (installed == null) {
+                            if (jsPluginManager.isInitialized.value) {
+                                _events.send(ExtensionDetailsEvent.Uninstalled)
+                            }
+                        } else {
+                            mutableState.update { state ->
+                                state.copy(
+                                    extension = installed.plugin.toExtension(
+                                        installed = installed,
+                                        iconUrl = jsPluginManager.getIconUrl(installed.plugin),
+                                    ),
+                                )
+                            }
                         }
                     }
-            }
-            launch {
-                state.collectLatest { state ->
-                    if (state.extension == null) return@collectLatest
-                    getExtensionSources.subscribe(state.extension)
-                        .map {
-                            it.sortedWith(
-                                compareBy(
-                                    { !it.enabled },
-                                    { item ->
-                                        item.source.name.takeIf { item.labelAsName }
-                                            ?: LocaleHelper.getSourceDisplayName(item.source.lang, context).lowercase()
-                                    },
-                                ),
-                            )
-                        }
-                        .catch { throwable ->
-                            logcat(LogPriority.ERROR, throwable)
-                            mutableState.update { it.copy(_sources = listOf()) }
-                        }
-                        .collectLatest { sources ->
-                            mutableState.update { it.copy(_sources = sources) }
+                } else {
+                    extensionManager.installedExtensionsFlow
+                        .map { it.firstOrNull { extension -> extension.pkgName == pkgName } }
+                        .collectLatest { extension ->
+                            if (extension == null) {
+                                _events.send(ExtensionDetailsEvent.Uninstalled)
+                                return@collectLatest
+                            }
+                            mutableState.update { state ->
+                                state.copy(extension = extension)
+                            }
                         }
                 }
+            }
+            launch {
+                state.map { it.extension }
+                    .distinctUntilChanged()
+                    .collectLatest { extension ->
+                        extension ?: return@collectLatest
+                        getExtensionSources.subscribe(extension.sources())
+                            .map {
+                                it.sortedWith(
+                                    compareBy(
+                                        { !it.enabled },
+                                        { item ->
+                                            item.source.name.takeIf { item.labelAsName }
+                                                ?: LocaleHelper.getSourceDisplayName(
+                                                    item.source.lang,
+                                                    context,
+                                                ).lowercase()
+                                        },
+                                    ),
+                                )
+                            }
+                            .catch { throwable ->
+                                logcat(LogPriority.ERROR, throwable)
+                                mutableState.update { it.copy(_sources = listOf()) }
+                            }
+                            .collectLatest { sources ->
+                                mutableState.update { it.copy(_sources = sources) }
+                            }
+                    }
             }
             launch {
                 preferences.incognitoExtensions
@@ -95,11 +132,14 @@ class ExtensionDetailsScreenModel(
     }
 
     fun clearCookies() {
-        val extension = state.value.extension ?: return
-
-        val urls = extension.sources
-            .filterIsInstance<HttpSource>()
-            .flatMap { listOf(it.baseUrl, it.getHomeUrl()) }
+        val urls = state.value.sources
+            .flatMap { item ->
+                when (val source = item.source) {
+                    is HttpSource -> listOf(source.baseUrl, source.getHomeUrl())
+                    is JsSource -> listOf(source.baseUrl)
+                    else -> emptyList()
+                }
+            }
             .filter { it.isNotEmpty() }
             .distinct()
 
@@ -117,7 +157,13 @@ class ExtensionDetailsScreenModel(
 
     fun uninstallExtension() {
         val extension = state.value.extension ?: return
-        extensionManager.uninstallExtension(extension)
+        when (extension) {
+            is Extension.Installed -> extensionManager.uninstallExtension(extension)
+            is Extension.JsPlugin -> screenModelScope.launch {
+                jsPluginManager.uninstallPlugin(extension.pkgName.removePrefix(JsPlugin.PKG_PREFIX))
+            }
+            else -> Unit
+        }
     }
 
     fun toggleSource(sourceId: Long) {
@@ -125,8 +171,9 @@ class ExtensionDetailsScreenModel(
     }
 
     fun toggleSources(enable: Boolean) {
-        state.value.extension?.sources
-            ?.map { it.id }
+        state.value.sources
+            .map { it.source.id }
+            .takeIf { it.isNotEmpty() }
             ?.let { toggleSource.await(it, enable) }
     }
 
@@ -136,9 +183,15 @@ class ExtensionDetailsScreenModel(
         }
     }
 
+    private fun Extension.sources(): List<Source> = when (this) {
+        is Extension.Installed -> sources
+        is Extension.JsPlugin -> sources.mapNotNull { jsPluginManager.getSource(it.id) }
+        else -> emptyList()
+    }
+
     @Immutable
     data class State(
-        val extension: Extension.Installed? = null,
+        val extension: Extension? = null,
         val isIncognito: Boolean = false,
         private val _sources: List<ExtensionSourceItem>? = null,
     ) {

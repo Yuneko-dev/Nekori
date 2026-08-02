@@ -235,8 +235,6 @@ class JsPluginManager(
      */
     suspend fun installPlugin(plugin: JsPlugin, repositoryUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            _isLoading.value = true
-
             val dir = pluginsDir ?: throw Exception("Plugin directory not available")
             require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
             val previousAssets = _installedPlugins.value
@@ -306,8 +304,6 @@ class JsPluginManager(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to install plugin ${plugin.name}" }
             false
-        } finally {
-            _isLoading.value = false
         }
     }
 

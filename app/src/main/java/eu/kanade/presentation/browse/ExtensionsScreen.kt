@@ -225,7 +225,7 @@ private fun ExtensionContent(
                             "extension-available-${extension.pkgName}-${extension.versionCode}-${extension.store.indexUrl}"
                         }
                         is Extension.JsPlugin -> {
-                            "extension-js-${extension.pkgName}-${extension.versionCode}-${extension.repoUrl}-${extension.isInstalled}-${extension.hasUpdate}"
+                            "extension-js-${extension.pkgName}-${extension.repoUrl}"
                         }
                     }
                 },
@@ -480,11 +480,13 @@ private fun ExtensionItemActions(
     ) {
         when {
             !isIdle -> {
-                IconButton(onClick = { onClickItemCancel(extension) }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(MR.strings.action_cancel),
-                    )
+                if (extension !is Extension.JsPlugin) {
+                    IconButton(onClick = { onClickItemCancel(extension) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = stringResource(MR.strings.action_cancel),
+                        )
+                    }
                 }
             }
             installStep == InstallStep.Error -> {
@@ -543,7 +545,6 @@ private fun ExtensionItemActions(
                     }
                     is Extension.JsPlugin -> {
                         if (extension.isInstalled) {
-                            // Settings gear for installed JS plugins - navigate to source preferences
                             IconButton(onClick = { onClickItemAction(extension) }) {
                                 Icon(
                                     imageVector = Icons.Outlined.Settings,
