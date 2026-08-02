@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.translation.engine
 
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,7 +32,7 @@ class DeepLTranslateEngine(
     private val preferences: TranslationPreferences = Injekt.get(),
 ) : TranslationEngine {
 
-    private val client: OkHttpClient get() = networkHelper.client
+    private val client: OkHttpClient get() = networkHelper.client.rateLimitExempt()
 
     override val id = TranslationEngineId.DEEPL
     override val name: String = "DeepL"

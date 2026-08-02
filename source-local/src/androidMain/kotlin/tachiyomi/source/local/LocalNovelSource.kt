@@ -157,6 +157,7 @@ actual class LocalNovelSource : CatalogueSource, UnmeteredSource {
     }
 
     // Novel details related
+    @Suppress("OVERRIDE_DEPRECATION")
     override suspend fun getMangaDetails(manga: SManga): SManga = withIOContext {
         coverManager.find(manga.url)?.let {
             manga.thumbnail_url = it.uri.toString()
@@ -228,6 +229,7 @@ actual class LocalNovelSource : CatalogueSource, UnmeteredSource {
     }
 
     // Chapters
+    @Suppress("OVERRIDE_DEPRECATION")
     override suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
         val allChapters = mutableListOf<SChapter>()
 

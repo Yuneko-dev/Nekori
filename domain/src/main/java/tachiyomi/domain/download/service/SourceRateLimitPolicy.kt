@@ -3,7 +3,10 @@ package tachiyomi.domain.download.service
 import eu.kanade.tachiyomi.network.interceptor.RateLimitSpec
 import eu.kanade.tachiyomi.network.interceptor.RequestRateLimitPolicy
 import eu.kanade.tachiyomi.network.interceptor.normalizedRateLimitHost
+import eu.kanade.tachiyomi.network.interceptor.topPrivateDomainOrNull
+import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -18,13 +21,32 @@ class SourceRateLimitPolicy(
 ) : RequestRateLimitPolicy {
 
     @Volatile
-    private var cachedIndex: Map<String, RateLimitCandidate> = emptyMap()
+    private var cachedByHost: Map<String, RateLimitCandidate> = emptyMap()
+
+    @Volatile
+    private var cachedByDomain: Map<String, RateLimitCandidate> = emptyMap()
 
     @Volatile
     private var cachedAtNanos: Long? = null
 
     override fun specFor(host: String): RateLimitSpec {
-        val candidate = hostIndex()[host.normalizedRateLimitHost()] ?: return RateLimitSpec.NONE
+        val normalized = host.normalizedRateLimitHost()
+        val (byHost, byDomain) = indexes()
+        val candidate = byHost[normalized]
+            // Not this source's baseUrl host exactly, but a subdomain of the same registrable
+            // domain (e.g. baseUrl example.com, request to api.example.com) - pace it as the
+            // same source. It still gets its own dispatch window in the interceptor (keyed by
+            // the literal host string), so this is a separate limit that happens to share the
+            // source's configured delay/jitter/permits, not a merged one.
+            ?: byDomain[normalized.topPrivateDomainOrNull()]
+            // No installed source claims this host at all - fall back to the global default
+            // spec rather than exempting it. An unrecognized host used by an installed
+            // extension (e.g. a CDN on an unrelated domain) is still a real, unknown site that
+            // deserves conservative pacing by default.
+            ?: run {
+                logWouldThrottle(normalized, resolver.resolveDefaultIgnoringToggle())
+                return resolver.resolveDefault()
+            }
 
         // A source explicitly declaring it doesn't need traffic considerations (e.g. a
         // self-hosted server) is honored regardless of novel/RateLimited status.
@@ -34,7 +56,26 @@ class SourceRateLimitPolicy(
         // source is only paced if it opts in by declaring its own RateLimited minimum.
         if (!candidate.isNovel && candidate.declaredMinimumMillis == 0L) return RateLimitSpec.NONE
 
+        val hypothetical = resolver.resolveIgnoringToggle(candidate.sourceId, candidate.declaredMinimumMillis)
+        logWouldThrottle(normalized, hypothetical)
         return resolver.resolve(candidate.sourceId, candidate.declaredMinimumMillis)
+    }
+
+    /**
+     * Logs whether [host] would be paced if throttling were on, independent of whether it
+     * actually is - so a request that's going through this (i.e. wasn't wrapped with
+     * `rateLimitExempt()`) still leaves a trace even while someone has the throttling toggle off
+     * for testing. Without this, disabling the toggle makes every real request return
+     * [RateLimitSpec.NONE], which looks identical to a request that was properly exempted - the
+     * one case this exists to catch.
+     */
+    private fun logWouldThrottle(host: String, hypothetical: RateLimitSpec) {
+        if (hypothetical.delayMillis <= 0) return
+        logcat(LogPriority.VERBOSE) {
+            "rate-limit: $host would be throttled (delay=${hypothetical.delayMillis}ms, " +
+                "permits=${hypothetical.permits}) - throttling toggle is currently " +
+                (if (resolver.isThrottlingEnabled()) "ON" else "OFF")
+        }
     }
 
     /**
@@ -50,24 +91,31 @@ class SourceRateLimitPolicy(
      * would leave a real source's requests unthrottled for that whole window - so until the
      * source manager reports itself initialized, every call recomputes instead of caching.
      */
-    private fun hostIndex(): Map<String, RateLimitCandidate> {
+    private fun indexes(): Pair<Map<String, RateLimitCandidate>, Map<String, RateLimitCandidate>> {
         val now = System.nanoTime()
-        cachedAtNanos?.let { cachedAt -> if (now - cachedAt < CACHE_TTL_NANOS) return cachedIndex }
+        cachedAtNanos?.let { cachedAt -> if (now - cachedAt < CACHE_TTL_NANOS) return cachedByHost to cachedByDomain }
 
         synchronized(this) {
             val recheckNow = System.nanoTime()
-            cachedAtNanos?.let { cachedAt -> if (recheckNow - cachedAt < CACHE_TTL_NANOS) return cachedIndex }
+            cachedAtNanos?.let { cachedAt ->
+                if (recheckNow - cachedAt < CACHE_TTL_NANOS) return cachedByHost to cachedByDomain
+            }
 
-            cachedIndex = sourceManager.getRateLimitCandidates()
+            val hosts = sourceManager.getRateLimitCandidates()
                 .mapNotNull { candidate ->
                     val host = candidate.baseUrl.toHttpUrlOrNull()?.host?.normalizedRateLimitHost()
                         ?: return@mapNotNull null
                     host to candidate
                 }
+            cachedByHost = hosts
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, candidates) -> candidates.mostRestrictive() }
+            cachedByDomain = hosts
+                .mapNotNull { (host, candidate) -> host.topPrivateDomainOrNull()?.let { it to candidate } }
                 .groupBy({ it.first }, { it.second })
                 .mapValues { (_, candidates) -> candidates.mostRestrictive() }
             cachedAtNanos = if (sourceManager.isInitialized.value) recheckNow else null
-            return cachedIndex
+            return cachedByHost to cachedByDomain
         }
     }
 

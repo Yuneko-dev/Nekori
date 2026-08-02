@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.translation.LlmRequestFactory
 import eu.kanade.tachiyomi.data.translation.LlmResponseParser
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,6 +42,8 @@ class LlmTranslationEngine(
     private val settings: AiSettingsStore = Injekt.get(),
     private val json: Json = Injekt.get(),
 ) : TranslationEngine {
+
+    private val client by lazy { networkHelper.client.rateLimitExempt() }
 
     override val id = TranslationEngineId.LLM
     override val name = "API LLM"
@@ -109,7 +112,7 @@ class LlmTranslationEngine(
             .url(resolveProviderUrl(provider, path, apiKey))
             .get()
             .build()
-        val response = networkHelper.client.newCall(request).await()
+        val response = client.newCall(request).await()
         val body = response.use { it.body.string() }
         if (!response.isSuccessful) throw httpError(response.code, body)
         parseProviderModels(json, body)
@@ -131,7 +134,7 @@ class LlmTranslationEngine(
             .url(resolveProviderUrl(provider, wire.path, apiKey))
             .post(wire.body.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        val response = networkHelper.client.newCall(request).await()
+        val response = client.newCall(request).await()
         val body = response.use { it.body.string() }
         if (!response.isSuccessful) throw httpError(response.code, body)
         return extractContent(provider, json.parseToJsonElement(body))

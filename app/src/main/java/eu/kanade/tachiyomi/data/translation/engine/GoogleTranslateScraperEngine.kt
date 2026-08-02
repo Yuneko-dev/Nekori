@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.translation.engine
 
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,7 +32,7 @@ class GoogleTranslateScraperEngine : TranslationEngine {
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
     private val network: NetworkHelper by injectLazy()
-    private val client = network.client
+    private val client = network.client.rateLimitExempt()
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun translate(request: TranslationRequest): TranslationResult = withContext(Dispatchers.IO) {

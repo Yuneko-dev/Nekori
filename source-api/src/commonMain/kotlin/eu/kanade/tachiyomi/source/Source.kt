@@ -108,6 +108,10 @@ interface Source {
      * @param manga the manga to update.
      * @return the updated manga.
      */
+    @Deprecated(
+        "deprecated in 1.6, Only CatalogueSource's getMangaUpdate default calls this.",
+        ReplaceWith("getMangaUpdate"),
+    )
     @Suppress("DEPRECATION")
     suspend fun getMangaDetails(manga: SManga): SManga {
         return fetchMangaDetails(manga).awaitSingle()
@@ -120,6 +124,10 @@ interface Source {
      * @param manga the manga to look for chapters.
      * @return the chapters for the manga.
      */
+    @Deprecated(
+        "deprecated in 1.6, Only CatalogueSource's getMangaUpdate default calls this.",
+        ReplaceWith("getMangaUpdate"),
+    )
     @Suppress("DEPRECATION")
     suspend fun getChapterList(manga: SManga): List<SChapter> {
         return fetchChapterList(manga).awaitSingle()

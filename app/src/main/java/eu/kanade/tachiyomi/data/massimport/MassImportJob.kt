@@ -490,6 +490,30 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
             if (batchId.isNotEmpty()) MassImportStore.appendSkipped(context, batchId, toFlush)
         }
 
+        val noSourceBuffer = mutableListOf<String>()
+        fun recordNoSource(url: String) {
+            val toFlush = synchronized(noSourceBuffer) {
+                noSourceBuffer.add(url)
+                if (noSourceBuffer.size >= 100) {
+                    val copy = noSourceBuffer.toList()
+                    noSourceBuffer.clear()
+                    copy
+                } else {
+                    null
+                }
+            }
+            if (toFlush != null) MassImportStore.appendNoSource(toFlush)
+        }
+        fun flushNoSourceLog() {
+            val toFlush = synchronized(noSourceBuffer) {
+                if (noSourceBuffer.isEmpty()) return
+                val copy = noSourceBuffer.toList()
+                noSourceBuffer.clear()
+                copy
+            }
+            MassImportStore.appendNoSource(toFlush)
+        }
+
         updateNotification(0, totalCount, "Starting import...")
 
         val sourceConsecutiveFailures = ConcurrentHashMap<Long, AtomicInteger>()
@@ -528,6 +552,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                         if (shouldCount) {
                             skippedCount.incrementAndGet()
                             recordSkip(url, "No matching source installed (or host excluded)")
+                            recordNoSource(url)
                             val done = completedCount.incrementAndGet()
                             updateBatchProgress(batchId, done, addedCount.get(), skippedCount.get(), erroredCount.get())
                         }
@@ -716,6 +741,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
             // Non-suspending IO, safe in a cancelled coroutine; keeps the buffered log tails.
             flushErrorLog()
             flushSkipLog()
+            flushNoSourceLog()
             throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Unexpected error during import collection for batch $batchId" }
@@ -723,6 +749,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
 
         flushErrorLog()
         flushSkipLog()
+        flushNoSourceLog()
 
         val finalResult = ImportResult(
             added = addedCount.get(),
