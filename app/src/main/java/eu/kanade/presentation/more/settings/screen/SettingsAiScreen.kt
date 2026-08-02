@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -543,6 +544,7 @@ private fun EmptyManagerMessage(text: String) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 16.dp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
     )
 }
 
@@ -658,6 +660,6 @@ private val AIProviderType.displayName: String
 
 private val AIApiMode.displayName: String
     get() = when (this) {
-        AIApiMode.RESPONSES -> "responses"
-        AIApiMode.CHAT_COMPLETIONS -> "chat completions"
+        AIApiMode.RESPONSES -> "Responses"
+        AIApiMode.CHAT_COMPLETIONS -> "Chat Completions"
     }
