@@ -26,11 +26,13 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Css
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.FormatAlignCenter
 import androidx.compose.material.icons.outlined.FormatAlignJustify
+import androidx.compose.material.icons.outlined.Javascript
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -66,6 +68,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -785,6 +788,7 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
     // CSS Snippets Section
     SnippetSection(
         title = stringResource(TDMR.strings.pref_novel_css_snippets),
+        icon = Icons.Outlined.Css,
         snippets = cssSnippets,
         onAddClick = { showCssDialog = true },
         onEditClick = { snippet -> editingCssSnippet = snippet },
@@ -811,6 +815,7 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
     // JS Snippets Section
     SnippetSection(
         title = stringResource(TDMR.strings.pref_novel_js_snippets),
+        icon = Icons.Outlined.Javascript,
         snippets = jsSnippets,
         onAddClick = { showJsDialog = true },
         onEditClick = { snippet -> editingJsSnippet = snippet },
@@ -896,6 +901,7 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
 @Composable
 private fun SnippetSection(
     title: String,
+    icon: ImageVector = Icons.Outlined.Code,
     snippets: List<CodeSnippet>,
     onAddClick: () -> Unit,
     onEditClick: (CodeSnippet) -> Unit,
@@ -914,7 +920,7 @@ private fun SnippetSection(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Outlined.Code,
+                    imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp),
                 )

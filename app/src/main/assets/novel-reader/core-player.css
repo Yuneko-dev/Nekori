@@ -1,5 +1,11 @@
 /* core-player.css */
 
+:root {
+  --reader-margin-top: 95px;
+  --reader-margin-right: 0px;
+  --reader-margin-left: 0px;
+}
+
 #lnreader-player-container {
   display: flex;
   justify-content: center;
