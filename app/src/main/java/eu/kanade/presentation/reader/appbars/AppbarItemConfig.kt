@@ -32,16 +32,16 @@ data class BottomBarItemState(
 // Items with defaultEnabled = false are hidden by default and won't appear when resetting to default
 val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.PREV_CHAPTER, defaultEnabled = true),
+    BottomBarItemState(BottomBarItem.TRANSLATE, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.SCROLL_TO_TOP, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.CHAPTER_LIST, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.TRANSLATE, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.AUTO_SCROLL, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.TTS, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.QUOTES, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.ORIENTATION, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.SETTINGS, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.EDIT, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.NEXT_CHAPTER, defaultEnabled = true),
+    BottomBarItemState(BottomBarItem.TTS, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.AUTO_SCROLL, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.QUOTES, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.ORIENTATION, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.EDIT, defaultEnabled = false),
 )
 
 @Serializable
