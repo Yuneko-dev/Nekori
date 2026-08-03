@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -34,6 +36,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
         setForegroundSafely()
 
         return try {
+            logcat(LogPriority.INFO) { "LNReaderImport: Worker started" }
             val importer = LNReaderBackupImporter(context, notifier)
             val options = LNReaderBackupImporter.ImportOptions(
                 restoreNovels = inputData.getBoolean(KEY_RESTORE_NOVELS, true),
@@ -41,12 +44,13 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 restoreCategories = inputData.getBoolean(KEY_RESTORE_CATEGORIES, true),
                 restoreHistory = inputData.getBoolean(KEY_RESTORE_HISTORY, true),
                 restorePlugins = inputData.getBoolean(KEY_RESTORE_PLUGINS, true),
-                restoreMissingPlugins = inputData.getBoolean(KEY_RESTORE_MISSING_PLUGINS, false),
                 restoreDownloadedChapters = inputData.getBoolean(KEY_RESTORE_DOWNLOADED_CHAPTERS, true),
                 restoreCovers = inputData.getBoolean(KEY_RESTORE_COVERS, true),
+                restoreCompatibleSettings = inputData.getBoolean(KEY_RESTORE_COMPATIBLE_SETTINGS, true),
+                restoreAiApiKeys = inputData.getBoolean(KEY_RESTORE_AI_API_KEYS, false),
             )
             val startTime = System.currentTimeMillis()
-            val result = importer.import(uri, options)
+            val result = withContext(Dispatchers.IO) { importer.import(uri, options) }
 
             val summaryMessage = "Completed - ${result.novelCount} novels, ${result.categoryCount} categories, " +
                 "${result.installedPluginCount} plugins, ${result.restoredDownloadCount} chapters, " +
@@ -78,6 +82,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 Result.failure()
             }
         } finally {
+            logcat(LogPriority.INFO) { "LNReaderImport: Worker finished" }
             context.cancelNotification(Notifications.ID_RESTORE_PROGRESS)
         }
     }
@@ -107,9 +112,10 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
             restoreCategories: Boolean = true,
             restoreHistory: Boolean = true,
             restorePlugins: Boolean = true,
-            restoreMissingPlugins: Boolean = false,
             restoreDownloadedChapters: Boolean = true,
             restoreCovers: Boolean = true,
+            restoreCompatibleSettings: Boolean = true,
+            restoreAiApiKeys: Boolean = false,
         ) {
             val inputData = workDataOf(
                 LOCATION_URI_KEY to uri.toString(),
@@ -118,9 +124,10 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 KEY_RESTORE_CATEGORIES to restoreCategories,
                 KEY_RESTORE_HISTORY to restoreHistory,
                 KEY_RESTORE_PLUGINS to restorePlugins,
-                KEY_RESTORE_MISSING_PLUGINS to restoreMissingPlugins,
                 KEY_RESTORE_DOWNLOADED_CHAPTERS to restoreDownloadedChapters,
                 KEY_RESTORE_COVERS to restoreCovers,
+                KEY_RESTORE_COMPATIBLE_SETTINGS to restoreCompatibleSettings,
+                KEY_RESTORE_AI_API_KEYS to restoreAiApiKeys,
             )
             val request = OneTimeWorkRequestBuilder<LNReaderImportJob>()
                 .addTag(TAG)
@@ -142,6 +149,7 @@ private const val KEY_RESTORE_CHAPTERS = "restore_chapters"
 private const val KEY_RESTORE_CATEGORIES = "restore_categories"
 private const val KEY_RESTORE_HISTORY = "restore_history"
 private const val KEY_RESTORE_PLUGINS = "restore_plugins"
-private const val KEY_RESTORE_MISSING_PLUGINS = "restore_missing_plugins"
 private const val KEY_RESTORE_DOWNLOADED_CHAPTERS = "restore_downloaded_chapters"
 private const val KEY_RESTORE_COVERS = "restore_covers"
+private const val KEY_RESTORE_COMPATIBLE_SETTINGS = "restore_compatible_settings"
+private const val KEY_RESTORE_AI_API_KEYS = "restore_ai_api_keys"

@@ -6,35 +6,33 @@ import tachiyomi.i18n.novel.TDMR
 
 data class BackupOptions(
     val libraryEntries: Boolean = true,
-    val includeManga: Boolean = true,
-    val includeNovels: Boolean = true,
     val categories: Boolean = true,
     val chapters: Boolean = true,
     val tracking: Boolean = true,
     val history: Boolean = true,
     val readEntries: Boolean = true,
     val appSettings: Boolean = true,
-    val extensionStores: Boolean = true,
+    val extensionRepositories: Boolean = true,
     val sourceSettings: Boolean = true,
     val privateSettings: Boolean = false,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
         libraryEntries,
-        includeManga,
-        includeNovels,
+        false,
+        true,
         categories,
         chapters,
         tracking,
         history,
         readEntries,
         appSettings,
-        extensionStores,
+        extensionRepositories,
         sourceSettings,
         privateSettings,
     )
 
-    fun canCreate() = libraryEntries || categories || appSettings || extensionStores || sourceSettings
+    fun canCreate() = libraryEntries || categories || appSettings || extensionRepositories || sourceSettings
 
     companion object {
         val libraryOptions = listOf(
@@ -42,18 +40,6 @@ data class BackupOptions(
                 label = MR.strings.label_library,
                 getter = BackupOptions::libraryEntries,
                 setter = { options, enabled -> options.copy(libraryEntries = enabled) },
-            ),
-            Entry(
-                label = TDMR.strings.label_manga,
-                getter = BackupOptions::includeManga,
-                setter = { options, enabled -> options.copy(includeManga = enabled) },
-                enabled = { it.libraryEntries },
-            ),
-            Entry(
-                label = TDMR.strings.label_novels,
-                getter = BackupOptions::includeNovels,
-                setter = { options, enabled -> options.copy(includeNovels = enabled) },
-                enabled = { it.libraryEntries },
             ),
             Entry(
                 label = MR.strings.chapters,
@@ -93,9 +79,9 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.extensionStores,
-                getter = BackupOptions::extensionStores,
-                setter = { options, enabled -> options.copy(extensionStores = enabled) },
+                label = TDMR.strings.pref_novel_extension_repos,
+                getter = BackupOptions::extensionRepositories,
+                setter = { options, enabled -> options.copy(extensionRepositories = enabled) },
             ),
             Entry(
                 label = MR.strings.source_settings,
@@ -112,15 +98,13 @@ data class BackupOptions(
 
         fun fromBooleanArray(array: BooleanArray) = BackupOptions(
             libraryEntries = array[0],
-            includeManga = array[1],
-            includeNovels = array[2],
             categories = array[3],
             chapters = array[4],
             tracking = array[5],
             history = array[6],
             readEntries = array[7],
             appSettings = array[8],
-            extensionStores = array[9],
+            extensionRepositories = array[9],
             sourceSettings = array[10],
             privateSettings = array[11],
         )

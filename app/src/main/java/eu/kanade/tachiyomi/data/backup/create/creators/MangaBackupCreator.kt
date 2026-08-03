@@ -5,6 +5,9 @@ import app.cash.sqldelight.async.coroutines.awaitAsOne
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSection
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelStructure
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.backupChapterRawMemoMapper
 import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -15,6 +18,7 @@ import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -22,6 +26,7 @@ class MangaBackupCreator(
     private val database: Database = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
+    private val novelStructureRepository: NovelStructureRepository = Injekt.get(),
 ) {
 
     /**
@@ -29,9 +34,13 @@ class MangaBackupCreator(
      * This avoids loading all chapters into memory at once, which prevents OOM on large libraries.
      * Each manga is processed and emitted individually to allow streaming to output.
      */
-    fun backupMangaStream(mangas: List<Manga>, options: BackupOptions): Flow<BackupManga> = flow {
+    fun backupMangaStream(
+        mangas: List<Manga>,
+        options: BackupOptions,
+        allowedCategoryOrders: Set<Long>,
+    ): Flow<BackupManga> = flow {
         for (manga in mangas) {
-            emit(backupManga(manga, options))
+            emit(backupManga(manga, options, allowedCategoryOrders))
             // Yield between each manga to allow other coroutines to run
             // and prevent connection pool starvation
             kotlinx.coroutines.yield()
@@ -44,11 +53,15 @@ class MangaBackupCreator(
      */
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
         return mangas.map {
-            backupManga(it, options)
+            backupManga(it, options, emptySet())
         }
     }
 
-    private suspend fun backupManga(manga: Manga, options: BackupOptions): BackupManga {
+    private suspend fun backupManga(
+        manga: Manga,
+        options: BackupOptions,
+        allowedCategoryOrders: Set<Long>,
+    ): BackupManga {
         // Entry for this manga
         val mangaObject = manga.toBackupManga()
 
@@ -67,7 +80,35 @@ class MangaBackupCreator(
                 .awaitAsList()
 
             if (allChapters.isNotEmpty()) {
+                val sessionsByUrl = database.reading_sessionsQueries
+                    .getByMangaIdForBackup(manga.id) { url, startedAt, endedAt, readDuration ->
+                        url to BackupReadingSession(startedAt, endedAt, readDuration)
+                    }
+                    .awaitAsList()
+                    .groupBy({ it.first }, { it.second })
+                allChapters.forEach { it.readingSessions = sessionsByUrl[it.url].orEmpty() }
                 mangaObject.chapters = allChapters
+            }
+
+            val snapshot = novelStructureRepository.get(manga.id)
+            if (snapshot != null) {
+                val chapterUrlsById = database.chaptersQueries
+                    .getChapterIdUrlsByMangaId(manga.id) { id, url -> id to url }
+                    .awaitAsList()
+                    .toMap()
+                mangaObject.novelStructure = BackupNovelStructure(
+                    layout = snapshot.layout.value,
+                    totalPages = snapshot.totalPages,
+                    sections = snapshot.sections.map { section ->
+                        BackupNovelSection(
+                            name = section.name,
+                            pageNumber = section.pageNumber,
+                            path = section.path,
+                            cover = section.cover,
+                            chapterUrls = section.chapterIds.mapNotNull(chapterUrlsById::get),
+                        )
+                    },
+                )
             }
         }
 
@@ -75,7 +116,9 @@ class MangaBackupCreator(
             // Backup categories for this manga
             val categoriesForManga = getCategories.await(manga.id)
             if (categoriesForManga.isNotEmpty()) {
-                mangaObject.categories = categoriesForManga.map { it.order }
+                mangaObject.categories = categoriesForManga
+                    .map { it.order }
+                    .filter { allowedCategoryOrders.isEmpty() || it in allowedCategoryOrders }
             }
         }
 

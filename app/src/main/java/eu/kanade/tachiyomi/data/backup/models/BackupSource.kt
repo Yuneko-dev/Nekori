@@ -7,4 +7,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 data class BackupSource(
     @ProtoNumber(1) var name: String = "",
     @ProtoNumber(2) var sourceId: Long,
+    @ProtoNumber(9000) var lang: String = "",
+    @ProtoNumber(9001) var isNovel: Boolean = false,
+    @ProtoNumber(9002) var isJs: Boolean = false,
 )

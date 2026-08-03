@@ -6,12 +6,12 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.create.creators.CategoriesBackupCreator
-import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionStoresBackupCreator
+import eu.kanade.tachiyomi.data.backup.create.creators.JsPluginRepositoriesBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.SourcesBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
-import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupJsPluginRepository
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
@@ -25,7 +25,6 @@ import okio.sink
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
-import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
@@ -43,7 +42,6 @@ class BackupCreator(
     private val isAutoBackup: Boolean,
 
     private val parser: ProtoBuf = Injekt.get(),
-    private val getFavorites: GetFavorites = Injekt.get(),
     private val backupPreferences: BackupPreferences = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val sourceManager: tachiyomi.domain.source.service.SourceManager = Injekt.get(),
@@ -51,7 +49,8 @@ class BackupCreator(
     private val categoriesBackupCreator: CategoriesBackupCreator = CategoriesBackupCreator(),
     private val mangaBackupCreator: MangaBackupCreator = MangaBackupCreator(),
     private val preferenceBackupCreator: PreferenceBackupCreator = PreferenceBackupCreator(),
-    private val extensionStoresBackupCreator: ExtensionStoresBackupCreator = ExtensionStoresBackupCreator(),
+    private val jsPluginRepositoriesBackupCreator: JsPluginRepositoriesBackupCreator =
+        JsPluginRepositoriesBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
 ) {
 
@@ -66,12 +65,6 @@ class BackupCreator(
      * mangaBatchSize but small enough that a 200k library is never fully resident at once.
      */
     private val mangaPageSize = 500L
-
-    /**
-     * Maximum number of manga to hold in memory at once before flushing.
-     * For very large libraries, we process in memory-bounded segments.
-     */
-    private val maxMangaInMemory = 200
 
     suspend fun backup(uri: Uri, options: BackupOptions, onProgress: ((Int, Int) -> Unit)? = null): String {
         var file: UniFile? = null
@@ -99,8 +92,9 @@ class BackupCreator(
 
             val backupCategories = backupCategories(options)
             val backupAppPrefs = backupAppPreferences(options)
-            val backupExtensionStores = backupExtensionStores(options)
+            val backupJsPluginRepositories = backupJsPluginRepositories(options)
             val backupSourcePrefs = backupSourcePreferences(options)
+            val allowedCategoryOrders = backupCategories.mapTo(mutableSetOf()) { it.order }
 
             val outputStream = file.openOutputStream()
             (outputStream as? FileOutputStream)?.channel?.truncate(0)
@@ -109,27 +103,23 @@ class BackupCreator(
             // Track source IDs as we process manga for backupSources field
             val sourceIds = mutableSetOf<Long>()
             var written = 0
-            val approxTotal = if (options.libraryEntries) mangaRepository.getFavoritesCount().toInt() else 0
+            val readEntries = if (options.readEntries) {
+                mangaRepository.getReadMangaNotInLibrary().filter(::isNovel)
+            } else {
+                emptyList()
+            }
+            val approxTotal =
+                (if (options.libraryEntries) mangaRepository.getNovelFavoritesCount().toInt() else 0) + readEntries.size
 
             // Filter a batch by content-type options, fetch full details for the survivors, then
             // stream each BackupManga straight to the output so only one is resident at a time.
             suspend fun processBatch(batch: List<Manga>) {
-                val filtered = batch.filter { manga ->
-                    // manga.isNovel is reliable for stub/uninstalled sources; fall back to the live
-                    // source check for entries that haven't been migrated.
-                    val isNovel = manga.isNovel || sourceManager.getOrStub(manga.source).isNovelSource()
-                    when {
-                        options.includeManga && options.includeNovels -> true
-                        options.includeManga && !isNovel -> true
-                        options.includeNovels && isNovel -> true
-                        else -> false
-                    }
-                }
+                val filtered = batch.filter(::isNovel)
                 if (filtered.isEmpty()) return
                 val fullBatch = filtered.map { manga ->
                     if (manga.description == null) mangaRepository.getMangaById(manga.id) else manga
                 }
-                mangaBackupCreator.backupMangaStream(fullBatch, options).collect { m ->
+                mangaBackupCreator.backupMangaStream(fullBatch, options, allowedCategoryOrders).collect { m ->
                     sourceIds.add(m.source)
                     val bytes = parser.encodeToByteArray(BackupManga.serializer(), m)
                     writeProtoField(gzipOut.outputStream(), 1, bytes)
@@ -155,8 +145,7 @@ class BackupCreator(
                     }
                 }
                 if (options.readEntries) {
-                    mangaRepository.getReadMangaNotInLibrary()
-                        .chunked(mangaBatchSize)
+                    readEntries.chunked(mangaBatchSize)
                         .forEach { processBatch(it) }
                 }
 
@@ -184,10 +173,10 @@ class BackupCreator(
                     val bytes = parser.encodeToByteArray(BackupSourcePreferences.serializer(), sp)
                     writeProtoField(gzipOut.outputStream(), 105, bytes)
                 }
-                // Field 106: backupExtensionStores (repeated)
-                backupExtensionStores.forEach { er ->
-                    val bytes = parser.encodeToByteArray(BackupExtensionStore.serializer(), er)
-                    writeProtoField(gzipOut.outputStream(), 106, bytes)
+                // Field 9000: LNReader-compatible JavaScript plugin repositories (repeated).
+                backupJsPluginRepositories.forEach { repository ->
+                    val bytes = parser.encodeToByteArray(BackupJsPluginRepository.serializer(), repository)
+                    writeProtoField(gzipOut.outputStream(), 9000, bytes)
                 }
 
                 gzipOut.flush()
@@ -247,10 +236,13 @@ class BackupCreator(
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
     }
 
-    private suspend fun backupExtensionStores(options: BackupOptions): List<BackupExtensionStore> {
-        if (!options.extensionStores) return emptyList()
+    private fun isNovel(manga: Manga): Boolean =
+        manga.isNovel || sourceManager.getOrStub(manga.source).isNovelSource()
 
-        return extensionStoresBackupCreator()
+    private fun backupJsPluginRepositories(options: BackupOptions): List<BackupJsPluginRepository> {
+        if (!options.extensionRepositories) return emptyList()
+
+        return jsPluginRepositoriesBackupCreator()
     }
 
     private fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {

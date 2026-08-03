@@ -215,12 +215,11 @@ class DownloadManager(
             logcat { "  - file: ${file.name}, isFile=${file.isFile}, isHtml=${file.name.isHtmlContentFileName()}" }
         }
 
-        val files = allFiles.filter { file ->
-            val fileName = file.name
-            file.isFile && (
-                fileName.isHtmlContentFileName() ||
-                    ImageUtil.isImage(fileName) { file.openInputStream() }
-                )
+        val htmlFiles = allFiles.filter { it.isFile && it.name.isHtmlContentFileName() }
+        val files = htmlFiles.ifEmpty {
+            allFiles.filter { file ->
+                file.isFile && ImageUtil.isImage(file.name) { file.openInputStream() }
+            }
         }
         logcat { "buildPageList: filtered to ${files.size} files" }
 

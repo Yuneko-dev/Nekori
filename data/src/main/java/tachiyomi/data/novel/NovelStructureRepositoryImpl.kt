@@ -110,6 +110,39 @@ class NovelStructureRepositoryImpl(
         }
     }
 
+    override suspend fun replaceSnapshot(
+        mangaId: Long,
+        snapshot: NovelStructureSnapshot,
+    ) {
+        database.transaction {
+            database.novel_structureQueries.upsertLayout(
+                mangaId = mangaId,
+                layout = snapshot.layout.value,
+                totalPages = snapshot.totalPages,
+            )
+            database.novel_structureQueries.deleteSectionsByMangaId(mangaId)
+
+            snapshot.sections.forEachIndexed { index, section ->
+                val sectionId = database.novel_structureQueries.insertSection(
+                    mangaId = mangaId,
+                    kind = snapshot.layout.sectionKind,
+                    name = section.name,
+                    pageNumber = section.pageNumber,
+                    path = section.path,
+                    cover = section.cover,
+                    sortOrder = index.toLong(),
+                ).awaitAsOne()
+                section.chapterIds.forEachIndexed { position, chapterId ->
+                    database.novel_structureQueries.insertChapterSection(
+                        chapterId = chapterId,
+                        sectionId = sectionId,
+                        position = position.toLong(),
+                    )
+                }
+            }
+        }
+    }
+
     override suspend fun reconcilePage(
         mangaId: Long,
         page: String,

@@ -7,26 +7,32 @@ import eu.kanade.tachiyomi.data.backup.BackupProtoMigration
 import eu.kanade.tachiyomi.data.backup.BackupProtoReader
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupJsPluginRepository
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
-import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.data.download.DownloadCache
+import eu.kanade.tachiyomi.jsplugin.JsPluginManager
+import eu.kanade.tachiyomi.jsplugin.model.JsPluginRepository
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.data.Database
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.source.repository.StubSourceRepository
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -45,14 +51,17 @@ class BackupRestorer(
     private val notifier: BackupNotifier,
     private val isSync: Boolean,
 
-    private val database: Database = Injekt.get(),
     private val categoriesRestorer: CategoriesRestorer = CategoriesRestorer(),
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
-    private val extensionStoreRestorer: ExtensionStoreRestorer = ExtensionStoreRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(),
+    private val jsPluginManager: JsPluginManager = Injekt.get(),
     private val parser: ProtoBuf = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    private val stubSourceRepository: StubSourceRepository = Injekt.get(),
+    private val sourceManager: SourceManager = Injekt.get(),
 ) {
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     private var restoreAmount = 0
     private val restoreProgress = AtomicInt(0)
@@ -108,6 +117,9 @@ class BackupRestorer(
 
         // Store source mapping for error messages
         sourceMapping = summary.backupSources.associate { it.sourceId to it.name }
+        if (options.libraryEntries) {
+            restoreNovelSourceStubs(summary.backupSources, summary.novelSourceIds)
+        }
 
         if (options.libraryEntries) {
             restoreAmount += summary.mangaCount
@@ -118,8 +130,8 @@ class BackupRestorer(
         if (options.appSettings) {
             restoreAmount += 1
         }
-        if (options.extensionStores) {
-            restoreAmount += summary.backupExtensionStores.size
+        if (options.extensionRepositories && summary.backupJsPluginRepositories.isNotEmpty()) {
+            restoreAmount += 1
         }
         if (options.sourceSettings) {
             restoreAmount += 1
@@ -140,13 +152,13 @@ class BackupRestorer(
                 restoreAppPreferences(summary.backupPreferences, summary.backupCategories.takeIf { options.categories })
             }
             if (options.sourceSettings) {
-                restoreSourcePreferences(summary.backupSourcePreferences)
+                restoreSourcePreferences(summary.backupSourcePreferences, summary.jsSourceKeys)
             }
             if (options.libraryEntries) {
-                restoreMangaStream(uri, if (options.categories) summary.backupCategories else emptyList(), options)
+                restoreMangaStream(uri, if (options.categories) summary.backupCategories else emptyList())
             }
-            if (options.extensionStores) {
-                restoreExtensionStores(summary.backupExtensionStores)
+            if (options.extensionRepositories) {
+                restoreJsPluginRepositories(summary.backupJsPluginRepositories)
             }
 
             // TODO: optionally trigger online library + tracker update
@@ -158,42 +170,85 @@ class BackupRestorer(
         val backupSources = mutableListOf<BackupSource>()
         val backupPreferences = mutableListOf<BackupPreference>()
         val backupSourcePreferences = mutableListOf<BackupSourcePreferences>()
-        val backupExtensionStores = mutableListOf<BackupExtensionStore>()
+        val backupJsPluginRepositories = mutableListOf<BackupJsPluginRepository>()
+        val novelCategoryOrders = mutableSetOf<Long>()
+        val novelSourceIds = mutableSetOf<Long>()
         var mangaCount = 0
 
         val reader = BackupProtoReader(context)
         reader.read(uri) { fieldNumber, data ->
             when (fieldNumber) {
-                1 -> mangaCount++
+                1 -> {
+                    val manga = parser.decodeFromByteArray(
+                        BackupManga.serializer(),
+                        BackupProtoMigration.migrateManga(data),
+                    )
+                    if (manga.isNovel) {
+                        mangaCount++
+                        novelCategoryOrders += manga.categories
+                        novelSourceIds += manga.source
+                    }
+                }
                 2 -> backupCategories.add(parser.decodeFromByteArray(BackupCategory.serializer(), data))
                 101 -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
                 104 -> backupPreferences.add(parser.decodeFromByteArray(BackupPreference.serializer(), data))
                 105 -> backupSourcePreferences.add(
                     parser.decodeFromByteArray(BackupSourcePreferences.serializer(), data),
                 )
-                106 -> backupExtensionStores.add(
+                106 -> {
+                    // Keep decoding the upstream field for file compatibility. Kotlin extension
+                    // repository restore is intentionally disabled in this novel-only build.
                     parser.decodeFromByteArray(
                         BackupExtensionStore.serializer(),
                         BackupProtoMigration.migrateExtensionStore(data),
-                    ),
+                    )
+                }
+                9000 -> backupJsPluginRepositories.add(
+                    parser.decodeFromByteArray(BackupJsPluginRepository.serializer(), data),
                 )
             }
         }
 
+        val novelCategories = backupCategories.mapNotNull { category ->
+            when (category.contentType) {
+                Category.CONTENT_TYPE_NOVEL -> category
+                Category.CONTENT_TYPE_ALL -> category.takeIf { it.order in novelCategoryOrders }
+                else -> null
+            }?.also { it.contentType = Category.CONTENT_TYPE_NOVEL }
+        }
+        val repositories = backupJsPluginRepositories.ifEmpty {
+            backupPreferences.firstOrNull { it.key == JS_REPOSITORIES_PREFERENCE_KEY }
+                ?.value
+                ?.let { it as? eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue }
+                ?.value
+                ?.let { value ->
+                    runCatching {
+                        json.decodeFromString<List<JsPluginRepository>>(value).map {
+                            BackupJsPluginRepository(it.name, it.url, it.enabled)
+                        }
+                    }.getOrDefault(emptyList())
+                }
+                .orEmpty()
+        }
+        val jsSourceKeys = backupSources
+            .filter { it.sourceId in novelSourceIds && it.isJs }
+            .mapTo(mutableSetOf()) { "source_${it.sourceId}" }
+
         return BackupSummary(
             mangaCount = mangaCount,
-            backupCategories = backupCategories,
+            backupCategories = novelCategories,
             backupSources = backupSources,
             backupPreferences = backupPreferences,
             backupSourcePreferences = backupSourcePreferences,
-            backupExtensionStores = backupExtensionStores,
+            backupJsPluginRepositories = repositories,
+            jsSourceKeys = jsSourceKeys,
+            novelSourceIds = novelSourceIds,
         )
     }
 
     private fun CoroutineScope.restoreMangaStream(
         uri: Uri,
         backupCategories: List<BackupCategory>,
-        options: RestoreOptions,
     ) = launch {
         val reader = BackupProtoReader(context)
         reader.read(uri) { fieldNumber, data ->
@@ -204,17 +259,16 @@ class BackupRestorer(
                 BackupManga.serializer(),
                 BackupProtoMigration.migrateManga(data),
             )
-            if ((!backupManga.isNovel && options.includeManga) || (backupManga.isNovel && options.includeNovels)) {
+            if (backupManga.isNovel) {
                 try {
                     restoredMangaIds.add(mangaRestorer.restore(backupManga, backupCategories))
                 } catch (e: Exception) {
                     val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
                     errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
                 }
+                val progress = restoreProgress.incrementAndFetch()
+                notifier.showRestoreProgress(backupManga.title, progress, restoreAmount, isSync)
             }
-
-            val progress = restoreProgress.incrementAndFetch()
-            notifier.showRestoreProgress(backupManga.title, progress, restoreAmount, isSync)
         }
     }
 
@@ -224,7 +278,9 @@ class BackupRestorer(
         val backupSources: List<BackupSource>,
         val backupPreferences: List<BackupPreference>,
         val backupSourcePreferences: List<BackupSourcePreferences>,
-        val backupExtensionStores: List<BackupExtensionStore>,
+        val backupJsPluginRepositories: List<BackupJsPluginRepository>,
+        val jsSourceKeys: Set<String>,
+        val novelSourceIds: Set<Long>,
     )
 
     private fun CoroutineScope.restoreCategories(backupCategories: List<BackupCategory>) = launch {
@@ -259,9 +315,12 @@ class BackupRestorer(
         )
     }
 
-    private fun CoroutineScope.restoreSourcePreferences(preferences: List<BackupSourcePreferences>) = launch {
+    private fun CoroutineScope.restoreSourcePreferences(
+        preferences: List<BackupSourcePreferences>,
+        allowedSourceKeys: Set<String>,
+    ) = launch {
         ensureActive()
-        preferenceRestorer.restoreSource(preferences)
+        preferenceRestorer.restoreSource(preferences.filter { it.sourceKey in allowedSourceKeys })
 
         val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
@@ -272,32 +331,19 @@ class BackupRestorer(
         )
     }
 
-    private fun CoroutineScope.restoreExtensionStores(
-        backupExtensionStores: List<BackupExtensionStore>,
+    private fun CoroutineScope.restoreJsPluginRepositories(
+        repositories: List<BackupJsPluginRepository>,
     ) = launch {
-        backupExtensionStores
-            .chunked(100)
-            .forEach { chunk ->
-                database.transaction {
-                    chunk.forEach {
-                        ensureActive()
-
-                        try {
-                            extensionStoreRestorer(it)
-                        } catch (e: Exception) {
-                            errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
-                        }
-
-                        restoreProgress.incrementAndFetch()
-                    }
-                }
-                notifier.showRestoreProgress(
-                    context.stringResource(MR.strings.extensionStores),
-                    restoreProgress.load(),
-                    restoreAmount,
-                    isSync,
-                )
-            }
+        if (repositories.isEmpty()) return@launch
+        ensureActive()
+        jsPluginManager.restoreRepositories(repositories.map(BackupJsPluginRepository::toRepository))
+        val progress = restoreProgress.incrementAndFetch()
+        notifier.showRestoreProgress(
+            context.stringResource(tachiyomi.i18n.novel.TDMR.strings.pref_novel_extension_repos),
+            progress,
+            restoreAmount,
+            isSync,
+        )
     }
 
     private fun writeErrorLog(): File {
@@ -317,5 +363,25 @@ class BackupRestorer(
             // Empty
         }
         return File("")
+    }
+
+    private suspend fun restoreNovelSourceStubs(sources: List<BackupSource>, novelSourceIds: Set<Long>) {
+        sources.filter {
+            it.sourceId in novelSourceIds && sourceManager.get(it.sourceId).let { current ->
+                current == null || current is StubSource
+            }
+        }.forEach { source ->
+            stubSourceRepository.upsertStubSource(
+                id = source.sourceId,
+                lang = source.lang,
+                name = source.name,
+                isNovel = true,
+                isJs = source.isJs,
+            )
+        }
+    }
+
+    private companion object {
+        const val JS_REPOSITORIES_PREFERENCE_KEY = "js_plugin_repositories_backup"
     }
 }

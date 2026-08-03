@@ -26,6 +26,7 @@ class BackupChapter(
     @ProtoNumber(11) var lastModifiedAt: Long = 0,
     @ProtoNumber(12) var version: Long = 0,
     @ProtoNumber(13) var memo: ByteArray = JsonObjectEmptyBytes,
+    @ProtoNumber(9000) var readingSessions: List<BackupReadingSession> = emptyList(),
 ) {
     fun toChapterImpl(): Chapter {
         return Chapter.create().copy(

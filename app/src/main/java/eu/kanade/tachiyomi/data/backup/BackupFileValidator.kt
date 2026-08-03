@@ -25,6 +25,7 @@ class BackupFileValidator(
      */
     suspend fun validate(uri: Uri): Results {
         val backupSources = mutableListOf<BackupSource>()
+        val novelSourceIds = mutableSetOf<Long>()
         val trackerIds = mutableSetOf<Long>()
         val reader = BackupProtoReader(context)
         try {
@@ -33,7 +34,10 @@ class BackupFileValidator(
                     1 -> {
                         val migrated = BackupProtoMigration.migrateManga(data)
                         val manga = parser.decodeFromByteArray(BackupManga.serializer(), migrated)
-                        manga.tracking.forEach { trackerIds.add(it.syncId.toLong()) }
+                        if (manga.isNovel) {
+                            novelSourceIds += manga.source
+                            manga.tracking.forEach { trackerIds.add(it.syncId.toLong()) }
+                        }
                     }
                     101 -> {
                         val source = parser.decodeFromByteArray(BackupSource.serializer(), data)
@@ -45,7 +49,9 @@ class BackupFileValidator(
             throw IllegalStateException(e)
         }
 
-        val sources = backupSources.associate { it.sourceId to it.name }
+        val sources = backupSources
+            .filter { it.sourceId in novelSourceIds }
+            .associate { it.sourceId to it.name }
         val missingSources = sources
             .filter { sourceManager.get(it.key) == null }
             .values.map {

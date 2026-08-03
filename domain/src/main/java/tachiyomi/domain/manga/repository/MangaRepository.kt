@@ -62,6 +62,8 @@ interface MangaRepository {
 
     suspend fun getFavoritesCount(): Long
 
+    suspend fun getNovelFavoritesCount(): Long
+
     suspend fun getFavoritesEntry(): List<Manga>
 
     /** Keyset-paged favorites (id > afterId, ascending) so very large libraries can be streamed. */

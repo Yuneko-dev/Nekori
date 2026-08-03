@@ -14,6 +14,8 @@ class CategoriesBackupCreator(
     suspend operator fun invoke(): List<BackupCategory> {
         return getCategories.await()
             .filterNot(Category::isSystemCategory)
+            .filter { it.contentType != Category.CONTENT_TYPE_MANGA }
             .map(backupCategoryMapper)
+            .onEach { it.contentType = Category.CONTENT_TYPE_NOVEL }
     }
 }

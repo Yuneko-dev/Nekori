@@ -30,3 +30,11 @@ JOIN chapters
 ON chapters._id = reading_sessions.chapter_id
 WHERE chapters.manga_id = :mangaId
 ORDER BY reading_sessions.started_at DESC;
+
+getByMangaIdForBackup:
+SELECT chapters.url, reading_sessions.started_at, reading_sessions.ended_at, reading_sessions.read_duration
+FROM reading_sessions
+JOIN chapters
+ON chapters._id = reading_sessions.chapter_id
+WHERE chapters.manga_id = :mangaId
+ORDER BY reading_sessions.started_at;

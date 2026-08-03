@@ -46,6 +46,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.hippo.unifile.UniFile
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.data.CreateBackupScreen
+import eu.kanade.presentation.more.settings.screen.data.LNReaderImportScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.more.settings.screen.data.StorageInfo
 import eu.kanade.presentation.more.settings.widget.BasePreferenceWidget
@@ -53,7 +54,6 @@ import eu.kanade.presentation.more.settings.widget.PrefsHorizontalPadding
 import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
-import eu.kanade.tachiyomi.data.backup.restore.LNReaderImportJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.export.LibraryExportJob
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
@@ -70,6 +70,7 @@ import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.TextButton
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -220,10 +221,6 @@ object SettingsDataScreen : SearchableSettings {
     private fun getBackupAndRestoreGroup(backupPreferences: BackupPreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val scope = rememberCoroutineScope()
-        var lnReaderImportStatus by remember { mutableStateOf<String?>(null) }
-        var pendingLNReaderUri by remember { mutableStateOf<Uri?>(null) }
-
         val lastAutoBackup by backupPreferences.lastAutoBackupTimestamp.collectAsState()
 
         val chooseBackup = rememberLauncherForActivityResult(
@@ -246,7 +243,10 @@ object SettingsDataScreen : SearchableSettings {
             object : ActivityResultContracts.GetContent() {
                 override fun createIntent(context: Context, input: String): Intent {
                     val intent = super.createIntent(context, input)
-                    return Intent.createChooser(intent, "Select LNReader backup file")
+                    return Intent.createChooser(
+                        intent,
+                        context.stringResource(TDMR.strings.lnreader_import_file_picker),
+                    )
                 }
             },
         ) { uri ->
@@ -255,42 +255,7 @@ object SettingsDataScreen : SearchableSettings {
                 return@rememberLauncherForActivityResult
             }
 
-            pendingLNReaderUri = uri
-        }
-
-        pendingLNReaderUri?.let { uri ->
-            LNReaderImportOptionsDialog(
-                onDismissRequest = { pendingLNReaderUri = null },
-                onConfirm = {
-                        novels,
-                        chapters,
-                        categories,
-                        history,
-                        plugins,
-                        missingPlugins,
-                        downloadedChapters,
-                        covers,
-                    ->
-                    pendingLNReaderUri = null
-                    LNReaderImportJob.start(
-                        context,
-                        uri,
-                        restoreNovels = novels,
-                        restoreChapters = chapters,
-                        restoreCategories = categories,
-                        restoreHistory = history,
-                        restorePlugins = plugins,
-                        restoreMissingPlugins = missingPlugins,
-                        restoreDownloadedChapters = downloadedChapters,
-                        restoreCovers = covers,
-                    )
-                    lnReaderImportStatus = "Import started (check notifications for progress)"
-                    scope.launch {
-                        kotlinx.coroutines.delay(3000)
-                        lnReaderImportStatus = null
-                    }
-                },
-            )
+            navigator.push(LNReaderImportScreen(uri.toString()))
         }
 
         return Preference.PreferenceGroup(
@@ -341,8 +306,8 @@ object SettingsDataScreen : SearchableSettings {
                 },
 
                 Preference.PreferenceItem.TextPreference(
-                    title = "Import LNReader backup",
-                    subtitle = lnReaderImportStatus ?: "Import novels from an LNReader backup file (.zip)",
+                    title = stringResource(TDMR.strings.lnreader_import_title),
+                    subtitle = stringResource(TDMR.strings.lnreader_import_summary_short),
                     onClick = {
                         chooseLNReaderBackup.launch("application/zip")
                     },
@@ -602,110 +567,4 @@ object SettingsDataScreen : SearchableSettings {
             },
         )
     }
-}
-
-@Composable
-private fun LNReaderImportOptionsDialog(
-    onDismissRequest: () -> Unit,
-    onConfirm: (
-        novels: Boolean,
-        chapters: Boolean,
-        categories: Boolean,
-        history: Boolean,
-        plugins: Boolean,
-        missingPlugins: Boolean,
-        downloadedChapters: Boolean,
-        covers: Boolean,
-    ) -> Unit,
-) {
-    var restoreNovels by remember { mutableStateOf(true) }
-    var restoreChapters by remember { mutableStateOf(true) }
-    var restoreCategories by remember { mutableStateOf(true) }
-    var restoreHistory by remember { mutableStateOf(true) }
-    var restorePlugins by remember { mutableStateOf(true) }
-    var restoreMissingPlugins by remember { mutableStateOf(false) }
-    var restoreDownloadedChapters by remember { mutableStateOf(true) }
-    var restoreCovers by remember { mutableStateOf(true) }
-
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        title = { Text("LNReader Import Options") },
-        text = {
-            Column {
-                Text(
-                    "Choose what to restore from the backup:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = restoreNovels, onCheckedChange = { restoreNovels = it })
-                    Text("Novels", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = restoreChapters,
-                        onCheckedChange = { restoreChapters = it },
-                        enabled = restoreNovels,
-                    )
-                    Text("Chapters lists", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = restoreCategories, onCheckedChange = { restoreCategories = it })
-                    Text("Categories", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = restoreHistory,
-                        onCheckedChange = { restoreHistory = it },
-                        enabled = restoreNovels,
-                    )
-                    Text("Reading history", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = restoreDownloadedChapters, onCheckedChange = { restoreDownloadedChapters = it })
-                    Text("Downloaded chapters", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = restoreCovers, onCheckedChange = { restoreCovers = it })
-                    Text("Cached covers", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = restorePlugins, onCheckedChange = { restorePlugins = it })
-                    Text("Plugins (extensions)", modifier = Modifier.padding(start = 4.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = restoreMissingPlugins,
-                        onCheckedChange = { restoreMissingPlugins = it },
-                        enabled = restoreNovels,
-                    )
-                    Text("Restore with missing plugins (as stubs)", modifier = Modifier.padding(start = 4.dp))
-                }
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                onClick = {
-                    onConfirm(
-                        restoreNovels,
-                        restoreChapters,
-                        restoreCategories,
-                        restoreHistory,
-                        restorePlugins,
-                        restoreMissingPlugins,
-                        restoreDownloadedChapters,
-                        restoreCovers,
-                    )
-                },
-                enabled = restoreNovels || restoreCategories || restorePlugins,
-            ) {
-                Text("Import")
-            }
-        },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onDismissRequest) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
 }

@@ -46,9 +46,10 @@ class BackupManga(
     @ProtoNumber(110) var notes: String = "",
     @ProtoNumber(111) var initialized: Boolean = false,
     @ProtoNumber(112) var memo: ByteArray = JsonObjectEmptyBytes,
-    // Fork fields use a reserved 8000+ ProtoNumber block so they never collide with new upstream fields.
+    // Tsundoku fields use 8000+. LNReader Extended additions use 9000+ to avoid collisions with both upstreams.
     @ProtoNumber(8000) var isNovel: Boolean = false,
     @ProtoNumber(8001) var alternativeTitles: List<String> = emptyList(),
+    @ProtoNumber(9000) var novelStructure: BackupNovelStructure? = null,
 ) {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(

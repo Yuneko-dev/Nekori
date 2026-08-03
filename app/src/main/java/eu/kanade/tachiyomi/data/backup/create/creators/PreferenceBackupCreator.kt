@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LongPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
@@ -29,6 +30,7 @@ class PreferenceBackupCreator(
 
     fun createSource(includePrivatePreferences: Boolean): List<BackupSourcePreferences> {
         return sourceManager.getAll()
+            .filterIsInstance<JsSource>()
             .filterIsInstance<ConfigurableSource>()
             .map {
                 BackupSourcePreferences(

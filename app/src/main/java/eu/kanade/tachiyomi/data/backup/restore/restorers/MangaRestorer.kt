@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelStructure
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import tachiyomi.data.AlternativeTitlesColumnAdapter
 import tachiyomi.data.Database
@@ -18,6 +19,10 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.model.NovelSection
+import tachiyomi.domain.novel.model.NovelStructureSnapshot
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.model.Track
@@ -35,6 +40,7 @@ class MangaRestorer(
     private val updateManga: UpdateManga = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
     private val insertTrack: InsertTrack = Injekt.get(),
+    private val novelStructureRepository: NovelStructureRepository = Injekt.get(),
     fetchInterval: FetchInterval = Injekt.get(),
 ) {
 
@@ -82,27 +88,15 @@ class MangaRestorer(
                 tracks = backupManga.tracking,
                 excludedScanlators = backupManga.excludedScanlators,
             )
+            restoreNovelStructure(
+                manga = restoredManga,
+                structure = backupManga.novelStructure,
+                createDefault = dbManga == null,
+            )
+            restoreReadingSessions(restoredManga, backupManga.chapters)
             mangaId = restoredManga.id
         }
         return mangaId
-    }
-
-    /**
-     * Restore only chapters and history for an already-existing manga,
-     * without overwriting its metadata (title, cover, description, etc.).
-     */
-    suspend fun restoreExistingChapters(
-        existingManga: Manga,
-        backupManga: BackupManga,
-        backupCategories: List<BackupCategory>,
-    ) {
-        database.transaction {
-            restoreChapters(existingManga, backupManga.chapters)
-            restoreHistory(existingManga, backupManga.history)
-            if (backupManga.categories.isNotEmpty()) {
-                restoreCategories(existingManga, backupManga.categories, backupCategories)
-            }
-        }
     }
 
     private suspend fun findExistingManga(backupManga: BackupManga): Manga? {
@@ -467,5 +461,86 @@ class MangaRestorer(
         val toInsert = excludedScanlators.filter { it !in existingExcludedScanlators }
         if (toInsert.isEmpty()) return
         toInsert.forEach { database.excluded_scanlatorsQueries.insert(manga.id, it) }
+    }
+
+    private suspend fun restoreNovelStructure(
+        manga: Manga,
+        structure: BackupNovelStructure?,
+        createDefault: Boolean,
+    ) {
+        if (structure == null && !createDefault) return
+        val chapters = getChaptersByMangaId.await(manga.id)
+        val chaptersByUrl = chapters.associateBy { it.url }
+        val snapshot = if (structure == null) {
+            NovelStructureSnapshot(
+                layout = NovelLayout.FLAT,
+                totalPages = 0,
+                sections = listOf(
+                    NovelSection(
+                        name = DEFAULT_SECTION,
+                        pageNumber = null,
+                        path = null,
+                        cover = null,
+                        chapterIds = chapters.sortedBy { it.sourceOrder }.map { it.id },
+                    ),
+                ),
+            )
+        } else {
+            val layout = structure.novelLayout()
+            require(
+                if (layout == NovelLayout.PAGED) {
+                    structure.totalPages >= 1
+                } else {
+                    structure.totalPages == 0L
+                },
+            ) {
+                "Invalid novel structure totalPages"
+            }
+            NovelStructureSnapshot(
+                layout = layout,
+                totalPages = structure.totalPages,
+                sections = structure.sections.map { section ->
+                    if (layout == NovelLayout.PAGED) {
+                        require(section.pageNumber != null && section.name == section.pageNumber.toString()) {
+                            "Invalid paged novel section: ${section.name}"
+                        }
+                    }
+                    NovelSection(
+                        name = section.name,
+                        pageNumber = section.pageNumber,
+                        path = section.path,
+                        cover = section.cover,
+                        chapterIds = section.chapterUrls.mapNotNull { chaptersByUrl[it]?.id },
+                    )
+                },
+            )
+        }
+        novelStructureRepository.replaceSnapshot(manga.id, snapshot)
+    }
+
+    private suspend fun restoreReadingSessions(manga: Manga, chapters: List<BackupChapter>) {
+        val chapterIdsByUrl = getChaptersByMangaId.await(manga.id).associate { it.url to it.id }
+        chapters.forEach chapterLoop@{ chapter ->
+            val chapterId = chapterIdsByUrl[chapter.url] ?: return@chapterLoop
+            val existing = database.reading_sessionsQueries.getByChapterId(chapterId)
+                .awaitAsList()
+                .mapTo(mutableSetOf()) { Triple(it.started_at, it.ended_at, it.read_duration) }
+            chapter.readingSessions.forEach sessionLoop@{ session ->
+                val identity = Triple(session.startedAt, session.endedAt, session.readDuration)
+                if (session.endedAt < session.startedAt || session.readDuration < 0 || !existing.add(identity)) {
+                    return@sessionLoop
+                }
+                database.reading_sessionsQueries.insert(
+                    chapterId = chapterId,
+                    startedAt = session.startedAt,
+                    endedAt = session.endedAt,
+                    readDuration = session.readDuration,
+                )
+            }
+        }
+    }
+
+    private companion object {
+        const val DEFAULT_SECTION = "Default"
     }
 }

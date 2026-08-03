@@ -87,6 +87,11 @@ SELECT url, name, scanlator, read, bookmark, last_page_read, chapter_number, sou
 FROM chapters
 WHERE manga_id = :mangaId;
 
+getChapterIdUrlsByMangaId:
+SELECT _id, url
+FROM chapters
+WHERE manga_id = :mangaId;
+
 getScanlatorsByMangaId:
 SELECT scanlator
 FROM chapters

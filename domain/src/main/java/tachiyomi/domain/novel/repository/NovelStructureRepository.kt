@@ -14,6 +14,11 @@ interface NovelStructureRepository {
         chapters: List<Chapter>,
     )
 
+    suspend fun replaceSnapshot(
+        mangaId: Long,
+        snapshot: NovelStructureSnapshot,
+    )
+
     suspend fun reconcilePage(
         mangaId: Long,
         page: String,

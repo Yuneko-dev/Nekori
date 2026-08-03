@@ -23,7 +23,7 @@
     <string name="label_novel_migration">Chuyển tiểu thuyết</string>
     <string name="label_manga_extensions">Phần mở rộng truyện tranh</string>
     <string name="label_novel_extensions">Phần mở rộng tiểu thuyết</string>
-    
+
     <!-- Actions (In MR)
     downloaded_chapters: Downloaded chapters
     -->
@@ -1061,4 +1061,22 @@
     <string name="external_link_dialog_title">Mở liên kết ngoài?</string>
     <string name="external_link_dialog_message">Liên kết này sẽ mở trong ứng dụng khác. Bạn có muốn tiếp tục?</string>
     <string name="action_open_external_link">Mở</string>
+    <string name="lnreader_import_title">Nhập bản sao lưu LNReader</string>
+    <string name="lnreader_import_summary_short">Nhập truyện từ tệp sao lưu LNReader (.zip)</string>
+    <string name="lnreader_import_file_picker">Chọn tệp sao lưu LNReader</string>
+    <string name="lnreader_import_preflight_loading">Đang kiểm tra bản sao lưu…</string>
+    <string name="lnreader_import_invalid">Không thể nhập bản sao lưu này</string>
+    <string name="lnreader_import_summary">LNReader %1$s · định dạng %2$d\n%3$d truyện · %4$d chương · %5$d danh mục\n%6$d mục siêu dữ liệu plugin · %7$d chương đã tải</string>
+    <string name="lnreader_import_novels">Truyện</string>
+    <string name="lnreader_import_local_novels_unsupported">Không hỗ trợ truyện cục bộ vì bản sao lưu LNReader có thể thiếu tài nguyên được tham chiếu và sử dụng cấu trúc lưu trữ khác. Hãy nhập lại tệp EPUB, TXT hoặc HTML gốc qua mục Truyện cục bộ.</string>
+    <string name="lnreader_import_chapters">Danh sách chương</string>
+    <string name="lnreader_import_categories">Danh mục</string>
+    <string name="lnreader_import_history">Lịch sử đọc</string>
+    <string name="lnreader_import_downloads">Chương đã tải xuống</string>
+    <string name="lnreader_import_covers">Bìa được lưu đệm</string>
+    <string name="lnreader_import_plugins">Plugin JavaScript và kho plugin</string>
+    <string name="lnreader_import_compatible_settings">Cài đặt tương thích</string>
+    <string name="lnreader_import_ai_keys">Khóa API AI</string>
+    <string name="lnreader_import_action">Nhập</string>
+    <string name="lnreader_import_started">Đã bắt đầu nhập. Tiến trình được hiển thị trong thông báo.</string>
 </resources>

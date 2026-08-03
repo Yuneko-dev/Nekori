@@ -1,8 +1,13 @@
 package eu.kanade.tachiyomi.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.Backup
+import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupJsPluginRepository
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSection
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelStructure
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
@@ -123,5 +128,52 @@ class BackupProtoMigrationTest {
 
         assertEquals(bytes.toList(), migrated.toList())
         assertTrue(ProtoBuf.decodeFromByteArray(Backup.serializer(), migrated).backupManga[0].isNovel)
+    }
+
+    @Test
+    fun `novel structure sessions and JS repositories round trip`() {
+        val session = BackupReadingSession(startedAt = 100, endedAt = 200, readDuration = 80)
+        val structure = BackupNovelStructure(
+            layout = 2,
+            totalPages = 12,
+            sections = listOf(
+                BackupNovelSection(
+                    name = "1",
+                    pageNumber = 1,
+                    path = "/page/1",
+                    cover = "https://example.com/1.jpg",
+                    chapterUrls = listOf("/chapter/1", "/chapter/2"),
+                ),
+            ),
+        )
+        val backup = Backup(
+            backupManga = listOf(
+                BackupManga(
+                    source = 7,
+                    url = "/novel",
+                    isNovel = true,
+                    chapters = listOf(
+                        BackupChapter(
+                            url = "/chapter/1",
+                            name = "Chapter 1",
+                            readingSessions = listOf(session),
+                        ),
+                    ),
+                    novelStructure = structure,
+                ),
+            ),
+            backupJsPluginRepositories = listOf(
+                BackupJsPluginRepository("LNReader", "https://example.com/plugins.json", enabled = false),
+            ),
+        )
+
+        val decoded = ProtoBuf.decodeFromByteArray(
+            Backup.serializer(),
+            ProtoBuf.encodeToByteArray(Backup.serializer(), backup),
+        )
+
+        assertEquals(structure, decoded.backupManga.single().novelStructure)
+        assertEquals(session, decoded.backupManga.single().chapters.single().readingSessions.single())
+        assertEquals(backup.backupJsPluginRepositories, decoded.backupJsPluginRepositories)
     }
 }

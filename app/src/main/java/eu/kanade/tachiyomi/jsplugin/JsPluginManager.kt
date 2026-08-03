@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPluginRepository
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.jsruntime.JsRuntime
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
@@ -23,8 +24,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import okhttp3.CacheControl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -65,6 +69,7 @@ class JsPluginManager(
     private val networkHelper: NetworkHelper = Injekt.get()
     private val sourcePreferences: SourcePreferences = Injekt.get()
     private val storageManager: StorageManager = Injekt.get()
+    private val hermesRuntime: JsRuntime = Injekt.get()
 
     // Plugin repo/list/icon fetches, not a source's own content requests (JsSource routes
     // through JSLibraryProvider's fetch() instead) - not paced by novel-source throttling.
@@ -110,6 +115,7 @@ class JsPluginManager(
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     private val refreshMutex = Mutex()
+    private val pluginMutationMutex = Mutex()
 
     private val _jsSources = MutableStateFlow<List<CatalogueSource>>(emptyList())
     val jsSources: StateFlow<List<CatalogueSource>> = _jsSources.asStateFlow()
@@ -163,43 +169,37 @@ class JsPluginManager(
     /**
      * Refresh available plugins from all repositories
      */
-    suspend fun refreshAvailablePlugins(forceRefresh: Boolean = false) {
-        // Skip if another refresh is already in progress — result flows through _availablePlugins StateFlow
-        if (!refreshMutex.tryLock()) return
+    suspend fun refreshAvailablePlugins(forceRefresh: Boolean = false) = refreshMutex.withLock {
+        _isLoading.value = true
         try {
-            _isLoading.value = true
-            try {
-                // Load from cache first if not forcing refresh
-                if (!forceRefresh && _availablePlugins.value.isNotEmpty()) {
-                    logcat(LogPriority.DEBUG) { "Using cached plugin list (${_availablePlugins.value.size} plugins)" }
-                    return
-                }
-
-                val allPlugins = mutableListOf<JsPlugin>()
-
-                for (repo in _repositories.value.filter { it.enabled }) {
-                    try {
-                        val plugins = fetchPluginList(repo.url)
-                        plugins.forEach { it.repositoryUrl = repo.url }
-                        allPlugins.addAll(plugins)
-                        logcat(LogPriority.DEBUG) { "Loaded ${plugins.size} plugins from ${repo.name}" }
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e) { "Failed to fetch plugins from ${repo.name}" }
-                    }
-                }
-
-                _availablePlugins.value = allPlugins
-
-                // Save to cache file
-                saveCachedPluginList(allPlugins)
-
-                // Cache icons to avoid re-fetching each time
-                cacheIcons(allPlugins)
-            } finally {
-                _isLoading.value = false
+            // Load from cache first if not forcing refresh
+            if (!forceRefresh && _availablePlugins.value.isNotEmpty()) {
+                logcat(LogPriority.DEBUG) { "Using cached plugin list (${_availablePlugins.value.size} plugins)" }
+                return@withLock
             }
+
+            val allPlugins = mutableListOf<JsPlugin>()
+
+            for (repo in _repositories.value.filter { it.enabled }) {
+                try {
+                    val plugins = fetchPluginList(repo.url)
+                    plugins.forEach { it.repositoryUrl = repo.url }
+                    allPlugins.addAll(plugins)
+                    logcat(LogPriority.DEBUG) { "Loaded ${plugins.size} plugins from ${repo.name}" }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to fetch plugins from ${repo.name}" }
+                }
+            }
+
+            _availablePlugins.value = allPlugins
+
+            // Save to cache file
+            saveCachedPluginList(allPlugins)
+
+            // Cache icons to avoid re-fetching each time
+            cacheIcons(allPlugins)
         } finally {
-            refreshMutex.unlock()
+            _isLoading.value = false
         }
     }
 
@@ -405,6 +405,135 @@ class JsPluginManager(
         }
     }
 
+    suspend fun installPluginFromBackup(
+        metadata: JsPlugin?,
+        code: String,
+        customJs: String?,
+        customCss: String?,
+        repositoryUrl: String?,
+    ): BackupPluginInstallResult = withContext(Dispatchers.IO) {
+        pluginMutationMutex.withLock {
+            require(code.isNotBlank()) { "Plugin code is empty" }
+            val plugin = metadata ?: inspectBackupPlugin(code)
+            require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
+
+            val existing = _installedPlugins.value.find { it.plugin.id == plugin.id }
+            if (existing != null && compareVersions(existing.installedVersion, plugin.version) > 0) {
+                return@withLock BackupPluginInstallResult(existing.plugin, installed = false)
+            }
+
+            val dir = pluginsDir ?: error("Plugin directory not available")
+            val previousAssets = existing?.customAssetFiles().orEmpty()
+            val installedMetadata = plugin.copy(
+                customJSFile = customJs?.takeIf(String::isNotBlank)?.let {
+                    customAssetFileName(CUSTOM_JS_KIND, it)
+                },
+                customCSSFile = customCss?.takeIf(String::isNotBlank)?.let {
+                    customAssetFileName(CUSTOM_CSS_KIND, it)
+                },
+                repositoryUrl = repositoryUrl,
+            )
+            val newAssets = setOfNotNull(installedMetadata.customJSFile, installedMetadata.customCSSFile)
+
+            installedMetadata.customJSFile?.let { writeCustomAsset(dir, it, customJs.orEmpty()) }
+            installedMetadata.customCSSFile?.let { writeCustomAsset(dir, it, customCss.orEmpty()) }
+            try {
+                commitBackupPluginFiles(dir, plugin.id, code, json.encodeToString(installedMetadata), existing)
+            } catch (error: Exception) {
+                cleanupCustomAssets(dir, newAssets - previousAssets)
+                throw error
+            }
+
+            val installed = InstalledJsPlugin(
+                plugin = installedMetadata,
+                code = code,
+                customCSS = customCss.orEmpty(),
+                customJS = customJs.orEmpty(),
+                installedVersion = plugin.version,
+                repositoryUrl = repositoryUrl.orEmpty(),
+            )
+            _installedPlugins.update { current -> current.filter { it.plugin.id != plugin.id } + installed }
+            cleanupCustomAssets(dir, previousAssets - newAssets)
+            rebuildSources()
+            BackupPluginInstallResult(installedMetadata, installed = true)
+        }
+    }
+
+    private fun commitBackupPluginFiles(
+        dir: UniFile,
+        pluginId: String,
+        code: String,
+        metadata: String,
+        existing: InstalledJsPlugin?,
+    ) {
+        val suffix = System.nanoTime().toString(16)
+        val stagedCode = dir.replaceFile(".$pluginId-$suffix.js.tmp") ?: error("Failed to stage plugin code")
+        val stagedMetadata = dir.replaceFile(".$pluginId-$suffix.json.tmp") ?: error("Failed to stage plugin metadata")
+        val previousCode = dir.findFile("$pluginId.js")?.let { file -> runCatching { file.readUtf8() }.getOrNull() }
+            ?: existing?.code
+        val previousMetadata =
+            dir.findFile("$pluginId.json")?.let { file -> runCatching { file.readText() }.getOrNull() }
+                ?: existing?.plugin?.let { json.encodeToString(it) }
+        try {
+            stagedCode.writeUtf8(code)
+            stagedMetadata.writeText(metadata)
+            check(stagedCode.readUtf8() == code && stagedMetadata.readText() == metadata) {
+                "Staged plugin files failed verification"
+            }
+            dir.replaceFile("$pluginId.js")?.writeUtf8(code) ?: error("Failed to write plugin code")
+            dir.replaceFile("$pluginId.json")?.writeText(metadata) ?: error("Failed to write plugin metadata")
+        } catch (error: Exception) {
+            restorePluginFile(dir, "$pluginId.js", previousCode)
+            restorePluginFile(dir, "$pluginId.json", previousMetadata)
+            throw error
+        } finally {
+            stagedCode.delete()
+            stagedMetadata.delete()
+        }
+    }
+
+    private fun restorePluginFile(dir: UniFile, name: String, content: String?) {
+        if (content == null) {
+            dir.findFile(name)?.delete()
+        } else {
+            runCatching { dir.replaceFile(name)?.writeText(content) }
+                .onFailure { logcat(LogPriority.ERROR, it) { "Failed to roll back $name" } }
+        }
+    }
+
+    suspend fun inspectBackupPlugin(code: String, fallbackId: String = "backup-plugin"): JsPlugin {
+        val runtimeKey = "backup:$fallbackId:${System.nanoTime()}"
+        val loadPayload = buildJsonObject {
+            put("id", fallbackId)
+            put("key", runtimeKey)
+            put("code", code)
+        }
+        return try {
+            hermesRuntime.call("plugin.load", json.encodeToString(loadPayload))
+            val evalPayload = buildJsonObject {
+                put("id", fallbackId)
+                put("key", runtimeKey)
+                put(
+                    "expression",
+                    """({id:String(plugin.id||''),name:String(plugin.name||''),""" +
+                        """lang:String(plugin.lang||''),version:String(plugin.version||'1.0.0'),""" +
+                        """site:String(plugin.site||''),url:String(plugin.url||''),""" +
+                        """iconUrl:String(plugin.iconUrl||''),""" +
+                        """customJS:plugin.customJS||null,customCSS:plugin.customCSS||null,""" +
+                        """contentWarning:plugin.contentWarning??null,contentType:plugin.contentType||null})""",
+                )
+            }
+            json.decodeFromString<JsPlugin>(hermesRuntime.call("plugin.eval", json.encodeToString(evalPayload)))
+                .let { it.copy(id = it.id.ifBlank { fallbackId }, name = it.name.ifBlank { fallbackId }) }
+        } finally {
+            val unloadPayload = buildJsonObject {
+                put("id", fallbackId)
+                put("key", runtimeKey)
+            }
+            runCatching { hermesRuntime.call("plugin.unload", json.encodeToString(unloadPayload)) }
+        }
+    }
+
     /**
      * Update a plugin to the latest version
      */
@@ -418,7 +547,7 @@ class JsPluginManager(
      * Add a new repository
      */
     fun addRepository(url: String) {
-        val normalizedUrl = url.trim()
+        val normalizedUrl = normalizeRepositoryUrl(url)
         val name = JsPluginRepository.nameFromUrl(normalizedUrl)
         logcat(LogPriority.INFO) { "JsPluginManager: addRepository called — name='$name', url='$normalizedUrl'" }
         _repositories.update { current ->
@@ -432,6 +561,20 @@ class JsPluginManager(
         }
         saveRepositories()
         scope.launch { refreshAvailablePlugins(forceRefresh = true) }
+    }
+
+    suspend fun restoreRepositories(repositories: List<JsPluginRepository>) {
+        if (repositories.isEmpty()) return
+        val restored = repositories
+            .map { it.copy(url = normalizeRepositoryUrl(it.url)) }
+            .filter { it.url.isNotBlank() }
+            .distinctBy { it.url }
+        _repositories.update { current ->
+            val restoredUrls = restored.mapTo(mutableSetOf()) { it.url }
+            current.filterNot { normalizeRepositoryUrl(it.url) in restoredUrls } + restored
+        }
+        saveRepositories()
+        refreshAvailablePlugins(forceRefresh = true)
     }
 
     /**
@@ -777,6 +920,18 @@ class JsPluginManager(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to save repositories to disk" }
         }
+    }
+
+    private fun normalizeRepositoryUrl(url: String): String = url.trim().trimEnd('/')
+
+    private fun compareVersions(left: String, right: String): Int {
+        val leftParts = left.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+        val rightParts = right.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+        repeat(maxOf(leftParts.size, rightParts.size)) { index ->
+            val compared = leftParts.getOrElse(index) { 0 }.compareTo(rightParts.getOrElse(index) { 0 })
+            if (compared != 0) return compared
+        }
+        return 0
     }
 
     /**

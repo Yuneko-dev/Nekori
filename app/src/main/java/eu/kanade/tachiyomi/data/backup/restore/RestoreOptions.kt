@@ -6,11 +6,9 @@ import tachiyomi.i18n.novel.TDMR
 
 data class RestoreOptions(
     val libraryEntries: Boolean = true,
-    val includeManga: Boolean = true,
-    val includeNovels: Boolean = true,
     val categories: Boolean = true,
     val appSettings: Boolean = true,
-    val extensionStores: Boolean = true,
+    val extensionRepositories: Boolean = true,
     val sourceSettings: Boolean = true,
 ) {
 
@@ -18,13 +16,13 @@ data class RestoreOptions(
         libraryEntries,
         categories,
         appSettings,
-        extensionStores,
+        extensionRepositories,
         sourceSettings,
-        includeManga,
-        includeNovels,
+        false,
+        true,
     )
 
-    fun canRestore() = libraryEntries || categories || appSettings || extensionStores || sourceSettings
+    fun canRestore() = libraryEntries || categories || appSettings || extensionRepositories || sourceSettings
 
     companion object {
         val options = listOf(
@@ -32,18 +30,6 @@ data class RestoreOptions(
                 label = MR.strings.label_library,
                 getter = RestoreOptions::libraryEntries,
                 setter = { options, enabled -> options.copy(libraryEntries = enabled) },
-            ),
-            Entry(
-                label = TDMR.strings.label_manga,
-                getter = RestoreOptions::includeManga,
-                setter = { options, enabled -> options.copy(includeManga = enabled) },
-                enabled = { it.libraryEntries },
-            ),
-            Entry(
-                label = TDMR.strings.label_novels,
-                getter = RestoreOptions::includeNovels,
-                setter = { options, enabled -> options.copy(includeNovels = enabled) },
-                enabled = { it.libraryEntries },
             ),
             Entry(
                 label = MR.strings.categories,
@@ -56,9 +42,9 @@ data class RestoreOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.extensionStores,
-                getter = RestoreOptions::extensionStores,
-                setter = { options, enabled -> options.copy(extensionStores = enabled) },
+                label = TDMR.strings.pref_novel_extension_repos,
+                getter = RestoreOptions::extensionRepositories,
+                setter = { options, enabled -> options.copy(extensionRepositories = enabled) },
             ),
             Entry(
                 label = MR.strings.source_settings,
@@ -71,10 +57,8 @@ data class RestoreOptions(
             libraryEntries = array[0],
             categories = array[1],
             appSettings = array[2],
-            extensionStores = array[3],
+            extensionRepositories = array[3],
             sourceSettings = array[4],
-            includeManga = array.getOrElse(5) { true },
-            includeNovels = array.getOrElse(6) { true },
         )
     }
 

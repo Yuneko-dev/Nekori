@@ -467,6 +467,10 @@ class MangaRepositoryImpl(
         return database.mangasQueries.getFavoritesCount().awaitAsOne()
     }
 
+    override suspend fun getNovelFavoritesCount(): Long {
+        return database.mangasQueries.getNovelFavoritesCount().awaitAsOne()
+    }
+
     override suspend fun getFavoritesEntry(): List<Manga> {
         return database.mangasQueries.getFavoritesEntry {
                 id,

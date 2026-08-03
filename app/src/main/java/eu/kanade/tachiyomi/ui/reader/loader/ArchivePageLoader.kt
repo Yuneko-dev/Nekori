@@ -13,13 +13,14 @@ internal class ArchivePageLoader(private val reader: ArchiveReader) : PageLoader
     override var isLocal: Boolean = true
 
     override suspend fun getPages(): List<ReaderPage> = reader.useEntries { entries ->
-        entries
-            .filter { entry ->
-                entry.isFile && (
-                    entry.name.isHtmlContentFileName() ||
-                        ImageUtil.isImage(entry.name) { reader.getInputStream(entry.name)!! }
-                    )
+        val files = entries.filter { it.isFile }.toList()
+        val htmlFiles = files.filter { it.name.isHtmlContentFileName() }
+        val contentFiles = htmlFiles.ifEmpty {
+            files.filter { entry ->
+                ImageUtil.isImage(entry.name) { reader.getInputStream(entry.name)!! }
             }
+        }
+        contentFiles
             .sortedWith { f1, f2 -> f1.name.compareToCaseInsensitiveNaturalOrder(f2.name) }
             .mapIndexed { i, entry ->
                 val isHtml = entry.name.isHtmlContentFileName()
