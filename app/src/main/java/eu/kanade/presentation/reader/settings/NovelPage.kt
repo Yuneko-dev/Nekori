@@ -81,6 +81,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.InlineSettingsChipRow
 import tachiyomi.presentation.core.components.SettingsChipRow
+import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.StepperItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -1626,7 +1627,12 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
         val selectedVoiceDisplay = availableVoices.find { it.first == ttsVoice }?.second
             ?: "Default (System)"
 
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = SettingsItemsPaddings.Horizontal,
+                vertical = 4.dp,
+            ),
+        ) {
             Text(
                 text = stringResource(TDMR.strings.pref_novel_tts_voice),
                 style = MaterialTheme.typography.bodyMedium,

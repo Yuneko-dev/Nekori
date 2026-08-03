@@ -457,8 +457,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val ttsPitch = readerPreferences.novelTtsPitch.collectAsState().value
 
         return Preference.PreferenceGroup(
-            title = "Text-to-Speech",
+            title = stringResource(TDMR.strings.pref_novel_tts_section),
             preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelTtsEnabled,
+                    title = stringResource(TDMR.strings.pref_novel_tts_enabled),
+                ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (ttsSpeed * 10).toInt(),
                     valueRange = 1..30,

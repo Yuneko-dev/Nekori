@@ -37,11 +37,11 @@ val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.CHAPTER_LIST, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.SETTINGS, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.NEXT_CHAPTER, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.TTS, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.AUTO_SCROLL, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.QUOTES, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.ORIENTATION, defaultEnabled = false),
-    BottomBarItemState(BottomBarItem.EDIT, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.TTS, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.AUTO_SCROLL, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.QUOTES, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.ORIENTATION, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.EDIT, enabled = false, defaultEnabled = false),
 )
 
 @Serializable
