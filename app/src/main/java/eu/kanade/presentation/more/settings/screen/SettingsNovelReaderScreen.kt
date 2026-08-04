@@ -405,7 +405,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = autoLoadNextAt,
-                    valueRange = 50..100,
+                    valueRange = 1..100,
                     title = "Auto-load next chapter at",
                     valueString = "$autoLoadNextAt%",
                     onValueChanged = { readerPreferences.novelAutoLoadNextChapterAt.set(it) },
