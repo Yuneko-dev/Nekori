@@ -424,8 +424,8 @@ class TikTokTtsEngine internal constructor(
     internal fun preloadRequestCount(): Int = synchronized(lock) { jobs.values.count(SynthesisJob::preload) }
 
     companion object {
-        internal const val MAX_PRELOAD_REQUESTS = 5
-        internal const val MAX_CACHE_ENTRIES = 6
+        internal const val MAX_PRELOAD_REQUESTS = 2
+        internal const val MAX_CACHE_ENTRIES = 3
         internal const val MAX_RETRIES = 3
         private const val DEFAULT_RETRY_DELAY_MS = 100L
     }
