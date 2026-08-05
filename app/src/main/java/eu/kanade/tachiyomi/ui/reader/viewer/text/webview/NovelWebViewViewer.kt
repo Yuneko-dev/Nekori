@@ -784,61 +784,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         if (isAutoScrolling) startAutoScroll()
                     }
 
-                    // Loading/error loads also fire onPageFinished(about:blank), and some WebView
-                    // builds fire twice per navigation; gate the whole body so scripts/snippets
-                    // inject only on the first genuine chapter load.
+                    // The loading skeleton uses loadDataWithBaseURL too. Its callback can arrive
+                    // after loadHtmlContent has already switched the state to LOADING_REAL, so the
+                    // state alone cannot identify the real chapter document.
                     if (docState != DocState.LOADING_REAL) return
-                    docState = DocState.READY
-                    readerUiModalOpen = false
-
-                    styler.injectScript { buildTsundokuScript() }
-                    // Fresh DOM lost the --tsundoku-safe-* vars and menuVisible flag; re-apply them.
-                    pushReaderChrome()
-                    if (isVideoChapter()) {
-                        pendingTtsAutoStartOnLoad = false
-                        ttsController.pendingStartRequest = null
-                        val progress = currentPage?.chapter?.chapter?.last_page_read?.coerceIn(0, 100) ?: 0
-                        lastSavedProgress = progress / 100f
-                        lastPersistedPercent = progress
-                        awaitingFirstScrollSample = false
-                        isRestoringScroll = false
-                        activity.onNovelProgressChanged(lastSavedProgress)
-                    } else {
-                        styler.injectScrollTracking()
-                        styler.injectReaderUi()
-                        restoreScrollPosition()
-                        syncShortChapterProgressIfNeeded()
-                        if (isEditingMode) {
-                            toggleEditMode(true)
-                        }
+                    evaluateJavascriptSafe("document.getElementById('lnreader-compat-config') !== null") { result ->
+                        if (result == "true" && docState == DocState.LOADING_REAL) finishRealChapterLoad()
                     }
-                    if (!isInfiniteScrollEnabled()) {
-                        styler.injectNextChapterButton(
-                            chapterName = currentChapters?.currChapter?.chapter?.name.orEmpty(),
-                            nextChapterName = currentChapters?.nextChapter?.chapter?.name,
-                        )
-                    }
-                    // Real content rendered (docState = READY above); TTS may now read the body.
-                    dispatchLoadingChapter(false)
-                    if (pendingTtsAutoStartOnLoad && !isVideoChapter()) {
-                        pendingTtsAutoStartOnLoad = false
-                        startTts()
-                    }
-                    ttsController.pendingStartRequest?.takeUnless { isVideoChapter() }?.let { request ->
-                        ttsController.pendingStartRequest = null
-                        when (request) {
-                            TtsController.StartRequest.NORMAL -> startTts()
-                            TtsController.StartRequest.VIEWPORT -> {
-                                pendingTtsParagraphIndex?.let {
-                                    pendingTtsParagraphIndex = null
-                                    startTtsAtParagraph(it)
-                                } ?: startTtsFromViewport()
-                            }
-                        }
-                    }
-                    // A full reload replaces window, dropping the autoscroll rAF loop; re-arm it
-                    // on the new document so autoscroll survives a non-inf-scroll chapter change.
-                    if (isAutoScrolling && !isVideoChapter()) startAutoScroll()
                 }
             }
 
@@ -1181,6 +1133,58 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 logcat(LogPriority.WARN) { "NovelWebViewViewer: evaluateJavascript ignored (${t.message})" }
             }
         }
+    }
+
+    private fun finishRealChapterLoad() {
+        docState = DocState.READY
+        readerUiModalOpen = false
+
+        styler.injectScript { buildTsundokuScript() }
+        // Fresh DOM lost the --tsundoku-safe-* vars and menuVisible flag; re-apply them.
+        pushReaderChrome()
+        if (isVideoChapter()) {
+            pendingTtsAutoStartOnLoad = false
+            ttsController.pendingStartRequest = null
+            val progress = currentPage?.chapter?.chapter?.last_page_read?.coerceIn(0, 100) ?: 0
+            lastSavedProgress = progress / 100f
+            lastPersistedPercent = progress
+            awaitingFirstScrollSample = false
+            isRestoringScroll = false
+            activity.onNovelProgressChanged(lastSavedProgress)
+        } else {
+            styler.injectScrollTracking()
+            styler.injectReaderUi()
+            restoreScrollPosition()
+            syncShortChapterProgressIfNeeded()
+            if (isEditingMode) toggleEditMode(true)
+        }
+        if (!isInfiniteScrollEnabled()) {
+            styler.injectNextChapterButton(
+                chapterName = currentChapters?.currChapter?.chapter?.name.orEmpty(),
+                nextChapterName = currentChapters?.nextChapter?.chapter?.name,
+            )
+        }
+        // Real content rendered (docState = READY above); TTS may now read the body.
+        dispatchLoadingChapter(false)
+        if (pendingTtsAutoStartOnLoad && !isVideoChapter()) {
+            pendingTtsAutoStartOnLoad = false
+            startTts()
+        }
+        ttsController.pendingStartRequest?.takeUnless { isVideoChapter() }?.let { request ->
+            ttsController.pendingStartRequest = null
+            when (request) {
+                TtsController.StartRequest.NORMAL -> startTts()
+                TtsController.StartRequest.VIEWPORT -> {
+                    pendingTtsParagraphIndex?.let {
+                        pendingTtsParagraphIndex = null
+                        startTtsAtParagraph(it)
+                    } ?: startTtsFromViewport()
+                }
+            }
+        }
+        // A full reload replaces window, dropping the autoscroll rAF loop; re-arm it
+        // on the new document so autoscroll survives a non-inf-scroll chapter change.
+        if (isAutoScrolling && !isVideoChapter()) startAutoScroll()
     }
 
     /**

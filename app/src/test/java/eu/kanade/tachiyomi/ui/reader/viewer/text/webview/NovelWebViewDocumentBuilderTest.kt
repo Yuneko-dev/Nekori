@@ -121,6 +121,7 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(html.contains("href=\"${NovelWebViewStyler.READER_CSS_URL}\""))
         assertTrue(html.contains("""id="LNReader-chapter""""))
         assertTrue(html.contains("""id="reader-ui""""))
+        assertTrue(html.contains("""id="lnreader-compat-config""""))
         val chapterRoot = Jsoup.parse(html).selectFirst("#LNReader-chapter")!!
         assertEquals("p", chapterRoot.child(0).tagName())
     }
