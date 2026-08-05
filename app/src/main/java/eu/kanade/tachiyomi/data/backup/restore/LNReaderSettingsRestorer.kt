@@ -129,8 +129,8 @@ class LNReaderSettingsRestorer(
         reader.intValue("padding")?.takeIf { it >= 0 }?.let {
             readerPreferences.novelMarginLeft.set(it)
             readerPreferences.novelMarginRight.set(it)
-            readerPreferences.novelMarginTop.set(it)
-            readerPreferences.novelMarginBottom.set(it)
+            readerPreferences.novelMarginTop.set(it + 10) // Add 10px to top margin to match LNReader's default
+            readerPreferences.novelMarginBottom.set(0) // LNReader doesn't have a bottom margin, so set it to 0
         }
         reader.floatValue("paragraphIndent")?.takeIf { it >= 0f }
             ?.let(readerPreferences.novelParagraphIndent::set)
