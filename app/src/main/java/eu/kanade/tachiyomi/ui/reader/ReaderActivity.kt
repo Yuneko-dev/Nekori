@@ -1106,8 +1106,9 @@ class ReaderActivity : BaseActivity() {
             // Use state.novelProgressPercent for slider value, which is updated via onNovelProgressChanged callback
             val novelProgressFromState = state.novelProgressPercent
 
-            var isTtsActive by remember { mutableStateOf(false) }
-            var isTtsPaused by remember { mutableStateOf(false) }
+            val ttsPlaybackState by novelViewer.ttsPlaybackState.collectAsState()
+            val isTtsActive = ttsPlaybackState != NovelWebViewViewer.TtsPlaybackState.STOPPED
+            val isTtsPaused = ttsPlaybackState == NovelWebViewViewer.TtsPlaybackState.PAUSED
             val ttsEnabled by readerPreferences.novelTtsEnabled.collectAsState()
             val storedTtsControlsVisible by readerPreferences.novelTtsControlsVisible.collectAsState()
             val ttsControlsVisible = ttsEnabled && storedTtsControlsVisible
@@ -1118,16 +1119,7 @@ class ReaderActivity : BaseActivity() {
                     readerPreferences.novelTtsControlsVisible.set(false)
                     stopBackgroundTtsIfRunning()
                     stopTtsNotificationSync()
-                    isTtsActive = false
-                    isTtsPaused = false
                 }
-            }
-            // Re-sync the pause/play button on menu open and chapter change. Chapter nav
-            // stops TTS without a button tap, so key on chapter id to reset it.
-            LaunchedEffect(state.menuVisible, state.novelVisibleChapter?.id) {
-                if (!state.menuVisible) return@LaunchedEffect
-                isTtsActive = novelViewer.isTtsActive()
-                isTtsPaused = novelViewer.isTtsPaused()
             }
 
             // Also sync from viewer when menu becomes visible (for initial sync)
@@ -1268,33 +1260,25 @@ class ReaderActivity : BaseActivity() {
                         if (!isTtsActive && readerPreferences.novelTtsAutoStartOnPanelOpen.get()) {
                             startBackgroundTtsIfEnabled()
                             novelViewer.startTts()
-                            isTtsActive = true
-                            isTtsPaused = false
                             syncBackgroundTtsState()
                         }
                     } else {
                         stopBackgroundTtsIfRunning()
                         novelViewer.stopTts()
-                        isTtsActive = false
-                        isTtsPaused = false
                         stopTtsNotificationSync()
                     }
                 },
                 onToggleTts = {
                     if (novelViewer.isTtsSpeaking()) {
                         novelViewer.pauseTts()
-                        isTtsPaused = true
                         syncBackgroundTtsState()
                     } else if (novelViewer.isTtsPaused()) {
                         novelViewer.resumeTts()
-                        isTtsPaused = false
                         startBackgroundTtsIfEnabled()
                         syncBackgroundTtsState()
                     } else {
                         startBackgroundTtsIfEnabled()
                         novelViewer.startTts()
-                        isTtsActive = true
-                        isTtsPaused = false
                         syncBackgroundTtsState()
                     }
                 },
@@ -1302,15 +1286,11 @@ class ReaderActivity : BaseActivity() {
                     // Force stop without hiding panel
                     stopBackgroundTtsIfRunning()
                     novelViewer.stopTts()
-                    isTtsActive = false
-                    isTtsPaused = false
                     stopTtsNotificationSync()
                 },
                 onTtsStartFromViewport = {
                     startBackgroundTtsIfEnabled()
                     novelViewer.startTtsFromViewport()
-                    isTtsActive = true
-                    isTtsPaused = false
                     syncBackgroundTtsState()
                 },
                 onTtsPreviousParagraph = { stepTtsParagraph(isNext = false) },

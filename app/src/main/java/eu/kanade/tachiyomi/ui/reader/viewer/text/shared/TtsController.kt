@@ -10,12 +10,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
+import okhttp3.OkHttpClient
+import tachiyomi.tts.tiktok.TikTokTtsEngine
+import tachiyomi.tts.tiktok.TikTokVoiceCatalog
+import tachiyomi.tts.tiktok.displayName
 import java.util.Locale
 import kotlin.math.roundToInt
 
 class TtsController(
     private val context: Context,
     private val preferences: ReaderPreferences,
+    private val networkClient: OkHttpClient,
     private val scope: CoroutineScope,
     private val callbacks: Callbacks,
 ) : TextToSpeech.OnInitListener {
@@ -26,12 +31,23 @@ class TtsController(
         fun onHighlightChunk(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int)
         fun onClearHighlights()
         fun onLastChunkDone()
+        fun onError(error: Throwable)
         fun runOnUiThread(action: () -> Unit)
     }
 
     enum class StartRequest { NORMAL, VIEWPORT }
 
     private var tts: TextToSpeech? = null
+    private var tikTokTts: TikTokTtsEngine? = null
+    private val tikTokListener = object : TikTokTtsEngine.Listener {
+        override fun onStart(utteranceId: String) = handleUtteranceStart(utteranceId)
+
+        override fun onDone(utteranceId: String) = handleUtteranceDone(utteranceId)
+
+        override fun onError(utteranceId: String, error: Throwable) {
+            handleUtteranceError(utteranceId, error)
+        }
+    }
     var ttsInitialized = false
         private set
 
@@ -55,11 +71,17 @@ class TtsController(
     @Volatile var ttsCurrentChunkIndex = 0
 
     @Volatile var ttsResumeChunkIndex: Int = 0
+    private var playbackGeneration = 0L
     var ttsViewportParagraphIndex: Int = 0
     var hasViewportStartOverride: Boolean = false
     var pendingStartRequest: StartRequest? = null
 
     fun ensureInitialized() {
+        if (usesTikTok()) {
+            if (tikTokTts == null) tikTokTts = TikTokTtsEngine(networkClient)
+            ttsInitialized = true
+            return
+        }
         if (tts == null) {
             try {
                 tts = TextToSpeech(context, this)
@@ -71,6 +93,11 @@ class TtsController(
     }
 
     override fun onInit(status: Int) {
+        if (usesTikTok()) {
+            tts?.shutdown()
+            tts = null
+            return
+        }
         if (status == TextToSpeech.SUCCESS) {
             ttsInitialized = true
             applySettings()
@@ -89,45 +116,79 @@ class TtsController(
     private fun setupListener() {
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull()?.let { chunkIndex ->
-                    ttsCurrentChunkIndex = chunkIndex
-                    if (preferences.novelTtsEnableHighlight.get()) {
-                        val chunk = ttsChunks.getOrNull(chunkIndex) ?: return
-                        val startOffset = ttsChunkStartOffsets.getOrElse(chunkIndex) { 0 }
-                        val paragraphIndex = ttsChunkParagraphIndexes.getOrElse(chunkIndex) { chunkIndex }
-                        callbacks.runOnUiThread {
-                            callbacks.onHighlightChunk(chunkIndex, chunk, startOffset, paragraphIndex)
-                        }
-                    }
-                }
+                utteranceId?.let(::handleUtteranceStart)
             }
 
             override fun onDone(utteranceId: String?) {
-                val finishedIndex = utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull() ?: -1
-                val isLastChunk = finishedIndex >= ttsChunks.size - 1
-                if (isLastChunk && isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
-                    callbacks.runOnUiThread {
-                        scope.launch {
-                            delay(LAST_CHUNK_DONE_DELAY_MS)
-                            if (!isSpeaking()) {
-                                callbacks.onLastChunkDone()
-                            }
-                        }
-                    }
-                } else if (isLastChunk) {
-                    isTtsAutoPlay = false
-                    callbacks.runOnUiThread {
-                        callbacks.onClearHighlights()
-                    }
-                }
+                utteranceId?.let(::handleUtteranceDone)
             }
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                logcat(LogPriority.ERROR) { "TTS error on utterance: $utteranceId" }
+                handleUtteranceError(
+                    utteranceId.orEmpty(),
+                    IllegalStateException("Android TTS failed for utterance $utteranceId"),
+                )
             }
         })
     }
+
+    private fun handleUtteranceStart(utteranceId: String) {
+        val chunkIndex = utteranceId.chunkIndex() ?: return
+        ttsCurrentChunkIndex = chunkIndex
+        if (!preferences.novelTtsEnableHighlight.get()) return
+        val chunk = ttsChunks.getOrNull(chunkIndex) ?: return
+        val startOffset = ttsChunkStartOffsets.getOrElse(chunkIndex) { 0 }
+        val paragraphIndex = ttsChunkParagraphIndexes.getOrElse(chunkIndex) { chunkIndex }
+        callbacks.runOnUiThread {
+            callbacks.onHighlightChunk(chunkIndex, chunk, startOffset, paragraphIndex)
+        }
+    }
+
+    private fun handleUtteranceDone(utteranceId: String) {
+        val finishedIndex = utteranceId.chunkIndex() ?: return
+        if (usesTikTok() && finishedIndex < ttsChunks.lastIndex) {
+            if (!ttsPaused && finishedIndex == ttsCurrentChunkIndex) {
+                speakTikTokChunk(finishedIndex + 1)
+            }
+            return
+        }
+        if (finishedIndex < ttsChunks.lastIndex) return
+
+        if (isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
+            callbacks.runOnUiThread {
+                scope.launch {
+                    delay(LAST_CHUNK_DONE_DELAY_MS)
+                    if (!isSpeaking()) callbacks.onLastChunkDone()
+                }
+            }
+        } else {
+            isTtsAutoPlay = false
+            callbacks.runOnUiThread(callbacks::onClearHighlights)
+        }
+    }
+
+    private fun handleUtteranceError(utteranceId: String, error: Throwable) {
+        if (utteranceId.chunkIndex() == null) return
+        logcat(LogPriority.ERROR) {
+            "TTS error on utterance $utteranceId: ${error.stackTraceToString()}"
+        }
+        if (usesTikTok()) {
+            callbacks.runOnUiThread { callbacks.onError(error) }
+            return
+        }
+        stop()
+        callbacks.runOnUiThread { callbacks.onError(error) }
+    }
+
+    private fun String.chunkIndex(): Int? {
+        val parts = removePrefix(UTTERANCE_PREFIX).split(':', limit = 2)
+        val generation = parts.getOrNull(0)?.toLongOrNull() ?: return null
+        if (generation != playbackGeneration) return null
+        return parts.getOrNull(1)?.toIntOrNull()
+    }
+
+    private fun utteranceId(chunkIndex: Int) = "$UTTERANCE_PREFIX$playbackGeneration:$chunkIndex"
 
     /**
      * Shift the cached playback chapter index when chapters are removed from the front of the
@@ -139,17 +200,22 @@ class TtsController(
     }
 
     fun speak(text: String, chapterIndex: Int = 0, chapterId: Long? = null) {
-        if (!ttsInitialized || tts == null) {
+        val engineUnavailable = if (usesTikTok()) tikTokTts == null else tts == null
+        if (!ttsInitialized || engineUnavailable) {
             logcat(LogPriority.WARN) { "TTS not initialized, cannot speak" }
             return
         }
         ttsPlaybackChapterIndex = chapterIndex
         ttsPlaybackChapterId = chapterId
+        playbackGeneration++
         applySettings()
         ttsPaused = false
 
         val maxLength = TextToSpeech.getMaxSpeechInputLength().takeIf { it > 0 } ?: 4000
-        val paragraphs = text.split("\n").filter { it.isNotBlank() }
+        val paragraphs = text.lineSequence()
+            .map(TtsTextUtils::normalizeText)
+            .filter(String::isNotEmpty)
+            .toList()
         val chunkParagraphIndexes = mutableListOf<Int>()
 
         val chunks = if (paragraphs.size > 1) {
@@ -203,29 +269,62 @@ class TtsController(
 
     fun speakChunksFrom(startIndex: Int) {
         if (ttsChunks.isEmpty() || startIndex >= ttsChunks.size) return
+        if (usesTikTok()) {
+            speakTikTokChunk(startIndex)
+            return
+        }
         ttsChunks.drop(startIndex).forEachIndexed { i, chunk ->
             val actualIndex = startIndex + i
             val mode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            tts?.speak(chunk, mode, null, "tts_utterance_$actualIndex")
+            tts?.speak(chunk, mode, null, utteranceId(actualIndex))
         }
     }
 
+    private fun speakTikTokChunk(chunkIndex: Int) {
+        val chunk = ttsChunks.getOrNull(chunkIndex) ?: return
+        val engine = tikTokTts ?: return
+        val voice = selectedTikTokVoice()
+        ttsCurrentChunkIndex = chunkIndex
+        engine.speak(
+            text = chunk,
+            voice = voice,
+            rate = preferences.novelTtsSpeed.get(),
+            pitch = preferences.novelTtsPitch.get(),
+            utteranceId = utteranceId(chunkIndex),
+            listener = tikTokListener,
+        )
+        engine.preload(
+            texts = ttsChunks.drop(chunkIndex + 1).take(TIKTOK_PRELOAD_COUNT),
+            voice = voice,
+        )
+    }
+
     fun pause() {
-        if (ttsInitialized && tts?.isSpeaking == true) {
+        if (ttsInitialized && isSpeaking()) {
             ttsPaused = true
             ttsResumeChunkIndex = ttsCurrentChunkIndex
-            tts?.stop()
+            if (usesTikTok()) {
+                tikTokTts?.pause()
+            } else {
+                playbackGeneration++
+                tts?.stop()
+            }
         }
     }
 
     fun resume() {
         if (ttsPaused && ttsChunks.isNotEmpty()) {
             ttsPaused = false
-            speakChunksFrom(ttsResumeChunkIndex)
+            if (usesTikTok()) {
+                tikTokTts?.resume()
+            } else {
+                speakChunksFrom(ttsResumeChunkIndex)
+            }
         }
     }
 
     fun stop() {
+        playbackGeneration++
         isTtsAutoPlay = false
         ttsPaused = false
         pendingStartRequest = null
@@ -235,7 +334,10 @@ class TtsController(
         ttsCurrentChunkIndex = 0
         ttsResumeChunkIndex = 0
         hasViewportStartOverride = false
-        if (ttsInitialized) tts?.stop()
+        if (ttsInitialized) {
+            tts?.stop()
+            tikTokTts?.stop()
+        }
         ttsPlaybackChapterIndex = 0
         ttsPlaybackChapterId = null
         callbacks.runOnUiThread { callbacks.onClearHighlights() }
@@ -259,7 +361,10 @@ class TtsController(
         ttsResumeChunkIndex = target
         ttsCurrentChunkIndex = target
         ttsPaused = false
-        tts?.stop()
+        if (!usesTikTok()) {
+            playbackGeneration++
+            tts?.stop()
+        }
         speakChunksFrom(target)
         if (preferences.novelTtsEnableHighlight.get()) {
             val chunk = ttsChunks.getOrNull(target) ?: return
@@ -272,10 +377,16 @@ class TtsController(
         }
     }
 
-    fun isSpeaking(): Boolean = ttsInitialized && tts?.isSpeaking == true
+    fun isSpeaking(): Boolean = ttsInitialized && if (usesTikTok()) {
+        tikTokTts?.isSpeaking == true
+    } else {
+        tts?.isSpeaking == true
+    }
     fun isPaused(): Boolean = ttsPaused
     fun isStarting(): Boolean =
-        pendingStartRequest != null || (!ttsInitialized && tts != null) || (ttsChunks.isEmpty() && isTtsAutoPlay)
+        pendingStartRequest != null ||
+            (!ttsInitialized && (tts != null || tikTokTts != null)) ||
+            (ttsChunks.isEmpty() && isTtsAutoPlay)
 
     fun getProgressPercent(): Int {
         if (ttsChunks.isEmpty()) return 0
@@ -285,6 +396,10 @@ class TtsController(
     }
 
     fun applySettings() {
+        if (usesTikTok()) {
+            selectedTikTokVoice()
+            return
+        }
         tts?.let { engine ->
             val voicePref = preferences.novelTtsVoice.get()
             if (voicePref.isNotEmpty()) {
@@ -307,22 +422,50 @@ class TtsController(
     }
 
     fun getAvailableVoices(): List<Pair<String, String>> =
-        tts?.voices?.map { voice ->
-            Pair(voice.name, "${voice.locale.displayLanguage} (${voice.name})")
-        }?.sortedBy { it.second } ?: emptyList()
+        if (usesTikTok()) {
+            TikTokVoiceCatalog.voices.map { voice ->
+                voice.id to voice.displayName()
+            }
+        } else {
+            tts?.voices?.map { voice ->
+                Pair(voice.name, "${voice.locale.displayLanguage} (${voice.name})")
+            }?.sortedBy { it.second } ?: emptyList()
+        }
 
     fun getCurrentVoiceName(): String =
-        tts?.voice?.name ?: preferences.novelTtsVoice.get()
+        if (usesTikTok()) selectedTikTokVoice() else tts?.voice?.name ?: preferences.novelTtsVoice.get()
 
-    fun destroy() {
-        tts?.stop()
-        callbacks.runOnUiThread { callbacks.onClearHighlights() }
+    fun onEngineChanged() {
+        stop()
         tts?.shutdown()
         tts = null
+        tikTokTts?.close()
+        tikTokTts = null
+        ttsInitialized = false
+    }
+
+    private fun usesTikTok(): Boolean = preferences.novelTtsUseTikTok.get()
+
+    private fun selectedTikTokVoice(): String {
+        val selected = preferences.novelTtsTikTokVoice.get()
+        if (TikTokVoiceCatalog.find(selected) != null) return selected
+        return TikTokVoiceCatalog.defaultFor(Locale.getDefault()).id.also {
+            preferences.novelTtsTikTokVoice.set(it)
+        }
+    }
+
+    fun destroy() {
+        stop()
+        tts?.shutdown()
+        tts = null
+        tikTokTts?.close()
+        tikTokTts = null
         ttsInitialized = false
     }
 
     companion object {
         private const val LAST_CHUNK_DONE_DELAY_MS = 500L
+        private const val TIKTOK_PRELOAD_COUNT = 5
+        private const val UTTERANCE_PREFIX = "tts_utterance_"
     }
 }

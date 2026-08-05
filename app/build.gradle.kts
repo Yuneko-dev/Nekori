@@ -255,6 +255,7 @@ dependencies {
     implementation(projects.presentationCore)
     implementation(projects.presentationWidget)
     implementation(projects.telemetry)
+    implementation(projects.tts.tiktok)
 
     // Compose
     implementation(libs.androidx.activity.compose)

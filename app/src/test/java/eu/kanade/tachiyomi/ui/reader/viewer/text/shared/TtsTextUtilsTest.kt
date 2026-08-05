@@ -6,6 +6,19 @@ import org.junit.jupiter.api.Test
 
 class TtsTextUtilsTest {
 
+    @Test
+    fun `normalizeText matches LNReader punctuation and whitespace handling`() {
+        assertEquals(
+            "Hello, world! Next",
+            TtsTextUtils.normalizeText("“Hello  ,   world !Next”"),
+        )
+    }
+
+    @Test
+    fun `normalizeText removes quote-only strings`() {
+        assertEquals("", TtsTextUtils.normalizeText("“''”"))
+    }
+
     // ── splitTextForTts ──────────────────────────────────────────────────────
 
     @Test

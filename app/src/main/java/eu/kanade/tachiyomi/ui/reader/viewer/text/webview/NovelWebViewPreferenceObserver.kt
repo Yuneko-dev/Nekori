@@ -16,6 +16,7 @@ internal class NovelWebViewPreferenceObserver(
     private val onChapterReloadRequested: () -> Unit,
     private val onBlockMediaChanged: (Boolean) -> Unit,
     private val onTtsSettingsChanged: () -> Unit,
+    private val onTtsEngineChanged: () -> Unit,
 ) {
 
     @OptIn(FlowPreview::class)
@@ -79,17 +80,22 @@ internal class NovelWebViewPreferenceObserver(
 
         scope.launch {
             merge(
-                preferences.novelTtsVoice.changes(),
-                preferences.novelTtsSpeed.changes(),
-                preferences.novelTtsPitch.changes(),
+                preferences.novelTtsVoice.changes().drop(1),
+                preferences.novelTtsTikTokVoice.changes().drop(1),
+                preferences.novelTtsSpeed.changes().drop(1),
+                preferences.novelTtsPitch.changes().drop(1),
             )
-                .drop(TTS_PREF_COUNT)
                 .collect { onTtsSettingsChanged() }
+        }
+
+        scope.launch {
+            preferences.novelTtsUseTikTok.changes()
+                .drop(1)
+                .collect { onTtsEngineChanged() }
         }
     }
 
     companion object {
-        private const val TTS_PREF_COUNT = 3
         private const val STYLE_DEBOUNCE_MS = 120L
     }
 }

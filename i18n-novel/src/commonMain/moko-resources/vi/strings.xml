@@ -489,9 +489,11 @@
     <string name="pref_novel_tts_section">Chuyển văn bản thành giọng nói</string>
     <string name="pref_novel_tts_speed">Tốc độ đọc</string>
     <string name="pref_novel_tts_pitch">Cao độ giọng đọc</string>
+    <string name="pref_novel_tts_use_tiktok">(Thử nghiệm) Sử dụng TikTok TTS</string>
     <string name="pref_novel_tts_voice">Giọng đọc</string>
     <string name="pref_novel_tts_voice_default">Mặc định hệ thống</string>
     <string name="pref_novel_tts_auto_next">Tự động đọc chương tiếp theo</string>
+    <string name="novel_tts_playback_error">Chuyển văn bản thành giọng nói thất bại: %s</string>
 
     <!-- Translation Settings -->
     <string name="pref_novel_translation_settings">Dịch</string>

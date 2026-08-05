@@ -4,12 +4,23 @@ import org.jsoup.Jsoup
 
 object TtsTextUtils {
 
+    private val edgeQuotes = Regex("^[\"'“”‘’]+|[\"'“”‘’]+$")
+    private val whitespace = Regex("\\s+")
+    private val punctuationSpacing = Regex("\\s*([.,!?;:])\\s*")
+
     data class ParagraphInfo(
         val index: Int,
         val startChar: Int,
         val endChar: Int,
         val text: String,
     )
+
+    /** Matches the text normalization used by LNReader before each native TTS request. */
+    fun normalizeText(text: String): String = text
+        .replace(edgeQuotes, "")
+        .replace(whitespace, " ")
+        .replace(punctuationSpacing, "\$1 ")
+        .trim()
 
     fun splitTextForTts(text: String, maxLength: Int): List<String> {
         val chunks = mutableListOf<String>()

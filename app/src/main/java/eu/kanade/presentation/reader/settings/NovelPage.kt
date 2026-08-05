@@ -86,6 +86,9 @@ import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.StepperItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.tts.tiktok.TikTokVoiceCatalog
+import tachiyomi.tts.tiktok.displayName
+import java.util.Locale
 
 @Serializable
 data class CodeSnippet(
@@ -1575,7 +1578,9 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
     val context = LocalContext.current
     val ttsSpeed by screenModel.preferences.novelTtsSpeed.collectAsState()
     val ttsPitch by screenModel.preferences.novelTtsPitch.collectAsState()
-    val ttsVoice by screenModel.preferences.novelTtsVoice.collectAsState()
+    val useTikTok by screenModel.preferences.novelTtsUseTikTok.collectAsState()
+    val androidVoice by screenModel.preferences.novelTtsVoice.collectAsState()
+    val tikTokVoice by screenModel.preferences.novelTtsTikTokVoice.collectAsState()
     val ttsEnableHighlight by screenModel.preferences.novelTtsEnableHighlight.collectAsState()
     val ttsHighlightStyle by screenModel.preferences.novelTtsHighlightStyle.collectAsState()
     val ttsHighlightColor by screenModel.preferences.novelTtsHighlightColor.collectAsState()
@@ -1607,26 +1612,45 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
         )
     }
 
-    // Load available voices using TTS
+    ReaderSwitchItem(
+        label = stringResource(TDMR.strings.pref_novel_tts_use_tiktok),
+        pref = screenModel.preferences.novelTtsUseTikTok,
+    )
+
+    // TikTok voices are bundled. Android TextToSpeech is only initialized while its engine is selected.
     val availableVoices = remember { mutableStateListOf<Pair<String, String>>() }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(useTikTok) {
         var tts: TextToSpeech? = null
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val voices = tts?.voices ?: emptySet()
-                availableVoices.clear()
-                availableVoices.add("" to context.stringResource(TDMR.strings.novel_tts_default_voice))
-                voices.filter { !it.isNetworkConnectionRequired }
-                    .sortedBy { "${it.locale.displayLanguage} (${it.name})" }
-                    .forEach { voice ->
-                        val displayName = "${voice.locale.displayLanguage} (${voice.name})"
-                        availableVoices.add(voice.name to displayName)
-                    }
+        var disposed = false
+        availableVoices.clear()
+        if (useTikTok) {
+            availableVoices += TikTokVoiceCatalog.voices.map { voice ->
+                voice.id to voice.displayName()
+            }
+            if (TikTokVoiceCatalog.find(tikTokVoice) == null) {
+                screenModel.preferences.novelTtsTikTokVoice.set(
+                    TikTokVoiceCatalog.defaultFor(Locale.getDefault()).id,
+                )
+            }
+        } else {
+            tts = TextToSpeech(context) { status ->
+                if (!disposed && status == TextToSpeech.SUCCESS) {
+                    val voices = tts?.voices ?: emptySet()
+                    availableVoices.clear()
+                    availableVoices.add("" to context.stringResource(TDMR.strings.novel_tts_default_voice))
+                    voices.filter { !it.isNetworkConnectionRequired }
+                        .sortedBy { "${it.locale.displayLanguage} (${it.name})" }
+                        .forEach { voice ->
+                            val displayName = "${voice.locale.displayLanguage} (${voice.name})"
+                            availableVoices.add(voice.name to displayName)
+                        }
+                }
             }
         }
         onDispose {
-            tts.shutdown()
+            disposed = true
+            tts?.shutdown()
         }
     }
 
@@ -1641,8 +1665,9 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
     // Voice Selection Dropdown
     if (availableVoices.isNotEmpty()) {
         var expanded by remember { mutableStateOf(false) }
-        val selectedVoiceDisplay = availableVoices.find { it.first == ttsVoice }?.second
-            ?: "Default (System)"
+        val selectedVoice = if (useTikTok) tikTokVoice else androidVoice
+        val selectedVoiceDisplay = availableVoices.find { it.first == selectedVoice }?.second
+            ?: context.stringResource(TDMR.strings.novel_tts_default_voice)
 
         Column(
             modifier = Modifier.padding(
@@ -1676,7 +1701,11 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
                         DropdownMenuItem(
                             text = { Text(displayName) },
                             onClick = {
-                                screenModel.preferences.novelTtsVoice.set(voiceName)
+                                if (useTikTok) {
+                                    screenModel.preferences.novelTtsTikTokVoice.set(voiceName)
+                                } else {
+                                    screenModel.preferences.novelTtsVoice.set(voiceName)
+                                }
                                 expanded = false
                             },
                         )

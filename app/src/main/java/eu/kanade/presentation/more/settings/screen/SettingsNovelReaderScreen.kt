@@ -44,6 +44,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelSourceCssPriority,
             readerPref.novelTtsSpeed,
             readerPref.novelTtsPitch,
+            readerPref.novelTtsUseTikTok,
+            readerPref.novelTtsTikTokVoice,
             readerPref.novelStatusBarOrder,
         )
     }
@@ -462,6 +464,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelTtsEnabled,
                     title = stringResource(TDMR.strings.pref_novel_tts_enabled),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelTtsUseTikTok,
+                    title = stringResource(TDMR.strings.pref_novel_tts_use_tiktok),
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (ttsSpeed * 10).toInt(),

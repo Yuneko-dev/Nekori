@@ -85,6 +85,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -102,6 +105,12 @@ import kotlin.coroutines.resume
 
 class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
+    enum class TtsPlaybackState(val wireValue: String) {
+        STOPPED("stopped"),
+        PLAYING("playing"),
+        PAUSED("paused"),
+    }
+
     private companion object {
         const val REMEMBER_MENU_ITEM_ID = 0xBEEF // arbitrary unique ID
         const val ATTR_DATA_EDITABLE = "data-tsundoku-editable"
@@ -112,24 +121,59 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val IMAGE_URL_REGEX = Regex("\\.(?:avif|gif|jpe?g|png|svg|webp)$", RegexOption.IGNORE_CASE)
         const val AUTO_SCROLL_MAX_START_ATTEMPTS = 3
 
-        const val TTS_TEXT_EXTRACTION_JS = """
+        private const val TTS_DOM_HELPERS_JS = """
+            var ttsReadableNodeNames = ['#text', 'B', 'I', 'SPAN', 'EM', 'BR', 'STRONG', 'A'];
+            var ttsInternalElementIds = ['LNReader-title-novel'];
+            function ttsReadable(element) {
+                if (!element || ttsInternalElementIds.includes(element.id)) return false;
+                if (element.nodeName !== 'SPAN' && ttsReadableNodeNames.includes(element.nodeName)) return false;
+                if (!element.hasChildNodes()) return false;
+                for (var i = 0; i < element.childNodes.length; i++) {
+                    if (!ttsReadableNodeNames.includes(element.childNodes.item(i).nodeName)) return false;
+                }
+                return true;
+            }
+            function ttsReadableElements(root) {
+                var elements = [];
+                function traverse(element) {
+                    if (!element) return;
+                    if (ttsReadable(element)) elements.push(element);
+                    for (var i = 0; i < element.children.length; i++) traverse(element.children[i]);
+                }
+                traverse(root);
+                return elements;
+            }
+            function ttsChapterRoot(chapterId) {
+                if (chapterId != null) {
+                    var chapter = document.querySelector(
+                        '${CHAPTER_TAG_NAME}[${CHAPTER_ID_ATTR}="' + chapterId + '"]'
+                    );
+                    if (chapter) return chapter;
+                    if (document.querySelector('${CHAPTER_TAG_NAME}[${TSUNDOKU_CHAPTER_ATTR}="1"]')) {
+                        return null;
+                    }
+                }
+                return document.getElementById('LNReader-chapter');
+            }
+            function ttsNormalizeText(text) {
+                if (!text) return '';
+                return text
+                    .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+                    .replace(/\s+/g, ' ')
+                    .replace(/\s*([.,!?;:])\s*/g, '$1 ')
+                    .trim();
+            }
+        """
+
+        fun ttsTextExtractionJs(chapterId: Long?) = """
             (function() {
-                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                var els = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                });
-                if (!els.length) {
-                    els = Array.from(document.body.children).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                }
-                if (!els.length) {
-                    var body = document.body;
-                    return body ? body.innerText || body.textContent : '';
-                }
-                return els.map(function(el) {
-                    return el.innerText.trim().replace(/\s*\n\s*/g, ' ');
-                }).join('\n');
+                $TTS_DOM_HELPERS_JS
+                var root = ttsChapterRoot(${chapterId ?: "null"});
+                if (!root) return '';
+                return ttsReadableElements(root)
+                    .map(function(element) { return ttsNormalizeText(element.innerText); })
+                    .filter(function(text) { return !!text; })
+                    .join('\n');
             })();
         """
 
@@ -147,6 +191,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private val container = FrameLayout(activity)
+    private val _ttsPlaybackState = MutableStateFlow(TtsPlaybackState.STOPPED)
+    val ttsPlaybackState: StateFlow<TtsPlaybackState> = _ttsPlaybackState.asStateFlow()
     private lateinit var webView: WebView
     private var loadingIndicator: ReaderProgressIndicator? = null
     private val preferences: ReaderPreferences by injectLazy()
@@ -403,6 +449,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ttsController = TtsController(
             context = activity,
             preferences = preferences,
+            networkClient = networkHelper.client,
             scope = scope,
             callbacks = object : TtsController.Callbacks {
                 override fun onInitialized(pendingRequest: TtsController.StartRequest?) {
@@ -446,6 +493,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     }
                 }
 
+                override fun onError(error: Throwable) {
+                    activity.toast(
+                        activity.stringResource(
+                            TDMR.strings.novel_tts_playback_error,
+                            error.message ?: error::class.java.simpleName,
+                        ),
+                    )
+                    dispatchTtsState()
+                }
+
                 override fun runOnUiThread(action: () -> Unit) {
                     activity.runOnUiThread(action)
                 }
@@ -479,6 +536,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val highlightTextColor = ThemeUtils.colorToHex(preferences.novelTtsHighlightTextColor.get())
         val highlightStyle = quoteForJson(preferences.novelTtsHighlightStyle.get())
         val keepInView = preferences.novelTtsKeepHighlightInView.get()
+        val chapterId = ttsController.ttsPlaybackChapterId
 
         val jsCode = """
             (function() {
@@ -496,15 +554,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 document.documentElement.style.setProperty('--td-tts-highlight-bg', '$highlightColor');
                 document.documentElement.style.setProperty('--td-tts-highlight-text', '$highlightTextColor');
 
-                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                var paragraphs = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                });
-                if (!paragraphs.length) {
-                    paragraphs = Array.from(document.body.children).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                }
+                $TTS_DOM_HELPERS_JS
+                var root = ttsChapterRoot(${chapterId ?: "null"});
+                var paragraphs = root ? ttsReadableElements(root).filter(function(element) {
+                    return !!ttsNormalizeText(element.innerText);
+                }) : [];
 
                 if (state.currentEl) {
                     state.currentEl.classList.remove('td-tts-highlight-bg', 'td-tts-highlight-underline', 'td-tts-highlight-outline');
@@ -949,6 +1003,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             onTtsSettingsChanged = {
                 if (ttsController.ttsInitialized) ttsController.applySettings()
             },
+            onTtsEngineChanged = {
+                ttsController.onEngineChanged()
+                dispatchTtsState()
+            },
         ).observe()
     }
 
@@ -1218,9 +1276,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var lastSavedTtsChunkIndex: Int = -1
     private fun saveTtsProgressForChunk(chunkIndex: Int) {
         // Foreground: the per-chapter scroll bridge (onScrollProgress) owns progress and the slider.
-        // WebView TTS extracts the whole loaded (multi-chapter) body, so its chunk% is document-wide,
-        // not per-chapter, it would misattribute the visible chapter's position. Persist from TTS
-        // only when backgrounded, where the JS scroll bridge is paused and this is the sole source.
+        // Persist from TTS only when backgrounded, where the JS scroll bridge is paused and this is
+        // the sole progress source. The TTS queue is scoped to ttsPlaybackChapterId.
         if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         if (chunkIndex == lastSavedTtsChunkIndex) return
         lastSavedTtsChunkIndex = chunkIndex
@@ -1843,7 +1900,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             forcedLowercase = preferences.novelForceTextLowercase.get(),
             menuVisible = readerChromeVisible,
             immersive = !readerChromeVisible,
-            ttsState = currentTtsState(),
+            ttsState = currentTtsState().wireValue,
             loadingChapter = !webChapterContentReady,
         )
         return NovelWebViewChapterMeta.buildTsundokuScript(context)
@@ -1857,10 +1914,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         evaluateJavascriptSafe("(function(){$js})();", null)
     }
 
-    private fun currentTtsState(): String = when {
-        ttsController.isPaused() -> "paused"
-        ttsController.isTtsAutoPlay || ttsController.isSpeaking() || ttsController.isStarting() -> "playing"
-        else -> "stopped"
+    private fun currentTtsState(): TtsPlaybackState = when {
+        ttsController.isPaused() -> TtsPlaybackState.PAUSED
+        ttsController.isTtsAutoPlay || ttsController.isSpeaking() || ttsController.isStarting() ->
+            TtsPlaybackState.PLAYING
+        else -> TtsPlaybackState.STOPPED
     }
 
     // Updates the runtime state via [assignments] (JS statements against `t.runtime`) and fires a
@@ -1962,10 +2020,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun dispatchTtsState() {
         val state = currentTtsState()
+        _ttsPlaybackState.value = state
         dispatchTsundokuEvent(
             NovelWebViewChapterMeta.EVENT_TTS_STATE,
-            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_TTS_STATE_KEY} = '$state';",
-            "{ state: '$state' }",
+            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_TTS_STATE_KEY} = '${state.wireValue}';",
+            "{ state: '${state.wireValue}' }",
         )
     }
 
@@ -3120,7 +3179,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         val (chapterIdx, chapterId) = getTtsChapterContext()
-        evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
+        evaluateJavascriptSafe(ttsTextExtractionJs(chapterId)) { result ->
             if (!isTtsEnabled) return@evaluateJavascriptSafe
             val text = unescapeJsResult(result)
 
@@ -3251,18 +3310,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             dispatchTtsState()
             return
         }
+        val chapterId = getTtsChapterContext().second
         evaluateJavascriptSafe(
             """
             (function() {
-                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                var elements = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                });
-                if (!elements.length) {
-                    elements = Array.from(document.body.children).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                }
+                $TTS_DOM_HELPERS_JS
+                var root = ttsChapterRoot(${chapterId ?: "null"});
+                var elements = root ? ttsReadableElements(root).filter(function(element) {
+                    return !!ttsNormalizeText(element.innerText);
+                }) : [];
                 var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
                 for (var i = 0; i < elements.length; i++) {
                     var rect = elements[i].getBoundingClientRect();
@@ -3306,7 +3362,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ttsController.isTtsAutoPlay = true
         dispatchTtsState()
         val (chapterIdx, chapterId) = getTtsChapterContext()
-        evaluateJavascriptSafe(TTS_TEXT_EXTRACTION_JS) { result ->
+        evaluateJavascriptSafe(ttsTextExtractionJs(chapterId)) { result ->
             if (!isTtsEnabled) return@evaluateJavascriptSafe
             val text = unescapeJsResult(result)
             if (text.isBlank() || text == "null") {
