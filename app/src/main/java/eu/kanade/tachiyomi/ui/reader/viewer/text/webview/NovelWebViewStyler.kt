@@ -340,6 +340,10 @@ internal class NovelWebViewStyler(
         evaluateJs(js)
     }
 
+    fun injectScopedChapterAnchors() {
+        evaluateJs(NovelWebViewJsAssets.load(activity, "scoped-chapter-anchors.js"))
+    }
+
     companion object {
         const val STYLE_ID_CUSTOM = "tsundoku-custom-style"
         const val ID_NEXT_CHAPTER_BTN_CONTAINER = "next-chapter-btn-container"

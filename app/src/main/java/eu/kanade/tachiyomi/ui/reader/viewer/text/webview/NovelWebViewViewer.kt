@@ -1210,6 +1210,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             isRestoringScroll = false
             activity.onNovelProgressChanged(lastSavedProgress)
         } else {
+            if (isInfiniteScrollEnabled()) styler.injectScopedChapterAnchors()
             styler.injectScrollTracking()
             styler.injectReaderUi()
             restoreScrollPosition()
