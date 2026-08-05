@@ -3198,6 +3198,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 ) {
                     scope.launch { preFetchNextChapterForTts() }
                 }
+                dispatchTtsState()
             } else {
                 logcat(LogPriority.WARN) { "TTS (WebView): No text to speak" }
             }
@@ -3259,6 +3260,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun stepTtsParagraph(delta: Int) {
         if (!isTtsEnabled) return
         ttsController.stepParagraph(delta) { startTtsFromViewport() }
+        dispatchTtsState()
     }
 
     private fun getTtsChapterContext(): Pair<Int, Long?> {
@@ -3361,7 +3363,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         pendingTtsParagraphIndex = null
         ttsController.pendingStartRequest = null
         ttsController.isTtsAutoPlay = true
-        dispatchTtsState()
+        if (!ttsController.isPaused()) dispatchTtsState()
         val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(ttsTextExtractionJs(chapterId)) { result ->
             if (!isTtsEnabled) return@evaluateJavascriptSafe
@@ -3374,6 +3376,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             ttsController.ttsViewportParagraphIndex = index.coerceAtLeast(0)
             ttsController.hasViewportStartOverride = true
             ttsController.speak(text, chapterIdx, chapterId)
+            dispatchTtsState()
         }
     }
 
