@@ -1105,7 +1105,22 @@ class JsPluginManager(
      */
     private fun UniFile.replaceFile(name: String): UniFile? {
         findFile(name)?.delete()
-        return createFile(name)
+        var attempts = 0
+        var delayMs = 20L
+        while (true) {
+            if (findFile(name) == null) {
+                createFile(name)?.let { return it }
+            }
+            attempts++
+            if (attempts >= 5) {
+                logcat(LogPriority.WARN) {
+                    "replaceFile: $name still contested after $attempts retries, creating anyway"
+                }
+                return createFile(name)
+            }
+            Thread.sleep(delayMs)
+            delayMs *= 2
+        }
     }
 
     private fun UniFile.readText(): String {

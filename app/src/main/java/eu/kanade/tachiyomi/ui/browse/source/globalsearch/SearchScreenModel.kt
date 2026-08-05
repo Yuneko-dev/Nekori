@@ -46,6 +46,12 @@ abstract class SearchScreenModel(
     private val disabledSources = sourcePreferences.disabledSources.get()
     protected val pinnedSources = sourcePreferences.pinnedSources.get()
 
+    // Group name -> member source ids
+    protected val sourceGroups: Map<String, Set<String>> =
+        sourcePreferences.groupPinnedSources.get()
+            .groupBy({ it.substringBeforeLast("|") }, { it.substringAfterLast("|") })
+            .mapValues { (_, ids) -> ids.toSet() }
+
     private var lastQuery: String? = null
     private var lastSourceFilter: SourceFilter? = null
 
@@ -58,6 +64,7 @@ abstract class SearchScreenModel(
     }
 
     init {
+        mutableState.update { it.copy(pinGroups = sourceGroups.keys.sorted()) }
         screenModelScope.launch {
             preferences.globalSearchFilterState.changes().collectLatest { state ->
                 mutableState.update { it.copy(onlyShowHasResults = state) }
@@ -173,6 +180,7 @@ abstract class SearchScreenModel(
     }
 
     private fun updateItem(source: Source, result: SearchItemResult) {
+        if (source !in getSelectedSources()) return
         updateItems(state.value.items + (source to result))
     }
 
@@ -192,6 +200,7 @@ abstract class SearchScreenModel(
         val from: Manga? = null,
         val searchQuery: String? = null,
         val sourceFilter: SourceFilter = SourceFilter.PinnedOnly,
+        val pinGroups: List<String> = emptyList(),
         val onlyShowHasResults: Boolean = false,
         val items: Map<Source, SearchItemResult> = mapOf(),
         val dialog: Dialog? = null,
@@ -206,9 +215,10 @@ abstract class SearchScreenModel(
     }
 }
 
-enum class SourceFilter {
-    All,
-    PinnedOnly,
+sealed interface SourceFilter {
+    data object All : SourceFilter
+    data object PinnedOnly : SourceFilter
+    data class Group(val name: String) : SourceFilter
 }
 
 sealed interface SearchItemResult {

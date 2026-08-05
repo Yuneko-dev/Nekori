@@ -17,6 +17,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Option for tag normalization during entry updates [@mrissaoussama](https://github.com/mrissaoussama) [#287](https://github.com/tsundoku-otaku/tsundoku/pull/287)
 - Reader Status Bar [@Rojikku](https://github.com/Rojikku) [#302](https://github.com/tsundoku-otaku/tsundoku/pull/302)
 - RateLimiting revamp + backend [@Rojikku](https://github.com/Rojikku) [#329](https://github.com/tsundoku-otaku/tsundoku/pull/329)
+- Source Groups [@MarcosLorCar](https://github.com/MarcosLorCar) [#378](https://github.com/tsundoku-otaku/tsundoku/pull/378)
 
 
 ### Changed
@@ -38,6 +39,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Some great improvements to custom sources, including {novelUrl} [@mrissaoussama](https://github.com/mrissaoussama) [#296](https://github.com/tsundoku-otaku/tsundoku/pull/296)
 - Localnovel relative path improvements [@mrissaoussama](https://github.com/mrissaoussama) [#343](https://github.com/tsundoku-otaku/tsundoku/pull/343)
 - Improve performance on library export notifications [@mrissaoussama](https://github.com/mrissaoussama) [#285](https://github.com/tsundoku-otaku/tsundoku/pull/285)
+- Isolate custom JS snippet execution, expose action API [@mrissaoussama](https://github.com/mrissaoussama) [#370](https://github.com/tsundoku-otaku/tsundoku/pull/370)
 - Custom source: Duplicate source under new name/site [@mrissaoussama](https://github.com/mrissaoussama) [#361](https://github.com/tsundoku-otaku/tsundoku/pull/361)
 - Per-field metadata overrides [@mrissaoussama](https://github.com/mrissaoussama) [#308](https://github.com/tsundoku-otaku/tsundoku/pull/308)
 - Edit manga now has an artist field [@mrissaoussama](https://github.com/mrissaoussama) [#278](https://github.com/tsundoku-otaku/tsundoku/pull/278)
@@ -60,8 +62,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Make unread ch count update after fetching new chapters [@mrissaoussama](https://github.com/mrissaoussama) [#334](https://github.com/tsundoku-otaku/tsundoku/pull/334)
 - Try new API first, should stop 1.6 errors [@mrissaoussama](https://github.com/mrissaoussama) [#368](https://github.com/tsundoku-otaku/tsundoku/pull/368)
 - MangaBaka tracker fix - Remove old code, create OAuth app [@Rojikku](https://github.com/Rojikku) [#364](https://github.com/tsundoku-otaku/tsundoku/pull/364)
+- Dedupe queue additions [@mrissaoussama](https://github.com/mrissaoussama) [#374](https://github.com/tsundoku-otaku/tsundoku/pull/374)
 - Resolve library export urls properly in jssource [@mrissaoussama](https://github.com/mrissaoussama) [#357](https://github.com/tsundoku-otaku/tsundoku/pull/357)
 - Fix rare textview crash [@mrissaoussama](https://github.com/mrissaoussama) [#371](https://github.com/tsundoku-otaku/tsundoku/pull/371)
+- JS plugin delete-then-create race fix [@mrissaoussama](https://github.com/mrissaoussama) [#375](https://github.com/tsundoku-otaku/tsundoku/pull/375)
 - Guard download cache serialization [@mrissaoussama](https://github.com/mrissaoussama) [#346](https://github.com/tsundoku-otaku/tsundoku/pull/346)
 - Paginated library export to prevent potential OOM, added cancel to notif [@mrissaoussama](https://github.com/mrissaoussama) [#270](https://github.com/tsundoku-otaku/tsundoku/pull/270)
 - Correct import stats when app is restarted [@mrissaoussama](https://github.com/mrissaoussama) [#272](https://github.com/tsundoku-otaku/tsundoku/pull/272)
@@ -71,6 +75,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Fix download queue restart preference [@mrissaoussama](https://github.com/mrissaoussama) [#297](https://github.com/tsundoku-otaku/tsundoku/pull/297)
 - Better handle old backups, better backup/restore performance [@mrissaoussama](https://github.com/mrissaoussama) [#297](https://github.com/tsundoku-otaku/tsundoku/pull/297)
 - Volume keys no longer scroll while menu visible [@mrissaoussama](https://github.com/mrissaoussama) [#345](https://github.com/tsundoku-otaku/tsundoku/pull/345)
+- Show chapter process in ddownload notification [@mrissaoussama](https://github.com/mrissaoussama) [#376](https://github.com/tsundoku-otaku/tsundoku/pull/3476)
 - Custom source: Edit paged urls, keep card link [@mrissaoussama](https://github.com/mrissaoussama) [#356](https://github.com/tsundoku-otaku/tsundoku/pull/356)
 - Pull to refresh spinner will be more patient [@mrissaoussama](https://github.com/mrissaoussama) [#321](https://github.com/tsundoku-otaku/tsundoku/pull/321)
 - Improve massimport - Notification dedupe,v erious fixes [@mrissaoussama](https://github.com/mrissaoussama) [#333](https://github.com/tsundoku-otaku/tsundoku/pull/333)
@@ -82,6 +87,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Download ahead download states should no longer get stale values [@mrissaoussama](https://github.com/mrissaoussama) [#289](https://github.com/tsundoku-otaku/tsundoku/pull/289)
 - Fix per-tab extension update badge [@mrissaoussama](https://github.com/mrissaoussama) [#277](https://github.com/tsundoku-otaku/tsundoku/pull/277)
 - Prevent google translate returning literal null [@mrissaoussama](https://github.com/mrissaoussama) [#312](https://github.com/tsundoku-otaku/tsundoku/pull/312)
+- Guard novel download queue lazycolumn against duplicate keys [@mrissaoussama](https://github.com/mrissaoussama) [#377](https://github.com/tsundoku-otaku/tsundoku/pull/377)
 - EPUB: Preserve DC namespace prefix when stripping OPF prefixes [@mrissaoussama](https://github.com/mrissaoussama) [#344](https://github.com/tsundoku-otaku/tsundoku/pull/344)
 - Remove invisible characters from filenames to prevent dl index issues [@mrissaoussama](https://github.com/mrissaoussama) [#307](https://github.com/tsundoku-otaku/tsundoku/pull/307)
 - Novel reader orientation and TTS highlight fix [@mrissaoussama](https://github.com/mrissaoussama) [#310](https://github.com/tsundoku-otaku/tsundoku/pull/310)

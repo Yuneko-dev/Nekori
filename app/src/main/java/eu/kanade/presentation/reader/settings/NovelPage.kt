@@ -94,11 +94,14 @@ data class CodeSnippet(
     val enabled: Boolean = true,
     // JS only. Default off so one-shot snippets don't re-run on every infinite-scroll append.
     val runOnAppend: Boolean = false,
-    // Stable identity for edit/delete so a list reorder between opening a dialog and confirming it
-    // can't target the wrong entry. Absent from JSON saved before this field existed, in which case
-    // decoding assigns a fresh one -- harmless since those entries had no addressable identity before.
-    val id: String = java.util.UUID.randomUUID().toString(),
+    val id: String = "legacy-${java.util.Objects.hash(title, code)}",
 )
+
+private val UNSAFE_TITLE_CHARS = Regex("[^A-Za-z0-9._-]")
+
+fun safeTitleOf(title: String): String = title.replace(UNSAFE_TITLE_CHARS, "-")
+
+fun CodeSnippet.safeTitle(): String = safeTitleOf(title)
 
 @Serializable
 data class RegexReplacement(
@@ -851,6 +854,9 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
             initialSnippet = editingCssSnippet,
             focusCodeFieldByDefault = editingCssSnippet != null,
             showRunOnAppend = false,
+            existingSafeTitles = cssSnippets
+                .filterNot { it.id == editingCssSnippet?.id }
+                .mapTo(mutableSetOf()) { it.safeTitle() },
             onDismiss = {
                 showCssDialog = false
                 editingCssSnippet = null
@@ -880,6 +886,9 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel
             initialSnippet = editingJsSnippet,
             focusCodeFieldByDefault = editingJsSnippet != null,
             showRunOnAppend = true,
+            existingSafeTitles = jsSnippets
+                .filterNot { it.id == editingJsSnippet?.id }
+                .mapTo(mutableSetOf()) { it.safeTitle() },
             onDismiss = {
                 showJsDialog = false
                 editingJsSnippet = null
@@ -1047,6 +1056,7 @@ private fun SnippetEditDialog(
     initialSnippet: CodeSnippet?,
     focusCodeFieldByDefault: Boolean,
     showRunOnAppend: Boolean,
+    existingSafeTitles: Set<String>,
     onDismiss: () -> Unit,
     onConfirm: (CodeSnippet) -> Unit,
 ) {
@@ -1054,6 +1064,8 @@ private fun SnippetEditDialog(
     var snippetCode by remember { mutableStateOf(initialSnippet?.code ?: "") }
     var runOnAppend by remember { mutableStateOf(initialSnippet?.runOnAppend ?: false) }
     val codeFocusRequester = remember { FocusRequester() }
+    val trimmedSafeTitle = safeTitleOf(snippetTitle.trim())
+    val isDuplicateTitle = existingSafeTitles.contains(trimmedSafeTitle)
 
     LaunchedEffect(focusCodeFieldByDefault) {
         if (focusCodeFieldByDefault) {
@@ -1071,6 +1083,12 @@ private fun SnippetEditDialog(
                     onValueChange = { snippetTitle = it },
                     label = { Text(stringResource(TDMR.strings.novel_snippet_title)) },
                     singleLine = true,
+                    isError = isDuplicateTitle,
+                    supportingText = if (isDuplicateTitle) {
+                        { Text(stringResource(TDMR.strings.novel_snippet_duplicate_title, trimmedSafeTitle)) }
+                    } else {
+                        null
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -1107,18 +1125,17 @@ private fun SnippetEditDialog(
         },
         confirmButton = {
             TextButton(
+                enabled = snippetTitle.isNotBlank() && snippetCode.isNotBlank() && !isDuplicateTitle,
                 onClick = {
-                    if (snippetTitle.isNotBlank() && snippetCode.isNotBlank()) {
-                        onConfirm(
-                            CodeSnippet(
-                                title = snippetTitle.trim(),
-                                code = snippetCode,
-                                enabled = initialSnippet?.enabled ?: true,
-                                runOnAppend = runOnAppend,
-                                id = initialSnippet?.id ?: java.util.UUID.randomUUID().toString(),
-                            ),
-                        )
-                    }
+                    onConfirm(
+                        CodeSnippet(
+                            title = snippetTitle.trim(),
+                            code = snippetCode,
+                            enabled = initialSnippet?.enabled ?: true,
+                            runOnAppend = runOnAppend,
+                            id = initialSnippet?.id ?: java.util.UUID.randomUUID().toString(),
+                        ),
+                    )
                 },
             ) {
                 Text(stringResource(MR.strings.action_save))

@@ -127,6 +127,8 @@ class Downloader(
     // Used to avoid spamming warning notifications during bulk queueing.
     private val hasShownQueueSizeWarning = AtomicBoolean(false)
 
+    private val novelChapterTotals = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+
     /**
      * Whether the downloader is running.
      */
@@ -367,6 +369,13 @@ class Downloader(
             if (areAllDownloadsFinished()) {
                 stop()
             }
+        } finally {
+            // Clean up unconditionally (success, error, or early throw before any progress
+            // event) so a chapter that fails before novelChapterProgress ever runs doesn't
+            // leave a stale total behind for this manga.
+            if (download.source.isNovelSource()) {
+                clearNovelChapterTotalIfDone(download.mangaId)
+            }
         }
     }
 
@@ -570,7 +579,11 @@ class Downloader(
             }
                 .collect {
                     // Do when page is downloaded.
-                    notifier.onProgressChange(download)
+                    if (isNovel) {
+                        notifier.onProgressChange(download, novelChapterProgress(download))
+                    } else {
+                        notifier.onProgressChange(download)
+                    }
                 }
 
             // Do after download completes
@@ -987,13 +1000,33 @@ class Downloader(
         return queueState.value.none { it.status.value <= Download.State.DOWNLOADING.value }
     }
 
+    private fun novelChapterProgress(download: Download): Pair<Int, Int> {
+        val outstanding = queueState.value.count {
+            it.mangaId == download.mangaId && it.source.isNovelSource()
+        }
+        val total = novelChapterTotals.merge(download.mangaId, outstanding, ::maxOf)!!
+        return (total - outstanding + 1).coerceIn(1, total) to total
+    }
+
+    // Called when a novel download job ends, on every path (success, error, or cancellation).
+    // Removes the manga's tracked total once no queued/downloading novel chapters remain for
+    // it, so a stale total can't leak into a later, unrelated download batch.
+    private fun clearNovelChapterTotalIfDone(mangaId: Long) {
+        val hasOutstanding = queueState.value.any {
+            it.mangaId == mangaId &&
+                it.source.isNovelSource() &&
+                it.status.value <= Download.State.DOWNLOADING.value
+        }
+        if (!hasOutstanding) novelChapterTotals.remove(mangaId)
+    }
+
     private fun addAllToQueue(downloads: List<Download>) {
-        _queueState.update {
-            downloads.forEach { download ->
-                download.status = Download.State.QUEUE
-            }
-            store.addAll(downloads)
-            it + downloads
+        _queueState.update { current ->
+            val alreadyQueued = current.mapTo(HashSet(current.size)) { it.chapterId }
+            val toAdd = downloads.filter { it.chapterId !in alreadyQueued }
+            toAdd.forEach { download -> download.status = Download.State.QUEUE }
+            store.addAll(toAdd)
+            current + toAdd
         }
     }
 

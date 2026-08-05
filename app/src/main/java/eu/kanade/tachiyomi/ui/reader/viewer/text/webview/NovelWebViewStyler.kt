@@ -4,6 +4,7 @@ import android.view.View
 import android.webkit.WebView
 import androidx.core.net.toUri
 import eu.kanade.presentation.reader.settings.CodeSnippet
+import eu.kanade.presentation.reader.settings.safeTitle
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -173,6 +174,9 @@ internal class NovelWebViewStyler(
 
     @Volatile private var cachedFontBytes: Pair<String, ByteArray>? = null
 
+    private var lastAppliedSnippetCode: Map<String, String> = emptyMap()
+    private var lastAppliedCustomJs: String? = null
+
     /**
      * Serve the custom font for the sentinel URL referenced by the injected @font-face. Runs on the
      * WebView's worker thread (not the UI thread), so the disk read never stalls the UI. Fonts are
@@ -219,26 +223,55 @@ internal class NovelWebViewStyler(
         evaluateJs(js)
     }
 
-    fun injectScript(isAppend: Boolean = false, buildTsundokuScript: () -> String) {
+    fun injectScript(
+        isAppend: Boolean = false,
+        reapplyChangedOnly: Boolean = false,
+        buildTsundokuScript: () -> String,
+    ) {
         evaluateJs(buildTsundokuScript())
 
         // Appends re-run only runOnAppend snippets; one-shot code stays on the initial load so it
         // doesn't fire again on every appended chapter.
         if (!isAppend) {
             val customJs = preferences.novelCustomJs.get()
-            if (customJs.isNotBlank()) evaluateJs(customJs)
+            val shouldRunCustomJs = !reapplyChangedOnly || lastAppliedCustomJs != customJs
+            if (customJs.isNotBlank() && shouldRunCustomJs) evaluateJs(customJs)
+            lastAppliedCustomJs = customJs
         }
 
         val jsSnippetsJson = preferences.novelCustomJsSnippets.get()
-        val enabledSnippetsJs = try {
-            val snippets = Json.decodeFromString<List<CodeSnippet>>(jsSnippetsJson)
-            snippets.filter { it.enabled && (!isAppend || it.runOnAppend) }
-                .joinToString("\n") { it.code }
+        val enabledSnippets = try {
+            Json.decodeFromString<List<CodeSnippet>>(jsSnippetsJson)
+                .filter { it.enabled && (!isAppend || it.runOnAppend) }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to parse JS snippets: ${e.message}" }
-            ""
+            emptyList()
         }
-        if (enabledSnippetsJs.isNotBlank()) evaluateJs(enabledSnippetsJs)
+
+        val toRun = snippetsToRun(enabledSnippets, reapplyChangedOnly, lastAppliedSnippetCode)
+        if (toRun.isNotEmpty()) evaluateJs(buildSnippetRunnerJs(toRun))
+
+        lastAppliedSnippetCode = nextAppliedSnippetCode(lastAppliedSnippetCode, enabledSnippets)
+    }
+
+    private fun buildSnippetRunnerJs(snippets: List<CodeSnippet>): String {
+        val entries = snippets.mapIndexed { i, s ->
+            val safeName = s.safeTitle().ifBlank { "snippet-$i" }
+            "{ name: ${quoteForJson(safeName)}, code: ${quoteForJson(s.code)} }"
+        }.joinToString(",\n")
+        return """
+            (function(){
+                var __snippets = [$entries];
+                var __host = document.head || document.documentElement;
+                for (var __i = 0; __i < __snippets.length; __i++) {
+                    var __el = document.createElement('script');
+                    __el.textContent = __snippets[__i].code +
+                        '\n//# sourceURL=tsundoku-snippet-' + __snippets[__i].name + '.js';
+                    __host.appendChild(__el);
+                    __host.removeChild(__el);
+                }
+            })();
+        """.trimIndent()
     }
 
     fun injectNextChapterButton(chapterName: String, nextChapterName: String?) {
@@ -315,5 +348,20 @@ internal class NovelWebViewStyler(
         // Sentinel URL the injected @font-face points at; resolved by interceptFont() in the
         // WebView's shouldInterceptRequest. Never hits the network.
         const val FONT_URL_PREFIX = "https://tsundoku.font/custom"
+
+        internal fun snippetsToRun(
+            enabledSnippets: List<CodeSnippet>,
+            reapplyChangedOnly: Boolean,
+            lastAppliedSnippetCode: Map<String, String>,
+        ): List<CodeSnippet> = if (reapplyChangedOnly) {
+            enabledSnippets.filter { lastAppliedSnippetCode[it.id] != it.code }
+        } else {
+            enabledSnippets
+        }
+
+        internal fun nextAppliedSnippetCode(
+            lastAppliedSnippetCode: Map<String, String>,
+            enabledSnippets: List<CodeSnippet>,
+        ): Map<String, String> = lastAppliedSnippetCode + enabledSnippets.associate { it.id to it.code }
     }
 }
