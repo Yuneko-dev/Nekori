@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.jsplugin
 
+import android.content.ContentResolver
 import android.content.Context
+import android.provider.DocumentsContract
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
@@ -132,6 +134,7 @@ class JsPluginManager(
         storageManager.changes
             .onEach {
                 logcat(LogPriority.INFO) { "JsPluginManager: storage changed, reloading plugins" }
+                loadRepositories()
                 loadInstalledPlugins()
             }
             .launchIn(scope)
@@ -172,6 +175,8 @@ class JsPluginManager(
     suspend fun refreshAvailablePlugins(forceRefresh: Boolean = false) = refreshMutex.withLock {
         _isLoading.value = true
         try {
+            loadRepositories()
+
             // Load from cache first if not forcing refresh
             if (!forceRefresh && _availablePlugins.value.isNotEmpty()) {
                 logcat(LogPriority.DEBUG) { "Using cached plugin list (${_availablePlugins.value.size} plugins)" }
@@ -854,13 +859,12 @@ class JsPluginManager(
                             }
                         }
                     }
-                    val distinct = allRepos.distinctBy { it.url }
-                    val merged = (_repositories.value + distinct).distinctBy { it.url }
-                    _repositories.value = merged
+                    val distinct = allRepos.distinctBy { normalizeRepositoryUrl(it.url) }
+                    _repositories.value = distinct
                     logcat(LogPriority.INFO) {
-                        "Loaded ${distinct.size} repositories from disk (merged total: ${merged.size})"
+                        "Loaded ${distinct.size} repositories from disk"
                     }
-                    saveRepositories()
+                    saveRepositoriesToPreferences()
                     return
                 }
             }
@@ -891,6 +895,11 @@ class JsPluginManager(
     }
 
     private fun saveRepositories() {
+        saveRepositoriesToPreferences()
+        saveRepositoriesToFile()
+    }
+
+    private fun saveRepositoriesToPreferences() {
         try {
             val jsonContent = json.encodeToString(_repositories.value)
             sourcePreferences.jsRepositoriesBackup.set(jsonContent)
@@ -898,7 +907,6 @@ class JsPluginManager(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to save repositories to SharedPreferences" }
         }
-        saveRepositoriesToFile()
     }
 
     private fun saveRepositoriesToFile() {
@@ -1109,17 +1117,36 @@ class JsPluginManager(
         var delayMs = 20L
         while (true) {
             if (findFile(name) == null) {
-                createFile(name)?.let { return it }
+                createExactFile(name)?.let { return it }
             }
             attempts++
             if (attempts >= 5) {
                 logcat(LogPriority.WARN) {
-                    "replaceFile: $name still contested after $attempts retries, creating anyway"
+                    "replaceFile: $name still contested after $attempts retries"
                 }
-                return createFile(name)
+                return null
             }
             Thread.sleep(delayMs)
             delayMs *= 2
+        }
+    }
+
+    private fun UniFile.createExactFile(name: String): UniFile? {
+        val created = runCatching {
+            if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
+                DocumentsContract.createDocument(
+                    context.contentResolver,
+                    uri,
+                    "application/octet-stream",
+                    name,
+                )?.let { UniFile.fromUri(context, it) }
+            } else {
+                createFile(name)
+            }
+        }.getOrNull()
+        return created?.takeIf { it.name == name } ?: run {
+            created?.delete()
+            null
         }
     }
 
