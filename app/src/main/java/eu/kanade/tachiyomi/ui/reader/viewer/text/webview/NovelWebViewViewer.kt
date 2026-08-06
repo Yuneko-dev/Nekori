@@ -2909,7 +2909,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 inlineFeedback.showInlineError("Unable to load next page", isPrepend = false)
             } else {
                 // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
-                if (!reachedNovelEnd) inlineFeedback.showInlineError(activity.stringResource(MR.strings.transition_no_next), isPrepend = false)
+                if (!reachedNovelEnd) {
+                    inlineFeedback.showInlineError(
+                        activity.stringResource(MR.strings.transition_no_next),
+                        isPrepend = false,
+                    )
+                }
                 reachedNovelEnd = true
                 setJsNoMoreChapters(true)
             }

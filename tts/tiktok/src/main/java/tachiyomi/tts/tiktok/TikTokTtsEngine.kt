@@ -16,6 +16,7 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.Executor
 
@@ -60,6 +61,9 @@ class TikTokTtsEngine internal constructor(
         var socket: WebSocket? = null,
         val callbacks: MutableList<(Result<ByteArray>) -> Unit> = mutableListOf(),
     )
+
+    private class TransportException(cause: Throwable) :
+        IOException("TikTok TTS connection failed", cause)
 
     private val lock = Any()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -254,7 +258,12 @@ class TikTokTtsEngine internal constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                failJob(job, webSocket, t, retryable = true)
+                failJob(
+                    job = job,
+                    socket = webSocket,
+                    error = TransportException(t),
+                    retryable = true,
+                )
             }
 
             private fun handleEvent(webSocket: WebSocket, event: TikTokProtocol.Event) {
@@ -391,7 +400,10 @@ class TikTokTtsEngine internal constructor(
 
     private fun notifyPlaybackFailure(pending: PendingPlayback, error: Throwable) {
         pending.listener.onError(pending.utteranceId, error)
-        pending.listener.onDone(pending.utteranceId)
+
+        if (error !is TransportException) {
+            pending.listener.onDone(pending.utteranceId)
+        }
     }
 
     private fun finishPlayback(pending: PendingPlayback) {
