@@ -48,33 +48,57 @@ internal class NovelWebViewInlineFeedback(
             val escapedMessage = message
                 .replace("\\", "\\\\")
                 .replace("'", "\\'")
+                .replace("\r", "\\r")
                 .replace("\n", "\\n")
 
             val js = """
-                (function() {
-                    var errorDiv = document.getElementById('$ID_INLINE_ERROR');
-                    if (errorDiv) errorDiv.remove();
-                    errorDiv = document.createElement('div');
-                    errorDiv.id = '$ID_INLINE_ERROR';
-                    errorDiv.style.textAlign = 'center';
-                    errorDiv.style.padding = '16px';
-                    errorDiv.style.color = '#FF5252';
-                    errorDiv.style.backgroundColor = 'rgba(255, 82, 82, 0.1)';
-                    errorDiv.style.cursor = 'pointer';
-                    errorDiv.innerHTML = '$escapedMessage (tap to dismiss)';
-                    errorDiv.onclick = function() { errorDiv.remove(); };
+            (function() {
+                var oldErrorDiv = document.getElementById('$ID_INLINE_ERROR');
+                if (oldErrorDiv) oldErrorDiv.remove();
 
-                    if ($isPrepend) {
-                        document.body.insertBefore(errorDiv, document.body.firstChild);
-                    } else {
-                        document.body.appendChild(errorDiv);
+                var errorDiv = document.createElement('div');
+                errorDiv.id = '$ID_INLINE_ERROR';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.style.padding = '16px';
+                errorDiv.style.color = '#FF5252';
+                errorDiv.style.backgroundColor = 'rgba(255, 82, 82, 0.1)';
+                errorDiv.style.cursor = 'pointer';
+                errorDiv.textContent = '$escapedMessage (tap to dismiss)';
+
+                var dismissTimer = null;
+
+                errorDiv.onclick = function() {
+                    if (dismissTimer !== null) {
+                        clearTimeout(dismissTimer);
                     }
-                })();
-            """.trimIndent()
-            evaluateJs(js)
+                    errorDiv.remove();
+                };
 
-            delay(AUTO_DISMISS_MS)
-            evaluateJs("document.getElementById('$ID_INLINE_ERROR')?.remove();")
+                if ($isPrepend) {
+                    document.body.insertBefore(errorDiv, document.body.firstChild);
+                } else {
+                    document.body.appendChild(errorDiv);
+                }
+
+                var observer = new IntersectionObserver(function(entries) {
+                    var entry = entries[0];
+
+                    if (entry.isIntersecting && entry.intersectionRatio >= 0.9) {
+                        observer.disconnect();
+
+                        dismissTimer = setTimeout(function() {
+                            errorDiv.remove();
+                        }, $AUTO_DISMISS_MS);
+                    }
+                }, {
+                    threshold: 0.9
+                });
+
+                observer.observe(errorDiv);
+            })();
+            """.trimIndent()
+
+            evaluateJs(js)
         }
     }
 
