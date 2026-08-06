@@ -31,18 +31,26 @@ class TikTokTtsEngineTest {
     }
 
     @Test
-    fun `network failure retries three times then reports one error`() {
+    fun `network failure retries three times then reports error without completing`() {
         val fixture = Fixture()
+
         fixture.engine.speak("hello", VOICE, 1f, 1f, "u1", fixture.listener)
+
         repeat(TikTokTtsEngine.MAX_RETRIES + 1) { attempt ->
             fixture.awaitConnections(attempt + 1)
             fixture.connection(attempt).fail()
         }
 
         fixture.await { fixture.errors.size == 1 }
-        assertEquals(TikTokTtsEngine.MAX_RETRIES + 1, fixture.connections.size)
+
+        assertEquals(
+            TikTokTtsEngine.MAX_RETRIES + 1,
+            fixture.connections.size,
+        )
         assertEquals("u1", fixture.errors.single().first)
-        assertEquals(listOf("u1"), fixture.done)
+        assertTrue(fixture.done.isEmpty())
+        assertFalse(fixture.engine.isSpeaking)
+
         fixture.close()
     }
 
