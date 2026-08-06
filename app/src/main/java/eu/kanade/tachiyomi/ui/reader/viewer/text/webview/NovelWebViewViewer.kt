@@ -99,6 +99,7 @@ import logcat.LogPriority
 import logcat.logcat
 import okhttp3.Request
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.injectLazy
 import kotlin.coroutines.resume
@@ -1794,7 +1795,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     TDMR.strings.reader_next_chapter,
                     next?.name.orEmpty(),
                 ),
-                "noNextChapter" to activity.stringResource(TDMR.strings.reader_no_next_chapter),
+                "noNextChapter" to activity.stringResource(MR.strings.transition_no_next),
             ),
             proxyEndpoint = proxyServer?.endpoint,
         )
@@ -2908,7 +2909,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 inlineFeedback.showInlineError("Unable to load next page", isPrepend = false)
             } else {
                 // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
-                if (!reachedNovelEnd) inlineFeedback.showInlineError("No next chapter available", isPrepend = false)
+                if (!reachedNovelEnd) inlineFeedback.showInlineError(activity.stringResource(MR.strings.transition_no_next), isPrepend = false)
                 reachedNovelEnd = true
                 setJsNoMoreChapters(true)
             }

@@ -544,7 +544,7 @@
     <string name="reader_image_close">Đóng ảnh</string>
     <string name="reader_chapter_finished">Đã xong: %1$s</string>
     <string name="reader_next_chapter">Tiếp theo: %1$s</string>
-    <string name="reader_no_next_chapter">Không có chương kế tiếp</string>
+
     <string name="pref_novel_infinite_scroll">Cuộn vô hạn (tự tải chương kế tiếp)</string>
     <string name="pref_novel_progress_slider">Hiện thanh trượt tiến độ</string>
     <string name="pref_novel_scrollbar_mode">Thanh trượt tiến độ</string>

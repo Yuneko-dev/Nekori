@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -287,7 +288,7 @@ internal class NovelWebViewStyler(
                 "NEXT_CHAPTER_TEXT" to quoteForJson(
                     activity.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()),
                 ),
-                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(activity.stringResource(TDMR.strings.reader_no_next_chapter)),
+                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(activity.stringResource(MR.strings.transition_no_next)),
             ),
         )
         evaluateJs(js)
