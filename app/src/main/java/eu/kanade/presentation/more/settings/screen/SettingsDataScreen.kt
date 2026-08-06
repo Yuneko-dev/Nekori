@@ -510,7 +510,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = categorySelected,
                             onCheckedChange = { categorySelected = it },
                         )
-                        Text(text = "Categories")
+                        Text(text = stringResource(MR.strings.categories))
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -526,7 +526,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = descriptionSelected,
                             onCheckedChange = { descriptionSelected = it },
                         )
-                        Text(text = "Description")
+                        Text(text = stringResource(TDMR.strings.edit_label_description))
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {

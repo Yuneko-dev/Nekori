@@ -117,7 +117,7 @@ class TrackerWebViewLoginActivity : BaseActivity() {
                                 // Use "cookie_auth" as username since isLoggedIn requires non-empty username
                                 it.login("cookie_auth", token)
                             }
-                            toast("Login successful!")
+                            toast(MR.strings.login_success)
                             setResult(RESULT_OK)
                             finish()
                         }

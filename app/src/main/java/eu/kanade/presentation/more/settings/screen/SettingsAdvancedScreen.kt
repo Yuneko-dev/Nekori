@@ -498,7 +498,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 enabled = !isDeleting,
                             ) {
                                 Icon(Icons.Filled.DriveFileMove, contentDescription = null)
-                                Text(text = "Move to Category")
+                                Text(text = stringResource(MR.strings.duplicate_move_to_category))
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -515,7 +515,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 },
                 confirmButton = {
                     TextButton(onClick = { showDuplicatesDialog = false }) {
-                        Text(text = "OK")
+                        Text(text = stringResource(MR.strings.action_ok))
                     }
                 },
             )
@@ -602,7 +602,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                             removedDuplicates = emptyList()
                             showRemoveDuplicatesDialog = false
                         }) {
-                            Text(text = "OK")
+                            Text(text = stringResource(MR.strings.action_ok))
                         }
                     },
                 )

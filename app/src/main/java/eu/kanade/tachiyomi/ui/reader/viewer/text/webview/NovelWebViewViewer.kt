@@ -2059,7 +2059,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         evaluateJavascriptSafe(js, null)
     }
 
-    private fun showLoadingIndicator(message: String = "Loading...") {
+    private fun showLoadingIndicator(message: String = activity.stringResource(MR.strings.loading)) {
         activity.closeFindInPage(this)
 
         val theme = preferences.novelTheme.get()
@@ -2959,7 +2959,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 false
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "NovelWebViewViewer: Error loading next chapter page: ${e.message}" }
-                inlineFeedback.showInlineError("Error: ${e.message ?: "Unknown error"}", isPrepend = false)
+                inlineFeedback.showInlineError(
+                    "Error: ${e.message ?: activity.stringResource(MR.strings.unknown_error)}",
+                    isPrepend = false,
+                )
                 false
             }
 
