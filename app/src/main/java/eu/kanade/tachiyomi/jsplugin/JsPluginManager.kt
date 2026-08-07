@@ -251,6 +251,10 @@ class JsPluginManager(
             // therefore leaves the previous plugin and its custom assets usable.
             val code = downloadText(plugin.url)
             require(code.isNotBlank()) { "Downloaded plugin code is empty" }
+            val codeVersion = inspectBackupPlugin(code, plugin.id).version
+            require(codeVersion == plugin.version) {
+                "Downloaded plugin code is v$codeVersion, expected v${plugin.version}"
+            }
             val customJS = plugin.customJS
                 ?.takeIf(String::isNotBlank)
                 ?.let(::downloadText)
@@ -752,11 +756,12 @@ class JsPluginManager(
                     }
                 }
 
-                _installedPlugins.value = plugins
+                val verifiedPlugins = reconcileInstalledPluginVersions(plugins)
+                _installedPlugins.value = verifiedPlugins
                 cleanupCustomAssets(dir)
                 rebuildSources()
 
-                logcat(LogPriority.INFO) { "Loaded ${plugins.size} installed JS plugins" }
+                logcat(LogPriority.INFO) { "Loaded ${verifiedPlugins.size} installed JS plugins" }
             } finally {
                 // Unblock startup consumers waiting for the first JS source scan.
                 _isInitialized.value = true
@@ -784,6 +789,29 @@ class JsPluginManager(
             url = "",
             iconUrl = "",
         )
+    }
+
+    private suspend fun reconcileInstalledPluginVersions(plugins: List<InstalledJsPlugin>): List<InstalledJsPlugin> {
+        return plugins.map { installedPlugin ->
+            val codeVersion = runCatching {
+                inspectBackupPlugin(installedPlugin.code, installedPlugin.plugin.id).version
+            }.getOrElse { error ->
+                logcat(LogPriority.WARN, error) {
+                    "Could not verify installed plugin ${installedPlugin.plugin.id} version"
+                }
+                return@map installedPlugin
+            }
+            if (codeVersion == installedPlugin.installedVersion) return@map installedPlugin
+
+            logcat(LogPriority.WARN) {
+                "Plugin ${installedPlugin.plugin.id} metadata is v${installedPlugin.installedVersion}, " +
+                    "but its code is v$codeVersion"
+            }
+            installedPlugin.copy(
+                plugin = installedPlugin.plugin.copy(version = codeVersion),
+                installedVersion = codeVersion,
+            )
+        }
     }
 
     private fun rebuildSources() {
