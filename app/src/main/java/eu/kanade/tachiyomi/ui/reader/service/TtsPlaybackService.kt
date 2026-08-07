@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.media.MediaMetadata
 import android.media.session.MediaSession
@@ -14,11 +15,23 @@ import android.media.session.PlaybackState
 import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.util.system.getBitmapOrNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.interactor.GetManga
+import uy.kohesive.injekt.injectLazy
 
 class TtsPlaybackService : Service() {
 
@@ -28,7 +41,11 @@ class TtsPlaybackService : Service() {
     private var chapterTitle: String = ""
     private var mangaId: Long = -1L
     private var chapterId: Long = -1L
+    private var coverBitmap: Bitmap? = null
     private lateinit var mediaSession: MediaSession
+    private val getManga: GetManga by injectLazy()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var coverLoadJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -70,7 +87,11 @@ class TtsPlaybackService : Service() {
                 progressPercent = intent.getIntExtra(EXTRA_PROGRESS_PERCENT, 0).coerceIn(0, 100)
                 novelTitle = intent.getStringExtra(EXTRA_NOVEL_TITLE).orEmpty().ifBlank { "TTS playback" }
                 chapterTitle = intent.getStringExtra(EXTRA_CHAPTER_TITLE).orEmpty()
-                mangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1L)
+                val syncedMangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1L)
+                if (mangaId != syncedMangaId) {
+                    mangaId = syncedMangaId
+                    loadNovelCover()
+                }
                 chapterId = intent.getLongExtra(EXTRA_CHAPTER_ID, -1L)
                 updateMediaSession()
             }
@@ -82,6 +103,7 @@ class TtsPlaybackService : Service() {
 
     override fun onDestroy() {
         stopForeground(STOP_FOREGROUND_REMOVE)
+        serviceScope.cancel()
         mediaSession.release()
         super.onDestroy()
     }
@@ -139,6 +161,7 @@ class TtsPlaybackService : Service() {
             .setSmallIcon(R.drawable.ic_mihon)
             .setContentTitle(novelTitle)
             .setContentText(contentText)
+            .setLargeIcon(coverBitmap)
             .setContentIntent(openReaderPendingIntent)
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -213,6 +236,7 @@ class TtsPlaybackService : Service() {
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, novelTitle)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, chapterTitle)
+                .apply { coverBitmap?.let { putBitmap(MediaMetadata.METADATA_KEY_ART, it) } }
                 .build(),
         )
         mediaSession.setPlaybackState(
@@ -231,6 +255,26 @@ class TtsPlaybackService : Service() {
                 )
                 .build(),
         )
+    }
+
+    private fun loadNovelCover() {
+        coverLoadJob?.cancel()
+        coverBitmap = null
+        val loadingMangaId = mangaId.takeIf { it > 0L } ?: return
+        coverLoadJob = serviceScope.launch {
+            val manga = getManga.await(loadingMangaId) ?: return@launch
+            val request = ImageRequest.Builder(this@TtsPlaybackService)
+                .data(manga)
+                .size(NOTIFICATION_COVER_SIZE)
+                .build()
+            val bitmap = imageLoader.execute(request).image
+                ?.asDrawable(resources)
+                ?.getBitmapOrNull()
+            if (mangaId != loadingMangaId) return@launch
+            coverBitmap = bitmap
+            updateMediaSession()
+            startForegroundWithNotification()
+        }
     }
 
     private fun sendControlBroadcast(command: String) {
@@ -277,6 +321,7 @@ class TtsPlaybackService : Service() {
         private const val EXTRA_CHAPTER_TITLE = "extra_chapter_title"
         private const val EXTRA_MANGA_ID = "extra_manga_id"
         private const val EXTRA_CHAPTER_ID = "extra_chapter_id"
+        private const val NOTIFICATION_COVER_SIZE = 512
 
         fun syncState(
             context: Context,
