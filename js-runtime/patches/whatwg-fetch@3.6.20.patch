@@ -1,0 +1,80 @@
+diff --git a/dist/fetch.umd.js b/dist/fetch.umd.js
+index 7a0d852f2bad0f0322f4c40656b926066dacdfe3..825500d48d83f1516f88d8e7f8795ccac7880b34 100644
+--- a/dist/fetch.umd.js
++++ b/dist/fetch.umd.js
+@@ -557,27 +557,27 @@
+         }
+         options.url = 'responseURL' in xhr ? xhr.responseURL : options.headers.get('X-Request-URL');
+         var body = 'response' in xhr ? xhr.response : xhr.responseText;
+-        setTimeout(function() {
++        queueMicrotask(function() {
+           resolve(new Response(body, options));
+-        }, 0);
++        });
+       };
+ 
+       xhr.onerror = function() {
+-        setTimeout(function() {
++        queueMicrotask(function() {
+           reject(new TypeError('Network request failed'));
+-        }, 0);
++        });
+       };
+ 
+       xhr.ontimeout = function() {
+-        setTimeout(function() {
++        queueMicrotask(function() {
+           reject(new TypeError('Network request timed out'));
+-        }, 0);
++        });
+       };
+ 
+       xhr.onabort = function() {
+-        setTimeout(function() {
++        queueMicrotask(function() {
+           reject(new exports.DOMException('Aborted', 'AbortError'));
+-        }, 0);
++        });
+       };
+ 
+       function fixUrl(url) {
+diff --git a/fetch.js b/fetch.js
+index f39a983a0e8a6d9b6bdd82bd8832b3e45d88e033..3581bc0809ba476fba58b39714bdbb5bbf92d207 100644
+--- a/fetch.js
++++ b/fetch.js
+@@ -551,27 +551,27 @@ export function fetch(input, init) {
+       }
+       options.url = 'responseURL' in xhr ? xhr.responseURL : options.headers.get('X-Request-URL')
+       var body = 'response' in xhr ? xhr.response : xhr.responseText
+-      setTimeout(function() {
++      queueMicrotask(function() {
+         resolve(new Response(body, options))
+-      }, 0)
++      })
+     }
+ 
+     xhr.onerror = function() {
+-      setTimeout(function() {
++      queueMicrotask(function() {
+         reject(new TypeError('Network request failed'))
+-      }, 0)
++      })
+     }
+ 
+     xhr.ontimeout = function() {
+-      setTimeout(function() {
++      queueMicrotask(function() {
+         reject(new TypeError('Network request timed out'))
+-      }, 0)
++      })
+     }
+ 
+     xhr.onabort = function() {
+-      setTimeout(function() {
++      queueMicrotask(function() {
+         reject(new DOMException('Aborted', 'AbortError'))
+-      }, 0)
++      })
+     }
+ 
+     function fixUrl(url) {

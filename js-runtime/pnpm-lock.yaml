@@ -8,6 +8,9 @@ patchedDependencies:
   '@react-native/gradle-plugin@0.86.0':
     hash: 7891c11852a491ae0b01f7c59bd7bbc48ab204025fd5ff665f4fe4d8148079ad
     path: patches/@react-native__gradle-plugin@0.86.0.patch
+  whatwg-fetch@3.6.20:
+    hash: bc295d34dc604bf70033afedb72cc3ff0ecec17229b957b5b714106fc521eac6
+    path: patches/whatwg-fetch@3.6.20.patch
 
 importers:
 
@@ -6133,7 +6136,7 @@ snapshots:
       semver: 7.8.5
       stacktrace-parser: 0.1.11
       tinyglobby: 0.2.17
-      whatwg-fetch: 3.6.20
+      whatwg-fetch: 3.6.20(patch_hash=bc295d34dc604bf70033afedb72cc3ff0ecec17229b957b5b714106fc521eac6)
       ws: 7.5.13
       yargs: 17.7.3
     optionalDependencies:
@@ -6642,7 +6645,7 @@ snapshots:
     dependencies:
       defaults: 1.0.4
 
-  whatwg-fetch@3.6.20: {}
+  whatwg-fetch@3.6.20(patch_hash=bc295d34dc604bf70033afedb72cc3ff0ecec17229b957b5b714106fc521eac6): {}
 
   which-boxed-primitive@1.1.1:
     dependencies:
