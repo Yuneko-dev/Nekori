@@ -221,7 +221,8 @@ class ReaderActivity : BaseActivity() {
             if (intent?.action != TtsPlaybackService.ACTION_CONTROL) return
 
             when (intent.getStringExtra(TtsPlaybackService.EXTRA_COMMAND)) {
-                TtsPlaybackService.COMMAND_TOGGLE_PAUSE -> togglePauseResumeFromNotification()
+                TtsPlaybackService.COMMAND_PLAY -> resumeTtsFromNotification()
+                TtsPlaybackService.COMMAND_PAUSE -> pauseTtsFromNotification()
                 TtsPlaybackService.COMMAND_PREV_PARAGRAPH -> stepTtsParagraph(isNext = false)
                 TtsPlaybackService.COMMAND_NEXT_PARAGRAPH -> stepTtsParagraph(isNext = true)
                 TtsPlaybackService.COMMAND_STOP -> stopTtsFromNotification()
@@ -1516,17 +1517,24 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    private fun togglePauseResumeFromNotification() {
+    private fun resumeTtsFromNotification() {
         if (!readerPreferences.novelTtsEnabled.get()) {
             stopTtsFromNotification()
             return
         }
         (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
-            if (viewer.isTtsSpeaking()) {
-                viewer.pauseTts()
-            } else if (viewer.isTtsPaused()) {
+            if (viewer.isTtsPaused()) {
                 viewer.resumeTts()
+                startBackgroundTtsIfEnabled()
             }
+        }
+        syncBackgroundTtsState()
+    }
+
+    private fun pauseTtsFromNotification() {
+        if (!readerPreferences.novelTtsEnabled.get()) return
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.let { viewer ->
+            if (viewer.isTtsSpeaking()) viewer.pauseTts()
         }
         syncBackgroundTtsState()
     }
