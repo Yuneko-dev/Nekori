@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.extension.api.ExtensionUpdateNotifier
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.extension.model.LoadResult
-import eu.kanade.tachiyomi.extension.util.ExtensionInstallReceiver
 import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.util.system.toast
@@ -76,12 +75,8 @@ class ExtensionManager(
     val untrustedExtensionsFlow = untrustedExtensionMapFlow.mapExtensions(scope)
 
     init {
-        // Load off the constructing thread: ExtensionLoader.loadExtensions runBlocks on the
-        // trusted-fingerprint DB flow, so doing it synchronously here froze startup when the manager
-        // was first constructed on the main thread before the DB migration had completed. Consumers
-        // already observe isInitialized / installedExtensionsFlow, so async init is safe.
-        scope.launchIO { initExtensions() }
-        ExtensionInstallReceiver(InstallationListener()).register(context)
+        // APK/Kotlin extensions are unsupported; keep the inherited manager inert for legacy callers.
+        _isInitialized.value = true
     }
 
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages.isSet()
@@ -121,23 +116,6 @@ class ExtensionManager(
     }
 
     fun getSourceData(id: Long) = availableExtensionsSourcesData[id]
-
-    /**
-     * Loads and registers the installed extensions.
-     */
-    private fun initExtensions() {
-        val extensions = ExtensionLoader.loadExtensions(context)
-
-        installedExtensionMapFlow.value = extensions
-            .filterIsInstance<LoadResult.Success>()
-            .associate { it.extension.pkgName to it.extension }
-
-        untrustedExtensionMapFlow.value = extensions
-            .filterIsInstance<LoadResult.Untrusted>()
-            .associate { it.extension.pkgName to it.extension }
-
-        _isInitialized.value = true
-    }
 
     /**
      * Finds the available extensions in the [api] and updates [availableExtensionMapFlow].
@@ -310,66 +288,6 @@ class ExtensionManager(
      */
     private fun registerNewExtension(extension: Extension.Installed) {
         installedExtensionMapFlow.value += extension
-    }
-
-    /**
-     * Registers the given updated extension in this and the source managers previously removing
-     * the outdated ones.
-     *
-     * @param extension The extension to be registered.
-     */
-    private fun registerUpdatedExtension(extension: Extension.Installed) {
-        installedExtensionMapFlow.value += extension
-    }
-
-    /**
-     * Unregisters the extension in this and the source managers given its package name. Note this
-     * method is called for every uninstalled application in the system.
-     *
-     * @param pkgName The package name of the uninstalled application.
-     */
-    private fun unregisterExtension(pkgName: String) {
-        installedExtensionMapFlow.value -= pkgName
-        untrustedExtensionMapFlow.value -= pkgName
-    }
-
-    /**
-     * Listener which receives events of the extensions being installed, updated or removed.
-     */
-    private inner class InstallationListener : ExtensionInstallReceiver.Listener {
-
-        override fun onExtensionInstalled(extension: Extension.Installed) {
-            registerNewExtension(extension.withUpdateCheck())
-            updatePendingUpdatesCount()
-        }
-
-        override fun onExtensionUpdated(extension: Extension.Installed) {
-            registerUpdatedExtension(extension.withUpdateCheck())
-            updatePendingUpdatesCount()
-        }
-
-        override fun onExtensionUntrusted(extension: Extension.Untrusted) {
-            installedExtensionMapFlow.value -= extension.pkgName
-            untrustedExtensionMapFlow.value += extension
-            updatePendingUpdatesCount()
-        }
-
-        override fun onPackageUninstalled(pkgName: String) {
-            ExtensionLoader.uninstallPrivateExtension(context, pkgName)
-            unregisterExtension(pkgName)
-            updatePendingUpdatesCount()
-        }
-    }
-
-    /**
-     * Extension method to set the update field of an installed extension.
-     */
-    private fun Extension.Installed.withUpdateCheck(): Extension.Installed {
-        return if (updateExists()) {
-            copy(hasUpdate = true)
-        } else {
-            this
-        }
     }
 
     private fun Extension.Installed.updateExists(availableExtension: Extension.Available? = null): Boolean {
