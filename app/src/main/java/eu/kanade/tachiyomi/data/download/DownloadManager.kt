@@ -23,7 +23,7 @@ import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -44,7 +44,7 @@ class DownloadManager(
     private val cache: DownloadCache = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
-    private val downloadPreferences: DownloadPreferences = Injekt.get(),
+    private val downloadPreferences: NovelDownloadPreferences = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
 ) {
 

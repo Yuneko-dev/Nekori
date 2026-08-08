@@ -15,7 +15,6 @@ import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
 import tachiyomi.domain.backup.service.BackupPreferences
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StoragePreferences
@@ -61,9 +60,6 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
         addSingletonFactory {
             TrackPreferences(get())
-        }
-        addSingletonFactory {
-            DownloadPreferences(get())
         }
         addSingletonFactory {
             NovelDownloadPreferences(get())

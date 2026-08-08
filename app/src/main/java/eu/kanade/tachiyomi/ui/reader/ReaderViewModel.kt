@@ -93,7 +93,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.service.getChapterSort
-import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
@@ -137,7 +137,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private val imageSaver: ImageSaver = Injekt.get(),
     val readerPreferences: ReaderPreferences = Injekt.get(),
     private val basePreferences: BasePreferences = Injekt.get(),
-    private val downloadPreferences: DownloadPreferences = Injekt.get(),
+    private val novelDownloadPreferences: NovelDownloadPreferences = Injekt.get(),
     private val trackPreferences: TrackPreferences = Injekt.get(),
     private val trackChapter: TrackChapter = Injekt.get(),
     private val sourceTrackerDispatcher: eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher = Injekt.get(),
@@ -338,7 +338,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private val pendingTranslationAheadChapterIds = mutableSetOf<Long>()
 
-    private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
+    private val downloadAheadAmount = novelDownloadPreferences.autoDownloadWhileReading.get()
 
     /** Serializes novel progress saves to prevent concurrent saves racing each other. */
     private val novelProgressMutex = Mutex()
@@ -1154,7 +1154,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * @param currentChapter current chapter, which is going to be marked as read.
      */
     private fun deleteChapterIfNeeded(currentChapter: ReaderChapter) {
-        val removeAfterReadSlots = downloadPreferences.removeAfterReadSlots.get()
+        val removeAfterReadSlots = novelDownloadPreferences.removeAfterReadSlots.get()
         if (removeAfterReadSlots == -1) return
 
         // Determine which chapter should be deleted and enqueue
@@ -1960,7 +1960,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /**
      * Replaces the local downloaded file for a given chapter with the specified edited [htmlContent].
-     * Supports both plain directory (.html) and CBZ packed (.cbz) chapter formats.
+     * Existing directory, CBZ, and ZIP downloads are accepted; edited novel chapters are saved as ZIP.
      */
     private suspend fun saveSingleChapterEdits(
         m: Manga,
@@ -2028,33 +2028,18 @@ class ReaderViewModel @JvmOverloads constructor(
             val targetFile = tmpDir.createFile("001.html") ?: return
             targetFile.openOutputStream().bufferedWriter().use { it.write(processedHtml) }
 
-            if (downloadPreferences.saveChaptersAsCBZ.get()) {
-                val zip = mangaDir.createFile(validName + ".cbz.tmp")!!
-                val compressionLevel = if (m.isNovel) uy.kohesive.injekt.Injekt.get<tachiyomi.domain.download.service.NovelDownloadPreferences>().zipCompressionLevel().get() else 0
-                mihon.core.archive.ZipWriter(context, zip, compressionLevel).use { writer ->
-                    tmpDir.listFiles()?.forEach { file ->
-                        writer.write(file)
-                    }
+            val zip = mangaDir.createFile(validName + ".zip.tmp")!!
+            val compressionLevel = novelDownloadPreferences.zipCompressionLevel().get()
+            mihon.core.archive.ZipWriter(context, zip, compressionLevel).use { writer ->
+                tmpDir.listFiles()?.forEach { file ->
+                    writer.write(file)
                 }
-
-                if (existingDir != null) {
-                    existingDir.delete()
-                }
-
-                val currentCbz = mangaDir.findFile(validName + ".cbz")
-                currentCbz?.delete()
-                zip.renameTo(validName + ".cbz")
-                tmpDir.delete()
-            } else {
-                if (existingDir != null) {
-                    existingDir.delete()
-                }
-                val currentDir = mangaDir.findFile(validName)
-                if (currentDir != null && currentDir.isDirectory) {
-                    currentDir.delete()
-                }
-                tmpDir.renameTo(validName)
             }
+
+            existingDir?.delete()
+            mangaDir.findFile(validName + ".zip")?.delete()
+            zip.renameTo(validName + ".zip")
+            tmpDir.delete()
 
             if (!isDownloaded) {
                 val dlCache: eu.kanade.tachiyomi.data.download.DownloadCache = uy.kohesive.injekt.Injekt.get()

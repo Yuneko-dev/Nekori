@@ -10,8 +10,7 @@ import java.io.InputStream
  * extension. Magic bytes need no decoder. Decoding stays with the platform and Coil, so a format
  * the device cannot render is still reported here; every caller wants the type, not a bitmap.
  *
- * Kept out of [ImageUtil] so it can be tested on the JVM: initializing that object reaches for GL
- * limits and `Build.MODEL`. Same reason [TallImageSplitCalculator] lives on its own.
+ * Kept separate from [ImageUtil] so the byte parsing stays directly testable on the JVM.
  */
 internal object ImageHeaderSniffer {
 

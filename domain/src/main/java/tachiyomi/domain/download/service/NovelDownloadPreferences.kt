@@ -1,14 +1,57 @@
 package tachiyomi.domain.download.service
 
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 
 /**
- * Preferences for novel download throttling and rate limiting.
- * These settings help avoid getting rate-limited by novel sources.
+ * Preferences for novel downloads, including throttling and rate limiting.
  */
 class NovelDownloadPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
+    val downloadOnlyOverWifi: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_download_only_over_wifi_key",
+        true,
+    )
+
+    val autoDownloadWhileReading: Preference<Int> = preferenceStore.getInt("auto_download_while_reading", 0)
+
+    val removeAfterReadSlots: Preference<Int> = preferenceStore.getInt("remove_after_read_slots", -1)
+
+    val removeAfterMarkedAsRead: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_remove_after_marked_as_read_key",
+        false,
+    )
+
+    val removeBookmarkedChapters: Preference<Boolean> = preferenceStore.getBoolean("pref_remove_bookmarked", false)
+
+    val removeExcludeCategories: Preference<Set<String>> = preferenceStore.getStringSet(
+        REMOVE_EXCLUDE_CATEGORIES_PREF_KEY,
+        emptySet(),
+    )
+
+    val downloadNewChapters: Preference<Boolean> = preferenceStore.getBoolean("download_new", false)
+
+    val downloadNewChapterCategories: Preference<Set<String>> = preferenceStore.getStringSet(
+        DOWNLOAD_NEW_CATEGORIES_PREF_KEY,
+        emptySet(),
+    )
+
+    val downloadNewChapterCategoriesExclude: Preference<Set<String>> = preferenceStore.getStringSet(
+        DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY,
+        emptySet(),
+    )
+
+    val downloadNewUnreadChaptersOnly: Preference<Boolean> = preferenceStore.getBoolean(
+        "download_new_unread_chapters_only",
+        false,
+    )
+
+    /**
+     * EPUB compression level (0-9). -1 = default, 0 = stored (no compression), 9 = max compression.
+     */
+    val epubCompressionLevel: Preference<Int> = preferenceStore.getInt("epub_compression_level", -1)
+
     /**
      * Enable per-request delay throttling for novel sources.
      * Applies once per outgoing HTTP request (via the app's shared network client),
@@ -242,6 +285,16 @@ class NovelDownloadPreferences(
     fun getAllSourceOverrides(): List<SourceOverride> = decodedOverrides().values.toList()
 
     companion object {
+        private const val REMOVE_EXCLUDE_CATEGORIES_PREF_KEY = "remove_exclude_categories"
+        private const val DOWNLOAD_NEW_CATEGORIES_PREF_KEY = "download_new_categories"
+        private const val DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY = "download_new_categories_exclude"
+
+        val categoryPreferenceKeys = setOf(
+            REMOVE_EXCLUDE_CATEGORIES_PREF_KEY,
+            DOWNLOAD_NEW_CATEGORIES_PREF_KEY,
+            DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY,
+        )
+
         /**
          * Represents a source-specific override for throttling settings
          */

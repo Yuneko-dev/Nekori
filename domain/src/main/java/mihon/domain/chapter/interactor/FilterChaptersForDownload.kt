@@ -3,19 +3,19 @@ package mihon.domain.chapter.interactor
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 
 /**
  * Interactor responsible for determining which chapters of a manga should be downloaded.
  *
  * @property getChaptersByMangaId Interactor for retrieving chapters by manga ID.
- * @property downloadPreferences User preferences related to chapter downloads.
+ * @property downloadPreferences User preferences related to novel chapter downloads.
  * @property getCategories Interactor for retrieving categories associated with a manga.
  */
 class FilterChaptersForDownload(
     private val getChaptersByMangaId: GetChaptersByMangaId,
-    private val downloadPreferences: DownloadPreferences,
+    private val downloadPreferences: NovelDownloadPreferences,
     private val getCategories: GetCategories,
 ) {
 

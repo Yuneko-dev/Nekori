@@ -40,7 +40,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -72,7 +71,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     private val downloadProvider: DownloadProvider = Injekt.get()
     private val networkHelper: NetworkHelper = Injekt.get()
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get()
-    private val downloadPreferences: DownloadPreferences = Injekt.get()
     private val novelDownloadPreferences: NovelDownloadPreferences = Injekt.get()
     private val localNovelFileSystem: LocalNovelSourceFileSystem = Injekt.get()
     private val readerPreferences: ReaderPreferences = Injekt.get()
@@ -191,7 +189,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         var successCount = 0
         var skippedCount = 0
         val totalCount = mangaList.size
-        val deflateLevel = downloadPreferences.epubCompressionLevel.get()
+        val deflateLevel = novelDownloadPreferences.epubCompressionLevel.get()
 
         try {
             for ((index, manga) in mangaList.withIndex()) {

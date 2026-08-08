@@ -2,7 +2,6 @@ package eu.kanade.domain.base
 
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.util.system.GLUtil
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.i18n.MR
@@ -32,16 +31,6 @@ class BasePreferences(
         SHIZUKU(MR.strings.ext_installer_shizuku, false),
         PRIVATE(MR.strings.ext_installer_private, false),
     }
-
-    val hardwareBitmapThreshold: Preference<Int> = preferenceStore.getInt(
-        "pref_hardware_bitmap_threshold",
-        GLUtil.SAFE_TEXTURE_LIMIT,
-    )
-
-    val alwaysDecodeLongStripWithSSIV: Preference<Boolean> = preferenceStore.getBoolean(
-        "pref_always_decode_long_strip_with_ssiv",
-        false,
-    )
 
     val installationId: Preference<String> = preferenceStore.getString(Preference.appStateKey("installation_id"), "")
 }

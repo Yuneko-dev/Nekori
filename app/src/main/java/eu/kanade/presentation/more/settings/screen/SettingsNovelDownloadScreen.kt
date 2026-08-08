@@ -48,7 +48,6 @@ import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.nameWithTypeTag
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences.Companion.SourceOverride
 import tachiyomi.domain.source.service.SourceManager
@@ -91,7 +90,6 @@ object SettingsNovelDownloadScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val novelDownloadPreferences = remember { Injekt.get<NovelDownloadPreferences>() }
-        val downloadPreferences = remember { Injekt.get<DownloadPreferences>() }
         val getCategories = remember { Injekt.get<GetCategories>() }
         val categories by getCategories.subscribe().collectAsState(initial = emptyList())
         val novelCategories = categories.filter { it.contentType != Category.CONTENT_TYPE_MANGA }
@@ -135,15 +133,15 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
         return listOf(
             Preference.PreferenceItem.SwitchPreference(
-                preference = downloadPreferences.downloadOnlyOverWifi,
+                preference = novelDownloadPreferences.downloadOnlyOverWifi,
                 title = stringResource(MR.strings.connected_to_wifi),
             ),
             getRequestThrottlingGroup(novelDownloadPreferences),
             getDownloadSettingsGroup(novelDownloadPreferences),
             getImageEmbeddingGroup(novelDownloadPreferences),
-            getDeleteChaptersGroup(downloadPreferences, novelCategories),
-            getAutoDownloadGroup(downloadPreferences, novelCategories),
-            getDownloadAheadGroup(downloadPreferences),
+            getDeleteChaptersGroup(novelDownloadPreferences, novelCategories),
+            getAutoDownloadGroup(novelDownloadPreferences, novelCategories),
+            getDownloadAheadGroup(novelDownloadPreferences),
             getUpdateSettingsGroup(novelDownloadPreferences),
             getMassImportSettingsGroup(novelDownloadPreferences),
             getPerExtensionGroup(novelDownloadPreferences) { showOverridesDialog = true },
@@ -152,7 +150,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
     @Composable
     private fun getDeleteChaptersGroup(
-        downloadPreferences: DownloadPreferences,
+        downloadPreferences: NovelDownloadPreferences,
         categories: List<Category>,
     ) = Preference.PreferenceGroup(
         title = stringResource(MR.strings.pref_category_delete_chapters),
@@ -187,7 +185,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
     @Composable
     private fun getAutoDownloadGroup(
-        downloadPreferences: DownloadPreferences,
+        downloadPreferences: NovelDownloadPreferences,
         categories: List<Category>,
     ): Preference.PreferenceGroup {
         val enabled by downloadPreferences.downloadNewChapters.collectAsState()
@@ -240,7 +238,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
     @Composable
     private fun getDownloadAheadGroup(
-        downloadPreferences: DownloadPreferences,
+        downloadPreferences: NovelDownloadPreferences,
     ) = Preference.PreferenceGroup(
         title = stringResource(MR.strings.download_ahead),
         preferenceItems = listOf(
@@ -319,10 +317,9 @@ object SettingsNovelDownloadScreen : SearchableSettings {
     private fun getDownloadSettingsGroup(
         prefs: NovelDownloadPreferences,
     ): Preference.PreferenceGroup {
-        val downloadPreferences = Injekt.get<DownloadPreferences>()
         val parallelDownloads = prefs.parallelNovelDownloads().collectAsState().value
         val compressionLevel = prefs.zipCompressionLevel().collectAsState().value
-        val epubCompressionLevel = downloadPreferences.epubCompressionLevel.collectAsState().value
+        val epubCompressionLevel = prefs.epubCompressionLevel.collectAsState().value
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_downloads),
@@ -367,7 +364,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     } else {
                         "$epubCompressionLevel"
                     },
-                    onValueChanged = { downloadPreferences.epubCompressionLevel.set(it - 1) },
+                    onValueChanged = { prefs.epubCompressionLevel.set(it - 1) },
                 ),
             ),
         )

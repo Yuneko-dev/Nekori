@@ -61,7 +61,6 @@ import tachiyomi.core.metadata.comicinfo.ComicInfo
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -87,7 +86,6 @@ class Downloader(
     private val cache: DownloadCache,
     private val sourceManager: SourceManager = Injekt.get(),
     private val chapterCache: ChapterCache = Injekt.get(),
-    private val downloadPreferences: DownloadPreferences = Injekt.get(),
     private val novelDownloadPreferences: NovelDownloadPreferences = Injekt.get(),
     private val translationPreferences: TranslationPreferences = Injekt.get(),
     private val translationService: TranslationService = Injekt.get(),
@@ -255,58 +253,58 @@ class Downloader(
         downloaderJob = scope.launch {
             val activeDownloadsFlow = combine(
                 queueState,
-                downloadPreferences.parallelSourceLimit.changes(),
                 novelDownloadPreferences.parallelNovelDownloads().changes(),
                 // Re-evaluate the active set whenever a group is paused/resumed.
                 _pausedNovelMangaIds,
-            ) { queue, parallelCount, parallelNovelCount, _ ->
-                Triple(queue, parallelCount, parallelNovelCount)
-            }.transformLatest { (queue, parallelCount, parallelNovelCount) ->
-                while (true) {
-                    val maxMangaActiveSources = parallelCount.coerceAtLeast(1)
-                    val maxNovelActiveManga = parallelNovelCount.coerceAtLeast(1)
+            ) { queue, parallelNovelCount, _ -> queue to parallelNovelCount }
+                .transformLatest { (queue, parallelNovelCount) ->
+                    while (true) {
+                        val maxNovelActiveManga = parallelNovelCount.coerceAtLeast(1)
 
-                    var mangaActiveCount = 0
-                    var novelActiveCount = 0
-                    val usedMangaSourceIds = HashSet<Long>(maxMangaActiveSources)
-                    val usedNovelMangaIds = HashSet<Long>(maxNovelActiveManga)
+                        var mangaActiveCount = 0
+                        var novelActiveCount = 0
+                        val usedMangaSourceIds = HashSet<Long>(DEFAULT_MANGA_DOWNLOAD_CONCURRENCY)
+                        val usedNovelMangaIds = HashSet<Long>(maxNovelActiveManga)
 
-                    val activeDownloads = buildList {
-                        for (download in queue) {
-                            // Ignore completed downloads, leave them in the queue
-                            if (download.status.value > Download.State.DOWNLOADING.value) continue
+                        val activeDownloads = buildList {
+                            for (download in queue) {
+                                // Ignore completed downloads, leave them in the queue
+                                if (download.status.value > Download.State.DOWNLOADING.value) continue
 
-                            if (download.source.isNovelSource()) {
-                                if (download.mangaId in _pausedNovelMangaIds.value) continue
-                                if (novelActiveCount >= maxNovelActiveManga) continue
-                                if (usedNovelMangaIds.add(download.mangaId)) {
-                                    add(download)
-                                    novelActiveCount++
+                                if (download.source.isNovelSource()) {
+                                    if (download.mangaId in _pausedNovelMangaIds.value) continue
+                                    if (novelActiveCount >= maxNovelActiveManga) continue
+                                    if (usedNovelMangaIds.add(download.mangaId)) {
+                                        add(download)
+                                        novelActiveCount++
+                                    }
+                                } else {
+                                    if (mangaActiveCount >= DEFAULT_MANGA_DOWNLOAD_CONCURRENCY) continue
+                                    if (usedMangaSourceIds.add(download.source.id)) {
+                                        add(download)
+                                        mangaActiveCount++
+                                    }
                                 }
-                            } else {
-                                if (mangaActiveCount >= maxMangaActiveSources) continue
-                                if (usedMangaSourceIds.add(download.source.id)) {
-                                    add(download)
-                                    mangaActiveCount++
-                                }
-                            }
 
-                            if (mangaActiveCount >= maxMangaActiveSources && novelActiveCount >= maxNovelActiveManga) {
-                                break
+                                if (
+                                    mangaActiveCount >= DEFAULT_MANGA_DOWNLOAD_CONCURRENCY &&
+                                    novelActiveCount >= maxNovelActiveManga
+                                ) {
+                                    break
+                                }
                             }
                         }
-                    }
-                    emit(activeDownloads)
+                        emit(activeDownloads)
 
-                    if (activeDownloads.isEmpty()) break
-                    // Suspend until a download enters the ERROR state
-                    val activeDownloadsErroredFlow =
-                        combine(activeDownloads.map(Download::statusFlow)) { states ->
-                            states.contains(Download.State.ERROR)
-                        }.filter { it }
-                    activeDownloadsErroredFlow.first()
+                        if (activeDownloads.isEmpty()) break
+                        // Suspend until a download enters the ERROR state
+                        val activeDownloadsErroredFlow =
+                            combine(activeDownloads.map(Download::statusFlow)) { states ->
+                                states.contains(Download.State.ERROR)
+                            }.filter { it }
+                        activeDownloadsErroredFlow.first()
+                    }
                 }
-            }
                 .distinctUntilChanged()
 
             // Use supervisorScope to cancel child jobs when the downloader job is cancelled
@@ -556,7 +554,7 @@ class Downloader(
             // Start downloading images/text, consider we can have downloaded images already
             val isNovel = download.source.isNovelSource()
             pageList.asFlow().flatMapMerge(
-                concurrency = if (isNovel) 1 else downloadPreferences.parallelPageLimit.get(),
+                concurrency = if (isNovel) 1 else DEFAULT_MANGA_PAGE_CONCURRENCY,
             ) { page ->
                 flow {
                     // For novel sources, skip image URL fetching - we'll get text content instead
@@ -618,12 +616,7 @@ class Downloader(
                 )
             }
 
-            // Only rename the directory if it's downloaded
-            if (downloadPreferences.saveChaptersAsCBZ.get()) {
-                archiveChapter(mangaDir, chapterDirname, tmpDir, isNovel = download.source.isNovelSource())
-            } else {
-                tmpDir.renameTo(chapterDirname)
-            }
+            archiveChapter(mangaDir, chapterDirname, tmpDir, isNovel = download.source.isNovelSource())
 
             val mangaForCache = manga ?: Manga.create().copy(
                 id = download.mangaId,
@@ -769,8 +762,6 @@ class Downloader(
             }
 
             // When the page is ready, set page path, progress (just in case) and status
-            splitTallImageIfNeeded(page, tmpDir)
-
             page.uri = file.uri
             page.progress = 100
             page.status = Page.State.Ready
@@ -861,23 +852,6 @@ class Downloader(
     private fun getImageExtension(response: Response, file: UniFile): String {
         val mime = response.body.contentType()?.run { if (type == "image") "image/$subtype" else null }
         return ImageUtil.getExtensionFromMimeType(mime) { file.openInputStream() }
-    }
-
-    private fun splitTallImageIfNeeded(page: Page, tmpDir: UniFile) {
-        if (!downloadPreferences.splitTallImages.get()) return
-
-        try {
-            val filenamePrefix = "%03d".format(Locale.ENGLISH, page.number)
-            val imageFile = tmpDir.listFiles()?.firstOrNull { it.name.orEmpty().startsWith(filenamePrefix) }
-                ?: error(context.stringResource(MR.strings.download_notifier_split_page_not_found, page.number))
-
-            // If the original page was previously split, then skip
-            if (imageFile.name.orEmpty().startsWith("${filenamePrefix}__")) return
-
-            ImageUtil.splitTallImage(tmpDir, imageFile, filenamePrefix)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to split downloaded image" }
-        }
     }
 
     /**
@@ -1104,6 +1078,8 @@ class Downloader(
         const val WARNING_NOTIF_TIMEOUT_MS = 30_000L
         const val CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 15
         private const val DOWNLOADS_QUEUED_WARNING_THRESHOLD = 30
+        private const val DEFAULT_MANGA_DOWNLOAD_CONCURRENCY = 5
+        private const val DEFAULT_MANGA_PAGE_CONCURRENCY = 5
     }
 }
 
