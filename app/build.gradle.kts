@@ -173,6 +173,18 @@ android {
 
     packaging {
         jniLibs {
+            // Fresco's native image codecs. They arrive transitively through react-android because
+            // `CoreReactPackage` registers `ImageLoaderModule` for rendering `<Image>`, and this
+            // process renders no React UI at all — no ReactRootView, no Fabric surface. Dropping
+            // the libraries rather than excluding the Gradle dependency keeps `fbcore` on the
+            // classpath, which React Native itself needs for `FLog`.
+            excludes += listOf(
+                "libimagepipeline",
+                "libnative-filters",
+                "libnative-imagetranscoder",
+            )
+                .map { "**/$it.so" }
+
             keepDebugSymbols += listOf(
                 "libandroidx.graphics.path",
                 "libarchive-jni",
