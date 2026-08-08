@@ -55,8 +55,10 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VerticalAlignTop
@@ -331,6 +333,8 @@ fun NovelReaderAppBars(
                             .fillMaxWidth()
                             .padding(horizontal = MaterialTheme.padding.small),
                         items = bottomBarItems,
+                        onOpenInWebView = onOpenInWebView,
+                        onShare = onShare,
                         onNextChapter = onNextChapter,
                         enabledNext = enabledNext,
                         onPreviousChapter = onPreviousChapter,
@@ -603,14 +607,18 @@ private fun NovelReaderBottomBar(
     isWebView: Boolean,
     onToggleEdit: () -> Unit,
     onQuotes: () -> Unit,
+    onOpenInWebView: (() -> Unit)?,
+    onShare: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val enabledItems = remember(items, isWebView, ttsEnabled, translationMasterEnabled) {
+    val enabledItems = remember(items, isWebView, ttsEnabled, translationMasterEnabled, onOpenInWebView, onShare) {
         items.filter {
             it.enabled &&
                 it.item.isAvailable(ttsEnabled) &&
                 (isWebView || it.item != BottomBarItem.EDIT) &&
-                (translationMasterEnabled || it.item != BottomBarItem.TRANSLATE)
+                (translationMasterEnabled || it.item != BottomBarItem.TRANSLATE) &&
+                (onOpenInWebView != null || it.item != BottomBarItem.WEBVIEW) &&
+                (onShare != null || it.item != BottomBarItem.SHARE)
         }
     }
 
@@ -848,6 +856,30 @@ private fun NovelReaderBottomBar(
                             )
                         }
                     }
+
+                    // Filtered out above when the source has no web support, so the callbacks are
+                    // non-null by the time an item reaches here.
+                    BottomBarItem.WEBVIEW -> IconButton(
+                        onClick = { onOpenInWebView?.invoke() },
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Public,
+                            contentDescription = stringResource(MR.strings.action_open_in_web_view),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+
+                    BottomBarItem.SHARE -> IconButton(
+                        onClick = { onShare?.invoke() },
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Share,
+                            contentDescription = stringResource(MR.strings.action_share),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
                 }
             }
         }
@@ -931,6 +963,8 @@ internal fun bottomBarItemInfo(
     BottomBarItem.ORIENTATION -> orientation.icon to stringResource(MR.strings.rotation_type)
     BottomBarItem.SETTINGS -> Icons.Outlined.Settings to stringResource(MR.strings.action_settings)
     BottomBarItem.EDIT -> Icons.Outlined.Edit to stringResource(MR.strings.action_edit)
+    BottomBarItem.WEBVIEW -> Icons.Outlined.Public to stringResource(MR.strings.action_open_in_web_view)
+    BottomBarItem.SHARE -> Icons.Outlined.Share to stringResource(MR.strings.action_share)
 }
 
 @Composable

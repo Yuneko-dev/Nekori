@@ -18,6 +18,8 @@ enum class BottomBarItem(val id: String) {
     SETTINGS("settings"),
     EDIT("edit"),
     QUOTES("quotes"),
+    WEBVIEW("webview"),
+    SHARE("share"),
 }
 
 fun BottomBarItem.isAvailable(ttsEnabled: Boolean): Boolean = this != BottomBarItem.TTS || ttsEnabled
@@ -42,6 +44,8 @@ val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.QUOTES, enabled = false, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.ORIENTATION, enabled = false, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.EDIT, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.WEBVIEW, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.SHARE, enabled = false, defaultEnabled = false),
 )
 
 @Serializable
