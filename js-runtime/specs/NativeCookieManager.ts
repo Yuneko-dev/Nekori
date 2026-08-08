@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Preeternal
 
-import { type TurboModule, TurboModuleRegistry } from 'react-native';
+import { type TurboModule } from 'react-native';
+// Deep import — see the note in NativeHostApi.ts.
+import * as TurboModuleRegistry from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
 
 export type CookieSameSite = 'lax' | 'strict' | 'none';
 

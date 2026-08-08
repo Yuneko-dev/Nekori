@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Preeternal
 
-import { Platform } from 'react-native';
-
 import CookieManagerNative, {
   type Cookie,
   type Cookies,
@@ -48,8 +46,10 @@ const CookieManager = {
     CookieManagerNative.setCookie(url, cookie, useWebKit),
   clearByName: (url: string, name: string, useWebKit = false) =>
     CookieManagerNative.clearByName(url, name, useWebKit),
-  flush: () =>
-    Platform.OS === 'android' ? CookieManagerNative.flush() : Promise.resolve(),
+  // Upstream guards this with `Platform.OS === 'android'`. This runtime only ever runs on Android,
+  // and the guard was the sole reason to import from the `react-native` barrel — which costs the
+  // bundle every RN component. See the note in specs/NativeHostApi.ts.
+  flush: () => CookieManagerNative.flush(),
   removeSessionCookies,
   setFromResponse: (url: string, cookie: string) =>
     CookieManagerNative.setFromResponse(url, cookie),

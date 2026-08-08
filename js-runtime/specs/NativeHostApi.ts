@@ -1,8 +1,10 @@
-import {
-  type CodegenTypes,
-  type TurboModule,
-  TurboModuleRegistry,
-} from 'react-native';
+import { type CodegenTypes, type TurboModule } from 'react-native';
+// Deep import, not the `react-native` barrel. `index.js` requires every component through getters,
+// and Metro packages whatever is required regardless of whether the getter ever runs — one barrel
+// import for one value pulls ScrollView, FlatList, Animated and the rest into a bundle that renders
+// nothing. Codegen is unaffected: it matches the identifier `TurboModuleRegistry`, not the module it
+// came from (@react-native/codegen/lib/parsers/utils.js:101).
+import * as TurboModuleRegistry from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
 
 /** One unit of work for JavaScript. `args` is JSON, so the payload crosses as a single string. */
 export type JsCommand = {
