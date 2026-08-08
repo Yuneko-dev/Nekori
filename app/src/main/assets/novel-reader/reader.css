@@ -198,6 +198,10 @@ td {
 }
 
 #Image-Modal {
+    /* Only `.show` gave this a display, so closing the modal left a block box pinned to the top
+       left corner — holding an <img> whose src had been cleared but whose alt had not, which the
+       WebView paints as a broken-image icon. */
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
