@@ -33,8 +33,6 @@ class BasePreferences(
         PRIVATE(MR.strings.ext_installer_private, false),
     }
 
-    val displayProfile: Preference<String> = preferenceStore.getString("pref_display_profile_key", "")
-
     val hardwareBitmapThreshold: Preference<Int> = preferenceStore.getInt(
         "pref_hardware_bitmap_threshold",
         GLUtil.SAFE_TEXTURE_LIMIT,

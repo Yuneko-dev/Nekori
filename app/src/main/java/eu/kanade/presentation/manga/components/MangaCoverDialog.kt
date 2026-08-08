@@ -1,8 +1,7 @@
 package eu.kanade.presentation.manga.components
 
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,22 +23,23 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.updatePadding
-import coil3.asDrawable
-import coil3.imageLoader
+import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Size
@@ -47,7 +47,6 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.EditCoverAction
-import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -152,49 +151,53 @@ fun MangaCoverDialog(
                 }
             },
         ) { contentPadding ->
-            val statusBarPaddingPx = with(LocalDensity.current) { contentPadding.calculateTopPadding().roundToPx() }
-            val bottomPaddingPx = with(LocalDensity.current) { contentPadding.calculateBottomPadding().roundToPx() }
+            val statusBarPadding = contentPadding.calculateTopPadding()
+            val bottomPadding = contentPadding.calculateBottomPadding()
+
+            // Pinch to zoom, drag to pan, tap anywhere to dismiss. This used to be
+            // ReaderPageImageView, whose tiled decoding existed for manga pages tall enough to
+            // exceed a GL texture; a cover is one bitmap and never needed it.
+            var scale by remember { mutableFloatStateOf(1f) }
+            var offset by remember { mutableStateOf(Offset.Zero) }
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clickableNoIndication(onClick = onDismissRequest),
             ) {
-                AndroidView(
-                    factory = {
-                        ReaderPageImageView(it).apply {
-                            onViewClicked = onDismissRequest
-                            clipToPadding = false
-                            clipChildren = false
-                        }
-                    },
-                    update = { view ->
-                        val request = ImageRequest.Builder(view.context)
-                            .data(manga)
-                            .size(Size.ORIGINAL)
-                            .memoryCachePolicy(CachePolicy.DISABLED)
-                            .target { image ->
-                                val drawable = image.asDrawable(view.context.resources)
-                                // Copy bitmap in case it came from memory cache
-                                // Because SSIV needs to thoroughly read the image
-                                val copy = (drawable as? BitmapDrawable)
-                                    ?.bitmap
-                                    ?.copy(Bitmap.Config.HARDWARE, false)
-                                    ?.toDrawable(view.context.resources)
-                                    ?: drawable
-                                view.setImage(copy, ReaderPageImageView.Config(zoomDuration = 500))
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(manga)
+                        .size(Size.ORIGINAL)
+                        .memoryCachePolicy(CachePolicy.DISABLED)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = statusBarPadding, bottom = bottomPadding)
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(MIN_COVER_ZOOM, MAX_COVER_ZOOM)
+                                // Panning is pointless at rest, and letting it accumulate there
+                                // would strand the cover off-screen with no way back.
+                                offset = if (scale > 1f) offset + pan else Offset.Zero
                             }
-                            .build()
-                        view.context.imageLoader.enqueue(request)
-
-                        view.updatePadding(top = statusBarPaddingPx, bottom = bottomPaddingPx)
-                    },
-                    modifier = Modifier.fillMaxSize(),
+                        }
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        },
                 )
             }
         }
     }
 }
+
+private const val MIN_COVER_ZOOM = 1f
+private const val MAX_COVER_ZOOM = 5f
 
 @Composable
 private fun ActionsPill(content: @Composable () -> Unit) {

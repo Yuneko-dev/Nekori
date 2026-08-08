@@ -189,7 +189,6 @@ android {
                 "libandroidx.graphics.path",
                 "libarchive-jni",
                 "libconscrypt_jni",
-                "libimagedecoder",
                 "libsqlite3x",
             )
                 .map { "**/$it.so" }
@@ -337,18 +336,10 @@ dependencies {
 
     // Image loading
     implementation(libs.bundles.coil)
-    implementation(libs.subsamplingScaleImageView) {
-        exclude(module = "image-decoder")
-    }
-    implementation(libs.image.decoder)
 
     // UI libraries
     implementation(libs.material)
     implementation(libs.flexibleAdapter)
-    implementation(libs.photoView)
-    implementation(libs.directionalViewPager) {
-        exclude(group = "androidx.viewpager", module = "viewpager")
-    }
     implementation(libs.composeRichEditor)
     implementation(libs.aboutLibraries.compose)
     implementation(libs.bundles.voyager)
