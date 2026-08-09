@@ -224,6 +224,7 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(videoHtml.contains("core-player.js"))
         assertTrue(videoHtml.contains("core-player.css"))
         assertFalse(localVideoHtml.contains("core-player.js"))
+        assertTrue(localVideoHtml.contains("core-player.css"))
         assertTrue(localVideoHtml.contains("Android.playLocalVideo()"))
     }
 }

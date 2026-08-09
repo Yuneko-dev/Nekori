@@ -6,6 +6,26 @@
   --reader-margin-left: 0px;
 }
 
+#LNReader-chapter:has(> .local-video-button) {
+  margin: 0 16px;
+  text-align: center;
+}
+
+#LNReader-chapter:has(> .local-video-button) > h2,
+#LNReader-chapter:has(> .local-video-button) > h4 {
+  margin: 0;
+}
+
+#LNReader-chapter:has(> .local-video-button) > h4 {
+  margin-top: 8px;
+  font-weight: 400;
+  opacity: .72;
+}
+
+#LNReader-chapter:has(> .local-video-button) > .local-video-button {
+  margin-top: 24px;
+}
+
 #lnreader-player-container {
   display: flex;
   justify-content: center;

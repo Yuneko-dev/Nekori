@@ -103,11 +103,18 @@ internal object NovelWebViewDocumentBuilder {
             .replace("</SCRIPT>", "<\\/SCRIPT>")
         val themeExposureScript = "window.TsundokuTheme = $escapedThemeJson;"
         val pluginScript = input.pluginJavaScript.escapeForScriptTag()
-        val videoAssets = if (input.chapterDirectives.video != null) {
+        val playerScripts = if (input.chapterDirectives.video != null) {
             """
-                <link rel="stylesheet" href="$ASSET_ROOT/core-player.css">
                 <script src="$ASSET_ROOT/hls.min.js"></script>
                 <script src="$ASSET_ROOT/core-player.js"></script>
+            """.trimIndent()
+        } else {
+            ""
+        }
+        val videoAssets = if (input.chapterDirectives.isVideo) {
+            """
+                <link rel="stylesheet" href="$ASSET_ROOT/core-player.css">
+                $playerScripts
             """.trimIndent()
         } else {
             ""

@@ -14,6 +14,7 @@ import uy.kohesive.injekt.api.get
 class ReaderSettingsScreenModel(
     readerState: StateFlow<ReaderViewModel.State>,
     val onChangeOrientation: (ReaderOrientation) -> Unit,
+    val resolveNovelThemeColors: (String) -> Pair<Int, Int>,
     val preferences: ReaderPreferences = Injekt.get(),
 ) : ScreenModel {
 

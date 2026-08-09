@@ -506,6 +506,9 @@ class ReaderActivity : BaseActivity() {
             ReaderSettingsScreenModel(
                 readerState = viewModel.state,
                 onChangeOrientation = viewModel::setMangaOrientationType,
+                resolveNovelThemeColors = {
+                    ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, it)
+                },
             )
         }
 

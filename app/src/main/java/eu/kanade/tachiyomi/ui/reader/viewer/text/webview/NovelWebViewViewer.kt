@@ -975,12 +975,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         )
         styler.applyScrollbarSettings()
 
-        val theme = preferences.novelTheme.get()
-        val backgroundColor = preferences.novelBackgroundColor.get()
-        val (themeBgColor, _) = getThemeColors(theme)
-        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
-        webView.setBackgroundColor(finalBgColor)
-        container.setBackgroundColor(finalBgColor)
+        val (backgroundColor, _) = getThemeColors(preferences.novelTheme.get())
+        webView.setBackgroundColor(backgroundColor)
+        container.setBackgroundColor(backgroundColor)
 
         container.addView(webView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
     }
@@ -2093,13 +2090,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun showLoadingIndicator(message: String = activity.stringResource(MR.strings.loading)) {
         activity.closeFindInPage(this)
 
-        val theme = preferences.novelTheme.get()
-        val backgroundColor = preferences.novelBackgroundColor.get()
-        val (themeBgColor, _) = getThemeColors(theme)
-        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
+        val (backgroundColor, _) = getThemeColors(preferences.novelTheme.get())
         val loadingHtml = NovelWebViewLoadingSkeleton.buildHtml(
             style = NovelWebViewLoadingSkeleton.Style(
-                backgroundColor = finalBgColor,
+                backgroundColor = backgroundColor,
                 fontSize = preferences.novelFontSize.get(),
                 lineHeight = preferences.novelLineHeight.get(),
                 marginLeft = preferences.novelMarginLeft.get(),
@@ -2128,14 +2122,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // infinite-scroll appends forever) while marking the body un-appendable.
         docState = DocState.ERROR
 
-        val theme = preferences.novelTheme.get()
-        val backgroundColor = preferences.novelBackgroundColor.get()
-        val fontColor = preferences.novelFontColor.get()
-        val (themeBgColor, themeTextColor) = getThemeColors(theme)
-        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
-        val finalTextColor = if (fontColor != 0) fontColor else themeTextColor
-        val bgColorHex = ThemeUtils.colorToHex(finalBgColor)
-        val textColorHex = ThemeUtils.colorToHex(finalTextColor)
+        val (backgroundColor, textColor) = getThemeColors(preferences.novelTheme.get())
+        val bgColorHex = ThemeUtils.colorToHex(backgroundColor)
+        val textColorHex = ThemeUtils.colorToHex(textColor)
 
         val escapedCategory = HtmlUtils.escapeHtml(fmt.category.localized(activity))
         val escapedSummary = HtmlUtils.escapeHtml(fmt.summary)

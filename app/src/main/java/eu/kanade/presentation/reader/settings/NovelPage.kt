@@ -278,20 +278,35 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel)
 
 @Composable
 internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenModel) {
-    val theme by screenModel.preferences.novelTheme.collectAsState()
-    val fontColor by screenModel.preferences.novelFontColor.collectAsState()
-    val backgroundColor by screenModel.preferences.novelBackgroundColor.collectAsState()
+    val preferences = screenModel.preferences
+    val theme by preferences.novelTheme.collectAsState()
+    val fontColor by preferences.novelFontColor.collectAsState()
+    val backgroundColor by preferences.novelBackgroundColor.collectAsState()
+    val selectedFontColor = if (theme == "custom") fontColor else 0
+    val selectedBackgroundColor = if (theme == "custom") backgroundColor else 0
+    val (resolvedBackgroundColor, resolvedFontColor) = screenModel.resolveNovelThemeColors(theme)
+    val customBackgroundBase = if (theme == "custom") backgroundColor else resolvedBackgroundColor
+    val customFontBase = if (theme == "custom") fontColor else resolvedFontColor
     var showFontColorPicker by remember { mutableStateOf(false) }
     var showBgColorPicker by remember { mutableStateOf(false) }
+
+    fun applyCustomColors(
+        customBackgroundColor: Int = customBackgroundBase,
+        customFontColor: Int = customFontBase,
+    ) {
+        preferences.novelBackgroundColor.set(customBackgroundColor)
+        preferences.novelFontColor.set(customFontColor)
+        preferences.novelTheme.set("custom")
+    }
 
     // Color picker dialogs
     if (showFontColorPicker) {
         ColorPickerDialog(
             title = stringResource(TDMR.strings.pref_novel_font_color),
-            initialColor = if (fontColor != 0) fontColor else 0xFF000000.toInt(),
+            initialColor = resolvedFontColor,
             onDismiss = { showFontColorPicker = false },
             onConfirm = { color ->
-                screenModel.preferences.novelFontColor.set(color)
+                applyCustomColors(customFontColor = color)
                 showFontColorPicker = false
             },
         )
@@ -300,11 +315,10 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
     if (showBgColorPicker) {
         ColorPickerDialog(
             title = stringResource(TDMR.strings.pref_novel_background_color),
-            initialColor = if (backgroundColor != 0) backgroundColor else 0xFFFFFFFF.toInt(),
+            initialColor = resolvedBackgroundColor,
             onDismiss = { showBgColorPicker = false },
             onConfirm = { color ->
-                screenModel.preferences.novelBackgroundColor.set(color)
-                screenModel.preferences.novelTheme.set("custom")
+                applyCustomColors(customBackgroundColor = color)
                 showBgColorPicker = false
             },
         )
@@ -315,7 +329,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
         novelThemes.forEach { (labelRes, value) ->
             FilterChip(
                 selected = theme == value,
-                onClick = { screenModel.preferences.novelTheme.set(value) },
+                onClick = { preferences.novelTheme.set(value) },
                 label = { Text(stringResource(labelRes)) },
             )
         }
@@ -326,9 +340,9 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
         fontColors.forEach { (labelRes, colorValue) ->
             val isCustom = colorValue == Int.MIN_VALUE
             val isSelected = if (isCustom) {
-                fontColors.none { it.second == fontColor } && fontColor != 0
+                fontColors.none { it.second == selectedFontColor } && selectedFontColor != 0
             } else {
-                fontColor == colorValue
+                selectedFontColor == colorValue
             }
             FilterChip(
                 selected = isSelected,
@@ -336,13 +350,17 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
                     if (isCustom) {
                         showFontColorPicker = true
                     } else {
-                        screenModel.preferences.novelFontColor.set(colorValue)
+                        if (colorValue != 0) {
+                            applyCustomColors(customFontColor = colorValue)
+                        } else {
+                            preferences.novelFontColor.set(0)
+                        }
                     }
                 },
                 label = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val displayColor = when {
-                            isCustom && isSelected && fontColor != 0 -> Color(fontColor)
+                            isCustom && isSelected && selectedFontColor != 0 -> Color(selectedFontColor)
                             !isCustom && colorValue != 0 -> Color(colorValue)
                             else -> null
                         }
@@ -385,9 +403,9 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
         backgroundColors.forEach { (labelRes, colorValue) ->
             val isCustom = colorValue == Int.MIN_VALUE
             val isSelected = if (isCustom) {
-                backgroundColors.none { it.second == backgroundColor } && backgroundColor != 0
+                backgroundColors.none { it.second == selectedBackgroundColor } && selectedBackgroundColor != 0
             } else {
-                backgroundColor == colorValue
+                selectedBackgroundColor == colorValue
             }
             FilterChip(
                 selected = isSelected,
@@ -395,16 +413,17 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
                     if (isCustom) {
                         showBgColorPicker = true
                     } else {
-                        screenModel.preferences.novelBackgroundColor.set(colorValue)
                         if (colorValue != 0) {
-                            screenModel.preferences.novelTheme.set("custom")
+                            applyCustomColors(customBackgroundColor = colorValue)
+                        } else {
+                            preferences.novelBackgroundColor.set(0)
                         }
                     }
                 },
                 label = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val displayColor = when {
-                            isCustom && isSelected && backgroundColor != 0 -> Color(backgroundColor)
+                            isCustom && isSelected && selectedBackgroundColor != 0 -> Color(selectedBackgroundColor)
                             !isCustom && colorValue != 0 -> Color(colorValue)
                             else -> null
                         }
