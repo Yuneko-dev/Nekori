@@ -322,7 +322,7 @@ internal class NovelWebViewStyler(
         )
     }
 
-    fun injectScrollTracking() {
+    fun injectScrollTracking(infiniteScrollEnabled: Boolean) {
         val autoLoadThreshold = preferences.novelAutoLoadNextChapterAt.get()
         val effectiveThreshold = if (autoLoadThreshold > 0) autoLoadThreshold / 100.0 else 0.95
         val js = NovelWebViewJsAssets.loadWith(
@@ -332,7 +332,7 @@ internal class NovelWebViewStyler(
                 "TSUNDOKU_OBJECT_NAME" to TSUNDOKU_OBJECT_NAME,
                 "CHAPTER_DIVIDER_CLASS" to CHAPTER_DIVIDER_CLASS,
                 "CHAPTER_ID_ATTR" to CHAPTER_ID_ATTR,
-                "INFINITE_SCROLL_ENABLED" to preferences.novelInfiniteScroll.get().toString(),
+                "INFINITE_SCROLL_ENABLED" to infiniteScrollEnabled.toString(),
                 "LOAD_THRESHOLD" to effectiveThreshold.toString(),
                 "DONE_THRESHOLD" to NovelProgress.DONE_THRESHOLD.toString(),
                 "PROGRESS_EVENT" to NovelWebViewChapterMeta.EVENT_PROGRESS,

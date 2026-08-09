@@ -734,7 +734,10 @@ class Downloader(
                     ?: (download.source as? JsSource)?.baseUrl
                 val embedder = ChapterImageEmbedder()
                 val imageRequestInit = (download.source as? JsSource)?.getImageRequestInit()
-                embedder.processHtml(page.text!!, baseUrl, tmpDir, imageRequestInit)
+                embedder.processHtml(page.text!!, baseUrl, tmpDir, imageRequestInit) { completed, total ->
+                    page.progress = completed * 100 / total
+                    notifier.onProgressChange(download, completed to total)
+                }
             } else {
                 page.text!!
             }

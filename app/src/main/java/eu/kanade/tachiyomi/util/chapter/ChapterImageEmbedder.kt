@@ -2,11 +2,13 @@ package eu.kanade.tachiyomi.util.chapter
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Base64
 import coil3.imageLoader
+import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.jsplugin.source.JsImageRequestInit
 import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -21,7 +23,7 @@ import java.net.URL
 import java.util.regex.Pattern
 
 /**
- * Utility class for extracting image URLs from HTML and embedding them as base64.
+ * Extracts HTML images into chapter-local files.
  */
 class ChapterImageEmbedder(
     private val networkHelper: NetworkHelper = Injekt.get(),
@@ -48,71 +50,69 @@ class ChapterImageEmbedder(
     )
 
     /**
-     * Process HTML content and embed images as base64 if enabled.
+     * Process HTML content and replace remote images with chapter-local files if enabled.
      *
      * @param html The HTML content to process
      * @param baseUrl The base URL of the chapter for resolving relative URLs
+     * @param tmpDir Destination directory for extracted images
+     * @param onProgress Called after each remote image is processed
      * @return Processed HTML with embedded images
      */
     suspend fun processHtml(
         html: String,
         baseUrl: String?,
-        tmpDir: com.hippo.unifile.UniFile? = null,
+        tmpDir: UniFile,
         imageRequestInit: JsImageRequestInit? = null,
+        onProgress: ((completed: Int, total: Int) -> Unit)? = null,
     ): String = withContext(Dispatchers.IO) {
         if (!novelDownloadPreferences.downloadChapterImages().get()) {
             return@withContext html
         }
 
         var processedHtml = html
-        val imageUrls = extractImageUrls(html)
+        val imageUrls = extractImageUrls(html).filterNot { imageUrl ->
+            imageUrl.startsWith("tsundoku-novel-image://") ||
+                imageUrl.startsWith("file://") ||
+                imageUrl.startsWith("data:")
+        }
 
         logcat { "ChapterImageEmbedder: Found ${imageUrls.size} images to process" }
 
         var imageCounter = 0
-        for (imageUrl in imageUrls) {
-            // Already local or data URI, do not process
-            if (imageUrl.startsWith("tsundoku-novel-image://") || imageUrl.startsWith("file://") ||
-                imageUrl.startsWith("data:")
-            ) {
-                continue
-            }
+        for ((index, imageUrl) in imageUrls.withIndex()) {
             try {
                 val absoluteUrl = resolveUrl(imageUrl, baseUrl)
-                val imageResponse = downloadAndEncodeImage(absoluteUrl, imageRequestInit)
+                val imageResponse = loadImage(absoluteUrl, imageRequestInit)
 
                 if (imageResponse != null) {
                     val (imageBytes, mimeType) = imageResponse
-                    val finalUrl = if (tmpDir != null) {
-                        // Save image to chapter's zip as a local file
-                        val extension = when (mimeType) {
-                            "image/png" -> "png"
-                            "image/gif" -> "gif"
-                            "image/webp" -> "webp"
-                            "image/svg+xml" -> "svg"
-                            "image/avif" -> "avif"
-                            else -> "jpg"
-                        }
-                        var filename: String
-                        do {
-                            filename = "image_${imageCounter++}.$extension"
-                        } while (tmpDir.findFile(filename) != null)
-
-                        tmpDir.createFile(filename)?.openOutputStream()?.use { it.write(imageBytes) }
-                        "tsundoku-novel-image://$filename"
-                    } else {
-                        // Fallback to base64 if not actively zipping
-                        val base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
-                        "data:$mimeType;base64,$base64"
+                    val extension = when (mimeType) {
+                        "image/png" -> "png"
+                        "image/gif" -> "gif"
+                        "image/webp" -> "webp"
+                        "image/svg+xml" -> "svg"
+                        "image/avif" -> "avif"
+                        else -> "jpg"
                     }
+                    var filename: String
+                    do {
+                        filename = "image_${imageCounter++}.$extension"
+                    } while (tmpDir.findFile(filename) != null)
 
-                    // Replace the URL with local path or base64
+                    checkNotNull(tmpDir.createFile(filename)) { "Unable to create embedded image" }
+                        .openOutputStream()
+                        .use { it.write(imageBytes) }
+                    val finalUrl = "tsundoku-novel-image://$filename"
+
+                    // Replace the URL with the chapter-local path.
                     processedHtml = processedHtml.replace(imageUrl, finalUrl)
                     logcat { "ChapterImageEmbedder: Embedded image $imageUrl" }
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 logcat(LogPriority.WARN, e) { "ChapterImageEmbedder: Failed to process image $imageUrl" }
             }
+            onProgress?.invoke(index + 1, imageUrls.size)
         }
 
         processedHtml
@@ -186,9 +186,9 @@ class ChapterImageEmbedder(
     }
 
     /**
-     * Download an image and encode it as base64 data URI.
+     * Load an image from Coil's cache or the network.
      */
-    private suspend fun downloadAndEncodeImage(
+    private suspend fun loadImage(
         url: String,
         imageRequestInit: JsImageRequestInit?,
     ): Pair<ByteArray, String>? = withContext(Dispatchers.IO) {
@@ -234,7 +234,7 @@ class ChapterImageEmbedder(
                     }
                 }.build()
 
-                val response = client.newCall(request).execute()
+                val response = client.newCall(request).await()
                 response.use { resp ->
                     if (!resp.isSuccessful) {
                         logcat(LogPriority.WARN) { "ChapterImageEmbedder: Failed to download $url - ${resp.code}" }
@@ -273,6 +273,7 @@ class ChapterImageEmbedder(
 
             Pair(finalBytes, finalMimeType)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             logcat(LogPriority.WARN, e) { "ChapterImageEmbedder: Error downloading image $url" }
             null
         }
@@ -285,19 +286,21 @@ class ChapterImageEmbedder(
         return try {
             val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                 ?: return imageBytes
+            try {
+                var currentQuality = quality
+                var outputBytes: ByteArray
 
-            var currentQuality = quality
-            var outputBytes: ByteArray
+                do {
+                    val outputStream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, currentQuality, outputStream)
+                    outputBytes = outputStream.toByteArray()
+                    currentQuality -= 10
+                } while (outputBytes.size > maxSizeKb * 1024 && currentQuality > 10)
 
-            do {
-                val outputStream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, currentQuality, outputStream)
-                outputBytes = outputStream.toByteArray()
-                currentQuality -= 10
-            } while (outputBytes.size > maxSizeKb * 1024 && currentQuality > 10)
-
-            bitmap.recycle()
-            outputBytes
+                outputBytes
+            } finally {
+                bitmap.recycle()
+            }
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "ChapterImageEmbedder: Error compressing image" }
             imageBytes

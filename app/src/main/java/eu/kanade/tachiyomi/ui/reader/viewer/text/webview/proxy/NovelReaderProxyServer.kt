@@ -158,8 +158,11 @@ internal class NovelReaderProxyServer(
         }
 
         val finalizationError = runCatching {
-            current.stream.flush()
-            current.stream.close()
+            try {
+                current.stream.flush()
+            } finally {
+                current.stream.close()
+            }
         }.exceptionOrNull()
 
         val result = sinkLock.withLock {
@@ -230,7 +233,7 @@ internal class NovelReaderProxyServer(
             if (read < 0) throw IOException("Unexpected end of sink body")
             output.write(buffer, 0, read)
             remaining -= read
-            runCatching { sink?.onBytesWritten?.invoke(read.toLong()) }
+            runCatching(onNetworkActivity)
         }
     }
 
@@ -251,13 +254,16 @@ internal class NovelReaderProxyServer(
         }
 
         val headers = mergeForwardedHeaders(session.headers)
+        val forwardedCookie = session.headers.entries
+            .firstOrNull { (name, _) -> name.equals("${FORWARDED_HEADER_PREFIX}cookie", ignoreCase = true) }
+            ?.value
         val request = Request.Builder()
             .url(target)
             .apply {
                 headers.forEach { (name, value) ->
                     if (name !in BLOCKED_REQUEST_HEADERS) header(name, value)
                 }
-                headers["cookie"]?.takeIf(String::isNotBlank)?.let {
+                forwardedCookie?.takeIf(String::isNotBlank)?.let {
                     tag(AdditionalCookie::class, AdditionalCookie(it))
                 }
             }
@@ -444,7 +450,6 @@ internal class NovelReaderProxyServer(
         val directory: UniFile,
         /** Exact Origin allowed to write this sink. */
         val origin: String,
-        val onBytesWritten: (Long) -> Unit = {},
     ) {
         @Volatile
         var committedFile: UniFile? = null
@@ -486,6 +491,8 @@ internal class NovelReaderProxyServer(
             "transfer-encoding",
             "content-length",
             "content-type",
+            "set-cookie",
+            "set-cookie2",
             "access-control-allow-origin",
             "access-control-allow-credentials",
             "access-control-expose-headers",

@@ -208,7 +208,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val contentPipeline = ContentPipeline(preferences)
     private val assetLoader = NovelWebViewAssetLoader(activity.assets)
     private var proxyServer: NovelReaderProxyServer? = null
-    private val sourceAllowsInfiniteScroll by lazy {
+    private val pluginAllowsInfiniteScroll by lazy {
         (activity.viewModel.getSource() as? JsSource)?.allowsInfiniteScroll ?: true
     }
 
@@ -337,7 +337,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val webChapterIsError get() = docState == DocState.ERROR
 
     internal fun isInfiniteScrollEnabled(): Boolean =
-        preferences.novelInfiniteScroll.get() && sourceAllowsInfiniteScroll
+        preferences.novelInfiniteScroll.get() && pluginAllowsInfiniteScroll
 
     private fun isVideoChapter(): Boolean = currentDocumentIsVideo
 
@@ -994,7 +994,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 styler.setBionicReading(preferences.novelBionicReading.get())
             },
             onScriptChanged = {
-                val isAppend = preferences.novelInfiniteScroll.get() && loadedChapterIds.size > 1
+                val isAppend = isInfiniteScrollEnabled() && loadedChapterIds.size > 1
                 styler.injectScript(isAppend = isAppend, reapplyChangedOnly = true) { buildTsundokuScript() }
             },
             onChapterReloadRequested = {
@@ -1220,7 +1220,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.onNovelProgressChanged(lastSavedProgress)
         } else {
             if (isInfiniteScrollEnabled()) styler.injectScopedChapterAnchors()
-            styler.injectScrollTracking()
+            styler.injectScrollTracking(isInfiniteScrollEnabled())
             styler.injectReaderUi()
             restoreScrollPosition()
             syncShortChapterProgressIfNeeded()
@@ -1490,7 +1490,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val prepared = prepareChapterContent(chapter, page, rawContent, isAppendOrPrepend)
 
             withContext(Dispatchers.Main) {
-                if (handleVideoAppend(prepared.directives, isAppendOrPrepend)) return@withContext
                 if (isAppendOrPrepend && isInfiniteScrollEnabled()) {
                     // Queue add and DOM insert share one guard: a redundant displayContent() for the
                     // same chapter would otherwise skip the queue add but still re-insert the DOM copy,
@@ -1533,17 +1532,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val processed: ProcessedContent,
         val directives: NovelWebViewChapterDirectives,
     )
-
-    private fun handleVideoAppend(
-        directives: NovelWebViewChapterDirectives,
-        isAppendOrPrepend: Boolean,
-    ): Boolean {
-        if (!directives.isVideo) return false
-        stopAutoScroll()
-        stopTts()
-        if (isAppendOrPrepend) activity.loadNextChapter()
-        return isAppendOrPrepend
-    }
 
     private suspend fun prepareChapterContent(
         chapter: ReaderChapter,
@@ -2811,8 +2799,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         return withContext(Dispatchers.Main) {
             if (isDestroyed) return@withContext false
-
-            if (handleVideoAppend(prepared.directives, isAppendOrPrepend)) return@withContext false
 
             if (isAppendOrPrepend && isInfiniteScrollEnabled()) {
                 // Queue add and DOM insert share one guard: a redundant append for the same

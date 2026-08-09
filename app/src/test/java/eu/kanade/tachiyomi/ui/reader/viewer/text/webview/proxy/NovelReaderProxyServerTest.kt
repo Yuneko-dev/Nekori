@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview.proxy
 
 import com.hippo.unifile.UniFile
 import com.sun.net.httpserver.HttpServer
+import eu.kanade.tachiyomi.network.AdditionalCookie
 import io.mockk.every
 import io.mockk.mockk
 import okhttp3.MediaType.Companion.toMediaType
@@ -54,6 +55,7 @@ class NovelReaderProxyServerTest {
                     body,
                 ).joinToString("|").toByteArray()
                 exchange.responseHeaders.add("X-Upstream", "visible")
+                exchange.responseHeaders.add("Set-Cookie", "upstream=secret")
                 exchange.sendResponseHeaders(201, response.size.toLong())
                 exchange.responseBody.use { it.write(response) }
             }
@@ -88,6 +90,7 @@ class NovelReaderProxyServerTest {
             assertEquals(201, response.code)
             assertEquals("POST|Bearer token|application/json; charset=utf-8|payload", response.body.string())
             assertEquals("visible", response.header("X-Upstream"))
+            assertEquals(null, response.header("Set-Cookie"))
             assertEquals("https://plugin.example", response.header("Access-Control-Allow-Origin"))
             assertTrue(
                 response.header("Access-Control-Expose-Headers")
@@ -95,6 +98,34 @@ class NovelReaderProxyServerTest {
                     .contains("X-Upstream", ignoreCase = true),
             )
         }
+    }
+
+    @Test
+    fun `proxy forwards only the explicitly requested cookie`() {
+        val forwardedCookie = AtomicReference<String?>()
+        val proxyClient = client.newBuilder()
+            .addInterceptor { chain ->
+                forwardedCookie.set(chain.request().tag(AdditionalCookie::class)?.value)
+                chain.proceed(chain.request())
+            }
+            .build()
+        proxy.close()
+        proxy = NovelReaderProxyServer(proxyClient, flushCookies = {}).also { it.start() }
+        val target = "http://127.0.0.1:${upstream.address.port}/binary"
+
+        fun request(explicitCookie: String? = null) {
+            val request = Request.Builder()
+                .url("${proxy.endpoint}?url=${URLEncoder.encode(target, StandardCharsets.UTF_8)}")
+                .header("Cookie", "loopback=blocked")
+                .apply { explicitCookie?.let { header("x-ln-forward-header-cookie", it) } }
+                .build()
+            client.newCall(request).execute().close()
+        }
+
+        request("plugin=allowed")
+        assertEquals("plugin=allowed", forwardedCookie.get())
+        request()
+        assertEquals(null, forwardedCookie.get())
     }
 
     @Test
@@ -254,8 +285,8 @@ class NovelReaderProxyServerTest {
 
     @Test
     fun `sink writes chunks and atomically commits the declared container`(@TempDir tempDir: Path) {
-        val bytesWritten = AtomicLong()
-        val sink = useSink(tempDir) { bytesWritten.addAndGet(it) }
+        val activity = AtomicLong()
+        val sink = useSink(tempDir) { activity.incrementAndGet() }
         ready()
 
         assertEquals(200, put("abc".toByteArray()))
@@ -263,7 +294,7 @@ class NovelReaderProxyServerTest {
         assertEquals(200, commit())
 
         assertEquals(listOf<Byte>(97, 98, 99, 0, 1, 2), Files.readAllBytes(tempDir.resolve("video.mp4")).toList())
-        assertEquals(6, bytesWritten.get())
+        assertTrue(activity.get() > 0)
         assertEquals("video.mp4", sink.committedFile?.name)
         assertEquals(409, put(byteArrayOf(3)))
     }
@@ -412,10 +443,15 @@ class NovelReaderProxyServerTest {
         result.get(2, TimeUnit.SECONDS)
     }
 
-    private fun useSink(tempDir: Path, onBytesWritten: (Long) -> Unit = {}): NovelReaderProxyServer.Sink {
+    private fun useSink(tempDir: Path, onNetworkActivity: () -> Unit = {}): NovelReaderProxyServer.Sink {
         proxy.close()
-        val sink = NovelReaderProxyServer.Sink(mockDirectory(tempDir), SINK_ORIGIN, onBytesWritten)
-        proxy = NovelReaderProxyServer(client, flushCookies = {}, sink = sink).also { it.start() }
+        val sink = NovelReaderProxyServer.Sink(mockDirectory(tempDir), SINK_ORIGIN)
+        proxy = NovelReaderProxyServer(
+            client,
+            flushCookies = {},
+            sink = sink,
+            onNetworkActivity = onNetworkActivity,
+        ).also { it.start() }
         return sink
     }
 

@@ -51,17 +51,17 @@ internal class VideoChapterDownloader(
         }
 
         val documentOrigin = originOf(baseUrl)
-        val events = Channel<VideoDownloadEvent>(Channel.UNLIMITED)
+        val events = Channel<VideoDownloadEvent>(Channel.CONFLATED)
         val lastActivity = AtomicLong(SystemClock.elapsedRealtime())
         val touch = {
             lastActivity.set(SystemClock.elapsedRealtime())
         }
-        val sink = NovelReaderProxyServer.Sink(directory, documentOrigin) { touch() }
+        val sink = NovelReaderProxyServer.Sink(directory, documentOrigin)
         val server = NovelReaderProxyServer(client = client, sink = sink, onNetworkActivity = touch)
-        server.start()
         var webView: HeadlessChapterWebView? = null
 
         try {
+            server.start()
             withContext(Dispatchers.Main.immediate) {
                 HeadlessChapterWebView(context, events, touch).also {
                     webView = it
@@ -84,7 +84,10 @@ internal class VideoChapterDownloader(
                 }
 
                 val idleFor = SystemClock.elapsedRealtime() - lastActivity.get()
-                if (idleFor >= WATCHDOG_TIMEOUT_MS) {
+                if (
+                    idleFor >= WATCHDOG_TIMEOUT_MS &&
+                    SystemClock.elapsedRealtime() - lastActivity.get() >= WATCHDOG_TIMEOUT_MS
+                ) {
                     throw Exception(context.stringResource(TDMR.strings.video_download_error_timeout))
                 }
 
@@ -110,14 +113,18 @@ internal class VideoChapterDownloader(
             }
         } finally {
             withContext(NonCancellable) {
-                withContext(Dispatchers.Main.immediate) {
-                    webView?.run {
-                        stopLoading()
-                        removeJavascriptInterface(HeadlessChapterWebView.BRIDGE_NAME)
-                        destroy()
+                runCatching {
+                    withContext(Dispatchers.Main.immediate) {
+                        webView?.run {
+                            runCatching { stopLoading() }
+                            runCatching { removeJavascriptInterface(HeadlessChapterWebView.BRIDGE_NAME) }
+                            runCatching { destroy() }
+                        }
                     }
+                }.onFailure { logcat(LogPriority.WARN, it) { "Unable to destroy video download WebView" } }
+                runCatching { server.close() }.onFailure {
+                    logcat(LogPriority.WARN, it) { "Unable to close video download proxy" }
                 }
-                server.close()
                 events.close()
             }
         }

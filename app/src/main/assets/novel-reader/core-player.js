@@ -628,11 +628,6 @@
       return video;
     }
 
-    generateHTMLVideo(metaPlayerType) {
-      // In the future, parse metaPlayerType (e.g. 'artplayer') and return different wrapper
-      return this.generateHTML5Video();
-    }
-
     playDirect(url) {
       this.ensureInit();
       this.log(`playDirect called with ${url}`);
@@ -641,12 +636,7 @@
       }
       this.destroyCurrentMedia();
 
-      const playerTypeMeta = document.querySelector(
-        'meta[name="lnreader-player-type"]'
-      );
-      const playerType = playerTypeMeta ? playerTypeMeta.content : "html5";
-
-      this.videoElement = this.generateHTMLVideo(playerType);
+      this.videoElement = this.generateHTML5Video();
       this.videoElement.src = url;
       this.attachEventListeners(this.videoElement);
       this.container.appendChild(this.videoElement);
@@ -664,12 +654,7 @@
       }
       this.destroyCurrentMedia();
 
-      const playerTypeMeta = document.querySelector(
-        'meta[name="lnreader-player-type"]'
-      );
-      const playerType = playerTypeMeta ? playerTypeMeta.content : "html5";
-
-      this.videoElement = this.generateHTMLVideo(playerType);
+      this.videoElement = this.generateHTML5Video();
       this.attachEventListeners(this.videoElement);
       this.container.appendChild(this.videoElement);
 

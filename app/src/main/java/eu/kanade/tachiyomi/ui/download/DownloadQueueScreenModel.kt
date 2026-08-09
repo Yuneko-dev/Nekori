@@ -32,7 +32,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.milliseconds
 
-data class NovelDownloadItem(
+class NovelDownloadItem(
     val mangaId: Long,
     val mangaTitle: String,
     val sourceName: String,
@@ -46,11 +46,10 @@ data class NovelDownloadItem(
     val totalChapters: Int get() = initialTotal
     val currentDownload: Download? get() = subItems.find { it.status == Download.State.DOWNLOADING }
 
-    // Chapter-based progress. Per-chapter page progress is meaningless for novels (a chapter is a
-    // single text page that flips 0->100 instantly), so the bar tracks completed chapters only.
     val overallProgress: Float get() {
         if (totalChapters == 0) return 0f
-        return downloadedChapters.toFloat() / totalChapters
+        val partialChapters = subItems.sumOf { it.progress.coerceIn(0, 100) } / 100f
+        return ((downloadedChapters + partialChapters) / totalChapters).coerceIn(0f, 1f)
     }
 
     val isActive: Boolean get() = currentDownload != null
@@ -204,7 +203,21 @@ class DownloadQueueScreenModel(
             downloadManager.queueState
                 .map { downloads -> downloads.filter { it.source.isNovelSource() } }
                 .flatMapLatest { novels ->
-                    if (novels.isEmpty()) flowOf(emptyList()) else combine(novels.map { it.statusFlow }) { novels }
+                    if (novels.isEmpty()) {
+                        flowOf(emptyList())
+                    } else {
+                        combine(
+                            novels.map { download ->
+                                download.statusFlow.flatMapLatest { status ->
+                                    if (status == Download.State.DOWNLOADING) {
+                                        download.progressFlow
+                                    } else {
+                                        flowOf(download.progress)
+                                    }
+                                }
+                            },
+                        ) { novels }
+                    }
                 }
                 .map { novels ->
                     // Clean up initialTotals for manga no longer in queue
