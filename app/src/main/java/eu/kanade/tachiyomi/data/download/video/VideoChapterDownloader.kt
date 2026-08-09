@@ -40,6 +40,8 @@ internal class VideoChapterDownloader(
         directory: UniFile,
         // Must match the reader URL because media hosts commonly validate Referer.
         baseUrl: String,
+        novelTitle: String,
+        chapterTitle: String,
         onProgress: (done: Int, total: Int) -> Unit,
     ) {
         val video = requireNotNull(directives.video)
@@ -79,7 +81,7 @@ internal class VideoChapterDownloader(
             while (true) {
                 sink.committedFile?.let { videoFile ->
                     val fileName = finalizeVideo(videoFile, directory)
-                    writeStub(directory, fileName)
+                    writeStub(directory, fileName, novelTitle, chapterTitle)
                     return
                 }
 
@@ -180,10 +182,14 @@ internal class VideoChapterDownloader(
     private fun writeStub(
         directory: UniFile,
         fileName: String,
+        novelTitle: String,
+        chapterTitle: String,
     ) {
         val content = createVideoStub(
             localVideoFileName = fileName,
             playLabel = context.stringResource(TDMR.strings.novel_video_play_downloaded),
+            novelTitle = novelTitle,
+            chapterTitle = chapterTitle,
         )
         val bytes = content.toByteArray(Charsets.UTF_8)
 
@@ -238,7 +244,12 @@ internal class VideoChapterDownloader(
     }
 }
 
-internal fun createVideoStub(localVideoFileName: String, playLabel: String): String {
+internal fun createVideoStub(
+    localVideoFileName: String,
+    playLabel: String,
+    novelTitle: String,
+    chapterTitle: String,
+): String {
     val document = Document.createShell("")
     document.head().apply {
         appendElement("meta").attr("charset", "UTF-8")
@@ -246,6 +257,8 @@ internal fun createVideoStub(localVideoFileName: String, playLabel: String): Str
         appendElement("meta").attr("name", "lnreader-chapter-type").attr("content", "video")
         appendElement("meta").attr("name", "lnreader-video-local").attr("content", localVideoFileName)
     }
+    document.body().appendElement("h2").text(novelTitle)
+    document.body().appendElement("h4").text(chapterTitle)
     document.body().appendElement("button")
         .addClass("next-button")
         .addClass("local-video-button")

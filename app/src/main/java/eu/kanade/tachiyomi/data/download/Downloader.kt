@@ -580,6 +580,8 @@ class Downloader(
                     pluginJavaScript = (download.source as? JsSource)?.customJS.orEmpty(),
                     directory = tmpDir,
                     baseUrl = videoChapterBaseUrl(download),
+                    novelTitle = download.mangaTitle,
+                    chapterTitle = download.chapterName,
                 ) { done, total ->
                     if (total > 0) firstPage.progress = (done * 100 / total).coerceIn(0, 100)
                     notifier.onProgressChange(download, done to total.coerceAtLeast(1))
