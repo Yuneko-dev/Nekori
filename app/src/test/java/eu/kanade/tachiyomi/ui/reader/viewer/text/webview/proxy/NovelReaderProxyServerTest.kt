@@ -1,14 +1,19 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview.proxy
 
+import com.hippo.unifile.UniFile
 import com.sun.net.httpserver.HttpServer
+import io.mockk.every
+import io.mockk.mockk
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody
 import okio.Buffer
+import okio.BufferedSink
 import okio.Source
 import okio.Timeout
 import okio.buffer
@@ -18,12 +23,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.net.InetSocketAddress
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class NovelReaderProxyServerTest {
@@ -173,6 +183,25 @@ class NovelReaderProxyServerTest {
     }
 
     @Test
+    fun `proxy reports request and response activity`() {
+        val activity = AtomicLong()
+        proxy.close()
+        proxy = NovelReaderProxyServer(
+            client,
+            flushCookies = {},
+            onNetworkActivity = { activity.incrementAndGet() },
+        ).also { it.start() }
+        val target = "http://127.0.0.1:${upstream.address.port}/binary"
+        val request = Request.Builder()
+            .url("${proxy.endpoint}?url=${URLEncoder.encode(target, StandardCharsets.UTF_8)}")
+            .build()
+
+        client.newCall(request).execute().use { it.body.bytes() }
+
+        assertTrue(activity.get() >= 2)
+    }
+
+    @Test
     fun `methods outside the LNReader fetch surface are rejected`() {
         val target = "http://127.0.0.1:${upstream.address.port}/echo"
         val request = Request.Builder()
@@ -184,6 +213,105 @@ class NovelReaderProxyServerTest {
             assertEquals(400, response.code)
             assertEquals("Unsupported method", response.body.string())
         }
+    }
+
+    @Test
+    fun `reader mode does not expose sink routes`() {
+        val request = Request.Builder()
+            .url("${proxy.sinkEndpoint}/sink?container=mp4")
+            .header("Origin", SINK_ORIGIN)
+            .post(ByteArray(0).toRequestBody())
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            assertEquals(404, response.code)
+        }
+    }
+
+    @Test
+    fun `sink preflight pins its origin`(@TempDir tempDir: Path) {
+        useSink(tempDir)
+
+        val validRequest = Request.Builder()
+            .url("${proxy.sinkEndpoint}/sink")
+            .header("Origin", SINK_ORIGIN)
+            .method("OPTIONS", null)
+            .build()
+        client.newCall(validRequest).execute().use { response ->
+            // 200, not 204: NanoHTTPD sets Content-Length on every fixed-length response and RFC 7230
+            // forbids that on a 204, which left Chromium dropping the connection intermittently.
+            assertEquals(200, response.code)
+            assertEquals(SINK_ORIGIN, response.header("Access-Control-Allow-Origin"))
+            assertEquals("86400", response.header("Access-Control-Max-Age"))
+        }
+
+        val foreignRequest = validRequest.newBuilder().header("Origin", "https://evil.example").build()
+        client.newCall(foreignRequest).execute().use { response ->
+            assertEquals(403, response.code)
+            assertEquals(null, response.header("Access-Control-Allow-Origin"))
+        }
+    }
+
+    @Test
+    fun `sink writes chunks and atomically commits the declared container`(@TempDir tempDir: Path) {
+        val bytesWritten = AtomicLong()
+        val sink = useSink(tempDir) { bytesWritten.addAndGet(it) }
+        ready()
+
+        assertEquals(200, put("abc".toByteArray()))
+        assertEquals(200, put(byteArrayOf(0, 1, 2)))
+        assertEquals(200, commit())
+
+        assertEquals(listOf<Byte>(97, 98, 99, 0, 1, 2), Files.readAllBytes(tempDir.resolve("video.mp4")).toList())
+        assertEquals(6, bytesWritten.get())
+        assertEquals("video.mp4", sink.committedFile?.name)
+        assertEquals(409, put(byteArrayOf(3)))
+    }
+
+    @Test
+    fun `sink requires fixed length writes`(@TempDir tempDir: Path) {
+        useSink(tempDir)
+        ready()
+
+        assertEquals(411, putStreaming(byteArrayOf(1)))
+    }
+
+    @Test
+    fun `sink rejects missing invalid or duplicate containers`(@TempDir tempDir: Path) {
+        useSink(tempDir)
+
+        mapOf("" to 409, "?container=../mp4" to 400, "?container=mp4&container=ts" to 400)
+            .forEach { (query, status) ->
+                assertEquals(status, readyStatus(query), query)
+            }
+    }
+
+    @Test
+    fun `only one concurrent write is accepted`(@TempDir tempDir: Path) {
+        useSink(tempDir)
+        ready()
+        val firstByteSent = CountDownLatch(1)
+        val releaseFirstWrite = CountDownLatch(1)
+        val slowBody = object : RequestBody() {
+            override fun contentType() = OCTET_STREAM
+            override fun contentLength() = 2L
+
+            override fun writeTo(sink: BufferedSink) {
+                sink.writeByte(1)
+                sink.flush()
+                firstByteSent.countDown()
+                releaseFirstWrite.await(5, TimeUnit.SECONDS)
+                sink.writeByte(2)
+            }
+        }
+        val first = CompletableFuture.supplyAsync { put(slowBody) }
+        assertTrue(firstByteSent.await(2, TimeUnit.SECONDS))
+
+        val second = put(byteArrayOf(3))
+        releaseFirstWrite.countDown()
+        val statuses = listOf(first.get(2, TimeUnit.SECONDS), second).sorted()
+
+        assertEquals(listOf(200, 409), statuses)
     }
 
     @Test
@@ -282,5 +410,90 @@ class NovelReaderProxyServerTest {
             localProxy.close()
         }
         result.get(2, TimeUnit.SECONDS)
+    }
+
+    private fun useSink(tempDir: Path, onBytesWritten: (Long) -> Unit = {}): NovelReaderProxyServer.Sink {
+        proxy.close()
+        val sink = NovelReaderProxyServer.Sink(mockDirectory(tempDir), SINK_ORIGIN, onBytesWritten)
+        proxy = NovelReaderProxyServer(client, flushCookies = {}, sink = sink).also { it.start() }
+        return sink
+    }
+
+    private fun ready() = assertEquals(200, readyStatus("?container=mp4"))
+
+    private fun readyStatus(query: String): Int {
+        val request = Request.Builder()
+            .url("${proxy.sinkEndpoint}/sink$query")
+            .header("Origin", SINK_ORIGIN)
+            .post(ByteArray(0).toRequestBody())
+            .build()
+        return client.newCall(request).execute().use { it.code }
+    }
+
+    private fun put(bytes: ByteArray): Int = put(bytes.toRequestBody(OCTET_STREAM))
+
+    private fun put(body: RequestBody): Int {
+        val request = Request.Builder()
+            .url("${proxy.sinkEndpoint}/sink")
+            .header("Origin", SINK_ORIGIN)
+            .put(body)
+            .build()
+        return client.newCall(request).execute().use { it.code }
+    }
+
+    private fun putStreaming(bytes: ByteArray): Int =
+        put(
+            object : RequestBody() {
+                override fun contentType() = OCTET_STREAM
+                override fun writeTo(sink: BufferedSink) = sink.write(bytes).let {}
+            },
+        )
+
+    private fun commit(): Int {
+        val request = Request.Builder()
+            .url("${proxy.sinkEndpoint}/sink")
+            .header("Origin", SINK_ORIGIN)
+            .post(ByteArray(0).toRequestBody())
+            .build()
+        return client.newCall(request).execute().use { it.code }
+    }
+
+    private fun mockDirectory(path: Path): UniFile = mockk {
+        every { listFiles() } answers {
+            Files.list(path).use { files -> files.map(::mockFile).toList().toTypedArray() }
+        }
+        every { createFile(any()) } answers {
+            val child = path.resolve(firstArg<String>())
+            if (!Files.exists(child)) Files.createFile(child)
+            mockFile(child)
+        }
+    }
+
+    private fun mockFile(initialPath: Path): UniFile {
+        val path = AtomicReference(initialPath)
+        return mockk {
+            every { name } answers { path.get().fileName.toString() }
+            every { delete() } answers { Files.deleteIfExists(path.get()) }
+            every { openOutputStream() } answers {
+                Files.newOutputStream(
+                    path.get(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE,
+                )
+            }
+            every { renameTo(any()) } answers {
+                val destination = path.get().resolveSibling(firstArg<String>())
+                runCatching {
+                    Files.move(path.get(), destination)
+                    path.set(destination)
+                }.isSuccess
+            }
+        }
+    }
+
+    companion object {
+        private const val SINK_ORIGIN = "https://tsundoku.reader"
+        private val OCTET_STREAM = "application/octet-stream".toMediaType()
     }
 }

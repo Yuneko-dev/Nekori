@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
 import eu.kanade.tachiyomi.util.TextSplitter
 import mihon.core.archive.archiveReader
 import tachiyomi.core.common.util.system.logcat
@@ -39,13 +40,7 @@ internal class DownloadPageLoader(
         val dbChapter = chapter.chapter
         logcat { "DownloadPageLoader.getPages: chapter=${dbChapter.name}, url=${dbChapter.url}" }
 
-        val chapterPath = downloadProvider.findChapterDir(
-            dbChapter.name,
-            dbChapter.scanlator,
-            dbChapter.url,
-            manga.title,
-            source,
-        )
+        val chapterPath = findChapterPath()
         logcat {
             "DownloadPageLoader.getPages: chapterPath=$chapterPath, exists=${chapterPath?.exists()}, isFile=${chapterPath?.isFile}"
         }
@@ -87,7 +82,10 @@ internal class DownloadPageLoader(
                 null
             }
             // Apply auto-split if enabled
-            if (textContent != null && readerPreferences.novelAutoSplitText.get()) {
+            if (textContent != null &&
+                readerPreferences.novelAutoSplitText.get() &&
+                NovelWebViewChapterDirectives.parse(textContent).localVideo == null
+            ) {
                 val wordCount = readerPreferences.novelAutoSplitWordCount.get().coerceAtLeast(20)
                 if (wordCount > 0) {
                     textContent = TextSplitter.splitText(textContent, wordCount)
@@ -110,13 +108,7 @@ internal class DownloadPageLoader(
 
         // 2. Try directory (for normal downloaded directories)
         val dbChapter = chapter.chapter
-        val chapterPath = downloadProvider.findChapterDir(
-            dbChapter.name,
-            dbChapter.scanlator,
-            dbChapter.url,
-            manga.title,
-            source,
-        )
+        val chapterPath = findChapterPath()
         if (chapterPath?.isDirectory == true) {
             val file = chapterPath.findFile(url)
             if (file != null && file.exists()) {
@@ -126,6 +118,23 @@ internal class DownloadPageLoader(
 
         // 3. Fallback to source (critical for edited EPUB chapters where the custom `.cbz` only contains 001.html)
         return (source as? tachiyomi.source.local.LocalNovelSource)?.getChapterImage(dbChapter, url)
+    }
+
+    internal fun findDownloadedFile(fileName: String): UniFile? =
+        findChapterPath()
+            ?.takeIf(UniFile::isDirectory)
+            ?.findFile(fileName)
+            ?.takeIf(UniFile::isFile)
+
+    private fun findChapterPath(): UniFile? {
+        val dbChapter = chapter.chapter
+        return downloadProvider.findChapterDir(
+            dbChapter.name,
+            dbChapter.scanlator,
+            dbChapter.url,
+            manga.title,
+            source,
+        )
     }
 
     override suspend fun loadPage(page: ReaderPage) {

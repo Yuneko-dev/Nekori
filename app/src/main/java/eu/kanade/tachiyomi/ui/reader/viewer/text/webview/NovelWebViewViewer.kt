@@ -4,7 +4,9 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
@@ -34,6 +36,7 @@ import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
+import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
@@ -41,6 +44,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderNavigationSource
+import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
@@ -217,6 +221,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var currentChapters: ViewerChapters? = null
     private var readerUiModalOpen = false
     private var currentDocumentIsVideo = false
+    private var currentLocalVideo: Pair<Long, UniFile>? = null
+
+    // Prevent reopening the player until the chapter changes or the user taps Play.
+    private var launchedVideoChapterId: Long? = null
     private var suppressReaderGesturesUntil = 0L
     private var pendingTtsParagraphIndex: Int? = null
     private val imageCache = NovelWebViewImageCache(activity.cacheDir, scope)
@@ -1363,6 +1371,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         loadJob?.cancel()
 
+        if (currentChapters?.currChapter?.chapter?.id != chapterId) {
+            launchedVideoChapterId = null
+        }
+
         currentPage = page
         currentChapters = chapters
 
@@ -1478,10 +1490,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val prepared = prepareChapterContent(chapter, page, rawContent, isAppendOrPrepend)
 
             withContext(Dispatchers.Main) {
-                if (prepared.directives.video != null) {
-                    stopAutoScroll()
-                    stopTts()
-                }
+                if (handleVideoAppend(prepared.directives, isAppendOrPrepend)) return@withContext
                 if (isAppendOrPrepend && isInfiniteScrollEnabled()) {
                     // Queue add and DOM insert share one guard: a redundant displayContent() for the
                     // same chapter would otherwise skip the queue add but still re-insert the DOM copy,
@@ -1524,6 +1533,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val processed: ProcessedContent,
         val directives: NovelWebViewChapterDirectives,
     )
+
+    private fun handleVideoAppend(
+        directives: NovelWebViewChapterDirectives,
+        isAppendOrPrepend: Boolean,
+    ): Boolean {
+        if (!directives.isVideo) return false
+        stopAutoScroll()
+        stopTts()
+        if (isAppendOrPrepend) activity.loadNextChapter()
+        return isAppendOrPrepend
+    }
 
     private suspend fun prepareChapterContent(
         chapter: ReaderChapter,
@@ -1718,7 +1738,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         chapterQueue.clear()
         currentChapterIndex = 0
-        currentDocumentIsVideo = directives.video != null
+        currentDocumentIsVideo = directives.isVideo
+        currentLocalVideo = directives.localVideo?.let { fileName ->
+            val loader = chapter?.pageLoader as? DownloadPageLoader
+            loader?.findDownloadedFile(fileName)?.let { chapterId to it }
+        }
 
         // Inputs are gathered on Main (touch viewer state), but the heavy work - the image-URL
         // regex scan and the Jsoup parse + full-document string build - runs off the main thread.
@@ -1750,6 +1774,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastPersistedPercent = -1
         reachedNovelEnd = false
         webView.loadDataWithBaseURL(resolveWebViewBaseUrl(chapterPath), html, "text/html", "UTF-8", null)
+        launchLocalVideo()
+    }
+
+    private fun launchLocalVideo(force: Boolean = false) {
+        val (chapterId, file) = currentLocalVideo ?: return
+        if (!force && launchedVideoChapterId == chapterId) return
+        launchedVideoChapterId = chapterId
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(file.uri, "video/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            activity.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            activity.toast(activity.stringResource(TDMR.strings.novel_error_no_video_player))
+        }
     }
 
     // Memoized: the manga URL is fixed for the viewer's lifetime, and getMangaUrl() does a source
@@ -1814,6 +1855,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun interceptNetworkRequest(request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
         if (request.url.scheme != "http" && request.url.scheme != "https") return null
+        // Intercepted streams cannot seek; let WebView handle media byte ranges.
+        if (request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }) return null
         val acceptsImages = request.requestHeaders.entries.any { (name, value) ->
             name.equals("Accept", ignoreCase = true) && "image/" in value
         }
@@ -2679,6 +2722,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
 
         @JavascriptInterface
+        fun playLocalVideo() {
+            activity.runOnUiThread { launchLocalVideo(force = true) }
+        }
+
+        @JavascriptInterface
         fun requestNextChapter() {
             loadNextChapter()
         }
@@ -2764,12 +2812,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         return withContext(Dispatchers.Main) {
             if (isDestroyed) return@withContext false
 
-            if (isAppendOrPrepend && prepared.directives.video != null) {
-                stopAutoScroll()
-                stopTts()
-                activity.loadNextChapter()
-                return@withContext false
-            }
+            if (handleVideoAppend(prepared.directives, isAppendOrPrepend)) return@withContext false
 
             if (isAppendOrPrepend && isInfiniteScrollEnabled()) {
                 // Queue add and DOM insert share one guard: a redundant append for the same

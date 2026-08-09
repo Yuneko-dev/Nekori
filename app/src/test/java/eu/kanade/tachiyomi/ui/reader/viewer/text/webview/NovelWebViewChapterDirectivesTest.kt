@@ -25,13 +25,24 @@ class NovelWebViewChapterDirectivesTest {
         )
 
         assertTrue(directives.noCache)
-        assertEquals(VideoChapter.Mode.DIRECT, directives.video?.mode)
-        assertEquals(VideoChapter.Type.HLS, directives.video?.type)
-        assertEquals("https://media.example/video.m3u8", directives.video?.url)
-        assertTrue(directives.video?.debug == true)
-        assertEquals("html5", directives.video?.playerType)
+        assertFalse(directives.video?.directIframe == true)
         assertTrue(directives.video?.disableProgress == true)
         assertTrue(directives.metadataHtml.contains("no-prefetch-marker"))
+        assertTrue(directives.metadataHtml.contains("https://media.example/video.m3u8"))
+    }
+
+    @Test
+    fun `local video filename is parsed independently of online video fields`() {
+        val directives = NovelWebViewChapterDirectives.parse(
+            """
+                <meta name="lnreader-chapter-type" content="video">
+                <meta name="lnreader-video-local" content="video.mkv">
+            """.trimIndent(),
+        )
+
+        assertEquals("video.mkv", directives.localVideo)
+        assertNull(directives.video)
+        assertTrue(directives.metadataHtml.contains("lnreader-video-local"))
     }
 
     @Test
@@ -40,6 +51,7 @@ class NovelWebViewChapterDirectivesTest {
 
         assertFalse(directives.noCache)
         assertNull(directives.video)
+        assertNull(directives.localVideo)
         assertEquals("", directives.metadataHtml)
     }
 
@@ -54,9 +66,7 @@ class NovelWebViewChapterDirectivesTest {
             """.trimIndent(),
         )
 
-        assertEquals(VideoChapter.Mode.DIRECT, directives.video?.mode)
-        assertNull(directives.video?.type)
-        assertNull(directives.video?.url)
+        assertTrue(directives.video != null)
         assertTrue(directives.metadataHtml.contains("lnreader-video-type"))
     }
 
@@ -71,7 +81,6 @@ class NovelWebViewChapterDirectivesTest {
             """.trimIndent(),
         )
 
-        assertNull(directives.video?.url)
         assertFalse(directives.metadataHtml.contains("lnreader-video-url"))
     }
 
@@ -100,7 +109,7 @@ class NovelWebViewChapterDirectivesTest {
             """.trimIndent(),
         )
 
-        assertNull(directives.video?.url)
+        assertTrue(directives.video?.directIframe == true)
         assertFalse(directives.metadataHtml.contains("lnreader-video-url"))
     }
 }

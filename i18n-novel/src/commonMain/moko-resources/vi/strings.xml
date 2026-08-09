@@ -996,6 +996,11 @@
     <string name="novel_error_technical_details">Chi tiết kỹ thuật</string>
     <string name="novel_error_copied">Đã sao chép</string>
     <string name="novel_error_empty_chapter">Chương trống — nguồn không trả về văn bản. Hãy thử làm mới hoặc kiểm tra nguồn/phần mở rộng.</string>
+    <string name="novel_error_no_video_player">Không có ứng dụng nào có thể phát video này.</string>
+    <string name="video_download_error_iframe">Không thể tải chapter video dạng iframe.</string>
+    <string name="video_download_error_progress_disabled">Chapter video này không cho phép tải xuống.</string>
+    <string name="video_download_error_timeout">Đã hết thời gian tải video.</string>
+    <string name="novel_video_play_downloaded">Phát video</string>
     <string name="novel_error_cat_network_host">Lỗi mạng — không tìm thấy máy chủ</string>
     <string name="novel_error_cat_network_timeout">Lỗi mạng — hết thời gian kết nối</string>
     <string name="novel_error_cat_network_refused">Lỗi mạng — kết nối bị từ chối</string>

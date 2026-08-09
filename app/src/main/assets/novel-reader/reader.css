@@ -138,6 +138,22 @@ td {
     white-space: nowrap;
 }
 
+.local-video-button {
+    display: block;
+    width: fit-content;
+    min-height: 48px;
+    margin: 0 auto;
+    margin-top: 95px;
+    padding: 0 24px;
+    color: var(--md-sys-color-on-secondary-container);
+    background-color: var(--md-sys-color-secondary-container);
+}
+
+.local-video-button:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
 .info-text {
     margin: 0;
     padding-top: 16px;

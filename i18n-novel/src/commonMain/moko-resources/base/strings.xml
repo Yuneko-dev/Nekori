@@ -1003,6 +1003,11 @@
     <string name="novel_error_technical_details">Technical details</string>
     <string name="novel_error_copied">Copied</string>
     <string name="novel_error_empty_chapter">Chapter is empty — the source returned no text. Try refreshing or checking the source/extension.</string>
+    <string name="novel_error_no_video_player">No app is available to play this video.</string>
+    <string name="video_download_error_iframe">Iframe video chapters cannot be downloaded.</string>
+    <string name="video_download_error_progress_disabled">This video chapter does not allow downloads.</string>
+    <string name="video_download_error_timeout">Video download timed out.</string>
+    <string name="novel_video_play_downloaded">Play video</string>
     <string name="novel_error_cat_network_host">Network error — host not found</string>
     <string name="novel_error_cat_network_timeout">Network error — connection timed out</string>
     <string name="novel_error_cat_network_refused">Network error — connection refused</string>

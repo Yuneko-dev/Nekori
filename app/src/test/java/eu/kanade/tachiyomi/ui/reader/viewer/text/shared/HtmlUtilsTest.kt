@@ -51,6 +51,21 @@ class HtmlUtilsTest {
     }
 
     @Test
+    fun `normalizeContentForHtml keeps a meta only video chapter as html`() {
+        // A direct-mode video chapter's body is nothing but directive meta tags. Meta carries no
+        // closing tag, so classifying it as plain text escapes the markup and shows it to the reader.
+        val content = """
+            <meta name="lnreader-chapter-type" content="video">
+            <meta name="lnreader-video-type" content="video-file">
+        """.trimIndent()
+
+        val html = HtmlUtils.normalizeContentForHtml(content, "chapter")
+
+        assertTrue(html == content)
+        assertTrue(!html.contains("data-tsundoku-plain-text"))
+    }
+
+    @Test
     fun `normalizeContentForHtml keeps html unchanged`() {
         val content = "<p>Hello</p><div>World</div>"
 

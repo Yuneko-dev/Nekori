@@ -1,9 +1,10 @@
-hls.js 1.6.16
+hls.js 1.6.13
 https://github.com/video-dev/hls.js
 SPDX-License-Identifier: Apache-2.0
 
 The following license and attribution notices are reproduced
-from the hls.js 1.6.16 distribution:
+from the hls.js 1.6.13 distribution. Tsundoku's bundled copy adds a download-only
+plaintext-fragment observation hook before demux/remux:
 
 Copyright (c) 2017 Dailymotion (http://www.dailymotion.com)
 

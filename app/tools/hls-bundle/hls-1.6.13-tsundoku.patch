@@ -1,0 +1,141 @@
+diff --git a/package.json b/package.json
+index 1643f60..2421f89 100644
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,6 @@
+ {
+   "name": "hls.js",
++  "version": "1.6.13",
+   "license": "Apache-2.0",
+   "description": "JavaScript HLS client using MediaSourceExtension",
+   "homepage": "https://github.com/video-dev/hls.js",
+diff --git a/src/demux/transmuxer.ts b/src/demux/transmuxer.ts
+index 136a544..484ae52 100644
+--- a/src/demux/transmuxer.ts
++++ b/src/demux/transmuxer.ts
+@@ -184,6 +184,40 @@ export default class Transmuxer {
+       }
+     }
+-
++
++    // Tsundoku download mode taps complete plaintext segments while preserving the stock
++    // demux/remux path that advances hls.js's stream-controller state.
++    if (
++      !keyData &&
++      (
++        this.config as HlsConfig & {
++          tsundokuCaptureFragments?: boolean;
++        }
++      ).tsundokuCaptureFragments
++    ) {
++      const offset =
++        this.demuxer instanceof TSDemuxer
++          ? Math.max(0, TSDemuxer.syncOffset(uintData))
++          : 0;
++      const end =
++        this.demuxer instanceof TSDemuxer
++          ? uintData.length - ((uintData.length - offset) % 188)
++          : uintData.length;
++      const payload = uintData.subarray(offset, end);
++      this.observer.emit(Events.FRAG_DECRYPTED, Events.FRAG_DECRYPTED, {
++        // TransmuxerInterface fills this before forwarding the event.
++        frag: undefined as any,
++        payload:
++          payload.byteOffset === 0 &&
++          payload.byteLength === payload.buffer.byteLength
++            ? payload.buffer
++            : payload.slice().buffer,
++        stats: {
++          tstart: stats.executeStart,
++          tdecrypt: now(),
++        },
++      });
++    }
++
+     if (discontinuity || trackSwitch || initSegmentChange || resetMuxers) {
+       this.resetInitSegment(
+         initSegmentData,
+diff --git a/src/demux/transmuxer-worker.ts b/src/demux/transmuxer-worker.ts
+index 53a9d13..8634d81 100644
+--- a/src/demux/transmuxer-worker.ts
++++ b/src/demux/transmuxer-worker.ts
+@@ -30,8 +30,10 @@ function startWorker() {
+     if (data.cmd === 'init') {
+       const config = JSON.parse(data.config);
+       const observer = new EventEmitter();
+-      observer.on(Events.FRAG_DECRYPTED, forwardMessage);
+-      observer.on(Events.ERROR, forwardMessage);
++      const forwardObserverMessage = (event, data) =>
++        forwardMessage(event, data, instanceNo);
++      observer.on(Events.FRAG_DECRYPTED, forwardObserverMessage);
++      observer.on(Events.ERROR, forwardObserverMessage);
+       const logger = enableLogs(config.debug, data.id);
+       forwardWorkerLogs(logger, instanceNo);
+       transmuxers[instanceNo] = new Transmuxer(
+diff --git a/tests/unit/demuxer/transmuxer.ts b/tests/unit/demuxer/transmuxer.ts
+index fbedb05..9f3dd1c 100644
+--- a/tests/unit/demuxer/transmuxer.ts
++++ b/tests/unit/demuxer/transmuxer.ts
+@@ -3,6 +3,7 @@ import sinon from 'sinon';
+ import sinonChai from 'sinon-chai';
+ import { TransmuxConfig, TransmuxState } from '../../../src/demux/transmuxer';
+ import TransmuxerInterface from '../../../src/demux/transmuxer-interface';
++import { Events } from '../../../src/events';
+ import Hls from '../../../src/hls';
+ import { Fragment } from '../../../src/loader/fragment';
+ import { PlaylistLevelType } from '../../../src/types/loader';
+@@ -191,6 +192,53 @@ describe('TransmuxerInterface tests', function () {
+     });
+   });
+-
++
++  it('captures plaintext before demux', function (done) {
++    hls = new Hls({
++      enableWorker: false,
++      tsundokuCaptureFragments: true,
++    } as any);
++    const transmuxerInterface = new TransmuxerInterface(
++      hls,
++      PlaylistLevelType.MAIN,
++      onTransmuxComplete,
++      onFlush,
++    );
++    const frag = new Fragment(PlaylistLevelType.MAIN, '');
++    frag.cc = 0;
++    frag.sn = 1;
++    frag.level = 0;
++    const payload = new Uint8Array(188 * 101);
++    for (let offset = 0; offset < payload.length; offset += 188) {
++      payload[offset] = 0x47;
++    }
++    const source = new Uint8Array(payload.length + 2);
++    source.set(payload, 1);
++
++    hls.on(Events.FRAG_DECRYPTED, (_event, data) => {
++      try {
++        expect(data.frag).to.equal(frag);
++        expect(Array.from(new Uint8Array(data.payload))).to.deep.equal(
++          Array.from(payload),
++        );
++        done();
++      } catch (error) {
++        done(error);
++      }
++    });
++
++    transmuxerInterface.push(
++      source.buffer,
++      new Uint8Array(0),
++      undefined,
++      undefined,
++      frag as MediaFragment,
++      null,
++      4,
++      true,
++      new ChunkMetadata(0, 1, 1),
++    );
++  });
++
+   it('pushes data to demuxer with no worker', function () {
+     const config = { enableWorker: false }; // Option debug : true crashes mocha
+     hls = new Hls(config);

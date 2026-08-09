@@ -6,6 +6,7 @@ import eu.kanade.domain.chapter.model.toSChapter
 import eu.kanade.domain.manga.model.getComicInfo
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.download.video.VideoChapterDownloader
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.translation.TranslationJob
@@ -20,6 +21,8 @@ import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.rateLimitHost
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import eu.kanade.tachiyomi.util.chapter.ChapterImageEmbedder
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil.NOMEDIA_FILE
@@ -95,6 +98,8 @@ class Downloader(
     private val getManga: GetManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
 ) {
+
+    private val videoChapterDownloader = VideoChapterDownloader(context)
 
     /**
      * Store for persisting downloads across restarts.
@@ -526,6 +531,7 @@ class Downloader(
             download.chapterUrl,
         )
         val tmpDir = mangaDir.createDirectory(chapterDirname + TMP_DIR_SUFFIX)!!
+        var isVideoDownload = false
 
         try {
             // If the page list already exists, start from the file
@@ -553,36 +559,67 @@ class Downloader(
 
             // Start downloading images/text, consider we can have downloaded images already
             val isNovel = download.source.isNovelSource()
-            pageList.asFlow().flatMapMerge(
-                concurrency = if (isNovel) 1 else DEFAULT_MANGA_PAGE_CONCURRENCY,
-            ) { page ->
-                flow {
-                    // For novel sources, skip image URL fetching - we'll get text content instead
-                    if (!isNovel && page.imageUrl.isNullOrEmpty()) {
-                        page.status = Page.State.LoadPage
-                        try {
-                            val httpSource = download.source as? HttpSource
-                            if (httpSource != null && page.url.isNotBlank()) {
-                                page.imageUrl = httpSource.getImageUrl(page)
+            // The chapter is only known to be a video chapter after its HTML is in hand, so the first
+            // page's text is fetched up front and reused by whichever branch runs below.
+            val firstPage = pageList.first()
+            val videoDirectives = if (isNovel) {
+                if (!fetchNovelPageText(firstPage, download)) {
+                    throw (firstPage.status as? Page.State.Error)?.error
+                        ?: Exception("Chapter is empty - the source returned no text")
+                }
+                firstPage.text?.let(NovelWebViewChapterDirectives::parse)?.takeIf { it.video != null }
+            } else {
+                null
+            }
+
+            if (videoDirectives != null) {
+                isVideoDownload = true
+                videoChapterDownloader.download(
+                    html = firstPage.text!!,
+                    directives = videoDirectives,
+                    pluginJavaScript = (download.source as? JsSource)?.customJS.orEmpty(),
+                    directory = tmpDir,
+                    baseUrl = videoChapterBaseUrl(download),
+                ) { done, total ->
+                    if (total > 0) firstPage.progress = (done * 100 / total).coerceIn(0, 100)
+                    notifier.onProgressChange(download, done to total.coerceAtLeast(1))
+                }
+                pageList.forEach { page ->
+                    page.progress = 100
+                    page.status = Page.State.Ready
+                }
+            } else {
+                pageList.asFlow().flatMapMerge(
+                    concurrency = if (isNovel) 1 else DEFAULT_MANGA_PAGE_CONCURRENCY,
+                ) { page ->
+                    flow {
+                        // For novel sources, skip image URL fetching - we'll get text content instead
+                        if (!isNovel && page.imageUrl.isNullOrEmpty()) {
+                            page.status = Page.State.LoadPage
+                            try {
+                                val httpSource = download.source as? HttpSource
+                                if (httpSource != null && page.url.isNotBlank()) {
+                                    page.imageUrl = httpSource.getImageUrl(page)
+                                }
+                            } catch (e: Throwable) {
+                                page.status = Page.State.Error(e)
                             }
-                        } catch (e: Throwable) {
-                            page.status = Page.State.Error(e)
+                        }
+
+                        withIOContext { getOrDownloadImage(page, download, tmpDir) }
+                        emit(page)
+                    }
+                        .flowOn(Dispatchers.IO)
+                }
+                    .collect {
+                        // Do when page is downloaded.
+                        if (isNovel) {
+                            notifier.onProgressChange(download, novelChapterProgress(download))
+                        } else {
+                            notifier.onProgressChange(download)
                         }
                     }
-
-                    withIOContext { getOrDownloadImage(page, download, tmpDir) }
-                    emit(page)
-                }
-                    .flowOn(Dispatchers.IO)
             }
-                .collect {
-                    // Do when page is downloaded.
-                    if (isNovel) {
-                        notifier.onProgressChange(download, novelChapterProgress(download))
-                    } else {
-                        notifier.onProgressChange(download)
-                    }
-                }
 
             // Do after download completes
 
@@ -607,7 +644,7 @@ class Downloader(
 
             val manga = getManga.await(download.mangaId)
             val chapter = getChapter.await(download.chapterId)
-            if (manga != null && chapter != null) {
+            if (!isVideoDownload && manga != null && chapter != null) {
                 createComicInfoFile(
                     tmpDir,
                     manga,
@@ -616,7 +653,11 @@ class Downloader(
                 )
             }
 
-            archiveChapter(mangaDir, chapterDirname, tmpDir, isNovel = download.source.isNovelSource())
+            if (isVideoDownload) {
+                check(tmpDir.renameTo(chapterDirname)) { "Failed to finalize video chapter directory" }
+            } else {
+                archiveChapter(mangaDir, chapterDirname, tmpDir, isNovel = download.source.isNovelSource())
+            }
 
             val mangaForCache = manga ?: Manga.create().copy(
                 id = download.mangaId,
@@ -625,12 +666,13 @@ class Downloader(
             )
             cache.addChapter(chapterDirname, mangaDir, mangaForCache)
 
-            DiskUtil.createNoMediaFile(tmpDir, context)
+            if (!isVideoDownload) DiskUtil.createNoMediaFile(tmpDir, context)
 
             download.status = Download.State.DOWNLOADED
 
             // Queue for translation if enabled and is a novel source
-            if (download.source.isNovelSource() &&
+            if (!isVideoDownload &&
+                download.source.isNovelSource() &&
                 translationPreferences.translationEnabled().get() &&
                 translationPreferences.autoTranslateDownloads().get()
             ) {
@@ -644,6 +686,7 @@ class Downloader(
                 }
             }
         } catch (error: Throwable) {
+            if (isVideoDownload) tmpDir.delete()
             if (error is CancellationException) throw error
             // If the page list threw, it will resume here
             logcat(LogPriority.ERROR, error)
@@ -676,23 +719,7 @@ class Downloader(
         logcat { debugMsg }
 
         // If the page has text, save it as a text file
-        if (page.text == null && download.source.isNovelSource()) {
-            logcat { "  -> Fetching novel page text for page ${page.number}" }
-            try {
-                page.text = download.source.fetchPageText(page)
-                logcat { "  -> Fetched text, length=${page.text?.length ?: 0}" }
-            } catch (e: Throwable) {
-                logcat(LogPriority.ERROR, e) { "  -> Error fetching novel page text" }
-                page.status = Page.State.Error(e)
-                return
-            }
-        }
-
-        if (download.source.isNovelSource() && page.text.isNullOrBlank() && page.imageUrl.isNullOrEmpty()) {
-            logcat(LogPriority.ERROR) { "  -> Novel page ${page.number} returned no text; failing download" }
-            page.status = Page.State.Error(Exception("Chapter is empty - the source returned no text"))
-            return
-        }
+        if (download.source.isNovelSource() && !fetchNovelPageText(page, download)) return
 
         if (!page.text.isNullOrBlank()) {
             val digitCount = (download.pages?.size ?: 0).toString().length.coerceAtLeast(3)
@@ -772,6 +799,44 @@ class Downloader(
             page.status = Page.State.Error(e)
             notifier.onError(e.message, download.chapterName, download.mangaTitle, download.mangaId)
         }
+    }
+
+    /**
+     * Base url for the headless download WebView. It must match what the reader uses for the same
+     * chapter: media hosts routinely gate manifests and segments on Referer, and a synthetic origin
+     * makes them answer 400/403 even though the very same url plays fine online.
+     */
+    private suspend fun videoChapterBaseUrl(download: Download): String {
+        val sourceBaseUrl = when (val source = download.source) {
+            is JsSource -> source.baseUrl.takeIf(String::isNotBlank)
+            is HttpSource -> source.baseUrl.takeIf(String::isNotBlank)
+            else -> null
+        }
+        return NovelWebViewChapterMeta.resolveWebViewBaseUrl(
+            chapterUrl = download.chapterUrl,
+            novelUrl = getManga.await(download.mangaId)?.url,
+            sourceBaseUrl = sourceBaseUrl,
+        ) ?: NovelWebViewChapterMeta.READER_DOCUMENT_BASE_URL
+    }
+
+    private suspend fun fetchNovelPageText(page: Page, download: Download): Boolean {
+        if (page.text == null) {
+            logcat { "  -> Fetching novel page text for page ${page.number}" }
+            try {
+                page.text = download.source.fetchPageText(page)
+                logcat { "  -> Fetched text, length=${page.text?.length ?: 0}" }
+            } catch (error: Throwable) {
+                logcat(LogPriority.ERROR, error) { "  -> Error fetching novel page text" }
+                page.status = Page.State.Error(error)
+                return false
+            }
+        }
+        if (page.text.isNullOrBlank() && page.imageUrl.isNullOrEmpty()) {
+            logcat(LogPriority.ERROR) { "  -> Novel page ${page.number} returned no text; failing download" }
+            page.status = Page.State.Error(Exception("Chapter is empty - the source returned no text"))
+            return false
+        }
+        return true
     }
 
     /**

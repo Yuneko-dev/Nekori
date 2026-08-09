@@ -5,11 +5,16 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Tag
 
+internal const val LOCAL_VIDEO_BUTTON_ID = "tsundoku-play-local-video"
+
 internal data class NovelWebViewChapterDirectives(
     val noCache: Boolean = false,
     val video: VideoChapter? = null,
+    val localVideo: String? = null,
     val metadataHtml: String = "",
 ) {
+    val isVideo: Boolean get() = video != null || localVideo != null
+
     companion object {
         fun parse(html: String): NovelWebViewChapterDirectives {
             val document = Jsoup.parse(html)
@@ -18,40 +23,30 @@ internal data class NovelWebViewChapterDirectives(
                 .selectFirst("meta[name=lnreader-chapter-type]")
                 ?.attr("content")
                 ?.equals("video", ignoreCase = true) == true
+            val localVideo = document.metaContent("lnreader-video-local")
+                .takeIf(String::isNotBlank)
+                ?.takeIf { '/' !in it && '\\' !in it }
 
-            val video = if (isVideo) {
-                val mode = if (document.metaContent("lnreader-video-mode").equals("direct", true)) {
-                    VideoChapter.Mode.DIRECT
-                } else {
-                    VideoChapter.Mode.LAZY
-                }
-                val type = when (document.metaContent("lnreader-video-type").lowercase()) {
-                    "m3u8" -> VideoChapter.Type.HLS
-                    "video-file" -> VideoChapter.Type.VIDEO_FILE
-                    "iframe" -> VideoChapter.Type.IFRAME
-                    else -> null
-                }
+            val video = if (isVideo && localVideo == null) {
+                val direct = document.metaContent("lnreader-video-mode").equals("direct", true)
+                val type = document.metaContent("lnreader-video-type").lowercase()
+                val knownType = type in VIDEO_TYPES
                 val url = document.metaContent("lnreader-video-url")
-                    .takeIf { mode != VideoChapter.Mode.DIRECT || type != null }
+                    .takeIf { !direct || knownType }
                     ?.takeIf(String::isNotBlank)
-                    ?.takeIf { type != VideoChapter.Type.IFRAME || it.toHttpUrlOrNull() != null }
+                    ?.takeIf { type != "iframe" || it.toHttpUrlOrNull() != null }
+                if (direct && knownType && url == null) {
+                    document.select("meta[name=lnreader-video-url]").remove()
+                }
 
                 VideoChapter(
-                    mode = mode,
-                    type = type,
-                    url = url,
-                    debug = document.metaContent("lnreader-debug-mode").equals("true", true),
-                    playerType = document.metaContent("lnreader-player-type").takeIf(String::isNotBlank),
+                    directIframe = direct && type == "iframe",
                     disableProgress = document.selectFirst("meta#lnreader-video-disable-progress") != null,
                 )
             } else {
                 null
             }
-
             val metadata = document.select(RECOGNIZED_META_SELECTOR)
-            if (video?.mode == VideoChapter.Mode.DIRECT && video.type != null && video.url == null) {
-                metadata.removeIf { it.attr("name").equals("lnreader-video-url", ignoreCase = true) }
-            }
             val metadataHtml = metadata.joinToString("\n") { element ->
                 Element(Tag.valueOf("meta"), "").apply {
                     element.id().takeIf(String::isNotBlank)?.let { attr("id", it) }
@@ -63,6 +58,7 @@ internal data class NovelWebViewChapterDirectives(
             return NovelWebViewChapterDirectives(
                 noCache = noCache,
                 video = video,
+                localVideo = localVideo,
                 metadataHtml = metadataHtml,
             )
         }
@@ -72,22 +68,16 @@ internal data class NovelWebViewChapterDirectives(
                 "meta#lnreader-video-disable-progress, " +
                 "meta[name=lnreader-chapter-type], meta[name=lnreader-video-mode], " +
                 "meta[name=lnreader-video-type], meta[name=lnreader-video-url], " +
-                "meta[name=lnreader-debug-mode], meta[name=lnreader-player-type]"
+                "meta[name=lnreader-debug-mode], meta[name=lnreader-player-type], " +
+                "meta[name=lnreader-video-local]"
+        private val VIDEO_TYPES = setOf("m3u8", "video-file", "iframe")
     }
 }
 
 internal data class VideoChapter(
-    val mode: Mode,
-    val type: Type?,
-    val url: String?,
-    val debug: Boolean,
-    val playerType: String?,
-    val disableProgress: Boolean,
-) {
-    enum class Mode { DIRECT, LAZY }
-
-    enum class Type { HLS, VIDEO_FILE, IFRAME }
-}
+    val directIframe: Boolean = false,
+    val disableProgress: Boolean = false,
+)
 
 private fun org.jsoup.nodes.Document.metaContent(name: String): String =
     selectFirst("meta[name=$name]")?.attr("content").orEmpty().trim()

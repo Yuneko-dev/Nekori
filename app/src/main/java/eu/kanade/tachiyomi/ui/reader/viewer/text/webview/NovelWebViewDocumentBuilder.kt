@@ -112,7 +112,19 @@ internal object NovelWebViewDocumentBuilder {
         } else {
             ""
         }
-
+        val localVideoScript = if (input.chapterDirectives.localVideo != null) {
+            """
+                <script>
+                    document.getElementById('$LOCAL_VIDEO_BUTTON_ID')?.addEventListener('click', function(event) {
+                        event.stopPropagation();
+                        Android.suppressReaderGestures();
+                        Android.playLocalVideo();
+                    });
+                </script>
+            """.trimIndent()
+        } else {
+            ""
+        }
         return """
             <!DOCTYPE html>
             <html>
@@ -137,7 +149,8 @@ internal object NovelWebViewDocumentBuilder {
                 <script id="lnreader-compat-config" type="application/json">${input.compatConfigJson}</script>
                 <script src="$ASSET_ROOT/lnreader-compat.js"></script>
                 $videoAssets
-                ${if (pluginScript.isBlank()) "" else "<script>$pluginScript</script>"}
+                $localVideoScript
+                ${if (pluginScript.isNotBlank() && input.chapterDirectives.localVideo == null) "<script>$pluginScript</script>" else ""}
             </body>
             </html>
         """.trimIndent()

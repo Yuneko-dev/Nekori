@@ -16,8 +16,11 @@ object HtmlUtils {
     private val frontMatterRegex = Regex("^\\uFEFF?---\\s*\\r?\\n([\\s\\S]*?)\\r?\\n---\\s*(\\r?\\n|$)")
     private const val CHAPTER_TITLE_SEARCH_LIMIT = 3000
 
+    // meta is here because a video chapter's body can be nothing but directive meta tags. Those
+    // carry no closing tag, so without it such a chapter is classified as plain text and the markup
+    // is escaped and shown to the reader verbatim instead of being parsed and rendering nothing.
     private val htmlTagRegex = Regex(
-        "<\\s*(html|head|body|div|p|span|br|h[1-6]|img|a|table|ul|ol|li|blockquote|article|section|!doctype)\\b",
+        "<\\s*(html|head|body|div|p|span|br|h[1-6]|img|a|table|ul|ol|li|blockquote|article|section|meta|!doctype)\\b",
         RegexOption.IGNORE_CASE,
     )
     private val closingTagRegex = Regex("</\\s*[a-z][a-z0-9:-]*\\s*>", RegexOption.IGNORE_CASE)

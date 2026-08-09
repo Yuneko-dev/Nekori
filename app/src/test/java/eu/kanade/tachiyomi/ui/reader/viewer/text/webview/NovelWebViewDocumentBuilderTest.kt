@@ -209,15 +209,13 @@ class NovelWebViewDocumentBuilderTest {
         val videoHtml = NovelWebViewDocumentBuilder.assemble(
             minimalInput().copy(
                 chapterDirectives = NovelWebViewChapterDirectives(
-                    video = VideoChapter(
-                        mode = VideoChapter.Mode.LAZY,
-                        type = null,
-                        url = null,
-                        debug = false,
-                        playerType = null,
-                        disableProgress = false,
-                    ),
+                    video = VideoChapter(),
                 ),
+            ),
+        )
+        val localVideoHtml = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(
+                chapterDirectives = NovelWebViewChapterDirectives(localVideo = "video.mp4"),
             ),
         )
 
@@ -225,5 +223,7 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(videoHtml.contains("hls.min.js"))
         assertTrue(videoHtml.contains("core-player.js"))
         assertTrue(videoHtml.contains("core-player.css"))
+        assertFalse(localVideoHtml.contains("core-player.js"))
+        assertTrue(localVideoHtml.contains("Android.playLocalVideo()"))
     }
 }
