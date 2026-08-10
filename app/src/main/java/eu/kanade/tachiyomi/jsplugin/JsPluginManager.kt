@@ -73,14 +73,15 @@ class JsPluginManager(
          * [engine] wins on everything the plugin declares about itself, because that code is what
          * actually runs while a listing is a catalogue entry that can describe a version which was
          * never installed. Where to download the plugin from, its icon, which repository it came
-         * from and the local names of its custom assets are not the code's to declare, so those
-         * survive from [stored].
+         * from, its language and the local names of its custom assets are not the code's to
+         * declare, so those survive from [stored].
          */
         internal fun mergePluginMetadata(engine: JsPlugin, stored: JsPlugin?): JsPlugin {
             stored ?: return engine
             return engine.copy(
                 url = stored.url,
                 iconUrl = stored.iconUrl,
+                lang = stored.lang,
                 customCSS = stored.customCSS,
                 customJS = stored.customJS,
                 customCSSFile = stored.customCSSFile,
@@ -273,7 +274,7 @@ class JsPluginManager(
             // therefore leaves the previous plugin and its custom assets usable.
             val code = downloadText(plugin.url)
             require(code.isNotBlank()) { "Downloaded plugin code is empty" }
-            val engineMetadata = inspectBackupPlugin(code, plugin.id)
+            val engineMetadata = inspectPlugin(code, plugin.id, validateId = true)
             if (engineMetadata.version != plugin.version) {
                 // Not a failure. The listing is a catalogue entry; the code is the thing being
                 // installed, so it decides what this plugin now is.
@@ -388,7 +389,7 @@ class JsPluginManager(
     }
 
     suspend fun installPluginFromBackup(
-        metadata: JsPlugin?,
+        plugin: JsPlugin,
         code: String,
         customJs: String?,
         customCss: String?,
@@ -396,7 +397,6 @@ class JsPluginManager(
     ): BackupPluginInstallResult = withContext(Dispatchers.IO) {
         pluginMutationMutex.withLock {
             require(code.isNotBlank()) { "Plugin code is empty" }
-            val plugin = metadata ?: inspectBackupPlugin(code)
             require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
 
             val existing = _installedPlugins.value.find { it.plugin.id == plugin.id }
@@ -490,13 +490,17 @@ class JsPluginManager(
      * running source is working with, and an install that fails afterwards leaves that context as
      * it was.
      */
-    suspend fun inspectBackupPlugin(code: String, fallbackId: String = "backup-plugin"): JsPlugin {
-        val runtimeKey = "inspect:$fallbackId:${System.nanoTime()}"
+    suspend fun inspectBackupPlugin(code: String, fallbackId: String): JsPlugin {
+        return inspectPlugin(code, fallbackId, validateId = false)
+    }
+
+    private suspend fun inspectPlugin(code: String, pluginId: String, validateId: Boolean): JsPlugin {
+        val runtimeKey = "inspect:$pluginId:${System.nanoTime()}"
         return try {
-            loadPluginMetadata(fallbackId, code, runtimeKey)
+            loadPluginMetadata(pluginId, code, runtimeKey, validateId)
         } finally {
             val unloadPayload = buildJsonObject {
-                put("id", fallbackId)
+                put("id", pluginId)
                 put("key", runtimeKey)
             }
             runCatching { hermesRuntime.call("plugin.unload", json.encodeToString(unloadPayload)) }
@@ -504,11 +508,17 @@ class JsPluginManager(
     }
 
     /** Loads [code] into the runtime under [runtimeKey] and returns what it reports about itself. */
-    private suspend fun loadPluginMetadata(pluginId: String, code: String, runtimeKey: String): JsPlugin {
+    private suspend fun loadPluginMetadata(
+        pluginId: String,
+        code: String,
+        runtimeKey: String,
+        validateId: Boolean = true,
+    ): JsPlugin {
         val payload = buildJsonObject {
             put("id", pluginId)
             put("key", runtimeKey)
             put("code", code)
+            put("validateId", validateId)
         }
         return json.decodeFromString<JsPlugin>(hermesRuntime.call("plugin.load", json.encodeToString(payload)))
             .let { it.copy(id = it.id.ifBlank { pluginId }, name = it.name.ifBlank { pluginId }) }

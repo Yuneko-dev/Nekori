@@ -170,6 +170,35 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun inspectingAPluginDoesNotRequireKnowingItsId() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'actual.test',
+              name: 'Inspection test',
+              version: '1',
+              site: 'https://example.invalid',
+            };
+        """.trimIndent()
+
+        val inspected = runtime.call(
+            "plugin.load",
+            """{"id":"unknown.test","validateId":false,"code":${quote(code)}}""",
+        )
+        assertEquals("actual.test", Json.parseToJsonElement(inspected).jsonObject["id"]?.jsonPrimitive?.content)
+
+        try {
+            runtime.call(
+                "plugin.load",
+                """{"id":"unknown.test","key":"strict.test","code":${quote(code)}}""",
+            )
+            fail("normal plugin loads must still reject a mismatched id")
+        } catch (error: JsRuntimeException) {
+            assertTrue(error.message.orEmpty(), error.message.orEmpty().contains("Plugin id mismatch"))
+        }
+    }
+
+    @Test
     fun missingParsePageFailsWithTheOptionalMethodContract() = runBlocking {
         val runtime = createRuntime()
         val code = """

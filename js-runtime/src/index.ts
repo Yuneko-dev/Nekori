@@ -95,12 +95,21 @@ registerHandler('secureRandom.sample', args => {
 // authority on that. A repository index entry is a catalogue listing: it can be stale, or describe
 // a version that was never the one written to disk.
 registerHandler('plugin.load', async args => {
-  const { id, code, key } = args as { id: string; code: string; key?: string };
-  const plugin = await initPlugin(id, code, key);
+  const {
+    id,
+    code,
+    key,
+    validateId = true,
+  } = args as {
+    id: string;
+    code: string;
+    key?: string;
+    validateId?: boolean;
+  };
+  const plugin = await initPlugin(id, code, key, validateId);
   return {
     id: plugin.id,
     name: plugin.name,
-    lang: plugin.lang,
     version: plugin.version,
     site: plugin.site,
     contentWarning: plugin.contentWarning ?? PluginContentWarning.UNSPECIFIED,

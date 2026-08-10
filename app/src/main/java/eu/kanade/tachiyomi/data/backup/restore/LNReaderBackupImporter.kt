@@ -715,7 +715,7 @@ class LNReaderBackupImporter(
                 resolvedMetadata[normalizePluginId(exactMetadata.id)] = exactMetadata
                 if (install) {
                     val result = jsPluginManager.installPluginFromBackup(
-                        metadata = exactMetadata,
+                        plugin = exactMetadata,
                         code = code,
                         customJs = files.customJs,
                         customCss = files.customCss,

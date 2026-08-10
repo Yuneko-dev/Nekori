@@ -31,7 +31,6 @@ class JsPluginManagerTest {
             id = "acme",
             name = "Acme",
             site = "https://acme.example",
-            lang = "Français",
             version = "1.0.0",
         )
 
@@ -39,7 +38,7 @@ class JsPluginManagerTest {
 
         assertEquals("1.0.0", merged.version)
         assertEquals("Acme", merged.name)
-        assertEquals("Français", merged.lang)
+        assertEquals("English", merged.lang)
         assertEquals("https://acme.example", merged.site)
         // Not the code's to declare, so the listing keeps these.
         assertEquals("https://repo.example/acme.js", merged.url)

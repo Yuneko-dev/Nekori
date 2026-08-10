@@ -8,15 +8,15 @@ import java.net.URI
  * Maps directly to the plugin index JSON format.
  *
  * Also decoded straight from what `plugin.load` reports, which is the authority on the fields the
- * code owns. That answer carries no [url] or [iconUrl] - where to download a plugin from and what
- * icon to show it with belong to the repository listing, not to the plugin - hence their defaults.
+ * code owns. That answer carries no [lang], [url] or [iconUrl] because those fields belong to the
+ * repository listing, hence their defaults.
  */
 @Serializable
 data class JsPlugin(
     val id: String,
     val name: String,
     val site: String,
-    val lang: String,
+    val lang: String = "",
     val version: String,
     val url: String = "",
     val iconUrl: String = "",

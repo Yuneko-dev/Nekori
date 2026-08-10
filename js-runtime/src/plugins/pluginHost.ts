@@ -147,6 +147,7 @@ export async function initPlugin(
   pluginId: string,
   rawCode: string,
   runtimeKey: string = pluginId,
+  validateId: boolean = true,
 ): Promise<Plugin> {
   await hydratePluginStorage(pluginId, runtimeKey);
   try {
@@ -163,7 +164,7 @@ export async function initPlugin(
     if (!plugin) {
       throw new Error(`Plugin "${pluginId}" evaluated but exported no default`);
     }
-    if (plugin.id !== pluginId) {
+    if (validateId && plugin.id !== pluginId) {
       throw new Error(
         `Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`,
       );

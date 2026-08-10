@@ -1,11 +1,21 @@
 package eu.kanade.tachiyomi.jsplugin.model
 
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class JsPluginModelTest {
+
+    @Test
+    fun `runtime metadata does not invent a repository language`() {
+        val plugin = Json.decodeFromString<JsPlugin>(
+            """{"id":"example","name":"Example","site":"https://example.com","version":"1.0.0"}""",
+        )
+
+        assertEquals("", plugin.lang)
+    }
 
     @Test
     fun `repository name uses GitHub owner and repository`() {

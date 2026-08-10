@@ -132,8 +132,8 @@ export interface ImageRequestInit {
   body?: string;
 }
 
-export interface Plugin extends PluginItem {
-  imageRequestInit: ImageRequestInit;
+export interface Plugin extends Omit<PluginItem, 'lang'> {
+  imageRequestInit?: ImageRequestInit;
   filters?: Filters;
   pluginSettings?: PluginSettings;
   popularNovels: (
