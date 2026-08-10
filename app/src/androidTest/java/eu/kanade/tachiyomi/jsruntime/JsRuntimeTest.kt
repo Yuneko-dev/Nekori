@@ -24,7 +24,7 @@ class JsRuntimeTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val networkHelper by lazy { Injekt.get<NetworkHelper>() }
-    private val networkClient by lazy { networkHelper.client }
+    private val networkClient by lazy { networkHelper.jsPluginClient }
 
     private fun createRuntime() =
         JsRuntime(context, networkClient, networkHelper::defaultUserAgentProvider)

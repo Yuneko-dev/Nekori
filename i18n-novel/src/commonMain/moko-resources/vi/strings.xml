@@ -241,6 +241,8 @@
     <string name="pref_novel_request_throttling_category">Điều tiết yêu cầu</string>
     <string name="pref_novel_request_throttling">Bật điều tiết</string>
     <string name="pref_novel_request_throttling_summary">Thêm khoảng chờ giữa các yêu cầu đến nguồn để tránh bị giới hạn tần suất</string>
+    <string name="pref_novel_request_throttling_js_only">Chỉ áp dụng với JS Plugin</string>
+    <string name="pref_novel_request_throttling_js_only_summary">Chỉ điều tiết các yêu cầu do plugin tự gửi. Mọi thứ khác của ứng dụng — ảnh bìa, theo dõi, dịch, kho plugin — vẫn chạy hết tốc độ.</string>
     <string name="pref_novel_request_permits">Số yêu cầu trước khi chờ</string>
     <string name="pref_novel_request_permits_summary">Số yêu cầu đến nguồn có thể thực hiện nhanh trước khi áp dụng thời gian chờ. 1 sẽ giãn cách từng yêu cầu; số lớn hơn cho phép một vài yêu cầu (ví dụ mỗi chương một yêu cầu) trước khi tạm dừng.</string>
     <string name="pref_novel_request_delay">Thời gian chờ yêu cầu</string>

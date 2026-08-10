@@ -280,6 +280,12 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     title = stringResource(TDMR.strings.pref_novel_request_throttling),
                     subtitle = stringResource(TDMR.strings.pref_novel_request_throttling_summary),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.throttleJsPluginOnly(),
+                    title = stringResource(TDMR.strings.pref_novel_request_throttling_js_only),
+                    subtitle = stringResource(TDMR.strings.pref_novel_request_throttling_js_only_summary),
+                    enabled = enabled,
+                ),
                 Preference.PreferenceItem.SliderPreference(
                     value = requestPermits,
                     valueRange = 1..20,

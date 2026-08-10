@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network
 import android.content.Context
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.PerHostDynamicRateLimitInterceptor
+import eu.kanade.tachiyomi.network.interceptor.markJsPluginOrigin
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import okhttp3.Cache
@@ -72,6 +73,13 @@ class NetworkHelper(
             CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider),
         )
         .build()
+
+    /**
+     * The client the JS runtime hands to React Native's networking, so plugin `fetch` traffic is
+     * distinguishable from the app's own requests to the same hosts (see [markJsPluginOrigin]).
+     * Derived from [client], so it shares its connection pool, cache, cookie jar and interceptors.
+     */
+    val jsPluginClient: OkHttpClient = client.markJsPluginOrigin()
 
     /**
      * @deprecated Since extension-lib 1.5

@@ -44,6 +44,10 @@ class PerHostDynamicRateLimitInterceptor : Interceptor {
         val request = chain.request()
         val host = request.url.host.normalizedRateLimitHost()
 
+        // Throttling scoped to plugin JavaScript: anything the app itself sends through the shared
+        // client is left alone, even on a host a source claims.
+        if (policy.jsPluginOnly() && !request.isJsPluginOrigin) return chain.proceed(request)
+
         if (InteractiveRateLimitBypass.isBypassed(host) && !BackgroundRateLimitGuard.isActive(host)) {
             return chain.proceed(request)
         }

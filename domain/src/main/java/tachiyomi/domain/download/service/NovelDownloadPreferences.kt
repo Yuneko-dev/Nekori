@@ -63,6 +63,17 @@ class NovelDownloadPreferences(
     )
 
     /**
+     * Restrict throttling to requests issued by plugin JavaScript (a `fetch` inside Hermes).
+     * The JS runtime shares the app's single HTTP client, so without this every consumer of that
+     * client - covers, trackers, translations, the plugin repo - is paced too. Off by default:
+     * pacing everything is the conservative behavior.
+     */
+    fun throttleJsPluginOnly() = preferenceStore.getBoolean(
+        "novel_request_throttling_js_plugin_only",
+        false,
+    )
+
+    /**
      * Base delay between requests to the same source (in milliseconds)
      */
     fun requestDelay() = preferenceStore.getInt(

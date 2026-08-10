@@ -82,4 +82,10 @@ class RateLimitResolver(
 
     /** Whether the user currently has request throttling enabled at all. */
     fun isThrottlingEnabled(): Boolean = prefs.enableRequestThrottling().get()
+
+    /**
+     * Whether throttling is scoped to plugin JavaScript requests only. Only meaningful while
+     * throttling is on at all - with the toggle off nothing is paced either way.
+     */
+    fun isJsPluginOnly(): Boolean = prefs.throttleJsPluginOnly().get()
 }

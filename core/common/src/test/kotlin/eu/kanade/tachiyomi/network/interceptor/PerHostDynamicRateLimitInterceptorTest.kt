@@ -36,9 +36,15 @@ class PerHostDynamicRateLimitInterceptorTest {
     companion object {
         private val specs = mutableMapOf<String, RateLimitSpec>()
 
+        @Volatile
+        private var jsPluginOnlyFlag = false
+
         init {
             Injekt.addSingletonFactory<RequestRateLimitPolicy> {
-                RequestRateLimitPolicy { host -> specs[host] ?: RateLimitSpec.NONE }
+                object : RequestRateLimitPolicy {
+                    override fun specFor(host: String) = specs[host] ?: RateLimitSpec.NONE
+                    override fun jsPluginOnly() = jsPluginOnlyFlag
+                }
             }
         }
     }
@@ -46,6 +52,7 @@ class PerHostDynamicRateLimitInterceptorTest {
     @BeforeEach
     fun setUp() {
         specs.clear()
+        jsPluginOnlyFlag = false
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } returns 0L
     }
@@ -55,8 +62,15 @@ class PerHostDynamicRateLimitInterceptorTest {
         unmockkStatic(SystemClock::class)
     }
 
-    private fun fakeChain(url: String, isCanceled: () -> Boolean = { false }): Interceptor.Chain {
-        val request = Request.Builder().url(url).build()
+    private fun fakeChain(
+        url: String,
+        isCanceled: () -> Boolean = { false },
+        fromJsPlugin: Boolean = false,
+    ): Interceptor.Chain {
+        val request = Request.Builder()
+            .url(url)
+            .apply { if (fromJsPlugin) tag(JsPluginOrigin::class.java, JsPluginOrigin) }
+            .build()
         val response = Response.Builder()
             .request(request)
             .protocol(Protocol.HTTP_1_1)
@@ -102,6 +116,28 @@ class PerHostDynamicRateLimitInterceptorTest {
         (e1 < 60L) shouldBe true
         // Threshold leaves slack below the configured 100ms for OS scheduling jitter.
         (e2 >= 60L) shouldBe true
+    }
+
+    @Test
+    fun `with js-plugin-only on, app requests skip pacing while plugin requests still pay it`() {
+        val interceptor = PerHostDynamicRateLimitInterceptor()
+        specs["example.com"] = RateLimitSpec(delayMillis = 200L)
+        jsPluginOnlyFlag = true
+
+        // Chains are built up front: creating a mock costs more wall-clock time than the pacing
+        // being measured here.
+        val appChains = List(3) { fakeChain("https://example.com/app$it") }
+        val jsChain = fakeChain("https://example.com/js2", fromJsPlugin = true)
+
+        // Untagged (app-issued) requests never take a slot and never wait, however many there are.
+        val appElapsed = measureMillis { appChains.forEach { interceptor.intercept(it) } }
+
+        // A plugin-issued request still fills the single permit, and the next one waits it out.
+        interceptor.intercept(fakeChain("https://example.com/js1", fromJsPlugin = true))
+        val jsElapsed = measureMillis { interceptor.intercept(jsChain) }
+
+        (appElapsed < 100L) shouldBe true
+        (jsElapsed >= 100L) shouldBe true
     }
 
     @Test

@@ -19,7 +19,7 @@ import java.net.ServerSocket
 class JsRuntimeProductionNetworkTest {
 
     private val networkHelper by lazy { Injekt.get<NetworkHelper>() }
-    private val networkClient by lazy { networkHelper.client }
+    private val networkClient by lazy { networkHelper.jsPluginClient }
     private val runtime by lazy { Injekt.get<JsRuntime>() }
 
     @Test

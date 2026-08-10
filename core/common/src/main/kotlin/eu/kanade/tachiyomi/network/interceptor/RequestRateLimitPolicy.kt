@@ -9,4 +9,11 @@ package eu.kanade.tachiyomi.network.interceptor
 fun interface RequestRateLimitPolicy {
     /** Rate-limit spec for [host]; [RateLimitSpec.NONE] means no throttling. */
     fun specFor(host: String): RateLimitSpec
+
+    /**
+     * Whether pacing applies only to requests issued by plugin JavaScript (see [JsPluginOrigin]).
+     * When true, everything else the app sends through the shared client - covers, trackers,
+     * translations, the plugin repo itself - goes out unpaced regardless of [specFor].
+     */
+    fun jsPluginOnly(): Boolean = false
 }
