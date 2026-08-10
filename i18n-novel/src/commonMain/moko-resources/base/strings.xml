@@ -270,6 +270,8 @@
 
     <string name="pref_novel_deflate_level">Deflate level %d</string>
     <string name="pref_novel_parallel_downloads">Parallel novel downloads</string>
+    <string name="pref_novel_auto_convert_videos">Automatically convert downloaded videos</string>
+    <string name="pref_novel_auto_convert_videos_summary">Turn off to keep the downloaded file unchanged. Turn on to remux it to MP4 or transcode when needed.</string>
     <string name="pref_novel_resume_queue_on_new">Resume queue on new chapters</string>
     <string name="pref_novel_resume_queue_on_new_summary">Automatically resume paused download queue when new chapters are added</string>
     <string name="pref_novel_compression_level">ZIP compression level</string>

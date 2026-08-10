@@ -16,7 +16,7 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
 
-/** Rewraps supported MPEG-TS streams as MP4 without re-encoding. */
+/** Converts MPEG-TS to MP4, transmuxing compatible tracks and transcoding only when required. */
 @OptIn(UnstableApi::class)
 internal object TsToMp4Remuxer {
 

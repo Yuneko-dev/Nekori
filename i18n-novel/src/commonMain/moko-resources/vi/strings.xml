@@ -265,6 +265,8 @@
 
     <string name="pref_novel_deflate_level">Mức nén deflate %d</string>
     <string name="pref_novel_parallel_downloads">Tải tiểu thuyết song song</string>
+    <string name="pref_novel_auto_convert_videos">Tự động chuyển đổi video tải xuống</string>
+    <string name="pref_novel_auto_convert_videos_summary">Tắt để giữ nguyên tệp tải xuống. Bật để remux sang MP4 hoặc tự chuyển mã khi cần.</string>
     <string name="pref_novel_resume_queue_on_new">Tiếp tục hàng đợi khi có chương mới</string>
     <string name="pref_novel_resume_queue_on_new_summary">Tự động tiếp tục hàng đợi tải đã tạm dừng khi thêm chương mới</string>
     <string name="pref_novel_compression_level">Mức nén ZIP</string>

@@ -21,6 +21,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
 internal class VideoChapterDownloader(
     context: Context,
     private val client: OkHttpClient = Injekt.get<NetworkHelper>().client,
+    private val downloadPreferences: NovelDownloadPreferences = Injekt.get(),
 ) {
     private val context = context.applicationContext
 
@@ -165,10 +167,12 @@ internal class VideoChapterDownloader(
         """.trimIndent()
     }
 
-    /** Best-effort TS-to-MP4 remux; unsupported streams remain playable `.ts` files. */
+    /** Best-effort TS-to-MP4 conversion; disabled or failed conversions keep the raw `.ts`. */
     private suspend fun finalizeVideo(videoFile: UniFile, directory: UniFile): String {
         val fileName = requireNotNull(videoFile.name)
-        if (!fileName.endsWith(".ts", ignoreCase = true)) return fileName
+        if (!fileName.endsWith(".ts", ignoreCase = true) || !downloadPreferences.autoConvertDownloadedVideos().get()) {
+            return fileName
+        }
 
         val targetName = fileName.substringBeforeLast('.') + ".mp4"
         val remuxed = withContext(Dispatchers.IO) {
