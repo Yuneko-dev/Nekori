@@ -18,7 +18,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -123,11 +126,17 @@ class DownloadCache(
             .onEach { invalidateCache() }
             .launchIn(scope)
 
-        // Sources can be loaded asynchronously after app startup (notably JS/custom sources).
-        // Rebuild the cache when the source list changes so those entries get indexed too.
-        sourceManager.sources.map { it.filterIsInstance<CatalogueSource>() }
-            .onEach { invalidateCache() }
-            .launchIn(scope)
+        scope.launch {
+            sourceManager.isInitialized.first { it }
+            sourceManager.sources
+                .map { sources ->
+                    sources.filterIsInstance<CatalogueSource>()
+                        .associate { it.id to provider.getSourceDirName(it).lowercase() }
+                }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { invalidateCache() }
+        }
     }
 
     /**
