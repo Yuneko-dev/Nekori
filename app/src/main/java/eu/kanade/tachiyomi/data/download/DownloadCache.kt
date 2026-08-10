@@ -18,13 +18,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -103,9 +99,16 @@ class DownloadCache(
     private val rootDownloadsDirMutex = Mutex()
     private var rootDownloadsDir = RootDirectory(storageManager.getDownloadsDirectory())
 
+    /**
+     * Reads the persisted index. Anything that resets or rebuilds the cache has to wait for this
+     * first: it writes both [rootDownloadsDir] and [lastRenew], so letting it land afterwards would
+     * resurrect the state that was just cleared.
+     */
+    private val diskLoadJob: Job
+
     init {
         // Attempt to read cache file
-        scope.launch {
+        diskLoadJob = scope.launch {
             rootDownloadsDirMutex.withLock {
                 try {
                     if (diskCacheFile.exists()) {
@@ -126,17 +129,11 @@ class DownloadCache(
             .onEach { invalidateCache() }
             .launchIn(scope)
 
-        scope.launch {
-            sourceManager.isInitialized.first { it }
-            sourceManager.sources
-                .map { sources ->
-                    sources.filterIsInstance<CatalogueSource>()
-                        .associate { it.id to provider.getSourceDirName(it).lowercase() }
-                }
-                .distinctUntilChanged()
-                .drop(1)
-                .collect { invalidateCache() }
-        }
+        // Deliberately no listener on the source list. Sources settling during startup is not a
+        // change worth re-indexing for: [renewCache] already waits for them before it builds a
+        // source map, and a source that is uninstalled later still maps to its download directory
+        // through its StubSource. Invalidating on every emission is what made each cold start
+        // delete the index and rescan the whole downloads tree.
     }
 
     /**
@@ -216,9 +213,11 @@ class DownloadCache(
      */
     suspend fun awaitReady(): Boolean {
         renewCache()
-        val job = renewalJob
-        job?.join()
-        return job?.isCancelled != true
+        renewalJob?.join()
+        // lastRenew is only set once an index has actually been published, whether by this scan, an
+        // earlier one, or the persisted cache. A scan that was cancelled, timed out, or gave up
+        // because the sources had not loaded leaves it at zero.
+        return lastRenew != 0L
     }
 
     /**
@@ -385,12 +384,17 @@ class DownloadCache(
     }
 
     fun invalidateCache() {
-        lastRenew = 0L
         val jobToCancel = renewalJob
         renewalJob = null
-        diskCacheFile.delete()
         scope.launchIO {
+            // Every one of these writes state this invalidation is about to reset - the disk load
+            // writes lastRenew, the scan publishes an index, the pending writer recreates the file
+            // a second after it was deleted. Let them all settle before clearing anything.
+            diskLoadJob.join()
             jobToCancel?.cancelAndJoin()
+            updateDiskCacheJob?.cancelAndJoin()
+            lastRenew = 0L
+            diskCacheFile.delete()
             renewCache()
         }
     }
@@ -404,17 +408,34 @@ class DownloadCache(
             return
         }
 
+        var published = false
         renewalJob = scope.launchIO {
-            if (lastRenew == 0L) {
-                _isInitializing.emit(true)
+            // The persisted index also sets lastRenew, so scanning before it lands would re-index a
+            // tree that is already indexed.
+            diskLoadJob.join()
+            if (lastRenew + renewInterval >= System.currentTimeMillis()) {
+                return@launchIO
             }
 
             // Wait until the JS/local novel source topology has loaded.
-            var sources = emptyList<Source>()
-            withTimeoutOrNull(30.seconds) {
+            val sources = withTimeoutOrNull(30.seconds) {
                 sourceManager.isInitialized.first { it }
 
-                sources = getSources()
+                getSources()
+            }
+
+            // An empty source map matches no download directory, so publishing it would index
+            // nothing, mark that nothing fresh for renewInterval and persist it - every chapter
+            // reads as not downloaded until the cache expires, across cold starts. The local novel
+            // source is always registered, so an empty list only ever means "sources not loaded".
+            // Keep the previous index and let the next caller retry instead.
+            if (sources.isNullOrEmpty()) {
+                logcat(LogPriority.WARN) { "DownloadCache: sources unavailable, keeping previous index" }
+                return@launchIO
+            }
+
+            if (lastRenew == 0L) {
+                _isInitializing.emit(true)
             }
 
             val sourceMap = sources.associate { provider.getSourceDirName(it).lowercase() to it.id }
@@ -460,25 +481,28 @@ class DownloadCache(
                     .awaitAll()
 
                 rootDownloadsDir = updatedRootDir
+                published = true
             }
-
-            _isInitializing.emit(false)
         }.also {
             it.invokeOnCompletion(onCancelling = true) { exception ->
                 if (exception != null && exception !is CancellationException) {
                     logcat(LogPriority.ERROR, exception) { "DownloadCache: failed to create cache" }
                 }
-                lastRenew = if (exception is CancellationException) {
-                    0L
+                // Covers cancellation too, which would otherwise leave the banner up for good.
+                _isInitializing.value = false
+                if (published) {
+                    lastRenew = System.currentTimeMillis()
+                    notifyChanges()
                 } else {
-                    System.currentTimeMillis()
+                    // Cancelled, timed out, or the sources never loaded. Nothing new was published,
+                    // so the index must not be marked fresh and must not be written to disk.
+                    notifyObservers()
                 }
-                notifyChanges()
             }
         }
 
         // Mainly to notify the indexing notifier UI
-        notifyChanges()
+        notifyObservers()
     }
 
     private fun getSources(): List<Source> {
@@ -488,11 +512,23 @@ class DownloadCache(
         return catalogueSources + offlineStubSources
     }
 
+    /**
+     * Publishes an index change: wakes observers and persists the result.
+     *
+     * Only call this once the in-memory index actually holds a new state. Persisting on a merely
+     * scheduled or cancelled scan writes the pre-scan index back out - and a write scheduled that
+     * way lands a second later, recreating the file an invalidation had just deleted.
+     */
     private fun notifyChanges() {
+        notifyObservers()
+        updateDiskCache()
+    }
+
+    /** Wakes observers without touching the persisted index. */
+    private fun notifyObservers() {
         scope.launchNonCancellable {
             _changes.send(Unit)
         }
-        updateDiskCache()
     }
 
     private var updateDiskCacheJob: Job? = null

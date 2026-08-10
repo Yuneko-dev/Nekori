@@ -756,16 +756,22 @@ class JsPluginManager(
                     }
                 }
 
-                val verifiedPlugins = reconcileInstalledPluginVersions(plugins)
-                _installedPlugins.value = verifiedPlugins
+                _installedPlugins.value = plugins
                 cleanupCustomAssets(dir)
                 rebuildSources()
 
-                logcat(LogPriority.INFO) { "Loaded ${verifiedPlugins.size} installed JS plugins" }
+                logcat(LogPriority.INFO) { "Loaded ${plugins.size} installed JS plugins" }
             } finally {
                 // Unblock startup consumers waiting for the first JS source scan.
                 _isInitialized.value = true
             }
+
+            // Version reconciliation runs Hermes once per plugin, so it stays off the startup path:
+            // consumers gated on isInitialized (SourceManager, and through it DownloadCache's index
+            // rebuild) would otherwise wait for the JS runtime to boot and answer. Nothing they need
+            // depends on it - a source's id and download directory come from its name and language,
+            // never from its version.
+            reconcileInstalledPluginVersions()
         }
     }
 
@@ -791,7 +797,29 @@ class JsPluginManager(
         )
     }
 
-    private suspend fun reconcileInstalledPluginVersions(plugins: List<InstalledJsPlugin>): List<InstalledJsPlugin> {
+    /**
+     * Corrects installed plugins whose metadata version disagrees with the version their code
+     * reports. Runs after startup, so it merges its result instead of overwriting: a plugin
+     * installed or removed meanwhile must not be resurrected or dropped.
+     */
+    private suspend fun reconcileInstalledPluginVersions() {
+        val verified = reconcilePluginVersions(_installedPlugins.value)
+        var changed = false
+        _installedPlugins.update { current ->
+            current.map { installed ->
+                val fixed = verified.firstOrNull { it.plugin.id == installed.plugin.id }
+                if (fixed != null && fixed !== installed && fixed.code == installed.code) {
+                    changed = true
+                    fixed
+                } else {
+                    installed
+                }
+            }
+        }
+        if (changed) rebuildSources()
+    }
+
+    private suspend fun reconcilePluginVersions(plugins: List<InstalledJsPlugin>): List<InstalledJsPlugin> {
         return plugins.map { installedPlugin ->
             val codeVersion = runCatching {
                 inspectBackupPlugin(installedPlugin.code, installedPlugin.plugin.id).version
