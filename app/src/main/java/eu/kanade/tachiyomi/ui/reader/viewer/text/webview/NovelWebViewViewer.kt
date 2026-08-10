@@ -1347,7 +1347,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val page = currentPage ?: return
         val chapter = currentChapters?.currChapter ?: return
         val content = page.text ?: run {
-            chapterQueue.clear()
             activity.viewModel.reloadChapter(fromSource = true)
             return
         }
@@ -2271,7 +2270,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             imm?.hideSoftInputFromWindow(webView.windowToken, 0)
 
             // Reload chapter to discard edits
-            chapterQueue.clear()
             activity.viewModel.reloadChapter(fromSource = false)
             return
         }
@@ -2444,11 +2442,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         activity.saveNovelProgress(page, parsed.progress)
                         activity.onNovelProgressChanged(lastSavedProgress)
                     }
-                    is LnReaderMessage.Refetch -> {
-                        chapterQueue.clear()
-                        currentChapterIndex = 0
-                        activity.viewModel.reloadChapter(fromSource = true)
-                    }
+                    is LnReaderMessage.Refetch -> activity.viewModel.reloadChapter(fromSource = true)
                     is LnReaderMessage.Next -> activity.loadNextChapter()
                 }
             }
@@ -3167,10 +3161,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         )
     }
 
+    /**
+     * Drops the loaded-chapter queue so the next [setChapters] re-renders the chapter instead of
+     * taking the already-loaded early return.
+     */
+    fun invalidateLoadedChapters() = chapterQueue.clear()
+
     fun reloadChapter() {
         val chapters = currentChapters ?: return
-        chapterQueue.clear()
-        currentChapterIndex = 0
+        invalidateLoadedChapters()
         setChapters(chapters)
     }
 

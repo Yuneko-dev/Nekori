@@ -864,6 +864,10 @@ class ReaderViewModel @JvmOverloads constructor(
         val loader = loader ?: return
         val navigationRequest = navigationGuard.begin(ReaderNavigationSource.USER) ?: return
 
+        // The viewer no-ops setChapters for an already-loaded chapter id, so the reload would fetch
+        // fresh pages and then render nothing. Callers are on the main thread, same as the viewer.
+        (state.value.viewer as? NovelWebViewViewer)?.invalidateLoadedChapters()
+
         viewModelScope.launchIO {
             try {
                 // Reset chapter state to force reload
