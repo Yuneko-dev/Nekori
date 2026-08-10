@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
@@ -20,6 +21,7 @@ import uy.kohesive.injekt.api.get
 class LocalNovelPageLoader(
     private val chapter: ReaderChapter,
     private val source: Source,
+    private val forceRefresh: Boolean = false,
     private val readerPreferences: ReaderPreferences = Injekt.get(),
 ) : PageLoader() {
 
@@ -61,6 +63,9 @@ class LocalNovelPageLoader(
         page.status = Page.State.LoadPage
         try {
             if (source.isNovelSource) {
+                // A reload from source must outlive the plugin's chapter-text cache, or it replays
+                // the same HTML for as long as that entry stays fresh.
+                if (forceRefresh) (source as? JsSource)?.invalidateChapterText(page.url)
                 var text = source.fetchPageText(Page(page.index, page.url, page.imageUrl))
                 // Apply auto-split if enabled
                 if (readerPreferences.novelAutoSplitText.get()) {

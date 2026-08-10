@@ -97,14 +97,14 @@ class ChapterLoader(
                 downloadManager,
                 downloadProvider,
             )
-            source is LocalNovelSource -> LocalNovelPageLoader(chapter, source)
+            source is LocalNovelSource -> LocalNovelPageLoader(chapter, source, forceFromSource)
             // Online novel sources return a no-fetch page list whose
             // URL their own fetchPageText consumes, so HttpPageLoader loads them (manga too).
             source is HttpSource -> HttpPageLoader(chapter, source)
             // Non-HttpSource novels (JS plugins, etc.). Exclude StubSource: a stub carries the
             // persisted isNovelSource flag but no fetchPageText impl, so it must fall through to
             // the resolution branch below (e.g. after process death before sourceManager inits).
-            source.isNovelSource && source !is StubSource -> LocalNovelPageLoader(chapter, source)
+            source.isNovelSource && source !is StubSource -> LocalNovelPageLoader(chapter, source, forceFromSource)
             source is StubSource -> {
                 // Wait for sourceManager to finish combining all sources (KT ext + JS plugins)
                 if (!sourceManager.isInitialized.value) {
@@ -117,7 +117,7 @@ class ChapterLoader(
                     logcat { "ChapterLoader: StubSource ${source.id} resolved → ${resolvedSource.name}" }
                     return when {
                         resolvedSource is HttpSource -> HttpPageLoader(chapter, resolvedSource)
-                        resolvedSource.isNovelSource -> LocalNovelPageLoader(chapter, resolvedSource)
+                        resolvedSource.isNovelSource -> LocalNovelPageLoader(chapter, resolvedSource, forceFromSource)
                         else -> error(context.stringResource(MR.strings.loader_not_implemented_error))
                     }
                 }
@@ -134,7 +134,7 @@ class ChapterLoader(
                     }
                 if (jsSource != null && jsSource.isNovelSource) {
                     logcat { "ChapterLoader: StubSource ${source.id} resolved via JsPluginManager → ${jsSource.name}" }
-                    LocalNovelPageLoader(chapter, jsSource)
+                    LocalNovelPageLoader(chapter, jsSource, forceFromSource)
                 } else if (jsSource is HttpSource) {
                     logcat { "ChapterLoader: StubSource ${source.id} resolved via JsPluginManager → ${jsSource.name}" }
                     HttpPageLoader(chapter, jsSource)

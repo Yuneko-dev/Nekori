@@ -834,6 +834,16 @@ class JsSource(
         }
     }
 
+    /**
+     * Drops the cached chapter HTML for [chapterUrl] so the next [fetchPageText] hits the plugin.
+     * Takes the same lock as the parse so an in-flight fetch can't repopulate a stale entry after
+     * the eviction.
+     */
+    suspend fun invalidateChapterText(chapterUrl: String) {
+        val path = normalizePluginPath(chapterUrl)
+        chapterTextMutex.withLock { chapterTextCache.remove(path) }
+    }
+
     /** plugin.parseChapter with raw-result caching and in-flight dedup. */
     private suspend fun parseChapterCached(chapterUrl: String): String {
         val path = normalizePluginPath(chapterUrl)
