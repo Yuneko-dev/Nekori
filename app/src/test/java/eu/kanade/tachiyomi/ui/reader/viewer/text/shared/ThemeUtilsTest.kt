@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 /**
  * Tests for the pure, Android-free helpers in ThemeUtils.
  *
- * getThemeColors / getThemeTokens require an Activity (Material theme attribute
+ * getThemeColors / getThemeTokens require an Android Context (Material theme attribute
  * resolution) and are not testable in JVM unit tests without Robolectric.
  * colorToHex is the pure extracted piece that warrants unit test coverage.
  */

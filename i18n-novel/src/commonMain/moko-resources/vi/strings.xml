@@ -506,6 +506,8 @@
     <string name="not_configured">Chưa cấu hình</string>
 
     <!-- Novel Reader Preferences -->
+    <string name="pref_novel_reader_preview">Xem trước trình đọc</string>
+    <string name="pref_novel_reader_preview_summary">Xem trước giao diện trình đọc tiểu thuyết hiện tại</string>
     <string name="pref_novel_theme">Chủ đề</string>
     <string name="pref_category_novel">Tiểu thuyết</string>
     <string name="pref_novel_custom_css">CSS tùy chỉnh</string>

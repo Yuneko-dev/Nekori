@@ -1,6 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
-import android.app.Activity
+import android.content.Context
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 
 object ThemeUtils {
@@ -10,14 +10,14 @@ object ThemeUtils {
         val jsObject: String,
     )
 
-    fun getThemeColors(activity: Activity, preferences: ReaderPreferences, theme: String): Pair<Int, Int> {
+    fun getThemeColors(context: Context, preferences: ReaderPreferences, theme: String): Pair<Int, Int> {
         val backgroundColor = preferences.novelBackgroundColor.get()
         val fontColor = preferences.novelFontColor.get()
 
         return when (theme) {
             "app" -> {
                 val typedValue = android.util.TypedValue()
-                val actTheme = activity.theme
+                val actTheme = context.theme
                 val bgColor = if (actTheme.resolveAttribute(
                         com.google.android.material.R.attr.colorSurface,
                         typedValue,
@@ -26,7 +26,7 @@ object ThemeUtils {
                 ) {
                     typedValue.data
                 } else {
-                    val nightMode = activity.resources.configuration.uiMode and
+                    val nightMode = context.resources.configuration.uiMode and
                         android.content.res.Configuration.UI_MODE_NIGHT_MASK
                     if (nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
                         0xFF121212.toInt()
@@ -42,7 +42,7 @@ object ThemeUtils {
                 ) {
                     typedValue.data
                 } else {
-                    val nightMode = activity.resources.configuration.uiMode and
+                    val nightMode = context.resources.configuration.uiMode and
                         android.content.res.Configuration.UI_MODE_NIGHT_MASK
                     if (nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
                         0xFFE0E0E0.toInt()
@@ -65,14 +65,14 @@ object ThemeUtils {
         }
     }
 
-    fun getThemeTokens(activity: Activity, preferences: ReaderPreferences, theme: String): ThemeTokens {
-        val (readerBgColor, readerTextColor) = getThemeColors(activity, preferences, theme)
+    fun getThemeTokens(context: Context, preferences: ReaderPreferences, theme: String): ThemeTokens {
+        val (readerBgColor, readerTextColor) = getThemeColors(context, preferences, theme)
 
         val readerBgHex = colorToHex(readerBgColor)
         val readerTextHex = colorToHex(readerTextColor)
 
         val typedValue = android.util.TypedValue()
-        val appTheme = activity.theme
+        val appTheme = context.theme
 
         val mdSysColorPrimary =
             resolveColorAttribute(appTheme, typedValue, com.google.android.material.R.attr.colorPrimary, 0xFF006A6A)

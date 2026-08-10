@@ -967,7 +967,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // initialized" crash that fired when the lazy initializer ran from
         // inside the WebView's `.apply { }` block during construction.
         styler = NovelWebViewStyler(
-            activity = activity,
+            context = activity,
             preferences = preferences,
             webView = webView,
             container = container,

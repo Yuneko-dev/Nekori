@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
+import eu.kanade.presentation.reader.settings.novelThemes
 import eu.kanade.presentation.reader.settings.rememberNovelFontOptions
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
@@ -31,6 +32,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
         return listOf(
             readerPref.novelFontSize,
             readerPref.novelFontFamily,
+            readerPref.novelFontColor,
+            readerPref.novelBackgroundColor,
             readerPref.novelLineHeight,
             readerPref.novelAutoScrollSpeed,
             readerPref.novelVolumeKeysScrollDistance,
@@ -60,6 +63,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val navigator = LocalNavigator.currentOrThrow
 
         return listOf(
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(TDMR.strings.pref_novel_reader_preview),
+                subtitle = stringResource(TDMR.strings.pref_novel_reader_preview_summary),
+                onClick = { navigator.push(NovelReaderPreviewScreen()) },
+            ),
             getDisplayGroup(readerPref),
             getTextGroup(readerPref, navigator),
             getFormattingGroup(readerPref),
@@ -148,13 +156,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.novelTheme,
-                    entries = mapOf(
-                        "light" to "Light",
-                        "dark" to "Dark",
-                        "sepia" to "Sepia",
-                        "black" to "Black",
-                        "grey" to "Grey",
-                    ).toMap(),
+                    entries = novelThemes.associate { (label, value) -> value to stringResource(label) },
                     title = stringResource(TDMR.strings.pref_novel_theme),
                 ),
                 Preference.PreferenceItem.SwitchPreference(

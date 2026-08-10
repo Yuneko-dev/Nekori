@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import android.content.Context
 import android.view.View
 import android.webkit.WebView
 import androidx.core.net.toUri
@@ -26,7 +27,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 internal class NovelWebViewStyler(
-    private val activity: ReaderActivity,
+    private val context: Context,
     private val preferences: ReaderPreferences,
     private val webView: WebView,
     private val container: View,
@@ -62,7 +63,7 @@ internal class NovelWebViewStyler(
         val theme = preferences.novelTheme.get()
         val hideChapterTitle = preferences.novelHideChapterTitle.get()
 
-        val (finalBgColor, finalTextColor) = ThemeUtils.getThemeColors(activity, preferences, theme)
+        val (finalBgColor, finalTextColor) = ThemeUtils.getThemeColors(context, preferences, theme)
 
         val bgColorHex = ThemeUtils.colorToHex(finalBgColor)
         val textColorHex = ThemeUtils.colorToHex(finalTextColor)
@@ -136,8 +137,9 @@ internal class NovelWebViewStyler(
     }
 
     private fun currentJsSource(): JsSource? {
-        (activity.viewModel.getSource() as? JsSource)?.let { return it }
-        val sourceId = activity.viewModel.manga?.source ?: return null
+        val readerActivity = context as? ReaderActivity ?: return null
+        (readerActivity.viewModel.getSource() as? JsSource)?.let { return it }
+        val sourceId = readerActivity.viewModel.manga?.source ?: return null
         return Injekt.get<JsPluginManager>().getSource(sourceId) as? JsSource
     }
 
@@ -195,7 +197,7 @@ internal class NovelWebViewStyler(
     private fun loadFontBytes(family: String): ByteArray? {
         cachedFontBytes?.let { if (it.first == family) return it.second }
         return try {
-            val bytes = activity.contentResolver.openInputStream(family.toUri())?.use { it.readBytes() }
+            val bytes = context.contentResolver.openInputStream(family.toUri())?.use { it.readBytes() }
                 ?: return null
             cachedFontBytes = family to bytes
             bytes
@@ -210,7 +212,7 @@ internal class NovelWebViewStyler(
         webView.setBackgroundColor(payload.backgroundColor)
         container.setBackgroundColor(payload.backgroundColor)
         val js = NovelWebViewJsAssets.loadWith(
-            activity,
+            context,
             "inject-styles.js",
             mapOf(
                 "STYLE_ID" to STYLE_ID_CUSTOM,
@@ -273,18 +275,18 @@ internal class NovelWebViewStyler(
 
     fun injectNextChapterButton(chapterName: String, nextChapterName: String?) {
         val js = NovelWebViewJsAssets.loadWith(
-            activity,
+            context,
             "next-chapter-button.js",
             mapOf(
                 "BTN_CONTAINER_ID" to ID_NEXT_CHAPTER_BTN_CONTAINER,
                 "HAS_NEXT_CHAPTER" to (nextChapterName != null).toString(),
                 "FINISHED_TEXT" to quoteForJson(
-                    activity.stringResource(TDMR.strings.reader_chapter_finished, chapterName),
+                    context.stringResource(TDMR.strings.reader_chapter_finished, chapterName),
                 ),
                 "NEXT_CHAPTER_TEXT" to quoteForJson(
-                    activity.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()),
+                    context.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()),
                 ),
-                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(activity.stringResource(MR.strings.transition_no_next)),
+                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(context.stringResource(MR.strings.transition_no_next)),
             ),
         )
         evaluateJs(js)
@@ -292,14 +294,14 @@ internal class NovelWebViewStyler(
 
     fun injectReaderUi() {
         val js = NovelWebViewJsAssets.loadWith(
-            activity,
+            context,
             "reader-ui.js",
             mapOf(
                 "BIONIC_ENABLED" to preferences.novelBionicReading.get().toString(),
                 "TTS_ENABLED" to preferences.novelTtsEnabled.get().toString(),
                 "TTS_STATE_EVENT" to NovelWebViewChapterMeta.EVENT_TTS_STATE,
-                "TTS_CONTROL_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_tts_control)),
-                "IMAGE_CLOSE_LABEL" to quoteForJson(activity.stringResource(TDMR.strings.reader_image_close)),
+                "TTS_CONTROL_LABEL" to quoteForJson(context.stringResource(TDMR.strings.reader_tts_control)),
+                "IMAGE_CLOSE_LABEL" to quoteForJson(context.stringResource(TDMR.strings.reader_image_close)),
             ),
         )
         evaluateJs(js)
@@ -322,7 +324,7 @@ internal class NovelWebViewStyler(
         val autoLoadThreshold = preferences.novelAutoLoadNextChapterAt.get()
         val effectiveThreshold = if (autoLoadThreshold > 0) autoLoadThreshold / 100.0 else 0.95
         val js = NovelWebViewJsAssets.loadWith(
-            activity,
+            context,
             "scroll-tracking.js",
             mapOf(
                 "TSUNDOKU_OBJECT_NAME" to TSUNDOKU_OBJECT_NAME,
@@ -338,7 +340,7 @@ internal class NovelWebViewStyler(
     }
 
     fun injectScopedChapterAnchors() {
-        evaluateJs(NovelWebViewJsAssets.load(activity, "scoped-chapter-anchors.js"))
+        evaluateJs(NovelWebViewJsAssets.load(context, "scoped-chapter-anchors.js"))
     }
 
     companion object {

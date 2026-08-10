@@ -118,7 +118,7 @@ data class RegexReplacement(
     val id: String = java.util.UUID.randomUUID().toString(),
 )
 
-private val novelThemes = listOf(
+internal val novelThemes = listOf(
     TDMR.strings.novel_theme_app to "app",
     TDMR.strings.novel_theme_light to "light",
     TDMR.strings.novel_theme_dark to "dark",
