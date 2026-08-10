@@ -74,7 +74,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -108,7 +108,7 @@ class DuplicateDetectionScreen : Screen {
         val clipboardManager = LocalClipboardManager.current
         val snackbarHostState = remember { SnackbarHostState() }
 
-        val screenModel = rememberScreenModel { DuplicateDetectionScreenModel() }
+        val screenModel = viewModel<DuplicateDetectionViewModel>()
         val state by screenModel.state.collectAsState()
 
         // Preserve scroll position across navigation
@@ -469,23 +469,23 @@ class DuplicateDetectionScreen : Screen {
                                 style = MaterialTheme.typography.labelMedium,
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.NAME,
-                                onClick = { screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.NAME) },
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.NAME,
+                                onClick = { screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.NAME) },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_name)) },
-                                leadingIcon = if (state.sortMode == DuplicateDetectionScreenModel.SortMode.NAME) {
+                                leadingIcon = if (state.sortMode == DuplicateDetectionViewModel.SortMode.NAME) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
                                     null
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.LATEST_ADDED,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.LATEST_ADDED,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.LATEST_ADDED)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.LATEST_ADDED)
                                 },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_latest)) },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.LATEST_ADDED
+                                    DuplicateDetectionViewModel.SortMode.LATEST_ADDED
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -493,13 +493,13 @@ class DuplicateDetectionScreen : Screen {
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.CHAPTER_COUNT_DESC,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.CHAPTER_COUNT_DESC,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.CHAPTER_COUNT_DESC)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.CHAPTER_COUNT_DESC)
                                 },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_ch_desc)) },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.CHAPTER_COUNT_DESC
+                                    DuplicateDetectionViewModel.SortMode.CHAPTER_COUNT_DESC
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -507,13 +507,13 @@ class DuplicateDetectionScreen : Screen {
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.DOWNLOAD_COUNT_DESC,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.DOWNLOAD_COUNT_DESC,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.DOWNLOAD_COUNT_DESC)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.DOWNLOAD_COUNT_DESC)
                                 },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_dl_desc)) },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.DOWNLOAD_COUNT_DESC
+                                    DuplicateDetectionViewModel.SortMode.DOWNLOAD_COUNT_DESC
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -521,13 +521,13 @@ class DuplicateDetectionScreen : Screen {
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.READ_COUNT_DESC,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.READ_COUNT_DESC,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.READ_COUNT_DESC)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.READ_COUNT_DESC)
                                 },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_read_desc)) },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.READ_COUNT_DESC
+                                    DuplicateDetectionViewModel.SortMode.READ_COUNT_DESC
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -535,9 +535,9 @@ class DuplicateDetectionScreen : Screen {
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.PINNED_SOURCE,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.PINNED_SOURCE,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.PINNED_SOURCE)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.PINNED_SOURCE)
                                 },
                                 label = {
                                     Icon(
@@ -547,7 +547,7 @@ class DuplicateDetectionScreen : Screen {
                                     )
                                 },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.PINNED_SOURCE
+                                    DuplicateDetectionViewModel.SortMode.PINNED_SOURCE
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -555,13 +555,13 @@ class DuplicateDetectionScreen : Screen {
                                 },
                             )
                             FilterChip(
-                                selected = state.sortMode == DuplicateDetectionScreenModel.SortMode.SOURCE_PRIORITY,
+                                selected = state.sortMode == DuplicateDetectionViewModel.SortMode.SOURCE_PRIORITY,
                                 onClick = {
-                                    screenModel.setSortMode(DuplicateDetectionScreenModel.SortMode.SOURCE_PRIORITY)
+                                    screenModel.setSortMode(DuplicateDetectionViewModel.SortMode.SOURCE_PRIORITY)
                                 },
                                 label = { Text(stringResource(MR.strings.duplicate_sort_priority)) },
                                 leadingIcon = if (state.sortMode ==
-                                    DuplicateDetectionScreenModel.SortMode.SOURCE_PRIORITY
+                                    DuplicateDetectionViewModel.SortMode.SOURCE_PRIORITY
                                 ) {
                                     { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                 } else {
@@ -587,10 +587,10 @@ class DuplicateDetectionScreen : Screen {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     FilterChip(
                                         selected = state.categoryIncludeMode ==
-                                            DuplicateDetectionScreenModel.CategoryIncludeMode.ANY,
+                                            DuplicateDetectionViewModel.CategoryIncludeMode.ANY,
                                         onClick = {
                                             screenModel.setCategoryIncludeMode(
-                                                DuplicateDetectionScreenModel.CategoryIncludeMode.ANY,
+                                                DuplicateDetectionViewModel.CategoryIncludeMode.ANY,
                                             )
                                         },
                                         label = { Text(stringResource(TDMR.strings.duplicate_category_include_or)) },
@@ -598,10 +598,10 @@ class DuplicateDetectionScreen : Screen {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     FilterChip(
                                         selected = state.categoryIncludeMode ==
-                                            DuplicateDetectionScreenModel.CategoryIncludeMode.ALL,
+                                            DuplicateDetectionViewModel.CategoryIncludeMode.ALL,
                                         onClick = {
                                             screenModel.setCategoryIncludeMode(
-                                                DuplicateDetectionScreenModel.CategoryIncludeMode.ALL,
+                                                DuplicateDetectionViewModel.CategoryIncludeMode.ALL,
                                             )
                                         },
                                         label = { Text(stringResource(TDMR.strings.duplicate_category_include_and)) },

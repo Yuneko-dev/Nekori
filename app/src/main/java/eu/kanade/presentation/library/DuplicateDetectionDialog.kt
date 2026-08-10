@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
+import eu.kanade.tachiyomi.ui.library.LibraryViewModel
 import eu.kanade.tachiyomi.util.system.toast
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.source.service.SourceManager
@@ -39,7 +39,7 @@ import uy.kohesive.injekt.api.get
 
 @Composable
 fun DuplicateDetectionDialog(
-    duplicates: List<LibraryScreenModel.DuplicateGroup>,
+    duplicates: List<LibraryViewModel.DuplicateGroup>,
     onDismissRequest: () -> Unit,
     onSelectAllExceptFirst: () -> Unit,
     onSelectAll: () -> Unit,
@@ -129,7 +129,7 @@ fun DuplicateDetectionDialog(
 }
 
 @Composable
-private fun DuplicateGroupItem(group: LibraryScreenModel.DuplicateGroup, sourceManager: SourceManager) {
+private fun DuplicateGroupItem(group: LibraryViewModel.DuplicateGroup, sourceManager: SourceManager) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 

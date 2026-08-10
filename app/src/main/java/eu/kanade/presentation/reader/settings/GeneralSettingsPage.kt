@@ -8,7 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsChipRow
@@ -31,7 +31,7 @@ private val flashColors = listOf(
 )
 
 @Composable
-internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsViewModel) {
     val readerTheme by screenModel.preferences.readerTheme.collectAsState()
 
     val flashPageState by screenModel.preferences.flashOnPageChange.collectAsState()

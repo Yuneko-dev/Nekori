@@ -628,15 +628,10 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param context context of application
          * @return [PendingIntent]
          */
-        internal fun downloadAppUpdatePendingBroadcast(
-            context: Context,
-            url: String,
-            title: String? = null,
-        ): PendingIntent {
+        internal fun downloadAppUpdatePendingBroadcast(context: Context, url: String): PendingIntent {
             return Intent(context, NotificationReceiver::class.java).run {
                 action = ACTION_START_APP_UPDATE
                 putExtra(AppUpdateDownloadJob.EXTRA_DOWNLOAD_URL, url)
-                title?.let { putExtra(AppUpdateDownloadJob.EXTRA_DOWNLOAD_TITLE, it) }
                 PendingIntent.getBroadcast(
                     context,
                     0,

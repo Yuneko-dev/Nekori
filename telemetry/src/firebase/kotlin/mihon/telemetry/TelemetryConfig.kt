@@ -2,6 +2,7 @@ package tsundoku.telemetry
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -26,6 +27,7 @@ object TelemetryConfig {
 
         try {
             analytics = FirebaseAnalytics.getInstance(context)
+            analytics?.setUserProperty("preferred_abi", Build.SUPPORTED_ABIS[0])
             FirebaseApp.initializeApp(context)
             crashlytics = FirebaseCrashlytics.getInstance()
         } catch (e: Exception) {

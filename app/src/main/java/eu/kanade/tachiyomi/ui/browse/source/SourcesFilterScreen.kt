@@ -5,7 +5,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.SourcesFilterScreen
@@ -21,15 +22,20 @@ class SourcesFilterScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { SourcesFilterScreenModel(isNovel) }
-        val state by screenModel.state.collectAsState()
+        val viewModel = viewModel<SourcesFilterViewModel>(
+            factory = SourcesFilterViewModel.Factory,
+            extras = CreationExtras {
+                set(SourcesFilterViewModel.IS_NOVEL_KEY, isNovel)
+            },
+        )
+        val state by viewModel.state.collectAsState()
 
-        if (state is SourcesFilterScreenModel.State.Loading) {
+        if (state is SourcesFilterViewModel.State.Loading) {
             LoadingScreen()
             return
         }
 
-        if (state is SourcesFilterScreenModel.State.Error) {
+        if (state is SourcesFilterViewModel.State.Error) {
             val context = LocalContext.current
             LaunchedEffect(Unit) {
                 context.toast(MR.strings.internal_error)
@@ -38,13 +44,13 @@ class SourcesFilterScreen(
             return
         }
 
-        val successState = state as SourcesFilterScreenModel.State.Success
+        val successState = state as SourcesFilterViewModel.State.Success
 
         SourcesFilterScreen(
             navigateUp = navigator::pop,
             state = successState,
-            onClickLanguage = screenModel::toggleLanguage,
-            onClickSource = screenModel::toggleSource,
+            onClickLanguage = viewModel::toggleLanguage,
+            onClickSource = viewModel::toggleSource,
         )
     }
 }

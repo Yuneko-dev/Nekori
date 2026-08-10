@@ -186,7 +186,7 @@ class MangaCoverFetcher(
         // Cover thumbnails only ever load while some screen is actually showing them (Browse,
         // Library, Updates, etc.) - background jobs never render Compose UI, so they never reach
         // this fetcher. Bypassing rate limiting here matches the same interactive-vs-background
-        // reasoning as MangaScreenModel's fetches, just applied to a shared, screen-agnostic
+        // reasoning as MangaViewModel's fetches, just applied to a shared, screen-agnostic
         // fetcher instead of a single call site.
         val baseUrl = when (source) {
             is HttpSource -> source.baseUrl

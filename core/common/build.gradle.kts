@@ -41,6 +41,7 @@ dependencies {
 
     api(libs.androidx.preference)
     api(libs.injekt)
+    implementation(libs.androidx.webkit)
 
     implementation(libs.jsoup)
 

@@ -68,6 +68,7 @@
     <string name="local_novel_source_delete_failed">Failed to delete %d novel(s) — check permissions</string>
     <!-- History -->
     <string name="pref_clear_cover">Clear cover</string>
+    <string name="novel_download_error">Download error</string>
     <!-- Downloads activity and service
     update_check_notification_download_error: Download error
      -->

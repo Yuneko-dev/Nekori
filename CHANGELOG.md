@@ -11,7 +11,17 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
+### Added
 
+### Improved
+- Handle picture/source/video/audio tags in text view [@mrissaoussama](https://github.com/mrissaoussama) [#381](https://github.com/tsundoku-otaku/tsundoku/pull/381)
+
+### Fixed
+- PRevent crash with setting search on duplicate key [@mrissaoussama](https://github.com/mrissaoussama) [#383](https://github.com/tsundoku-otaku/tsundoku/pull/383)
+
+
+### Other
+- Merged v0.20.4 from Mihon [@Rojikku](https://github.com/Rojikku) [#380](https://github.com/tsundoku-otaku/tsundoku/pull/380)
 
 ## [v0.3.0] - 2026-08-07
 ### Added
@@ -350,6 +360,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 This project was originally forked from Mihon, and, while we keep separate version numbers, we would like to note in our changelog when we merge from upstream, and link to their changelog to try to give appropriate credit.
 This project is greatly advantaged by building off all of their work, and their continued contributions!
 
+Merged from v0.20.4 [df65072](https://github.com/mihonapp/mihon/commit/df6507256acce8e7f3660783a3db6dbd1a31b6b5)
 Merged from v0.20.1 [a8d3e39](https://github.com/mihonapp/mihon/commit/a8d3e397794aa7ecf51e1a8a85f9c247c14b1430)
 Merged from v0.20.0 [19f1d00](https://github.com/mihonapp/mihon/commit/19f1d00fcbef6ab7783066ff9ae8e377f696b231)
 Merged from v0.19.9 [7a91796](https://github.com/mihonapp/mihon/commit/7a917968e3bf71c4a665e6655a550877d81ead1d)
@@ -357,4 +368,4 @@ Merged from v0.19.7 [25d4bf5](https://github.com/mihonapp/mihon/commit/25d4bf5e2
 Merged from v0.19.4 [81871a3](https://github.com/mihonapp/mihon/commit/81871a34694c8e408d907731292b7266c5b993cc)
 Forked from Mihon v0.19.3 [7161bc2](https://github.com/mihonapp/mihon/commit/7161bc2e825bdfd66a1829f7dce42bd0570b1008)
 
-[mihon]: https://github.com/mihonapp/mihon/blob/19f1d00fcbef6ab7783066ff9ae8e377f696b231/CHANGELOG.md
+[mihon]: https://github.com/mihonapp/mihon/blob/df6507256acce8e7f3660783a3db6dbd1a31b6b5/CHANGELOG.md

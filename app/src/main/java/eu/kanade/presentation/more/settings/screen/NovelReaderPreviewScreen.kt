@@ -28,7 +28,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
@@ -65,7 +65,7 @@ class NovelReaderPreviewScreen : Screen {
         val previewWebView = remember { mutableStateOf<WebView?>(null) }
         val showSettings = remember { mutableStateOf(false) }
         val settingsScreenModel = remember {
-            ReaderSettingsScreenModel(
+            ReaderSettingsViewModel(
                 readerState = MutableStateFlow(ReaderViewModel.State()),
                 onChangeOrientation = {},
                 resolveNovelThemeColors = { ThemeUtils.getThemeColors(context, preferences, it) },

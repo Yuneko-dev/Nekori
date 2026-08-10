@@ -122,7 +122,7 @@ class ExtensionManager(
      */
     suspend fun findAvailableExtensions() {
         // Skip if another fetch is already in progress — both ExtensionsScreenModel
-        // and NovelExtensionsScreenModel call this from init, but the result flows
+        // and NovelExtensionsViewModel call this from init, but the result flows
         // through availableExtensionMapFlow so both observe the same data.
         if (!findExtensionsMutex.tryLock()) return
         try {
@@ -234,7 +234,8 @@ class ExtensionManager(
      */
     fun updateExtension(extension: Extension.Installed): Flow<InstallStep> {
         val availableExt = availableExtensionMapFlow.value[extension.pkgName] ?: return emptyFlow()
-        return installExtension(availableExt)
+        val isUpdateForPrivatelyInstalled = !extension.isShared
+        return installer.downloadAndInstall(availableExt.apkUrl, availableExt, isUpdateForPrivatelyInstalled)
     }
 
     fun cancelInstallUpdateExtension(extension: Extension) {

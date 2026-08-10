@@ -11,7 +11,7 @@ import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsChipRow
@@ -20,7 +20,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
 @Composable
-internal fun ColumnScope.ColorFilterPage(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.ColorFilterPage(screenModel: ReaderSettingsViewModel) {
     val customBrightness by screenModel.preferences.customBrightness.collectAsState()
     ReaderSwitchItem(
         label = stringResource(MR.strings.pref_custom_brightness),

@@ -27,9 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -40,6 +39,7 @@ import eu.kanade.tachiyomi.source.nameWithTypeTag
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import mihon.core.viewmodel.StateViewModel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
@@ -57,7 +57,7 @@ object SourcePriorityScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { SourcePriorityScreenModel() }
+        val screenModel = viewModel<SourcePriorityViewModel>()
         val state by screenModel.state.collectAsState()
 
         Scaffold(
@@ -76,11 +76,11 @@ object SourcePriorityScreen : Screen {
             },
         ) { contentPadding ->
             val sourceTypes = listOf(
-                DuplicateDetectionScreenModel.SourceType.JS to
+                DuplicateDetectionViewModel.SourceType.JS to
                     stringResource(MR.strings.duplicate_source_type_js_extensions),
-                DuplicateDetectionScreenModel.SourceType.LOCAL to
+                DuplicateDetectionViewModel.SourceType.LOCAL to
                     stringResource(MR.strings.duplicate_source_type_local_source),
-            ).filter { it.first != DuplicateDetectionScreenModel.SourceType.LOCAL || state.hasLocalSource }
+            ).filter { it.first != DuplicateDetectionViewModel.SourceType.LOCAL || state.hasLocalSource }
 
             LazyColumn(
                 contentPadding = contentPadding + PaddingValues(horizontal = 16.dp),
@@ -199,15 +199,15 @@ data class SourcePriorityItem(
     val displayName: String,
 )
 
-class SourcePriorityScreenModel(
+class SourcePriorityViewModel(
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val sourcePreferences: SourcePreferences = Injekt.get(),
-) : StateScreenModel<SourcePriorityScreenModel.State>(State()) {
+) : StateViewModel<SourcePriorityViewModel.State>(State()) {
 
     data class State(
-        val typePriorities: Map<DuplicateDetectionScreenModel.SourceType, Int> =
-            DuplicateDetectionScreenModel.SourceType.entries.associateWith { 0 },
+        val typePriorities: Map<DuplicateDetectionViewModel.SourceType, Int> =
+            DuplicateDetectionViewModel.SourceType.entries.associateWith { 0 },
         val sourcePriorities: Map<Long, Int> = emptyMap(),
         val sourceItems: List<SourcePriorityItem> = emptyList(),
         val hasLocalSource: Boolean = false,
@@ -226,7 +226,7 @@ class SourcePriorityScreenModel(
             val parts = entry.split(":")
             if (parts.size == 2) {
                 try {
-                    DuplicateDetectionScreenModel.SourceType.valueOf(parts[0]) to parts[1].toInt()
+                    DuplicateDetectionViewModel.SourceType.valueOf(parts[0]) to parts[1].toInt()
                 } catch (_: Exception) {
                     null
                 }
@@ -236,7 +236,7 @@ class SourcePriorityScreenModel(
         }.toMap()
         mutableState.update {
             it.copy(
-                typePriorities = DuplicateDetectionScreenModel.SourceType.entries.associateWith { type ->
+                typePriorities = DuplicateDetectionViewModel.SourceType.entries.associateWith { type ->
                     map[type]
                         ?: 0
                 },
@@ -263,7 +263,7 @@ class SourcePriorityScreenModel(
     }
 
     private fun loadSourceItems() {
-        screenModelScope.launch {
+        viewModelScope.launch {
             sourceManager.sources.map { it.filterIsInstance<CatalogueSource>() }.collect { catalogueSources ->
                 val items = catalogueSources
                     .filterNot { it.isLocal() }
@@ -281,7 +281,7 @@ class SourcePriorityScreenModel(
         }
     }
 
-    fun setTypePriority(type: DuplicateDetectionScreenModel.SourceType, priority: Int) {
+    fun setTypePriority(type: DuplicateDetectionViewModel.SourceType, priority: Int) {
         mutableState.update { current ->
             val newMap = current.typePriorities + (type to priority)
             saveTypePriorities(newMap)
@@ -301,7 +301,7 @@ class SourcePriorityScreenModel(
         }
     }
 
-    private fun saveTypePriorities(map: Map<DuplicateDetectionScreenModel.SourceType, Int>) {
+    private fun saveTypePriorities(map: Map<DuplicateDetectionViewModel.SourceType, Int>) {
         val serialized = map.entries
             .filter { it.value != 0 }
             .joinToString(";") { "${it.key.name}:${it.value}" }

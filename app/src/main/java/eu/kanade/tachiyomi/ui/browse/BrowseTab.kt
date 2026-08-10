@@ -9,14 +9,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionsScreenModel
+import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionsViewModel
 import eu.kanade.tachiyomi.ui.browse.extension.novelExtensionsTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.novelMigrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.NovelGlobalSearchScreen
@@ -56,12 +56,12 @@ data object BrowseTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
-        val extensionsScreenModel = rememberScreenModel { NovelExtensionsScreenModel() }
-        val extensionsState by extensionsScreenModel.state.collectAsState()
+        val extensionsViewModel = viewModel<NovelExtensionsViewModel>()
+        val extensionsState by extensionsViewModel.state.collectAsState()
         val extensionsTabIndex = 1
         val tabs = listOf(
             novelSourcesTab(),
-            novelExtensionsTab(extensionsScreenModel),
+            novelExtensionsTab(extensionsViewModel),
             novelMigrateSourceTab(),
         )
 
@@ -74,7 +74,7 @@ data object BrowseTab : Tab {
             searchQuery = extensionsState.searchQuery.takeIf { state.currentPage == extensionsTabIndex },
             onChangeSearchQuery = { query ->
                 if (state.currentPage == extensionsTabIndex) {
-                    extensionsScreenModel.search(query)
+                    extensionsViewModel.search(query)
                 }
             },
         )

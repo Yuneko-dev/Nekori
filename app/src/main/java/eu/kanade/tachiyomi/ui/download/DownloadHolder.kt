@@ -67,7 +67,7 @@ class DownloadHolder(private val view: View, val adapter: DownloadAdapter) :
         if (shouldShowError) {
             binding.downloadErrorText.text = error
             binding.downloadErrorText.setOnClickListener {
-                val label = view.context.stringResource(MR.strings.update_check_notification_download_error)
+                val label = view.context.stringResource(MR.strings.download_notifier_title_error)
                 view.context.copyToClipboard(label, error)
             }
         } else {

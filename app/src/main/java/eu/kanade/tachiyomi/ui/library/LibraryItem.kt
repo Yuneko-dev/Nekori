@@ -48,7 +48,7 @@ data class LibraryItem(
     fun matches(
         spec: LibrarySearchSpec,
         chapterMatchIds: Set<Long> = emptySet(),
-        metadataMatchIds: LibraryScreenModel.MetadataMatchIds = LibraryScreenModel.MetadataMatchIds(),
+        metadataMatchIds: LibraryViewModel.MetadataMatchIds = LibraryViewModel.MetadataMatchIds(),
         searchContent: Boolean = true,
     ): Boolean {
         val manga = libraryManga.manga
@@ -76,7 +76,7 @@ data class LibraryItem(
     private fun matchesDefault(
         spec: LibrarySearchSpec,
         chapterMatchIds: Set<Long>,
-        metadataMatchIds: LibraryScreenModel.MetadataMatchIds,
+        metadataMatchIds: LibraryViewModel.MetadataMatchIds,
         searchContent: Boolean,
     ): Boolean {
         if (spec.subTerms.isEmpty()) return true

@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import logcat.LogPriority
 import mihon.core.common.extensions.EMPTY
@@ -34,8 +37,7 @@ import tachiyomi.domain.manga.repository.FavoriteMetadataMatches
 import tachiyomi.domain.manga.repository.MangaRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlin.time.Clock
 
 class MangaRepositoryImpl(
     private val database: Database,
@@ -1626,48 +1628,63 @@ class MangaRepositoryImpl(
         }
     }
 
-    override suspend fun getUpcomingManga(statuses: Set<Long>): Flow<List<Manga>> {
-        val epochMillis = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toEpochSecond() * 1000
-        return database.mangasQueries.getUpcomingManga(epochMillis, statuses) {
-                id,
-                source,
-                url,
-                artist,
-                author,
-                description,
-                genre,
-                title,
-                alternative_titles,
-                status,
-                thumbnail_url,
-                favorite,
-                last_update,
-                next_update,
-                initialized,
-                viewer,
-                chapter_flags,
-                cover_last_modified,
-                date_added,
-                update_strategy,
-                calculate_interval,
-                last_modified_at,
-                favorite_modified_at,
-                version,
-                is_syncing,
-                notes,
-                is_novel,
-                _,
-                _,
-                _,
-                _,
-                _,
-                _,
-                memo,
-            ->
-            MangaMapper.mapManga(id, source, url, artist, author, description, genre, title, alternative_titles, status, thumbnail_url, favorite, last_update, next_update, initialized, viewer, chapter_flags, cover_last_modified, date_added, update_strategy, calculate_interval, last_modified_at, favorite_modified_at, version, is_syncing, notes, is_novel).copy(
-                memo = memo,
-            )
-        }.subscribeToList()
+    override suspend fun getUpcomingManga(
+        statuses: Set<Long>,
+        excludedCategories: List<Long>,
+        includedCategories: List<Long>,
+    ): Flow<List<Manga>> {
+        val timeZone = TimeZone.currentSystemDefault()
+        val epochMillis =
+            Clock.System.now().toLocalDateTime(timeZone).date.atStartOfDayIn(timeZone).toEpochMilliseconds()
+        return database.mangasQueries
+            .getUpcomingManga(
+                startOfDay = epochMillis,
+                statuses = statuses,
+                includedEmpty = includedCategories.isEmpty(),
+                includedCategories = includedCategories,
+                excludedEmpty = excludedCategories.isEmpty(),
+                excludedCategories = excludedCategories,
+            ) {
+                    id,
+                    source,
+                    url,
+                    artist,
+                    author,
+                    description,
+                    genre,
+                    title,
+                    alternative_titles,
+                    status,
+                    thumbnail_url,
+                    favorite,
+                    last_update,
+                    next_update,
+                    initialized,
+                    viewer,
+                    chapter_flags,
+                    cover_last_modified,
+                    date_added,
+                    update_strategy,
+                    calculate_interval,
+                    last_modified_at,
+                    favorite_modified_at,
+                    version,
+                    is_syncing,
+                    notes,
+                    is_novel,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    memo,
+                ->
+                MangaMapper.mapManga(id, source, url, artist, author, description, genre, title, alternative_titles, status, thumbnail_url, favorite, last_update, next_update, initialized, viewer, chapter_flags, cover_last_modified, date_added, update_strategy, calculate_interval, last_modified_at, favorite_modified_at, version, is_syncing, notes, is_novel).copy(
+                    memo = memo,
+                )
+            }
+            .subscribeToList()
     }
 
     override suspend fun resetViewerFlags(): Boolean {

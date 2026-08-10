@@ -18,12 +18,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 fun novelExtensionsTab(
-    extensionsScreenModel: NovelExtensionsScreenModel,
+    extensionsViewModel: NovelExtensionsViewModel,
 ): TabContent {
     val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
 
-    val state by extensionsScreenModel.state.collectAsState()
+    val state by extensionsViewModel.state.collectAsState()
 
     return TabContent(
         titleRes = MR.strings.label_extensions,
@@ -47,21 +47,21 @@ fun novelExtensionsTab(
                 onLongClickItem = { extension ->
                     if (extension is Extension.JsPlugin) {
                         if (extension.isInstalled) {
-                            extensionsScreenModel.uninstallExtension(extension)
+                            extensionsViewModel.uninstallExtension(extension)
                         } else {
-                            extensionsScreenModel.installJsPlugin(extension)
+                            extensionsViewModel.installJsPlugin(extension)
                         }
                     }
                 },
                 onClickItemCancel = {},
-                onClickUpdateAll = extensionsScreenModel::updateAllExtensions,
+                onClickUpdateAll = extensionsViewModel::updateAllExtensions,
                 onOpenWebView = { extension ->
                     if (extension is Extension.JsPlugin) {
                         extension.sources.firstOrNull()?.let { source ->
                             scope.launch {
                                 navigator.push(
                                     WebViewScreen(
-                                        url = extensionsScreenModel.resolveWebViewUrl(extension),
+                                        url = extensionsViewModel.resolveWebViewUrl(extension),
                                         initialTitle = source.name,
                                         sourceId = source.id,
                                     ),
@@ -71,7 +71,7 @@ fun novelExtensionsTab(
                     }
                 },
                 onInstallExtension = {
-                    if (it is Extension.JsPlugin) extensionsScreenModel.installJsPlugin(it)
+                    if (it is Extension.JsPlugin) extensionsViewModel.installJsPlugin(it)
                 },
                 onOpenExtension = {
                     if (it is Extension.JsPlugin) {
@@ -82,12 +82,12 @@ fun novelExtensionsTab(
                 },
                 onTrustExtension = {},
                 onUninstallExtension = {
-                    if (it is Extension.JsPlugin) extensionsScreenModel.uninstallExtension(it)
+                    if (it is Extension.JsPlugin) extensionsViewModel.uninstallExtension(it)
                 },
                 onUpdateExtension = {
-                    if (it is Extension.JsPlugin) extensionsScreenModel.installJsPlugin(it)
+                    if (it is Extension.JsPlugin) extensionsViewModel.installJsPlugin(it)
                 },
-                onRefresh = extensionsScreenModel::findAvailableExtensions,
+                onRefresh = extensionsViewModel::findAvailableExtensions,
                 onEmptyReposAction = { navigator.push(NovelExtensionReposScreen()) },
                 emptyReposLabel = TDMR.strings.pref_novel_extension_repos,
             )

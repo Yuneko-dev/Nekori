@@ -26,6 +26,7 @@ import tachiyomi.domain.track.interactor.InsertTrack
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
+import kotlin.time.Clock
 
 class MigrateMangaUseCase(
     private val sourcePreferences: SourcePreferences,
@@ -133,7 +134,7 @@ class MigrateMangaUseCase(
                 favorite = true,
                 chapterFlags = current.chapterFlags,
                 viewerFlags = current.viewerFlags,
-                dateAdded = if (replace) current.dateAdded else Instant.now().toEpochMilli(),
+                dateAdded = if (replace) current.dateAdded else Clock.System.now().toEpochMilliseconds(),
                 notes = if (MigrationFlag.NOTES in flags) current.notes else null,
             )
 

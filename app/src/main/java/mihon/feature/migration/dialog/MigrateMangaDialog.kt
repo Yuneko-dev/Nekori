@@ -19,8 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastForEach
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.hasCustomCover
@@ -28,6 +27,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import kotlinx.coroutines.flow.update
+import mihon.core.viewmodel.StateViewModel
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.feature.common.utils.getLabel
@@ -53,11 +53,11 @@ internal fun Screen.MigrateMangaDialog(
 ) {
     val scope = rememberCoroutineScope()
 
-    val screenModel = rememberScreenModel { MigrateDialogScreenModel() }
+    val viewModel = viewModel<MigrateDialogViewModel>()
     LaunchedEffect(current, target) {
-        screenModel.init(current, target)
+        viewModel.init(current, target)
     }
-    val state by screenModel.state.collectAsState()
+    val state by viewModel.state.collectAsState()
 
     if (state.isMigrated) return
 
@@ -88,7 +88,7 @@ internal fun Screen.MigrateMangaDialog(
                     LabeledCheckbox(
                         label = stringResource(flag.getLabel()),
                         checked = flag in state.selectedFlags,
-                        onCheckedChange = { screenModel.toggleSelection(flag) },
+                        onCheckedChange = { viewModel.toggleSelection(flag) },
                     )
                 }
             }
@@ -111,7 +111,7 @@ internal fun Screen.MigrateMangaDialog(
                 TextButton(
                     onClick = {
                         scope.launchIO {
-                            screenModel.migrateManga(replace = false)
+                            viewModel.migrateManga(replace = false)
                             withUIContext { onComplete() }
                         }
                     },
@@ -121,7 +121,7 @@ internal fun Screen.MigrateMangaDialog(
                 TextButton(
                     onClick = {
                         scope.launchIO {
-                            screenModel.migrateManga(replace = true)
+                            viewModel.migrateManga(replace = true)
                             withUIContext { onComplete() }
                         }
                     },
@@ -133,13 +133,13 @@ internal fun Screen.MigrateMangaDialog(
     )
 }
 
-private class MigrateDialogScreenModel(
+class MigrateDialogViewModel(
     private val sourcePreference: SourcePreferences = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
     private val migrateManga: MigrateMangaUseCase = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
-) : StateScreenModel<MigrateDialogScreenModel.State>(State()) {
+) : StateViewModel<MigrateDialogViewModel.State>(State()) {
 
     fun init(current: Manga, target: Manga) {
         val applicableFlags = buildList {

@@ -21,7 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.util.fastAll
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -92,15 +93,24 @@ data object LibraryTab : Tab {
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
 
-        val screenModel = rememberScreenModel { LibraryScreenModel(type = LibraryScreenModel.LibraryType.Manga) }
-        val settingsScreenModel =
-            rememberScreenModel { LibrarySettingsScreenModel(type = LibraryScreenModel.LibraryType.Manga) }
-        val state by screenModel.state.collectAsState()
-        val titleMaxLines by settingsScreenModel.libraryPreferences.titleMaxLines.changes().collectAsState(
-            settingsScreenModel.libraryPreferences.titleMaxLines.get(),
+        val viewModel = viewModel<LibraryViewModel>(
+            factory = LibraryViewModel.Factory,
+            extras = CreationExtras {
+                set(LibraryViewModel.TYPE_KEY, LibraryViewModel.LibraryType.Manga)
+            },
         )
-        val showUrlInList by settingsScreenModel.libraryPreferences.showUrlInList.changes().collectAsState(
-            settingsScreenModel.libraryPreferences.showUrlInList.get(),
+        val settingsViewModel = viewModel<LibrarySettingsViewModel>(
+            factory = LibrarySettingsViewModel.Factory,
+            extras = CreationExtras {
+                set(LibrarySettingsViewModel.TYPE_KEY, LibraryViewModel.LibraryType.Manga)
+            },
+        )
+        val state by viewModel.state.collectAsState()
+        val titleMaxLines by settingsViewModel.libraryPreferences.titleMaxLines.changes().collectAsState(
+            settingsViewModel.libraryPreferences.titleMaxLines.get(),
+        )
+        val showUrlInList by settingsViewModel.libraryPreferences.showUrlInList.changes().collectAsState(
+            settingsViewModel.libraryPreferences.showUrlInList.get(),
         )
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -129,15 +139,15 @@ data object LibraryTab : Tab {
                     hasActiveFilters = state.hasActiveFilters,
                     selectedCount = state.selection.size,
                     title = title,
-                    onClickUnselectAll = screenModel::clearSelection,
-                    onClickSelectAll = screenModel::selectAll,
-                    onClickInvertSelection = screenModel::invertSelection,
-                    onClickFilter = screenModel::showSettingsDialog,
-                    onClickRefresh = { screenModel.reloadLibraryFromDB() },
+                    onClickUnselectAll = viewModel::clearSelection,
+                    onClickSelectAll = viewModel::selectAll,
+                    onClickInvertSelection = viewModel::invertSelection,
+                    onClickFilter = viewModel::showSettingsDialog,
+                    onClickRefresh = { viewModel.reloadLibraryFromDB() },
                     onClickGlobalUpdate = { onClickRefresh(null) },
                     onClickOpenRandomManga = {
                         scope.launch {
-                            val randomItem = screenModel.getRandomLibraryItemForCurrentCategory()
+                            val randomItem = viewModel.getRandomLibraryItemForCurrentCategory()
                             if (randomItem != null) {
                                 navigator.push(MangaScreen(randomItem.libraryManga.manga.id))
                             } else {
@@ -148,42 +158,42 @@ data object LibraryTab : Tab {
                         }
                     },
                     searchQuery = state.toolbarQuery,
-                    onSearchQueryChange = screenModel::search,
-                    onSearch = screenModel::commitSearch,
-                    onSearchClear = screenModel::clearSearch,
+                    onSearchQueryChange = viewModel::search,
+                    onSearch = viewModel::commitSearch,
+                    onSearchClear = viewModel::clearSearch,
                     // For scroll overlay when no tab
                     scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
-                    onClickMassImport = screenModel::openMassImportDialog,
+                    onClickMassImport = viewModel::openMassImportDialog,
                     onClickFindDuplicates = { navigator.push(DuplicateDetectionScreen()) },
                     onClickCategoryActions = {
-                        state.activeCategory?.let(screenModel::openCategoryActionsDialog)
+                        state.activeCategory?.let(viewModel::openCategoryActionsDialog)
                     },
                 )
             },
             bottomBar = {
                 LibraryBottomActionMenu(
                     visible = state.selectionMode,
-                    onChangeCategoryClicked = screenModel::openChangeCategoryDialog,
-                    onMarkAsReadClicked = { screenModel.showMarkReadConfirmation(true) },
-                    onMarkAsUnreadClicked = { screenModel.showMarkReadConfirmation(false) },
-                    onDownloadClicked = screenModel::performDownloadAction
+                    onChangeCategoryClicked = viewModel::openChangeCategoryDialog,
+                    onMarkAsReadClicked = { viewModel.showMarkReadConfirmation(true) },
+                    onMarkAsUnreadClicked = { viewModel.showMarkReadConfirmation(false) },
+                    onDownloadClicked = viewModel::performDownloadAction
                         .takeIf { state.selectedManga.fastAll { !it.isLocal() } },
-                    onDeleteClicked = screenModel::openDeleteMangaDialog,
-                    onUpdateClicked = screenModel::openUpdateSelectedDialog,
+                    onDeleteClicked = viewModel::openDeleteMangaDialog,
+                    onUpdateClicked = viewModel::openUpdateSelectedDialog,
                     onMigrateClicked = {
                         val selection = state.selection
-                        screenModel.clearSelection()
+                        viewModel.clearSelection()
                         navigator.push(MigrationConfigScreen(selection))
                     },
                     onCopyLinksClicked = {
-                        val urls = screenModel.getSelectedMangaUrls()
+                        val urls = viewModel.getSelectedMangaUrls()
                         if (urls.isNotEmpty()) {
                             context.copyToClipboard("Manga Links", urls.joinToString("\n"))
                         }
-                        screenModel.clearSelection()
+                        viewModel.clearSelection()
                     },
-                    onTranslateClicked = if (screenModel.isTranslationEnabled) {
-                        screenModel::translateSelectedNovels
+                    onTranslateClicked = if (viewModel.isTranslationEnabled) {
+                        viewModel::translateSelectedNovels
                     } else {
                         null
                     },
@@ -219,11 +229,11 @@ data object LibraryTab : Tab {
                         hasActiveFilters = state.hasActiveFilters,
                         isQueryRunning = state.isQueryRunning,
                         showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                        onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
+                        onChangeCurrentPage = viewModel::updateActiveCategoryIndex,
                         onClickManga = { navigator.push(MangaScreen(it)) },
                         onContinueReadingClicked = { it: LibraryManga ->
                             scope.launchIO {
-                                val chapter = screenModel.getNextUnreadChapter(it.manga)
+                                val chapter = viewModel.getNextUnreadChapter(it.manga)
                                 if (chapter != null) {
                                     context.startActivity(
                                         ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
@@ -234,24 +244,24 @@ data object LibraryTab : Tab {
                             }
                             Unit
                         }.takeIf { state.showMangaContinueButton },
-                        onToggleSelection = screenModel::toggleSelection,
+                        onToggleSelection = viewModel::toggleSelection,
                         onToggleRangeSelection = { category, manga ->
-                            screenModel.toggleRangeSelection(category, manga)
+                            viewModel.toggleRangeSelection(category, manga)
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         },
                         onRefresh = { onClickRefresh(state.activeCategory) },
                         onGlobalSearchClicked = {
-                            navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
+                            navigator.push(GlobalSearchScreen(viewModel.state.value.searchQuery ?: ""))
                         },
                         getItemCountForCategory = { state.getItemCountForCategory(it) },
-                        getDisplayMode = { screenModel.getDisplayMode() },
-                        getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
+                        getDisplayMode = { viewModel.getDisplayMode() },
+                        getColumnsForOrientation = { viewModel.getColumnsForOrientation(it) },
                         getItemsForCategory = { state.getItemsForCategory(it) },
                         titleMaxLines = titleMaxLines,
                         showUrlInList = showUrlInList,
-                        paginationEnabled = screenModel.paginationEnabled,
-                        onCategoryFirstVisible = screenModel::onCategoryFirstVisible,
-                        onLoadMore = screenModel::loadMoreForCategory,
+                        paginationEnabled = viewModel.paginationEnabled,
+                        onCategoryFirstVisible = viewModel::onCategoryFirstVisible,
+                        onLoadMore = viewModel::loadMoreForCategory,
                         getLoadMoreKey = { state.categoryLoadKey(it) },
                         isCategoryLoading = { state.paginationLoadingCategories.contains(it.id) },
                     )
@@ -259,34 +269,34 @@ data object LibraryTab : Tab {
             }
         }
 
-        val onDismissRequest = screenModel::closeDialog
+        val onDismissRequest = viewModel::closeDialog
         when (val dialog = state.dialog) {
-            is LibraryScreenModel.Dialog.SettingsSheet -> run {
+            is LibraryViewModel.Dialog.SettingsSheet -> run {
                 LibrarySettingsDialog(
                     onDismissRequest = onDismissRequest,
-                    screenModel = settingsScreenModel,
+                    viewModel = settingsViewModel,
                     category = state.activeCategory,
                 )
             }
-            is LibraryScreenModel.Dialog.ChangeCategory -> {
+            is LibraryViewModel.Dialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = onDismissRequest,
                     onEditCategories = {
-                        screenModel.clearSelection()
+                        viewModel.clearSelection()
                         navigator.push(CategoryScreen())
                     },
                     onConfirm = { include, exclude ->
-                        screenModel.clearSelection()
-                        screenModel.setMangaCategories(dialog.manga, include, exclude)
+                        viewModel.clearSelection()
+                        viewModel.setMangaCategories(dialog.manga, include, exclude)
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.UpdateSelected -> {
+            is LibraryViewModel.Dialog.UpdateSelected -> {
                 UpdateSelectedDialog(
                     onDismissRequest = onDismissRequest,
                     onConfirm = { fetchChapters, fetchDetails, ignoreSkipRecentlyUpdated ->
-                        screenModel.updateSelected(
+                        viewModel.updateSelected(
                             dialog.manga,
                             fetchChapters,
                             fetchDetails,
@@ -295,7 +305,7 @@ data object LibraryTab : Tab {
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.DeleteManga -> {
+            is LibraryViewModel.Dialog.DeleteManga -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = dialog.manga.any(Manga::isLocal),
                     onDismissRequest = onDismissRequest,
@@ -308,7 +318,7 @@ data object LibraryTab : Tab {
                             clearDescriptions,
                             clearTags,
                         ->
-                        screenModel.removeMangas(
+                        viewModel.removeMangas(
                             dialog.manga,
                             deleteManga,
                             deleteChapter,
@@ -318,11 +328,11 @@ data object LibraryTab : Tab {
                             clearDescriptions,
                             clearTags,
                         )
-                        screenModel.clearSelection()
+                        viewModel.clearSelection()
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.CategoryAction -> {
+            is LibraryViewModel.Dialog.CategoryAction -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = false,
                     isCategoryAction = true,
@@ -336,7 +346,7 @@ data object LibraryTab : Tab {
                             clearDescriptions,
                             clearTags,
                         ->
-                        screenModel.removeCategoryMangas(
+                        viewModel.removeCategoryMangas(
                             categoryId = dialog.category.id,
                             deleteFromLibrary = deleteManga,
                             deleteChapters = deleteChapter,
@@ -349,28 +359,28 @@ data object LibraryTab : Tab {
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.MarkReadConfirmation -> {
+            is LibraryViewModel.Dialog.MarkReadConfirmation -> {
                 MarkReadConfirmationDialog(
                     read = dialog.read,
                     onDismissRequest = onDismissRequest,
                     onConfirm = {
-                        screenModel.markReadSelection(dialog.read)
+                        viewModel.markReadSelection(dialog.read)
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.MassImport -> {
+            is LibraryViewModel.Dialog.MassImport -> {
                 MassImportDialog(
                     onDismissRequest = onDismissRequest,
                     isNovelMode = false, // Manga mode for LibraryTab
                 )
             }
-            is LibraryScreenModel.Dialog.ImportEpub -> {
+            is LibraryViewModel.Dialog.ImportEpub -> {
                 // Import EPUB is only used in NovelsTab, not here
             }
-            is LibraryScreenModel.Dialog.ExportEpub -> {
+            is LibraryViewModel.Dialog.ExportEpub -> {
                 // Export EPUB is only used in NovelsTab, not here
             }
-            is LibraryScreenModel.Dialog.DuplicateDetection -> {
+            is LibraryViewModel.Dialog.DuplicateDetection -> {
                 // Navigate to DuplicateDetectionScreen instead of showing dialog
                 onDismissRequest()
             }
@@ -379,8 +389,8 @@ data object LibraryTab : Tab {
 
         BackHandler(enabled = state.selectionMode || state.toolbarQuery != null) {
             when {
-                state.selectionMode -> screenModel.clearSelection()
-                state.toolbarQuery != null -> screenModel.clearSearch()
+                state.selectionMode -> viewModel.clearSelection()
+                state.toolbarQuery != null -> viewModel.clearSearch()
             }
         }
 
@@ -395,8 +405,8 @@ data object LibraryTab : Tab {
         }
 
         LaunchedEffect(Unit) {
-            launch { queryEvent.receiveAsFlow().collect(screenModel::search) }
-            launch { requestSettingsSheetEvent.receiveAsFlow().collectLatest { screenModel.showSettingsDialog() } }
+            launch { queryEvent.receiveAsFlow().collect(viewModel::search) }
+            launch { requestSettingsSheetEvent.receiveAsFlow().collectLatest { viewModel.showSettingsDialog() } }
         }
     }
 

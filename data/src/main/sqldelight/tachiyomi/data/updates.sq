@@ -35,6 +35,33 @@ AND (:filterUnread IS NULL OR C.read != :filterUnread)
 AND (:filterStarted IS NULL OR (CASE WHEN :filterStarted THEN C.last_page_read > 0 ELSE C.last_page_read = 0 END))
 AND (:filterBookmarked IS NULL OR C.bookmark = :filterBookmarked)
 AND (:hideExcludedScanlators = 0 OR ES.scanlator IS NULL)
+AND (
+    -- includedEmpty being true expresses "don't care" state and bypasses the membership filter
+    :includedEmpty
+    OR EXISTS (
+        SELECT 1 FROM mangas_categories
+        WHERE mangas_categories.manga_id = M._id
+        AND COALESCE(mangas_categories.category_id, 0) IN :includedCategories
+    )
+    OR (0 IN :includedCategories AND NOT EXISTS (
+        SELECT 1 FROM mangas_categories mc WHERE mc.manga_id = M._id)
+    )
+)
+AND (
+    -- excludedEmpty being true expresses "don't care" state and bypasses the membership filter
+    :excludedEmpty
+    OR (
+        NOT EXISTS (
+            SELECT 1 FROM mangas_categories
+            WHERE mangas_categories.manga_id = M._id
+            AND COALESCE(mangas_categories.category_id, 0) IN :excludedCategories
+        )
+        AND (
+            0 NOT IN :excludedCategories
+            OR EXISTS (SELECT 1 FROM mangas_categories WHERE mangas_categories.manga_id = M._id)
+        )
+    )
+)
 ORDER BY C.date_fetch DESC
 LIMIT :limit
 OFFSET :offset;

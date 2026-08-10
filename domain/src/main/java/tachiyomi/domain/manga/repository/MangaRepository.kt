@@ -215,7 +215,11 @@ interface MangaRepository {
 
     suspend fun getMangaWithCountsLight(ids: List<Long>): List<MangaWithChapterCount>
 
-    suspend fun getUpcomingManga(statuses: Set<Long>): Flow<List<Manga>>
+    suspend fun getUpcomingManga(
+        statuses: Set<Long>,
+        excludedCategories: List<Long>,
+        includedCategories: List<Long>,
+    ): Flow<List<Manga>>
 
     suspend fun resetViewerFlags(): Boolean
 

@@ -73,7 +73,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import tachiyomi.core.common.i18n.stringResource
@@ -162,7 +162,7 @@ private val backgroundColors = listOf(
 )
 
 @Composable
-internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
     val fontFamily by screenModel.preferences.novelFontFamily.collectAsState()
     val textAlign by screenModel.preferences.novelTextAlign.collectAsState()
     val autoSplitEnabled by screenModel.preferences.novelAutoSplitText.collectAsState()
@@ -277,7 +277,7 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsScreenModel)
 }
 
 @Composable
-internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel) {
     val preferences = screenModel.preferences
     val theme by preferences.novelTheme.collectAsState()
     val fontColor by preferences.novelFontColor.collectAsState()
@@ -522,7 +522,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsScreenMod
 }
 
 @Composable
-internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) {
     val autoScrollSpeed by screenModel.preferences.novelAutoScrollSpeed.collectAsState()
     val volumeKeysScroll by screenModel.preferences.novelVolumeKeysScroll.collectAsState()
 
@@ -757,7 +757,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsScreenModel
 }
 
 @Composable
-internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel) {
     RegexReplacementSection(screenModel)
 
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
@@ -1176,7 +1176,7 @@ private fun SnippetEditDialog(
  * Rules are applied to chapter HTML content before rendering.
  */
 @Composable
-private fun ColumnScope.RegexReplacementSection(screenModel: ReaderSettingsScreenModel) {
+private fun ColumnScope.RegexReplacementSection(screenModel: ReaderSettingsViewModel) {
     val regexJson by screenModel.preferences.novelRegexReplacements.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -1583,7 +1583,7 @@ private fun RegexEditDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
     val ttsEnabled by screenModel.preferences.novelTtsEnabled.collectAsState()
 
     Spacer(modifier = Modifier.height(8.dp))

@@ -23,7 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -53,9 +54,14 @@ data class MigrateMangaScreen(
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { MigrateMangaScreenModel(sourceId) }
+        val viewModel = viewModel<MigrateMangaViewModel>(
+            factory = MigrateMangaViewModel.Factory,
+            extras = CreationExtras {
+                set(MigrateMangaViewModel.SOURCE_ID_KEY, sourceId)
+            },
+        )
 
-        val state by screenModel.state.collectAsState()
+        val state by viewModel.state.collectAsState()
 
         if (state.isLoading) {
             LoadingScreen()
@@ -63,7 +69,7 @@ data class MigrateMangaScreen(
         }
 
         BackHandler(enabled = state.selectionMode) {
-            screenModel.clearSelection()
+            viewModel.clearSelection()
         }
 
         val lazyListState = rememberLazyListState()
@@ -74,18 +80,18 @@ data class MigrateMangaScreen(
                     title = state.source!!.name,
                     navigateUp = {
                         if (state.selectionMode) {
-                            screenModel.clearSelection()
+                            viewModel.clearSelection()
                         } else {
                             navigator.pop()
                         }
                     },
                     actionModeCounter = state.selection.size,
-                    onCancelActionMode = { screenModel.clearSelection() },
+                    onCancelActionMode = { viewModel.clearSelection() },
                     actionModeActions = {
                         var showMenu by androidx.compose.runtime.remember {
                             androidx.compose.runtime.mutableStateOf(false)
                         }
-                        IconButton(onClick = { screenModel.selectAll() }) {
+                        IconButton(onClick = { viewModel.selectAll() }) {
                             Icon(
                                 imageVector = Icons.Outlined.SelectAll,
                                 contentDescription = stringResource(MR.strings.action_select_all),
@@ -102,7 +108,7 @@ data class MigrateMangaScreen(
                                 text = { Text(text = stringResource(MR.strings.action_quick_migrate)) },
                                 onClick = {
                                     showMenu = false
-                                    screenModel.showQuickMigrateDialog()
+                                    viewModel.showQuickMigrateDialog()
                                 },
                             )
                         }
@@ -118,7 +124,7 @@ data class MigrateMangaScreen(
                     },
                     onClick = {
                         val selection = state.selection
-                        screenModel.clearSelection()
+                        viewModel.clearSelection()
                         navigator.push(MigrationConfigScreen(selection))
                     },
                     expanded = lazyListState.shouldExpandFAB(),
@@ -141,37 +147,37 @@ data class MigrateMangaScreen(
                 lazyListState = lazyListState,
                 contentPadding = contentPadding,
                 state = state,
-                onClickItem = screenModel::toggleSelection,
+                onClickItem = viewModel::toggleSelection,
                 onClickCover = { navigator.push(MangaScreen(it.id)) },
             )
         }
 
         when (val dialog = state.dialog) {
-            is MigrateMangaScreenModel.Dialog.QuickMigrateSourcePicker -> {
+            is MigrateMangaViewModel.Dialog.QuickMigrateSourcePicker -> {
                 QuickMigrateSourcePickerDialog(
-                    defaultIsNovel = screenModel.isSourceNovel,
-                    getSources = { screenModel.getAvailableSources(it) },
-                    onSourceSelected = { screenModel.checkQuickMigrate(it) },
-                    onDismissRequest = { screenModel.dismissDialog() },
+                    defaultIsNovel = viewModel.isSourceNovel,
+                    getSources = { viewModel.getAvailableSources(it) },
+                    onSourceSelected = { viewModel.checkQuickMigrate(it) },
+                    onDismissRequest = { viewModel.dismissDialog() },
                 )
             }
-            is MigrateMangaScreenModel.Dialog.QuickMigrateConfirm -> {
+            is MigrateMangaViewModel.Dialog.QuickMigrateConfirm -> {
                 QuickMigrateConfirmDialog(
                     sourceName = dialog.sourceName,
                     targetSourceName = dialog.targetSourceName,
                     totalCount = dialog.totalCount,
                     skipCount = dialog.skipCount,
                     onConfirm = { categoryName, removeSkipped ->
-                        screenModel.executeQuickMigrate(dialog.targetSourceId, categoryName, removeSkipped)
+                        viewModel.executeQuickMigrate(dialog.targetSourceId, categoryName, removeSkipped)
                     },
-                    onDismissRequest = { screenModel.dismissDialog() },
+                    onDismissRequest = { viewModel.dismissDialog() },
                 )
             }
             null -> {}
         }
 
         LaunchedEffect(Unit) {
-            screenModel.events.collectLatest { event ->
+            viewModel.events.collectLatest { event ->
                 when (event) {
                     MigrationMangaEvent.FailedFetchingFavorites -> {
                         context.toast(MR.strings.internal_error)
@@ -198,7 +204,7 @@ data class MigrateMangaScreen(
     private fun MigrateMangaContent(
         lazyListState: LazyListState,
         contentPadding: PaddingValues,
-        state: MigrateMangaScreenModel.State,
+        state: MigrateMangaViewModel.State,
         onClickItem: (Manga) -> Unit,
         onClickCover: (Manga) -> Unit,
     ) {

@@ -9,7 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -25,7 +25,7 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel.Event
+import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel.Event
 import kotlinx.coroutines.flow.collectLatest
 import mihon.feature.upcoming.UpcomingScreen
 import tachiyomi.core.common.i18n.stringResource
@@ -54,8 +54,8 @@ data object UpdatesTab : Tab {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { UpdatesScreenModel() }
-        val settingsScreenModel = rememberScreenModel { UpdatesSettingsScreenModel() }
+        val screenModel = viewModel<UpdatesViewModel>()
+        val settingsScreenModel = viewModel<UpdatesSettingsViewModel>()
         val state by screenModel.state.collectAsState()
 
         UpdateScreen(
@@ -85,16 +85,16 @@ data object UpdatesTab : Tab {
 
         val onDismissDialog = { screenModel.setDialog(null) }
         when (val dialog = state.dialog) {
-            is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
+            is UpdatesViewModel.Dialog.DeleteConfirmation -> {
                 UpdatesDeleteConfirmationDialog(
                     onDismissRequest = onDismissDialog,
                     onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
                 )
             }
-            is UpdatesScreenModel.Dialog.FilterSheet -> {
+            is UpdatesViewModel.Dialog.FilterSheet -> {
                 UpdatesFilterDialog(
                     onDismissRequest = onDismissDialog,
-                    screenModel = settingsScreenModel,
+                    viewModel = settingsScreenModel,
                 )
             }
             null -> {}

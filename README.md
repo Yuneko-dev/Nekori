@@ -32,7 +32,7 @@ Upstream Weblate:
 
 * Local reading of content, including: EPUBs, TXT, HTML.
 * A configurable reader with multiple viewers, font colors and themes, among other settings.
-* Tracker support: [NovelUpdates](https://www.novelupdates.com/) and [NovelList](https://www.novellist.co/), plus the classics: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/) and [Hikka](https://hikka.io/) support.
+* Tracker support: [NovelUpdates](https://www.novelupdates.com/) and [NovelList](https://www.novellist.co/), plus the classics: [MangaBaka](https://mangabaka.org), [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/) support.
 * Categories to organize your library.
 * Light and dark themes.
 * Schedule updating your library for new chapters.

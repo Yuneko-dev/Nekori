@@ -49,7 +49,7 @@ class LibraryItemMatchesTest {
         author: Set<Long> = emptySet(),
         artist: Set<Long> = emptySet(),
         description: Set<Long> = emptySet(),
-    ) = LibraryScreenModel.MetadataMatchIds(author = author, artist = artist, description = description)
+    ) = LibraryViewModel.MetadataMatchIds(author = author, artist = artist, description = description)
 
     @Test
     fun `title prefix matches substring case-insensitively`() {

@@ -57,7 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
@@ -86,7 +86,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { DownloadQueueScreenModel() }
+        val screenModel = viewModel<DownloadQueueViewModel>()
         val novelList by screenModel.novelState.collectAsState()
         val pausedGroups by screenModel.pausedNovelMangaIds.collectAsState()
         val titleMaxLines by screenModel.titleMaxLines.collectAsState()
@@ -447,7 +447,7 @@ private fun NovelDownloadCard(
     onMoveToBottom: () -> Unit,
 ) {
     val context = LocalContext.current
-    val errorLabel = stringResource(MR.strings.update_check_notification_download_error)
+    val errorLabel = stringResource(TDMR.strings.novel_download_error)
     var showMenu by remember { mutableStateOf(false) }
     var errorsExpanded by remember { mutableStateOf(false) }
 

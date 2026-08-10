@@ -10,7 +10,7 @@ import androidx.compose.runtime.remember
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.HeadingItem
@@ -19,7 +19,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
 @Composable
-internal fun ColumnScope.ReadingModePage(screenModel: ReaderSettingsScreenModel) {
+internal fun ColumnScope.ReadingModePage(screenModel: ReaderSettingsViewModel) {
     HeadingItem(MR.strings.pref_category_for_this_series)
     val manga by screenModel.mangaFlow.collectAsState()
 
@@ -38,7 +38,7 @@ internal fun ColumnScope.ReadingModePage(screenModel: ReaderSettingsScreenModel)
 }
 
 @Composable
-private fun ColumnScope.NovelViewerSettings(screenModel: ReaderSettingsScreenModel) {
+private fun ColumnScope.NovelViewerSettings(screenModel: ReaderSettingsViewModel) {
     HeadingItem(TDMR.strings.novel_viewer)
 
     val navigationModeNovel by screenModel.preferences.navigationModeNovel.collectAsState()
