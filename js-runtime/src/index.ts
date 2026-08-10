@@ -39,6 +39,7 @@ import {
   removePlugin,
   resolvePluginUrl,
 } from './plugins/pluginHost';
+import { PluginContentType, PluginContentWarning } from './plugins/types';
 
 declare const global: {
   __TSUNDOKU_JS_READY__?: boolean;
@@ -90,14 +91,20 @@ registerHandler('secureRandom.sample', args => {
   };
 });
 
+// Returns everything the host needs to identify a plugin, because the loaded code is the only
+// authority on that. A repository index entry is a catalogue listing: it can be stale, or describe
+// a version that was never the one written to disk.
 registerHandler('plugin.load', async args => {
   const { id, code, key } = args as { id: string; code: string; key?: string };
   const plugin = await initPlugin(id, code, key);
   return {
     id: plugin.id,
     name: plugin.name,
+    lang: plugin.lang,
     version: plugin.version,
     site: plugin.site,
+    contentWarning: plugin.contentWarning ?? PluginContentWarning.UNSPECIFIED,
+    contentType: plugin.contentType ?? PluginContentType.NOVEL,
     webStorageUtilized: plugin.webStorageUtilized === true,
     imageRequestInit: plugin.imageRequestInit,
   };

@@ -6,6 +6,10 @@ import java.net.URI
 /**
  * Represents a JS plugin from LNReader-compatible repositories.
  * Maps directly to the plugin index JSON format.
+ *
+ * Also decoded straight from what `plugin.load` reports, which is the authority on the fields the
+ * code owns. That answer carries no [url] or [iconUrl] - where to download a plugin from and what
+ * icon to show it with belong to the repository listing, not to the plugin - hence their defaults.
  */
 @Serializable
 data class JsPlugin(
@@ -14,8 +18,8 @@ data class JsPlugin(
     val site: String,
     val lang: String,
     val version: String,
-    val url: String,
-    val iconUrl: String,
+    val url: String = "",
+    val iconUrl: String = "",
     val customCSS: String? = null,
     val customJS: String? = null,
     val customCSSFile: String? = null,

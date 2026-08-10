@@ -57,7 +57,16 @@ class JsSource(
 
     private val json = Json { ignoreUnknownKeys = true }
     private val hermesLoadMutex = kotlinx.coroutines.sync.Mutex()
-    private val hermesRuntimeKey = "${plugin.id}@${System.identityHashCode(this)}"
+
+    /**
+     * Identifies this plugin's context inside the runtime, which holds one per key.
+     *
+     * The plugin id, not something per-instance: loading the same plugin twice then has to mean
+     * replacing its context rather than opening a second one, so an update is idempotent and an
+     * uninstall has exactly one thing to release. Keying per instance also let a new source inherit
+     * a dead one's context, since `identityHashCode` is reused once its object is collected.
+     */
+    internal val runtimeKey: String = plugin.id
 
     @Volatile private var isLoadedInHermes = false
 
@@ -180,7 +189,7 @@ class JsSource(
             ensureLoadedInHermes()
             val payload = buildJsonObject {
                 put("id", pluginId)
-                put("key", hermesRuntimeKey)
+                put("key", runtimeKey)
                 put("path", path)
                 put("page", page)
             }.toString()
@@ -212,7 +221,7 @@ class JsSource(
             if (!isLoadedInHermes) return@withLock
             val payload = buildJsonObject {
                 put("id", pluginId)
-                put("key", hermesRuntimeKey)
+                put("key", runtimeKey)
             }.toString()
             runCatching { hermesRuntime.call("plugin.unload", payload) }
             isLoadedInHermes = false
@@ -231,7 +240,7 @@ class JsSource(
         ensureLoadedInHermes()
         val payload = buildJsonObject {
             put("id", pluginId)
-            put("key", hermesRuntimeKey)
+            put("key", runtimeKey)
             put("expression", methodCall)
         }.toString()
         return withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
@@ -245,7 +254,7 @@ class JsSource(
             if (isLoadedInHermes) return
             val payload = buildJsonObject {
                 put("id", pluginId)
-                put("key", hermesRuntimeKey)
+                put("key", runtimeKey)
                 put("code", jsCode)
             }.toString()
             val loadedPlugin = hermesRuntime.call("plugin.load", payload)
@@ -273,7 +282,7 @@ class JsSource(
                 val snapshot = json.parseToJsonElement(decodeJsonStringIfQuoted(snapshotJson)).jsonObject
                 val payload = buildJsonObject {
                     put("id", pluginId)
-                    put("key", hermesRuntimeKey)
+                    put("key", runtimeKey)
                     put("localStorage", snapshot["localStorage"] as? JsonObject ?: JsonObject(emptyMap()))
                     put("sessionStorage", snapshot["sessionStorage"] as? JsonObject ?: JsonObject(emptyMap()))
                 }.toString()
@@ -317,7 +326,7 @@ class JsSource(
         ensureLoadedInHermes()
         val payload = buildJsonObject {
             put("id", pluginId)
-            put("key", hermesRuntimeKey)
+            put("key", runtimeKey)
             put("path", normalizePluginPath(path))
             put("isNovel", isNovel)
         }.toString()
@@ -336,7 +345,7 @@ class JsSource(
         ensureLoadedInHermes()
         val payload = buildJsonObject {
             put("id", pluginId)
-            put("key", hermesRuntimeKey)
+            put("key", runtimeKey)
             put("storageKey", key)
         }.toString()
         return hermesRuntime.call("plugin.storageGet", payload)
@@ -348,7 +357,7 @@ class JsSource(
         ensureLoadedInHermes()
         val payload = buildJsonObject {
             put("id", pluginId)
-            put("key", hermesRuntimeKey)
+            put("key", runtimeKey)
             put("storageKey", key)
             put("value", value)
         }.toString()
@@ -813,7 +822,7 @@ class JsSource(
             ensureLoadedInHermes()
             val payload = buildJsonObject {
                 put("id", pluginId)
-                put("key", hermesRuntimeKey)
+                put("key", runtimeKey)
                 put("path", path)
             }.toString()
             val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
@@ -834,7 +843,7 @@ class JsSource(
             ensureLoadedInHermes()
             val payload = buildJsonObject {
                 put("id", pluginId)
-                put("key", hermesRuntimeKey)
+                put("key", runtimeKey)
                 put("path", path)
             }.toString()
             val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {

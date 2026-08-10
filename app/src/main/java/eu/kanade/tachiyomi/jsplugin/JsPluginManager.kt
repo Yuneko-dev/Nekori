@@ -66,6 +66,28 @@ class JsPluginManager(
         }
 
         internal fun isCustomAssetFileName(fileName: String): Boolean = CUSTOM_ASSET_FILE.matches(fileName)
+
+        /**
+         * Combines what the runtime reported about a plugin with the fields only its listing knows.
+         *
+         * [engine] wins on everything the plugin declares about itself, because that code is what
+         * actually runs while a listing is a catalogue entry that can describe a version which was
+         * never installed. Where to download the plugin from, its icon, which repository it came
+         * from and the local names of its custom assets are not the code's to declare, so those
+         * survive from [stored].
+         */
+        internal fun mergePluginMetadata(engine: JsPlugin, stored: JsPlugin?): JsPlugin {
+            stored ?: return engine
+            return engine.copy(
+                url = stored.url,
+                iconUrl = stored.iconUrl,
+                customCSS = stored.customCSS,
+                customJS = stored.customJS,
+                customCSSFile = stored.customCSSFile,
+                customJSFile = stored.customJSFile,
+                repositoryUrl = stored.repositoryUrl,
+            )
+        }
     }
 
     private val networkHelper: NetworkHelper = Injekt.get()
@@ -251,9 +273,14 @@ class JsPluginManager(
             // therefore leaves the previous plugin and its custom assets usable.
             val code = downloadText(plugin.url)
             require(code.isNotBlank()) { "Downloaded plugin code is empty" }
-            val codeVersion = inspectBackupPlugin(code, plugin.id).version
-            require(codeVersion == plugin.version) {
-                "Downloaded plugin code is v$codeVersion, expected v${plugin.version}"
+            val engineMetadata = inspectBackupPlugin(code, plugin.id)
+            if (engineMetadata.version != plugin.version) {
+                // Not a failure. The listing is a catalogue entry; the code is the thing being
+                // installed, so it decides what this plugin now is.
+                logcat(LogPriority.WARN) {
+                    "Repository lists ${plugin.id} as v${plugin.version}, its code reports " +
+                        "v${engineMetadata.version}; recording the code's version"
+                }
             }
             val customJS = plugin.customJS
                 ?.takeIf(String::isNotBlank)
@@ -261,10 +288,13 @@ class JsPluginManager(
             val customCSS = plugin.customCSS
                 ?.takeIf(String::isNotBlank)
                 ?.let(::downloadText)
-            val installedMetadata = plugin.copy(
-                customCSSFile = customCSS?.let { customAssetFileName(CUSTOM_CSS_KIND, it) },
-                customJSFile = customJS?.let { customAssetFileName(CUSTOM_JS_KIND, it) },
-                repositoryUrl = repositoryUrl,
+            val installedMetadata = mergePluginMetadata(
+                engine = engineMetadata,
+                stored = plugin.copy(
+                    customCSSFile = customCSS?.let { customAssetFileName(CUSTOM_CSS_KIND, it) },
+                    customJSFile = customJS?.let { customAssetFileName(CUSTOM_JS_KIND, it) },
+                    repositoryUrl = repositoryUrl,
+                ),
             )
 
             installedMetadata.customJSFile?.let {
@@ -282,7 +312,7 @@ class JsPluginManager(
                 code = code,
                 customCSS = customCSS.orEmpty(),
                 customJS = customJS.orEmpty(),
-                installedVersion = plugin.version,
+                installedVersion = installedMetadata.version,
                 repositoryUrl = repositoryUrl,
             )
             val metadataJson = json.encodeToString(installedPlugin.plugin)
@@ -299,16 +329,16 @@ class JsPluginManager(
             rebuildSources()
 
             // Auto-enable the plugin's language so the source appears in Novel Sources tab
-            val langCode = plugin.langCode()
+            val langCode = installedMetadata.langCode()
             if (langCode.isNotEmpty()) {
                 val currentLangs = sourcePreferences.enabledLanguages.get()
                 if (langCode !in currentLangs) {
                     sourcePreferences.enabledLanguages.set(currentLangs + langCode)
-                    logcat(LogPriority.INFO) { "Auto-enabled language '$langCode' for plugin ${plugin.name}" }
+                    logcat(LogPriority.INFO) { "Auto-enabled language '$langCode' for ${installedMetadata.name}" }
                 }
             }
 
-            logcat(LogPriority.INFO) { "Installed plugin: ${plugin.name} v${plugin.version}" }
+            logcat(LogPriority.INFO) { "Installed plugin: ${installedMetadata.name} v${installedMetadata.version}" }
             true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to install plugin ${plugin.name}" }
@@ -355,63 +385,6 @@ class JsPluginManager(
     fun hasUpdate(installedPlugin: InstalledJsPlugin): Boolean {
         val available = _availablePlugins.value.find { it.id == installedPlugin.plugin.id }
         return available != null && available.version != installedPlugin.installedVersion
-    }
-
-    /**
-     * Install a plugin from raw JS code (e.g. from LNReader backup).
-     * Only installs if the plugin is not already installed or if the provided version is newer.
-     */
-    suspend fun installPluginFromCode(pluginId: String, code: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            require(isSafePluginId(pluginId)) { "Unsafe plugin id: $pluginId" }
-            val dir = pluginsDir ?: throw Exception("Plugin directory not available")
-
-            val plugin = extractPluginInfo(code, pluginId)
-            require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
-
-            val existing = _installedPlugins.value.find { it.plugin.id == plugin.id }
-            if (existing != null && existing.installedVersion >= plugin.version) {
-                logcat(LogPriority.DEBUG) {
-                    "Plugin '${plugin.id}' v${existing.installedVersion} already installed (backup has v${plugin.version}), skipping"
-                }
-                return@withContext false
-            }
-            val previousAssets = existing?.customAssetFiles().orEmpty()
-
-            val pluginFile = dir.replaceFile("${plugin.id}.js") ?: throw Exception("Failed to create plugin file")
-            pluginFile.writeUtf8(code)
-
-            val metadataFile = dir.replaceFile("${plugin.id}.json") ?: throw Exception("Failed to create metadata file")
-            val metadataJson = json.encodeToString(plugin)
-            metadataFile.writeText(metadataJson)
-
-            val installedPlugin = InstalledJsPlugin(
-                plugin = plugin,
-                code = code,
-                installedVersion = plugin.version,
-                repositoryUrl = "",
-            )
-            _installedPlugins.update { current ->
-                current.filter { it.plugin.id != plugin.id } + installedPlugin
-            }
-            cleanupCustomAssets(dir, previousAssets)
-
-            rebuildSources()
-
-            val langCode = plugin.langCode()
-            if (langCode.isNotEmpty()) {
-                val currentLangs = sourcePreferences.enabledLanguages.get()
-                if (langCode !in currentLangs) {
-                    sourcePreferences.enabledLanguages.set(currentLangs + langCode)
-                }
-            }
-
-            logcat(LogPriority.INFO) { "Installed plugin from backup: ${plugin.name} v${plugin.version}" }
-            true
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to install plugin '$pluginId' from backup" }
-            false
-        }
     }
 
     suspend fun installPluginFromBackup(
@@ -510,30 +483,17 @@ class JsPluginManager(
         }
     }
 
+    /**
+     * Reports what [code] says about itself, without disturbing an already installed copy.
+     *
+     * Runs under a throwaway runtime key, so inspecting a candidate cannot replace the context a
+     * running source is working with, and an install that fails afterwards leaves that context as
+     * it was.
+     */
     suspend fun inspectBackupPlugin(code: String, fallbackId: String = "backup-plugin"): JsPlugin {
-        val runtimeKey = "backup:$fallbackId:${System.nanoTime()}"
-        val loadPayload = buildJsonObject {
-            put("id", fallbackId)
-            put("key", runtimeKey)
-            put("code", code)
-        }
+        val runtimeKey = "inspect:$fallbackId:${System.nanoTime()}"
         return try {
-            hermesRuntime.call("plugin.load", json.encodeToString(loadPayload))
-            val evalPayload = buildJsonObject {
-                put("id", fallbackId)
-                put("key", runtimeKey)
-                put(
-                    "expression",
-                    """({id:String(plugin.id||''),name:String(plugin.name||''),""" +
-                        """lang:String(plugin.lang||''),version:String(plugin.version||'1.0.0'),""" +
-                        """site:String(plugin.site||''),url:String(plugin.url||''),""" +
-                        """iconUrl:String(plugin.iconUrl||''),""" +
-                        """customJS:plugin.customJS||null,customCSS:plugin.customCSS||null,""" +
-                        """contentWarning:plugin.contentWarning??null,contentType:plugin.contentType||null})""",
-                )
-            }
-            json.decodeFromString<JsPlugin>(hermesRuntime.call("plugin.eval", json.encodeToString(evalPayload)))
-                .let { it.copy(id = it.id.ifBlank { fallbackId }, name = it.name.ifBlank { fallbackId }) }
+            loadPluginMetadata(fallbackId, code, runtimeKey)
         } finally {
             val unloadPayload = buildJsonObject {
                 put("id", fallbackId)
@@ -541,6 +501,17 @@ class JsPluginManager(
             }
             runCatching { hermesRuntime.call("plugin.unload", json.encodeToString(unloadPayload)) }
         }
+    }
+
+    /** Loads [code] into the runtime under [runtimeKey] and returns what it reports about itself. */
+    private suspend fun loadPluginMetadata(pluginId: String, code: String, runtimeKey: String): JsPlugin {
+        val payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", runtimeKey)
+            put("code", code)
+        }
+        return json.decodeFromString<JsPlugin>(hermesRuntime.call("plugin.load", json.encodeToString(payload)))
+            .let { it.copy(id = it.id.ifBlank { pluginId }, name = it.name.ifBlank { pluginId }) }
     }
 
     /**
@@ -653,6 +624,16 @@ class JsPluginManager(
                 }
                 val jsonByName = jsonFiles.associateBy { it.name?.substringBeforeLast(".") }
 
+                // Booted once, up front. Asking per plugin would make a runtime that is down cost
+                // one ready-timeout each instead of one for the whole scan.
+                val runtimeAvailable = runCatching { hermesRuntime.start() }
+                    .onFailure {
+                        logcat(LogPriority.ERROR, it) {
+                            "JS runtime unavailable; falling back to cached plugin metadata"
+                        }
+                    }
+                    .isSuccess
+
                 val plugins = jsFiles.mapNotNull { file ->
                     try {
                         var code = file.readUtf8()
@@ -661,41 +642,28 @@ class JsPluginManager(
                             return@mapNotNull null
                         }
                         val nameWithoutExtension = file.name?.substringBeforeLast(".") ?: return@mapNotNull null
-                        val metadataFile = jsonByName[nameWithoutExtension]
-                        var plugin = if (metadataFile != null) {
-                            // A stale SAF entry or corrupt metadata can throw on open/parse; fall back to
-                            // extracting from code rather than letting the outer catch drop the whole plugin.
-                            val parsedMetadata = try {
-                                val metadataJson = metadataFile.openInputStream().bufferedReader().readText()
-                                metadataJson.takeIf { it.isNotBlank() && it.trim().startsWith("{") }
+                        // The sidecar only caches what the runtime last reported, and the runtime is
+                        // asked again below, so a stale SAF entry or corrupt metadata is not fatal.
+                        val stored = jsonByName[nameWithoutExtension]?.let { metadataFile ->
+                            try {
+                                metadataFile.openInputStream().bufferedReader().readText()
+                                    .takeIf { it.isNotBlank() && it.trim().startsWith("{") }
                                     ?.let { json.decodeFromString<JsPlugin>(it) }
                             } catch (e: Exception) {
-                                logcat(LogPriority.WARN, e) {
-                                    "Failed to read metadata for $nameWithoutExtension, extracting from code"
-                                }
+                                logcat(LogPriority.WARN, e) { "Failed to read metadata for $nameWithoutExtension" }
                                 null
                             }
-                            parsedMetadata ?: run {
-                                logcat(LogPriority.DEBUG) {
-                                    "Metadata file empty for $nameWithoutExtension, extracting from code"
-                                }
-                                extractPluginInfo(code, nameWithoutExtension)
-                            }
-                        } else {
-                            logcat(LogPriority.DEBUG) {
-                                "No metadata found for $nameWithoutExtension, extracting from code"
-                            }
-                            extractPluginInfo(code, nameWithoutExtension)
                         }
 
                         // Auto-heal: if the plugin code looks truncated/incomplete, try re-download once.
                         // A common symptom is missing the final `exports.default = ...` assignment.
-                        if (!code.contains("exports.default") && plugin.url.isNotBlank()) {
+                        val downloadUrl = stored?.url.orEmpty()
+                        if (!code.contains("exports.default") && downloadUrl.isNotBlank()) {
                             logcat(LogPriority.WARN) {
-                                "Plugin '$nameWithoutExtension' code looks incomplete (len=${code.length}); re-downloading from ${plugin.url}"
+                                "Plugin '$nameWithoutExtension' code looks incomplete (len=${code.length}); re-downloading from $downloadUrl"
                             }
                             try {
-                                val response = client.newCall(GET(plugin.url)).execute()
+                                val response = client.newCall(GET(downloadUrl)).execute()
                                 response.use { resp ->
                                     if (resp.isSuccessful) {
                                         val fresh = resp.body?.string().orEmpty()
@@ -721,6 +689,29 @@ class JsPluginManager(
                             }
                         }
 
+                        // Loaded under the plugin's own id, which is the key its JsSource will use,
+                        // so this is the context the source goes on to work with rather than a
+                        // throwaway one. What the code reports about itself wins over the sidecar:
+                        // the sidecar is a copy of a repository listing, which can describe a
+                        // version that was never the one written to disk.
+                        val engine = if (runtimeAvailable) {
+                            runCatching { loadPluginMetadata(nameWithoutExtension, code, nameWithoutExtension) }
+                                .onFailure {
+                                    logcat(LogPriority.WARN, it) { "Runtime could not load '$nameWithoutExtension'" }
+                                }
+                                .getOrNull()
+                        } else {
+                            null
+                        }
+                        // Without the runtime there is still a source list to build. Degrading to the
+                        // last known metadata costs browsing accuracy; dropping the plugin would cost
+                        // the library entry and its downloads.
+                        var plugin = when {
+                            engine != null -> mergePluginMetadata(engine, stored)
+                            stored != null -> stored
+                            else -> extractPluginInfo(code, nameWithoutExtension)
+                        }
+
                         val (customCSSFile, customCSS) = loadCustomAsset(
                             dir = dir,
                             fileName = plugin.customCSSFile,
@@ -738,6 +729,8 @@ class JsPluginManager(
                                 customCSSFile = customCSSFile,
                                 customJSFile = customJSFile,
                             )
+                        }
+                        if (plugin != stored) {
                             dir.replaceFile("$nameWithoutExtension.json")
                                 ?.writeText(json.encodeToString(plugin))
                         }
@@ -765,13 +758,6 @@ class JsPluginManager(
                 // Unblock startup consumers waiting for the first JS source scan.
                 _isInitialized.value = true
             }
-
-            // Version reconciliation runs Hermes once per plugin, so it stays off the startup path:
-            // consumers gated on isInitialized (SourceManager, and through it DownloadCache's index
-            // rebuild) would otherwise wait for the JS runtime to boot and answer. Nothing they need
-            // depends on it - a source's id and download directory come from its name and language,
-            // never from its version.
-            reconcileInstalledPluginVersions()
         }
     }
 
@@ -797,51 +783,6 @@ class JsPluginManager(
         )
     }
 
-    /**
-     * Corrects installed plugins whose metadata version disagrees with the version their code
-     * reports. Runs after startup, so it merges its result instead of overwriting: a plugin
-     * installed or removed meanwhile must not be resurrected or dropped.
-     */
-    private suspend fun reconcileInstalledPluginVersions() {
-        val verified = reconcilePluginVersions(_installedPlugins.value)
-        var changed = false
-        _installedPlugins.update { current ->
-            current.map { installed ->
-                val fixed = verified.firstOrNull { it.plugin.id == installed.plugin.id }
-                if (fixed != null && fixed !== installed && fixed.code == installed.code) {
-                    changed = true
-                    fixed
-                } else {
-                    installed
-                }
-            }
-        }
-        if (changed) rebuildSources()
-    }
-
-    private suspend fun reconcilePluginVersions(plugins: List<InstalledJsPlugin>): List<InstalledJsPlugin> {
-        return plugins.map { installedPlugin ->
-            val codeVersion = runCatching {
-                inspectBackupPlugin(installedPlugin.code, installedPlugin.plugin.id).version
-            }.getOrElse { error ->
-                logcat(LogPriority.WARN, error) {
-                    "Could not verify installed plugin ${installedPlugin.plugin.id} version"
-                }
-                return@map installedPlugin
-            }
-            if (codeVersion == installedPlugin.installedVersion) return@map installedPlugin
-
-            logcat(LogPriority.WARN) {
-                "Plugin ${installedPlugin.plugin.id} metadata is v${installedPlugin.installedVersion}, " +
-                    "but its code is v$codeVersion"
-            }
-            installedPlugin.copy(
-                plugin = installedPlugin.plugin.copy(version = codeVersion),
-                installedVersion = codeVersion,
-            )
-        }
-    }
-
     private fun rebuildSources() {
         val oldSources = _jsSources.value.filterIsInstance<JsSource>()
         val oldById = oldSources.associateBy { it.id }
@@ -862,12 +803,14 @@ class JsPluginManager(
             "JsPluginManager: rebuildSources() - _jsSources.value updated, new count: ${_jsSources.value.size}"
         }
 
-        // Release only replaced runtimes; old references keep working, the runtime recreates on demand.
-        val kept = sources.toHashSet()
-        val replaced = oldSources.filterNot { it in kept }
-        if (replaced.isNotEmpty()) {
+        // Release the contexts of plugins that are gone, not of instances that were merely replaced.
+        // A replacement claims the same runtime key, so unloading the instance it replaced would
+        // tear down the context the new one has just taken over.
+        val liveKeys = sources.mapTo(mutableSetOf()) { it.runtimeKey }
+        val removed = oldSources.filterNot { it.runtimeKey in liveKeys }
+        if (removed.isNotEmpty()) {
             scope.launch {
-                replaced.forEach { source ->
+                removed.forEach { source ->
                     runCatching { source.releaseRuntime() }
                 }
             }
