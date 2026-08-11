@@ -12,6 +12,10 @@ class LnReaderMessageTest {
         assertEquals(LnReaderMessage.Save(0), LnReaderMessage.parse("""{"type":"save","data":-2}"""))
         assertEquals(LnReaderMessage.Refetch, LnReaderMessage.parse("""{"type":"refetch"}"""))
         assertEquals(LnReaderMessage.Next, LnReaderMessage.parse("""{"type":"next"}"""))
+        assertEquals(
+            LnReaderMessage.ProxyUnavailable("Proxy disabled"),
+            LnReaderMessage.parse("""{"type":"proxyUnavailable","data":"Proxy disabled"}"""),
+        )
     }
 
     @Test

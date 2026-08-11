@@ -64,6 +64,9 @@
 
   const originalFetch = window.fetch.bind(window);
   const originalFetchSymbol = Symbol("tsundoku.reader.originalFetch");
+  const proxyUnavailableError =
+    "This plugin cannot use window.reader.fetch because the local proxy is disabled. " +
+    "Go to Settings > Advanced > Novel WebView, enable Allow local proxy API, then reopen the reader.";
 
   const reader = {
     novel: config.novel || {},
@@ -87,11 +90,8 @@
     },
     fetch: function (url, init) {
       if (!config.proxyEndpoint) {
-        return Promise.reject(
-          new Error(
-            "window.reader.fetch proxy is disabled or unavailable in Novel WebView settings"
-          )
-        );
+        reader.post({ type: "proxyUnavailable", data: proxyUnavailableError });
+        return Promise.reject(new Error(proxyUnavailableError));
       }
       const requestInit = init || {};
       const incomingHeaders = new Headers(requestInit.headers || {});

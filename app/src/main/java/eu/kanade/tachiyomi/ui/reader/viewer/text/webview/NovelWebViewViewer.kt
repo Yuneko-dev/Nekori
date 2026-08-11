@@ -2444,6 +2444,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     }
                     is LnReaderMessage.Refetch -> activity.viewModel.reloadChapter(fromSource = true)
                     is LnReaderMessage.Next -> activity.loadNextChapter()
+                    is LnReaderMessage.ProxyUnavailable -> {
+                        inlineFeedback.showInlineError(parsed.message, isPrepend = false)
+                    }
                 }
             }
         }
