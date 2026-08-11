@@ -398,12 +398,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 if (isEditingMode) return false
                 if (activity.isFindInPageOpen()) return false
                 if (e.eventTime - e.downTime >= android.view.ViewConfiguration.getLongPressTimeout()) return true
-                when (
-                    gestureTarget.tapAction(
-                        isVideoChapter = isVideoChapter(),
-                        tapToScroll = preferences.novelTapToScroll.get(),
-                    )
-                ) {
+                when (gestureTarget.tapAction(isVideoChapter = isVideoChapter())) {
                     ReaderTapAction.NONE -> return true
                     ReaderTapAction.TOGGLE_MENU -> {
                         activity.toggleMenu()
@@ -420,7 +415,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 // Center-only mode: navigator.getAction defaults every unmatched tap to MENU, so
                 // gate the toggle on the center rect ourselves (parity with the TextView viewer).
-                if (preferences.navigationModeNovel.get() == ReaderPreferences.TapZones.size) {
+                // Compare against the index constant, not TapZones.size: a seventh tap-zone entry
+                // would silently move that sentinel and disable this branch.
+                if (preferences.navigationModeNovel.get() == ReaderPreferences.TAPZONE_CENTER_INDEX) {
                     if (pos.x in 0.4f..0.6f && pos.y in 0.4f..0.6f) {
                         activity.toggleMenu()
                     }
@@ -3565,13 +3562,16 @@ internal enum class ReaderGestureTarget {
 
 internal enum class ReaderTapAction { NONE, TOGGLE_MENU, TAP_ZONES }
 
-internal fun ReaderGestureTarget.tapAction(isVideoChapter: Boolean, tapToScroll: Boolean): ReaderTapAction =
+// `navigationModeNovel` is the only switch over tap zones: its disabled mode resolves to
+// DisabledNavigation, whose getAction maps every point to MENU. Do not gate this on a second
+// preference - that shadows the tap-zone setting and makes every zone toggle the menu instead.
+internal fun ReaderGestureTarget.tapAction(isVideoChapter: Boolean): ReaderTapAction =
     when (this) {
         ReaderGestureTarget.BLOCKED -> ReaderTapAction.NONE
         ReaderGestureTarget.IMAGE -> ReaderTapAction.TOGGLE_MENU
         // A video chapter has no scrollable prose, so its background always means "show chrome".
         ReaderGestureTarget.SURFACE -> when {
-            isVideoChapter || !tapToScroll -> ReaderTapAction.TOGGLE_MENU
+            isVideoChapter -> ReaderTapAction.TOGGLE_MENU
             else -> ReaderTapAction.TAP_ZONES
         }
     }

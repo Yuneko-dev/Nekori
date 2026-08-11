@@ -129,7 +129,6 @@ class ReaderPreferences(
         "pref_novel_volume_keys_scroll_distance",
         VOLUME_KEY_SCROLL_DISTANCE_DEFAULT,
     )
-    val novelTapToScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tap_to_scroll", false)
     val novelTextSelectable: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_text_selectable", true)
 
     // Block media elements (images, videos) in WebView and TextView readers

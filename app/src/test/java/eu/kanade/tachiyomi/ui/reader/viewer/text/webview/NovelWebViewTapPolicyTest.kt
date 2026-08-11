@@ -7,16 +7,12 @@ import org.junit.jupiter.api.Test
 
 class NovelWebViewTapPolicyTest {
 
-    private fun tap(
-        target: ReaderGestureTarget,
-        isVideoChapter: Boolean = false,
-        tapToScroll: Boolean = true,
-    ) = target.tapAction(isVideoChapter = isVideoChapter, tapToScroll = tapToScroll)
+    private fun tap(target: ReaderGestureTarget, isVideoChapter: Boolean = false) =
+        target.tapAction(isVideoChapter = isVideoChapter)
 
     @Test
     fun `interactive and unclaimed targets do nothing`() {
         assertEquals(ReaderTapAction.NONE, tap(ReaderGestureTarget.BLOCKED))
-        assertEquals(ReaderTapAction.NONE, tap(ReaderGestureTarget.BLOCKED, tapToScroll = false))
         assertEquals(ReaderTapAction.NONE, tap(ReaderGestureTarget.BLOCKED, isVideoChapter = true))
     }
 
@@ -25,10 +21,11 @@ class NovelWebViewTapPolicyTest {
         assertEquals(ReaderTapAction.TOGGLE_MENU, tap(ReaderGestureTarget.IMAGE))
     }
 
+    // Regression: gating this on a second preference shadowed navigationModeNovel, so every tap
+    // zone toggled the menu instead of turning the page.
     @Test
-    fun `reader surface uses tap zones only when tap-to-scroll is on and prose is scrollable`() {
+    fun `reader surface reaches the tap zones, which navigationModeNovel alone governs`() {
         assertEquals(ReaderTapAction.TAP_ZONES, tap(ReaderGestureTarget.SURFACE))
-        assertEquals(ReaderTapAction.TOGGLE_MENU, tap(ReaderGestureTarget.SURFACE, tapToScroll = false))
         assertEquals(ReaderTapAction.TOGGLE_MENU, tap(ReaderGestureTarget.SURFACE, isVideoChapter = true))
     }
 

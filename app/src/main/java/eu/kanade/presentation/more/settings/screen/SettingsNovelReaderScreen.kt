@@ -301,12 +301,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 }
                 add(
                     Preference.PreferenceItem.SwitchPreference(
-                        preference = readerPreferences.novelTapToScroll,
-                        title = stringResource(TDMR.strings.pref_novel_tap_to_scroll),
-                    ),
-                )
-                add(
-                    Preference.PreferenceItem.SwitchPreference(
                         preference = readerPreferences.novelSwipeNavigation,
                         title = "Swipe navigation",
                         subtitle = "Swipe left/right to change chapters",
