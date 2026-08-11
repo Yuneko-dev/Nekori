@@ -151,7 +151,6 @@ class JsSource(
         /** Remove control chars that break XML serialization and SAF file/folder names. */
         internal fun stripInvalidChars(text: String): String =
             if (text.isEmpty()) text else INVALID_CHARS.replace(text, "")
-
     }
 
     private val pluginId: String = plugin.id
