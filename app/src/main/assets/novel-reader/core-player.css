@@ -1,7 +1,10 @@
 /* core-player.css */
 
 body {
-    padding-top: calc(var(--reader-margin-top) + var(--tsundoku-safe-top, 0px));
+    padding-top: max(
+        var(--reader-margin-top),
+        var(--tsundoku-safe-top, 0px)
+    );
 }
 
 :root {
