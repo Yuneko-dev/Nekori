@@ -55,16 +55,10 @@
         modalImage.src = image.currentSrc || image.src;
         modalImage.alt = image.alt || "";
         modal.classList.add("show");
-        if (window.Android && window.Android.setReaderUiModalOpen) {
-            window.Android.setReaderUiModalOpen(true);
-        }
     }
 
     function hideImage() {
         if (!modal.classList.contains("show")) return;
-        if (window.Android && window.Android.suppressReaderGestures) {
-            window.Android.suppressReaderGestures();
-        }
         modal.classList.remove("show");
         modalImage.removeAttribute("src");
         var viewport = viewportMeta();
@@ -74,9 +68,6 @@
             viewport.setAttribute("content", originalViewport);
         }
         originalViewport = null;
-        if (window.Android && window.Android.setReaderUiModalOpen) {
-            window.Android.setReaderUiModalOpen(false);
-        }
     }
 
     modal.addEventListener("click", function (event) {
@@ -163,9 +154,6 @@
         if (!ttsEnabled) return;
         event.preventDefault();
         event.stopPropagation();
-        if (window.Android && window.Android.suppressReaderGestures) {
-            window.Android.suppressReaderGestures();
-        }
         pointerStart = {
             id: event.pointerId,
             x: event.clientX,

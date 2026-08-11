@@ -123,7 +123,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         const val ID_EDIT_MODE_STYLE = "edit-mode-style"
         const val SEEK_ECHO_SUPPRESS_MS = 350L
         const val AUTO_SCROLL_START_VERIFY_MS = 400L
-        const val READER_UI_GESTURE_SUPPRESS_MS = 600L
         val IMAGE_URL_REGEX = Regex("\\.(?:avif|gif|jpe?g|png|svg|webp)$", RegexOption.IGNORE_CASE)
         const val AUTO_SCROLL_MAX_START_ATTEMPTS = 3
 
@@ -220,13 +219,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var attachListener: View.OnAttachStateChangeListener? = null
     private var currentPage: ReaderPage? = null
     private var currentChapters: ViewerChapters? = null
-    private var readerUiModalOpen = false
     private var currentDocumentIsVideo = false
     private var currentLocalVideo: Pair<Long, UniFile>? = null
 
     // Prevent reopening the player until the chapter changes or the user taps Play.
     private var launchedVideoChapterId: Long? = null
-    private var suppressReaderGesturesUntil = 0L
+
+    // Claimed page-side on every pointerdown and reset to a fail-closed default on every
+    // ACTION_DOWN, so a touch the document never classified cannot reach reader actions. Written
+    // from the JavaBridge thread, read from the UI thread.
+    @Volatile
+    private var gestureTarget = ReaderGestureTarget.BLOCKED
+
+    // Documents without reader-gestures.js (loading skeleton, error page) keep the pre-classifier
+    // behaviour: every tap is reader surface, so those pages stay tappable.
+    @Volatile
+    private var pageOwnsGestures = false
     private var pendingTtsParagraphIndex: Int? = null
     private val imageCache = NovelWebViewImageCache(activity.cacheDir, scope)
 
@@ -373,9 +381,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 velocityX: Float,
                 velocityY: Float,
             ): Boolean {
-                if (readerUiModalOpen || android.os.SystemClock.uptimeMillis() < suppressReaderGesturesUntil) {
-                    return true
-                }
+                if (!gestureTarget.allowsChapterSwipe()) return true
                 if (isEditingMode) return false
                 if (!preferences.novelSwipeNavigation.get()) return false
                 return handleNovelFlingGesture(
@@ -389,22 +395,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (readerUiModalOpen || android.os.SystemClock.uptimeMillis() < suppressReaderGesturesUntil) {
-                    return true
-                }
                 if (isEditingMode) return false
                 if (activity.isFindInPageOpen()) return false
                 if (e.eventTime - e.downTime >= android.view.ViewConfiguration.getLongPressTimeout()) return true
-                val hitTestType = webView.hitTestResult.type
-                if (isDirectMenuTapTarget(isVideoChapter(), hitTestType)) {
-                    activity.toggleMenu()
-                    return true
+                when (
+                    gestureTarget.tapAction(
+                        isVideoChapter = isVideoChapter(),
+                        tapToScroll = preferences.novelTapToScroll.get(),
+                    )
+                ) {
+                    ReaderTapAction.NONE -> return true
+                    ReaderTapAction.TOGGLE_MENU -> {
+                        activity.toggleMenu()
+                        return true
+                    }
+                    ReaderTapAction.TAP_ZONES -> Unit
                 }
-                if (hitTestType != WebView.HitTestResult.UNKNOWN_TYPE) return false
-                if (!preferences.novelTapToScroll.get()) {
-                    activity.toggleMenu()
-                    return true
-                }
+                if (container.width <= 0 || container.height <= 0) return true
 
                 val pos = android.graphics.PointF(
                     e.x / container.width.toFloat(),
@@ -839,6 +846,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     return super.shouldInterceptRequest(view, request)
                 }
 
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    // The new document has not installed reader-gestures.js yet.
+                    pageOwnsGestures = false
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     hideLoadingIndicator()
@@ -956,8 +969,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             isLongClickable = true
 
             setOnTouchListener { _, event ->
-                if (activity.isFindInPageOpen() && event.actionMasked == MotionEvent.ACTION_DOWN) {
-                    activity.dismissFindInPageIme()
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    if (activity.isFindInPageOpen()) activity.dismissFindInPageIme()
+                    // Runs before the WebView dispatches the event, so the pointerdown claim that
+                    // follows always overwrites this default rather than being overwritten by it.
+                    gestureTarget = when {
+                        pageOwnsGestures -> ReaderGestureTarget.BLOCKED
+                        else -> ReaderGestureTarget.SURFACE
+                    }
                 }
                 gestureDetector.onTouchEvent(event)
                 false
@@ -1204,7 +1223,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun finishRealChapterLoad() {
         docState = DocState.READY
-        readerUiModalOpen = false
 
         styler.injectScript { buildTsundokuScript() }
         // Fresh DOM lost the --tsundoku-safe-* vars and menuVisible flag; re-apply them.
@@ -2553,21 +2571,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
 
         @JavascriptInterface
-        fun suppressReaderGestures() {
-            activity.runOnUiThread {
-                suppressReaderGesturesUntil = android.os.SystemClock.uptimeMillis() + READER_UI_GESTURE_SUPPRESS_MS
-            }
+        fun claimReaderGesture(owner: String) {
+            // Deliberately not posted to the UI thread: a queued runnable could land after the
+            // gesture callback that reads it.
+            gestureTarget = ReaderGestureTarget.fromWire(owner)
         }
 
         @JavascriptInterface
-        fun setReaderUiModalOpen(open: Boolean) {
-            activity.runOnUiThread {
-                readerUiModalOpen = open
-                if (!open) {
-                    suppressReaderGesturesUntil =
-                        android.os.SystemClock.uptimeMillis() + READER_UI_GESTURE_SUPPRESS_MS
-                }
-            }
+        fun onReaderGesturesReady() {
+            pageOwnsGestures = true
         }
 
         @JavascriptInterface
@@ -3529,5 +3541,40 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 }
 
-internal fun isDirectMenuTapTarget(isVideoChapter: Boolean, hitTestType: Int): Boolean =
-    isVideoChapter || hitTestType == WebView.HitTestResult.IMAGE_TYPE
+/** Who owns the current touch, as claimed page-side by `reader-gestures.js`. */
+internal enum class ReaderGestureTarget {
+    /** Media, embedded content, links, form controls, reader chrome — or nothing claimed at all. */
+    BLOCKED,
+
+    /** Inert reader surface: prose, background, the document itself. */
+    SURFACE,
+
+    /** An inline image with no interactive ancestor. */
+    IMAGE,
+    ;
+
+    companion object {
+        /** Unknown wire values fail closed, so a stray claim can never unlock reader actions. */
+        fun fromWire(owner: String?): ReaderGestureTarget = when (owner) {
+            "surface" -> SURFACE
+            "image" -> IMAGE
+            else -> BLOCKED
+        }
+    }
+}
+
+internal enum class ReaderTapAction { NONE, TOGGLE_MENU, TAP_ZONES }
+
+internal fun ReaderGestureTarget.tapAction(isVideoChapter: Boolean, tapToScroll: Boolean): ReaderTapAction =
+    when (this) {
+        ReaderGestureTarget.BLOCKED -> ReaderTapAction.NONE
+        ReaderGestureTarget.IMAGE -> ReaderTapAction.TOGGLE_MENU
+        // A video chapter has no scrollable prose, so its background always means "show chrome".
+        ReaderGestureTarget.SURFACE -> when {
+            isVideoChapter || !tapToScroll -> ReaderTapAction.TOGGLE_MENU
+            else -> ReaderTapAction.TAP_ZONES
+        }
+    }
+
+/** Only the inert reader surface may become a chapter swipe; a seek drag must not change chapter. */
+internal fun ReaderGestureTarget.allowsChapterSwipe(): Boolean = this == ReaderGestureTarget.SURFACE

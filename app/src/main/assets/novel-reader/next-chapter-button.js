@@ -26,9 +26,6 @@
         button.textContent = __NEXT_CHAPTER_TEXT__;
         button.addEventListener('click', function (event) {
             event.stopPropagation();
-            if (window.Android && window.Android.suppressReaderGestures) {
-                window.Android.suppressReaderGestures();
-            }
             window.Android.loadNextChapter();
         });
         container.appendChild(button);

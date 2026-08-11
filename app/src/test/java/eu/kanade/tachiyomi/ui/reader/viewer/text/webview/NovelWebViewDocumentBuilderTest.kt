@@ -227,4 +227,21 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(localVideoHtml.contains("core-player.css"))
         assertTrue(localVideoHtml.contains("Android.playLocalVideo()"))
     }
+
+    @Test
+    fun `gesture classifier is installed before any page script that could swallow the event`() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(
+                pluginJavaScript = "window.pluginStarted = true",
+                chapterDirectives = NovelWebViewChapterDirectives(video = VideoChapter()),
+            ),
+        )
+
+        val gestures = html.indexOf("reader-gestures.js")
+        assertTrue(gestures > 0)
+        assertEquals(gestures, html.lastIndexOf("reader-gestures.js"))
+        assertTrue(gestures < html.indexOf("lnreader-compat.js"))
+        assertTrue(gestures < html.indexOf("core-player.js"))
+        assertTrue(gestures < html.indexOf("window.pluginStarted"))
+    }
 }

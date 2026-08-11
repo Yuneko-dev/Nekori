@@ -124,7 +124,6 @@ internal object NovelWebViewDocumentBuilder {
                 <script>
                     document.getElementById('$LOCAL_VIDEO_BUTTON_ID')?.addEventListener('click', function(event) {
                         event.stopPropagation();
-                        Android.suppressReaderGestures();
                         Android.playLocalVideo();
                     });
                 </script>
@@ -146,6 +145,9 @@ internal object NovelWebViewDocumentBuilder {
                 <style id="tsundoku-custom-style">$escapedInitialStyle</style>
                 <script>${input.tsundokuScript}</script>
                 <script>$themeExposureScript</script>
+                <!-- Owns tap/swipe classification; must be installed before any page script can
+                     stop propagation or open a modal. -->
+                <script src="$ASSET_ROOT/reader-gestures.js"></script>
                 ${input.chapterDirectives.metadataHtml}
             </head>
             <body class="${input.style.bodyClasses}">
