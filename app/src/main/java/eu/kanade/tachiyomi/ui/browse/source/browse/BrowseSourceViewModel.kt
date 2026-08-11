@@ -245,9 +245,6 @@ class BrowseSourceViewModel(
      * to force recomposition, but we only want new Pagers when filters actually change.
      */
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems.get()
-    private fun normalizeUrl(url: String): String = url.trimEnd('/').substringBefore('#')
-    private fun normalizeUrlForLookup(url: String): String =
-        normalizeUrl(eu.kanade.tachiyomi.util.source.normalizeSourcePath(source, url))
 
     val mangaPagerFlowFlow = kotlinx.coroutines.flow.combine(
         state.map { Triple(it.listing.query, it.filters, it.filters.hashCode()) }
@@ -267,16 +264,9 @@ class BrowseSourceViewModel(
             getRemoteManga(sourceId, query ?: "", filters)
         }.flow.map { pagingData ->
             pagingData.map { manga ->
-                // Normalize URL to prevent duplicates from trailing slashes/fragments
-                val normalizedUrl = normalizeUrlForLookup(manga.url)
-                val normalizedManga = if (normalizedUrl != manga.url) {
-                    manga.copy(url = normalizedUrl)
-                } else {
-                    manga
-                }
-                getManga.subscribe(normalizedUrl, sourceId)
-                    .map { it ?: normalizedManga }
-                    .stateIn(viewModelScope, SharingStarted.Eagerly, normalizedManga)
+                getManga.subscribe(manga.url, manga.source)
+                    .map { it ?: manga }
+                    .stateIn(viewModelScope)
             }
                 .filter { !hideInLibraryItems || !it.value.favorite }
         }
@@ -477,14 +467,12 @@ class BrowseSourceViewModel(
      */
     fun changeMangaFavorite(manga: Manga) {
         viewModelScope.launch {
-            val normalizedUrl = normalizeUrl(manga.url)
             var new = manga.copy(
                 favorite = !manga.favorite,
                 dateAdded = when (manga.favorite) {
                     true -> 0
                     false -> Clock.System.now().toEpochMilliseconds()
                 },
-                url = normalizedUrl,
             )
 
             if (!new.favorite) {

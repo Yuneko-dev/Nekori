@@ -4,7 +4,6 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.util.source.normalizeSourcePath
 import kotlinx.coroutines.Dispatchers
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
@@ -47,7 +46,6 @@ class MassImport(
     }
 
     suspend fun resolveMangaUrl(url: String, path: String, source: CatalogueSource): Manga {
-        val inputUrl = normalizeSourcePath(source, path)
         // No search-by-URL or slash-toggle fallbacks here: they never resolved anything reliably
         // and their failures (e.g. UnknownHostException from a slash-less baseUrl + url concat)
         // masked the real error from the direct details fetch.
@@ -60,7 +58,7 @@ class MassImport(
 
         val sManga = resolved ?: source.getMangaUpdate(
             eu.kanade.tachiyomi.source.model.SManga.create().apply {
-                this.url = inputUrl
+                this.url = path
             },
             emptyList(),
             fetchDetails = true,
@@ -69,7 +67,7 @@ class MassImport(
 
         try {
             val resolvedUrl = runCatching { sManga.url }.getOrNull().orEmpty()
-            sManga.url = if (resolvedUrl.isBlank()) path else normalizeSourcePath(source, resolvedUrl)
+            sManga.url = resolvedUrl.ifBlank { path }
         } catch (_: UninitializedPropertyAccessException) {
             sManga.url = path
         }
@@ -154,7 +152,7 @@ class MassImport(
         return (source as? JsSource)?.baseUrl.orEmpty()
     }
 
-    fun extractPathFromUrl(url: String, baseUrl: String, source: CatalogueSource? = null): String {
+    fun extractPathFromUrl(url: String, baseUrl: String): String {
         // The source was already matched to this URL by the caller, so whenever the URL parses
         // as an absolute URL just take its path + query. Comparing hosts here breaks on
         // www./mirror-subdomain mismatches (e.g. sonicmtl.com vs www.sonicmtl.com) and used to
@@ -177,8 +175,7 @@ class MassImport(
             extractPathFallback(url, baseUrl)
         }
 
-        val rawPath = source?.let { normalizeSourcePath(it, extractedPath) } ?: extractedPath
-        return normalizeUrl(rawPath)
+        return extractedPath
     }
 
     /**
@@ -200,12 +197,6 @@ class MassImport(
         // Host mismatch (mirror/subdomain): drop everything before the first slash.
         val slashIndex = normalizedUrl.indexOf('/')
         return if (slashIndex >= 0) normalizedUrl.substring(slashIndex) else normalizedUrl
-    }
-
-    fun normalizeUrl(url: String): String {
-        return url.trimEnd('/')
-            .substringBefore('#')
-            .replace(Regex("(?<!:)//+"), "/")
     }
 
     fun parseUrls(text: String): List<String> {
@@ -258,7 +249,7 @@ class MassImport(
                 invalidUrls.add(line to "No matching source")
                 continue
             }
-            val path = extractPathFromUrl(line, getSourceBaseUrl(source), source)
+            val path = extractPathFromUrl(line, getSourceBaseUrl(source))
             if (libraryUrlIndex.contains(source.id to path)) {
                 alreadyInLibrary.add(line)
                 continue

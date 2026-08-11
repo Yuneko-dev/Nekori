@@ -9,33 +9,26 @@ class MigrateMangaScreenModelTest {
     private fun manga(id: Long, url: String) = Manga.create().copy(id = id, url = url)
 
     @Test
-    fun `normalize adds a single leading slash`() {
-        assertEquals("/series/a", normalizeQuickMigrateUrl("series/a"))
-        assertEquals("/series/a", normalizeQuickMigrateUrl("/series/a"))
-    }
-
-    @Test
     fun `targets drop entries already favorited on the target source`() {
         val selected = listOf(
             manga(1, "series/a"),
             manga(2, "/series/b"),
             manga(3, "series/c"),
         )
-        // Target favorite urls are stored normalized (leading slash).
         val existing = setOf("/series/b")
 
         val targets = quickMigrateTargets(selected, existing)
 
         assertEquals(listOf(1L, 3L), targets.map { it.first.id })
-        assertEquals(listOf("/series/a", "/series/c"), targets.map { it.second })
+        assertEquals(listOf("series/a", "series/c"), targets.map { it.second })
     }
 
     @Test
-    fun `duplicate detection matches regardless of leading slash on the selected url`() {
+    fun `duplicate detection preserves the plugin path`() {
         val selected = listOf(manga(1, "series/a"))
         val existing = setOf("/series/a")
 
-        assertEquals(emptyList<Pair<Manga, String>>(), quickMigrateTargets(selected, existing))
+        assertEquals(listOf("series/a"), quickMigrateTargets(selected, existing).map { it.second })
     }
 
     @Test
@@ -53,7 +46,7 @@ class MigrateMangaScreenModelTest {
             manga(2, "/series/b"),
             manga(3, "series/c"),
         )
-        val existing = setOf("/series/b", "/series/c")
+        val existing = setOf("/series/b", "series/c")
 
         val targets = quickMigrateTargets(selected, existing)
         val skipped = quickMigrateSkipped(selected, existing)

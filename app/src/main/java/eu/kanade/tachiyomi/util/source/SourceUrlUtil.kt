@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.util.source
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 
@@ -55,38 +54,12 @@ fun resolveRelativeUrl(baseUrl: String, pathOrUrl: String): String {
     }
 }
 
-fun normalizeSourcePath(source: Source, pathOrUrl: String): String {
-    val trimmed = pathOrUrl.trim()
-    if (trimmed.isBlank()) {
-        return trimmed
-    }
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        return trimmed
-    }
-    return when (source) {
-        is JsSource, is HttpSource -> if (trimmed.startsWith("/")) trimmed else "/$trimmed"
-        else -> trimmed
-    }
-}
-
 fun Source.getMangaUrlOrNull(manga: SManga): String? {
     return try {
         when (this) {
             is HttpSource -> getMangaUrl(manga)
             is JsSource -> resolveRelativeUrl(baseUrl, manga.url)
             else -> manga.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-        }
-    } catch (_: Exception) {
-        null
-    }
-}
-
-fun Source.getChapterUrlOrNull(chapter: SChapter): String? {
-    return try {
-        when (this) {
-            is HttpSource -> getChapterUrl(chapter)
-            is JsSource -> resolveRelativeUrl(baseUrl, chapter.url)
-            else -> chapter.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }
         }
     } catch (_: Exception) {
         null

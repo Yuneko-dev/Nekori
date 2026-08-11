@@ -958,9 +958,6 @@
     <string name="pref_check_duplicate_on_add_summary">Cảnh báo các mục có thể trùng đã có trong thư viện trước khi thêm</string>
     <string name="pref_show_manga_source_name">Hiện tên nguồn trong chi tiết tiểu thuyết</string>
     <string name="pref_show_manga_source_name_summary">Hiển thị tên nguồn dưới trạng thái trên màn hình chi tiết tiểu thuyết</string>
-    <string name="pref_normalize_novel_urls">Chuẩn hóa URL tiểu thuyết</string>
-    <string name="pref_normalize_novel_urls_summary">Xóa dấu gạch chéo ở cuối mọi URL tiểu thuyết</string>
-    <string name="pref_remove_duplicate_novel_urls_summary">Xóa các tiểu thuyết trùng URL khỏi thư viện</string>
     <string name="onboarding_permission_install_updates">Cài đặt bản cập nhật ứng dụng</string>
     <string name="onboarding_permission_install_updates_description">Cho phép Tsundoku cài đặt bản cập nhật APK do trình cập nhật trong ứng dụng tải về</string>
     <string name="pref_experimental_library_pagination">Thử nghiệm: phân trang thư viện (giảm bộ nhớ)</string>

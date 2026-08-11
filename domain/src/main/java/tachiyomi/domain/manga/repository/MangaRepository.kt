@@ -74,11 +74,6 @@ interface MangaRepository {
     suspend fun getFavoriteSourceAndUrl(): List<Pair<Long, String>>
 
     /**
-     * returns only (id, url) pairs for favorites.
-     */
-    suspend fun getFavoriteIdAndUrl(): List<Pair<Long, String>>
-
-    /**
      * returns only (id, genre) pairs for favorites that have genres.
      */
     suspend fun getFavoriteIdAndGenre(): List<Pair<Long, List<String>?>>
@@ -236,33 +231,6 @@ interface MangaRepository {
     suspend fun updateAll(mangaUpdates: List<MangaUpdate>): Boolean
 
     suspend fun insertNetworkManga(manga: List<Manga>): List<Manga>
-
-    suspend fun normalizeAllUrls(): Int
-
-    /**
-     * Data class to hold information about a duplicate URL entry.
-     */
-    data class DuplicateUrlInfo(
-        val mangaId: Long,
-        val title: String,
-        val oldUrl: String,
-        val normalizedUrl: String,
-    )
-
-    /**
-     * Normalize URLs with advanced options.
-     * @param removeDoubleSlashes whether to also remove double slashes from URLs
-     * @return Pair of (count of normalized URLs, list of skipped duplicates)
-     */
-    suspend fun normalizeAllUrlsAdvanced(removeDoubleSlashes: Boolean): Pair<Int, List<DuplicateUrlInfo>>
-
-    /**
-     * Remove (unfavorite) manga that would become duplicates after URL normalization.
-     * This allows the user to clean up duplicates before running normalization.
-     * @param removeDoubleSlashes whether to also consider double slashes when detecting duplicates
-     * @return Pair of (count of removed duplicates, list of removed items with Triple(title, url, normalizedUrl))
-     */
-    suspend fun removePotentialDuplicates(removeDoubleSlashes: Boolean): Pair<Int, List<Triple<String, String, String>>>
 
     /**
      * Refresh the library cache table.

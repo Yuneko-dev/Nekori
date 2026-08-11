@@ -55,7 +55,6 @@ import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
-import eu.kanade.tachiyomi.util.source.getChapterUrlOrNull
 import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.cacheImageDir
@@ -1375,15 +1374,18 @@ class ReaderViewModel @JvmOverloads constructor(
         }
     }
 
-    fun getChapterUrl(chapter: Chapter? = getCurrentChapter()?.chapter): String? {
+    suspend fun getChapterUrl(chapter: Chapter? = getCurrentChapter()?.chapter): String? {
         val sChapter = chapter ?: return null
         val source = getSource() ?: return null
 
         return try {
             when (source) {
-                is HttpSource, is JsSource -> source.getChapterUrlOrNull(sChapter)
+                is JsSource -> source.resolveUrl(sChapter.url)
+                is HttpSource -> source.getChapterUrl(sChapter)
                 else -> sChapter.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             null

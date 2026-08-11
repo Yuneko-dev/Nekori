@@ -33,12 +33,14 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.translation.TranslationJob
 import eu.kanade.tachiyomi.data.translation.TranslationService
+import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -1439,13 +1441,18 @@ class LibraryViewModel(
 
     /**
      * Returns the URLs of the selected manga.
-     * Uses the source's getMangaUrl method to get the proper URL for each manga.
+     * Uses each source's external URL resolver.
      */
-    fun getSelectedMangaUrls(): List<String> {
+    suspend fun getSelectedMangaUrls(): List<String> {
         return state.value.selectedManga.mapNotNull { manga ->
             val source = sourceManager.get(manga.source) ?: return@mapNotNull null
             try {
-                source.getMangaUrlOrNull(manga.toSManga()) ?: manga.url
+                when (source) {
+                    is JsSource -> source.resolveUrl(manga.url, isNovel = true)
+                    else -> source.getMangaUrlOrNull(manga.toSManga()) ?: manga.url
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 null
             }

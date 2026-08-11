@@ -411,7 +411,7 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
-    fun resolveUrlFallsBackToTheCurrentGetterSite() = runBlocking {
+    fun resolveUrlFallsBackToTheCurrentGetterSiteAndRawPath() = runBlocking {
         val runtime = createRuntime()
         val code = """
             exports.default = {
@@ -425,10 +425,34 @@ class JsRuntimeBridgeTest {
         runtime.call("plugin.load", """{"id":"fallback-site.test","code":${quote(code)}}""")
 
         assertEquals(
-            """{"url":"https://fallback.invalid/book"}""",
+            """{"url":"https://fallback.invalid//book"}""",
             runtime.call(
                 "plugin.resolveUrl",
                 """{"id":"fallback-site.test","path":"/book","isNovel":true}""",
+            ),
+        )
+    }
+
+    @Test
+    fun resolveUrlReturnsTheRawPathWhenThePluginResolverFails() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'failing-resolver.test',
+              name: 'Failing resolver test',
+              version: '1',
+              site: 'https://fallback.invalid',
+              resolveUrl() { throw new Error('resolver failed'); },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"failing-resolver.test","code":${quote(code)}}""")
+
+        assertEquals(
+            """{"url":"/book"}""",
+            runtime.call(
+                "plugin.resolveUrl",
+                """{"id":"failing-resolver.test","path":"/book","isNovel":true}""",
             ),
         )
     }

@@ -197,11 +197,13 @@ data object NovelsTab : Tab {
                         navigator.push(MigrationConfigScreen(selection))
                     },
                     onCopyLinksClicked = {
-                        val urls = viewModel.getSelectedMangaUrls()
-                        if (urls.isNotEmpty()) {
-                            context.copyToClipboard("Novel Links", urls.joinToString("\n"))
+                        scope.launch {
+                            val urls = viewModel.getSelectedMangaUrls()
+                            if (urls.isNotEmpty()) {
+                                context.copyToClipboard("Novel Links", urls.joinToString("\n"))
+                            }
+                            viewModel.clearSelection()
                         }
-                        viewModel.clearSelection()
                     },
                     onUpdateClicked = viewModel::openUpdateSelectedDialog,
                     onTranslateClicked = if (viewModel.isTranslationEnabled) {

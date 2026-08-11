@@ -152,12 +152,6 @@ class JsSource(
         internal fun stripInvalidChars(text: String): String =
             if (text.isEmpty()) text else INVALID_CHARS.replace(text, "")
 
-        /**
-         * Preserve the path supplied by the plugin. Older builds prepended "/" to absolute URLs,
-         * so repair that one legacy shape without changing valid relative paths.
-         */
-        internal fun normalizePluginPath(path: String): String =
-            if (path.startsWith("/https://") || path.startsWith("/http://")) path.removePrefix("/") else path
     }
 
     private val pluginId: String = plugin.id
@@ -177,7 +171,7 @@ class JsSource(
         page: String,
         forceRefresh: Boolean,
     ): List<SChapter> = withContext(Dispatchers.IO) {
-        val path = normalizePluginPath(mangaUrl)
+        val path = mangaUrl
         val cacheKey = "$path\u0000$page"
         val requestedAt = System.currentTimeMillis()
         parsePageMutex.withLock {
@@ -327,7 +321,7 @@ class JsSource(
         val payload = buildJsonObject {
             put("id", pluginId)
             put("key", runtimeKey)
-            put("path", normalizePluginPath(path))
+            put("path", path)
             put("isNovel", isNovel)
         }.toString()
         val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
@@ -815,7 +809,7 @@ class JsSource(
 
     /** plugin.parseNovel with raw-result caching and in-flight dedup. */
     private suspend fun parseNovelCached(mangaUrl: String): String {
-        val path = normalizePluginPath(mangaUrl)
+        val path = mangaUrl
         return parseNovelMutex.withLock {
             val now = System.currentTimeMillis()
             parseNovelCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
@@ -840,13 +834,12 @@ class JsSource(
      * the eviction.
      */
     suspend fun invalidateChapterText(chapterUrl: String) {
-        val path = normalizePluginPath(chapterUrl)
-        chapterTextMutex.withLock { chapterTextCache.remove(path) }
+        chapterTextMutex.withLock { chapterTextCache.remove(chapterUrl) }
     }
 
     /** plugin.parseChapter with raw-result caching and in-flight dedup. */
     private suspend fun parseChapterCached(chapterUrl: String): String {
-        val path = normalizePluginPath(chapterUrl)
+        val path = chapterUrl
         return chapterTextMutex.withLock {
             val now = System.currentTimeMillis()
             chapterTextCache[path]?.takeIf { (now - it.second) < cacheTimeout }?.let { return@withLock it.first }
@@ -914,9 +907,7 @@ class JsSource(
                     val obj = item.jsonObject
                     SManga.create().apply {
                         title = obj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: return@mapNotNull null
-                        url = normalizePluginPath(
-                            obj["path"]?.jsonPrimitive?.content ?: return@mapNotNull null,
-                        )
+                        url = obj["path"]?.jsonPrimitive?.content ?: return@mapNotNull null
                         // Ensure thumbnail_url is a valid URL or null
                         val coverUrl = obj["cover"]?.jsonPrimitive?.content
                         thumbnail_url = when {
@@ -1406,7 +1397,7 @@ class JsSource(
         }
 
         // Validate URL before calling plugin - avoid fetching base URL with empty path
-        if (normalizePluginPath(page.url).isBlank()) {
+        if (page.url.isBlank()) {
             logcat(LogPriority.WARN) { "[$id] fetchPageText: page.url is blank, cannot parse chapter" }
             throw IllegalStateException("Chapter content unavailable (empty URL)")
         }

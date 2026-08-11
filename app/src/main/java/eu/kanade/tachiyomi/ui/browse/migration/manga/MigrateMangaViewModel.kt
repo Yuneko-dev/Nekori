@@ -175,10 +175,10 @@ class MigrateMangaViewModel(
                 val oldSource = sourceManager.getOrStub(sourceId)
                 val newSource = sourceManager.getOrStub(targetSourceId)
                 val targetTitles = targets.mapTo(mutableSetOf()) { it.first.title }
-                // The entry that stays behind for a skipped one, matched the same way the skip was:
-                // on the normalized url, not the title, which the two can disagree on.
+                // The entry that stays behind for a skipped one, matched by the plugin path rather
+                // than title, which the two can disagree on.
                 val keptByUrl = targetFavorites.associateBy { it.url }
-                val keptForSkipped = skipped.associate { it.id to keptByUrl[normalizeQuickMigrateUrl(it.url)] }
+                val keptForSkipped = skipped.associate { it.id to keptByUrl[it.url] }
 
                 val countsUsable = downloadManager.awaitDownloadCacheReady()
                 val downloadCounts = if (countsUsable) {
@@ -470,11 +470,8 @@ sealed interface MigrationMangaEvent {
 // but their row not yet flipped, large enough to keep the transaction count down on a bulk migrate.
 private const val UPDATE_CHUNK_SIZE = 200
 
-/** Leading-slash normalization matching how source urls are stored. */
-internal fun normalizeQuickMigrateUrl(url: String): String = if (url.startsWith("/")) url else "/$url"
-
 /**
- * Pairs each selectable manga with its normalized target url, dropping the ones already favorited on
+ * Pairs each selectable manga with its plugin path, dropping the ones already favorited on
  * the target source. [existingFavoriteUrls] is the one-shot set of target-source favorite urls, so
  * duplicate detection is in-memory instead of one query per manga.
  */
@@ -483,12 +480,11 @@ internal fun quickMigrateTargets(
     existingFavoriteUrls: Set<String>,
 ): List<Pair<Manga, String>> =
     selected.mapNotNull { manga ->
-        val newUrl = normalizeQuickMigrateUrl(manga.url)
-        if (newUrl in existingFavoriteUrls) null else manga to newUrl
+        if (manga.url in existingFavoriteUrls) null else manga to manga.url
     }
 
 /** The other half of [quickMigrateTargets]: the entries the target source already has. */
 internal fun quickMigrateSkipped(
     selected: List<Manga>,
     existingFavoriteUrls: Set<String>,
-): List<Manga> = selected.filter { normalizeQuickMigrateUrl(it.url) in existingFavoriteUrls }
+): List<Manga> = selected.filter { it.url in existingFavoriteUrls }

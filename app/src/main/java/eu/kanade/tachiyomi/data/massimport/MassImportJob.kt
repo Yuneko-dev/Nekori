@@ -601,18 +601,16 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                         // Cheap DB pre-check before the throttle queue: on re-runs most URLs are
                         // already in the library and would otherwise each pay the per-source delay
                         // plus a network resolve just to be skipped one by one. A miss (resolved DB
-                        // url differs from the normalized input) falls through to the full path,
+                        // url differs from the extracted path) falls through to the full path,
                         // which re-checks after resolving.
                         val preMatch = runCatching {
                             val raw = massImportInteractor.extractPathFromUrl(
                                 url,
                                 massImportInteractor.getSourceBaseUrl(source),
-                                source,
                             )
                             if (raw.isEmpty()) {
                                 null
                             } else {
-                                // raw already comes back normalized from extractPathFromUrl.
                                 getMangaByUrlAndSourceId.await(raw, source.id)
                             }
                         }.getOrNull()
@@ -946,13 +944,10 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
         val rawPath = massImportInteractor.extractPathFromUrl(
             url,
             massImportInteractor.getSourceBaseUrl(source),
-            source,
         )
         if (rawPath.isEmpty()) throw IllegalStateException("Could not extract a path from URL")
 
-        val normalizedPath = massImportInteractor.normalizeUrl(rawPath)
-
-        var finalUrl = normalizedPath
+        var finalUrl = rawPath
         if (url.startsWith("http", ignoreCase = true)) {
             // Only ResolvableSource gets a canonical-URL resolve; searching with the raw URL as a
             // query never matched anything reliably and just burned a request per import.
@@ -971,9 +966,6 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                 try {
                     if (resolvedManga.url.isNotEmpty()) {
                         finalUrl = resolvedManga.url
-                        if (!finalUrl.startsWith("/") && !finalUrl.startsWith("http")) {
-                            finalUrl = "/$finalUrl"
-                        }
                     }
                 } catch (_: UninitializedPropertyAccessException) {
                 }

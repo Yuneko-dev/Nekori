@@ -965,9 +965,6 @@
     <string name="pref_check_duplicate_on_add_summary">Warn about possible duplicates already in your library before adding</string>
     <string name="pref_show_manga_source_name">Show source name in novel details</string>
     <string name="pref_show_manga_source_name_summary">Display source name under status on the novel details screen</string>
-    <string name="pref_normalize_novel_urls">Normalize novel URLs</string>
-    <string name="pref_normalize_novel_urls_summary">Remove trailing slashes from all novel URLs</string>
-    <string name="pref_remove_duplicate_novel_urls_summary">Unfavorite duplicate novels that have the same URL</string>
     <string name="onboarding_permission_install_updates">Install app updates</string>
     <string name="onboarding_permission_install_updates_description">Allow Tsundoku to install APK updates downloaded by the in-app updater</string>
     <string name="pref_experimental_library_pagination">Experimental: paginate library (reduce memory)</string>

@@ -211,15 +211,21 @@ export function resolvePluginUrl(
   path: string,
   isNovel?: boolean,
 ): string {
-  const plugin = getPlugin(runtimeKey);
   if (isUrlAbsolute(path)) {
     return path;
   }
-  if (plugin.resolveUrl) {
-    return plugin.resolveUrl(path, isNovel);
+
+  let plugin: Plugin;
+  try {
+    plugin = getPlugin(runtimeKey);
+    if (plugin.resolveUrl) {
+      return plugin.resolveUrl(path, isNovel);
+    }
+  } catch {
+    return path;
   }
 
-  return `${plugin.site.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+  return plugin.site + path;
 }
 
 export async function evaluatePlugin(

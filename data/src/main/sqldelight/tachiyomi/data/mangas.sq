@@ -253,12 +253,6 @@ SELECT source, url
 FROM mangas
 WHERE favorite = 1;
 
--- Ultra-lightweight query for URL matching in SettingsAdvancedScreen (only _id + url)
-getFavoriteIdAndUrl:
-SELECT _id, url
-FROM mangas
-WHERE favorite = 1;
-
 -- Lightweight query for tag normalization (only _id + genre, avoids loading full Manga objects)
 getFavoriteIdAndGenre:
 SELECT _id, genre
@@ -476,10 +470,6 @@ deleteById:
 DELETE FROM mangas
 WHERE _id = :mangaId;
 
-deleteByIds:
-DELETE FROM mangas
-WHERE _id IN :mangaIds;
-
 insertReturningId:
 INSERT INTO mangas(source, url, artist, author, description, genre, title, alternative_titles, status, thumbnail_url, favorite, last_update, next_update, initialized, viewer, chapter_flags, cover_last_modified, date_added, update_strategy, calculate_interval, last_modified_at, version, notes, is_novel, memo)
 VALUES (:source, :url, :artist, :author, :description, :genre, :title, :alternativeTitles, :status, :thumbnailUrl, :favorite, :lastUpdate, :nextUpdate, :initialized, :viewerFlags, :chapterFlags, :coverLastModified, :dateAdded, :updateStrategy, :calculateInterval, 0, :version, :notes, :isNovel, :memo)
@@ -516,71 +506,6 @@ WHERE _id = :mangaId;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
-
--- Batch normalize URLs: remove trailing slashes and fragments
--- Returns count of updated rows
-normalizeUrls:
-UPDATE mangas
-SET url =
-    CASE
-        WHEN instr(url, '#') > 0 THEN
-            rtrim(substr(url, 1, instr(url, '#') - 1), '/')
-        ELSE
-            rtrim(url, '/')
-    END
-WHERE url LIKE '%/' OR url LIKE '%#%';
-
--- Batch normalize URLs with double slash removal
--- First removes trailing slashes and fragments, then removes double slashes (preserving protocol ://)
-normalizeUrlsAdvanced:
-UPDATE mangas
-SET url =
-    replace(
-        replace(
-            CASE
-                WHEN instr(url, '#') > 0 THEN
-                    rtrim(substr(url, 1, instr(url, '#') - 1), '/')
-                ELSE
-                    rtrim(url, '/')
-            END,
-            '://', '###PROTOCOL###'
-        ),
-        '//', '/'
-    )
-WHERE url LIKE '%/' OR url LIKE '%#%' OR url LIKE '%//%';
-
--- Fix protocol placeholder after normalizeUrlsAdvanced
-fixProtocolPlaceholder:
-UPDATE mangas
-SET url = replace(url, '###PROTOCOL###', '://')
-WHERE url LIKE '%###PROTOCOL###%';
-
--- Get potential duplicates after normalization (source, normalized_url pairs that would conflict)
-getPotentialNormalizationDuplicates:
-SELECT
-    m1._id AS id1,
-    m1.title AS title1,
-    m1.url AS url1,
-    m2._id AS id2,
-    m2.title AS title2,
-    m2.url AS url2,
-    m1.source
-FROM mangas m1
-INNER JOIN mangas m2 ON m1.source = m2.source AND m1._id < m2._id
-WHERE
-    rtrim(
-        CASE
-            WHEN instr(m1.url, '#') > 0 THEN substr(m1.url, 1, instr(m1.url, '#') - 1)
-            ELSE m1.url
-        END,
-        '/'
-    ) = rtrim(
-        CASE
-            WHEN instr(m2.url, '#') > 0 THEN substr(m2.url, 1, instr(m2.url, '#') - 1)
-            ELSE m2.url
-        END,
-        '/'
-    );
 
 insertNetworkManga {
     -- Insert the manga if it doesn't exist already
@@ -1068,9 +993,3 @@ FROM mangas M
 JOIN mangas_categories MC ON MC.manga_id = M._id
 WHERE M.favorite = 1 AND MC.category_id IN :categoryIds
 LIMIT :limit;
-
--- Lightweight row shape for URL maintenance operations
--- (avoids decoding heavy text/list columns for large libraries)
-getAllMangaUrlMaintenanceRows:
-SELECT _id, source, url, title, favorite
-FROM mangas;
