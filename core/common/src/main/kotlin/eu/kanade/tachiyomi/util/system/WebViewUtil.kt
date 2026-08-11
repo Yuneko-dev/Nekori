@@ -89,6 +89,7 @@ fun WebView.setDefaultSettings() {
         useWideViewPort = true
         loadWithOverviewMode = true
         cacheMode = WebSettings.LOAD_DEFAULT
+        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
         // Handle popups properly
         setSupportMultipleWindows(true)

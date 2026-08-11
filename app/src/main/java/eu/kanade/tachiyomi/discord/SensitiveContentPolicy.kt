@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.discord
 
-import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 
 class SensitiveContentPolicy(
-    private val basePreferences: BasePreferences,
+    private val getIncognitoState: GetIncognitoState,
     private val securityPreferences: SecurityPreferences,
     private val pluginManager: JsPluginManager,
 ) {
@@ -16,7 +16,7 @@ class SensitiveContentPolicy(
     }
 
     fun isBlocked(action: Action, sourceId: Long?): Boolean {
-        if (basePreferences.incognitoMode.get()) return true
+        if (getIncognitoState.await(sourceId)) return true
 
         return when (pluginManager.contentWarningForSource(sourceId)) {
             CONTENT_WARNING_MIXED -> when (action) {

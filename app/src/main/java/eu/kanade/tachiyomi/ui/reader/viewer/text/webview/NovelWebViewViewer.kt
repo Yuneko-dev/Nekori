@@ -806,6 +806,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 displayZoomControls = false
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 val shouldBlock = preferences.novelBlockMedia.get()
                 blockNetworkImage = shouldBlock
                 loadsImagesAutomatically = !shouldBlock

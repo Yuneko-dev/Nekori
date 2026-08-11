@@ -246,7 +246,7 @@ class DomainModule : InjektModule {
         addFactory { UpdateExtensionStores(get()) }
 
         addFactory { ToggleIncognito(get()) }
-        addFactory { GetIncognitoState(get()) }
+        addFactory { GetIncognitoState(get(), get(), get()) }
         addFactory { ManageFilterPresets(get()) }
 
         addFactory { UpdateMangaFromRemote(get(), get(), get(), get(), get(), get(), get()) }
