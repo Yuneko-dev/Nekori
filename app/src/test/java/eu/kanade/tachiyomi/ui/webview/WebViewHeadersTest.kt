@@ -6,14 +6,13 @@ import org.junit.jupiter.api.Test
 class WebViewHeadersTest {
 
     @Test
-    fun `default user agent fills missing value without replacing source override`() {
+    fun `app user agent replaces any source override`() {
         assertEquals(
-            "NetworkHelper UA",
-            emptyMap<String, String>().withDefaultUserAgent("NetworkHelper UA")["user-agent"],
-        )
-        assertEquals(
-            "Source UA",
-            mapOf("User-Agent" to "Source UA").withDefaultUserAgent("NetworkHelper UA")["User-Agent"],
+            mapOf("Referer" to "https://example.com", "User-Agent" to "NetworkHelper UA"),
+            mapOf(
+                "Referer" to "https://example.com",
+                "user-agent" to "Source UA",
+            ).withDefaultUserAgent("NetworkHelper UA"),
         )
     }
 }

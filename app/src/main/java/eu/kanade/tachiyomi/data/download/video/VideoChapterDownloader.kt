@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
 internal class VideoChapterDownloader(
     context: Context,
     private val client: OkHttpClient = Injekt.get<NetworkHelper>().client,
+    private val userAgent: String = Injekt.get<NetworkHelper>().defaultUserAgentProvider(),
     private val downloadPreferences: NovelDownloadPreferences = Injekt.get(),
 ) {
     private val context = context.applicationContext
@@ -67,7 +68,7 @@ internal class VideoChapterDownloader(
         try {
             server.start()
             withContext(Dispatchers.Main.immediate) {
-                HeadlessChapterWebView(context, events, touch).also {
+                HeadlessChapterWebView(context, userAgent, events, touch).also {
                     webView = it
                     // ponytail: direct files share the WebView path for now; use OkHttp directly only
                     // when resumable downloads become a measured requirement.

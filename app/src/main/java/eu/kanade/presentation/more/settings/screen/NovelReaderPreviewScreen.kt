@@ -26,6 +26,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
@@ -37,6 +38,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewAssetLoader
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewDocumentBuilder
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewPreferenceObserver
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewStyler
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +61,7 @@ class NovelReaderPreviewScreen : Screen {
         val layoutDirection = LocalLayoutDirection.current
         val scope = rememberCoroutineScope()
         val preferences = remember { Injekt.get<ReaderPreferences>() }
+        val userAgent = remember { Injekt.get<NetworkHelper>().defaultUserAgentProvider() }
         val previewHtml = remember(context) {
             context.assets.open(PREVIEW_ASSET).bufferedReader().use { it.readText() }
         }
@@ -101,7 +104,7 @@ class NovelReaderPreviewScreen : Screen {
         ) { contentPadding ->
             AndroidView(
                 factory = {
-                    createPreviewWebView(context, preferences, previewHtml, scope).also {
+                    createPreviewWebView(context, preferences, previewHtml, userAgent, scope).also {
                         previewWebView.value = it
                     }
                 },
@@ -131,6 +134,7 @@ class NovelReaderPreviewScreen : Screen {
         context: Context,
         preferences: ReaderPreferences,
         previewHtml: String,
+        userAgent: String,
         scope: CoroutineScope,
     ): WebView {
         val assetLoader = NovelWebViewAssetLoader(context.assets)
@@ -139,6 +143,7 @@ class NovelReaderPreviewScreen : Screen {
         var loadJob: Job? = null
 
         val webView = WebView(context).apply {
+            setUserAgent(userAgent)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false

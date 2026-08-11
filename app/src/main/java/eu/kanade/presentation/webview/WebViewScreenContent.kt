@@ -356,11 +356,7 @@ fun WebViewScreenContent(
                         WebView.setWebContentsDebuggingEnabled(true)
                     }
 
-                    val userAgent = headers.entries
-                        .firstOrNull { it.key.equals("user-agent", ignoreCase = true) }
-                        ?.value
-                        ?: defaultUserAgentProvider()
-                    webView.setUserAgent(userAgent)
+                    webView.setUserAgent(defaultUserAgentProvider())
                 },
                 onDispose = { webView ->
                     captureWebStorage(webView)

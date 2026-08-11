@@ -83,8 +83,4 @@ class WebViewViewModel(
 }
 
 internal fun Map<String, String>.withDefaultUserAgent(userAgent: String): Map<String, String> =
-    if (keys.any { it.equals("user-agent", ignoreCase = true) }) {
-        this
-    } else {
-        this + ("user-agent" to userAgent)
-    }
+    filterKeys { !it.equals("user-agent", ignoreCase = true) } + ("User-Agent" to userAgent)

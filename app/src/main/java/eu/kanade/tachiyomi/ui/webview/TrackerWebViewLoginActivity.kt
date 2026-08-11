@@ -47,9 +47,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.util.system.WebViewUtil
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -66,7 +67,7 @@ import uy.kohesive.injekt.injectLazy
 class TrackerWebViewLoginActivity : BaseActivity() {
 
     private val trackerManager: TrackerManager by injectLazy()
-    private val networkPreferences: NetworkPreferences by injectLazy()
+    private val network: NetworkHelper by injectLazy()
 
     init {
         registerSecureActivity(this)
@@ -95,7 +96,7 @@ class TrackerWebViewLoginActivity : BaseActivity() {
         val trackerId = intent.extras?.getLong(TRACKER_ID_KEY, -1L) ?: -1L
         val trackerName = intent.extras?.getString(TRACKER_NAME_KEY) ?: return
         val loginUrl = intent.extras?.getString(LOGIN_URL_KEY) ?: return
-        val configuredUserAgent = networkPreferences.defaultUserAgent.get().trim().ifBlank { null }
+        val configuredUserAgent = network.defaultUserAgentProvider()
 
         setContent {
             TachiyomiTheme {
@@ -164,7 +165,7 @@ private fun TrackerWebViewLoginScreen(
     trackerId: Long,
     trackerName: String,
     loginUrl: String,
-    configuredUserAgent: String?,
+    configuredUserAgent: String,
     onLoginSuccess: (String) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
@@ -235,7 +236,7 @@ private fun TrackerWebViewLoginScreen(
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.databaseEnabled = true
-                        configuredUserAgent?.let { settings.userAgentString = it }
+                        setUserAgent(configuredUserAgent)
 
                         // Enable cookies
                         CookieManager.getInstance().setAcceptCookie(true)

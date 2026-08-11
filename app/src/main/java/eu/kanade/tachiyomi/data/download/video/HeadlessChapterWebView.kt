@@ -12,6 +12,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.Keep
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewAssetLoader
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.coroutines.channels.SendChannel
 
 internal sealed interface VideoDownloadEvent {
@@ -22,6 +23,7 @@ internal sealed interface VideoDownloadEvent {
 @SuppressLint("SetJavaScriptEnabled")
 internal class HeadlessChapterWebView(
     context: Context,
+    userAgent: String,
     events: SendChannel<VideoDownloadEvent>,
     onActivity: () -> Unit,
 ) : WebView(context.applicationContext) {
@@ -30,6 +32,7 @@ internal class HeadlessChapterWebView(
 
     init {
         setRendererPriorityPolicy(RENDERER_PRIORITY_IMPORTANT, false)
+        setUserAgent(userAgent)
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true

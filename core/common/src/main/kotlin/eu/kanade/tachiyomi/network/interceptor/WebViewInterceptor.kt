@@ -73,21 +73,21 @@ abstract class WebViewInterceptor(
         return headers
             // Keeping unsafe header makes webview throw [net::ERR_INVALID_ARGUMENT]
             .filter { (name, value) ->
-                isRequestHeaderSafe(name, value)
+                isRequestHeaderSafe(name, value) && !name.equals("User-Agent", ignoreCase = true)
             }
             .groupBy(keySelector = { (name, _) -> name }) { (_, value) -> value }
             .mapValues { it.value.getOrNull(0).orEmpty() }
+            .plus("User-Agent" to defaultUserAgentProvider())
     }
 
     fun CountDownLatch.awaitFor30Seconds() {
         await(30, TimeUnit.SECONDS)
     }
 
-    fun createWebView(request: Request): WebView {
+    fun createWebView(): WebView {
         return WebView(context).apply {
             setDefaultSettings()
-            // Avoid sending empty User-Agent, Chromium WebView will reset to default if empty
-            setUserAgent(request.header("User-Agent") ?: defaultUserAgentProvider())
+            setUserAgent(defaultUserAgentProvider())
         }
     }
 }

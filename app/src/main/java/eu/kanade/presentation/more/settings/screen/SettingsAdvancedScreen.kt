@@ -52,6 +52,7 @@ import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
@@ -658,6 +659,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                         try {
                             WebView(context).run {
                                 setDefaultSettings()
+                                setUserAgent(networkHelper.defaultUserAgentProvider())
                                 clearCache(true)
                                 clearFormData()
                                 clearHistory()

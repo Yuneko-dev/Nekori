@@ -79,6 +79,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.proxy.NovelReaderProxyServer
+import eu.kanade.tachiyomi.util.system.setUserAgent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -791,6 +792,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }.apply {
             isFocusable = true
             isFocusableInTouchMode = true
+            setUserAgent(networkHelper.defaultUserAgentProvider())
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
