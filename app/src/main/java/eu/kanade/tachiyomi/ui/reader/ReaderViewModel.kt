@@ -1003,12 +1003,28 @@ class ReaderViewModel @JvmOverloads constructor(
         ) {
             lastStampedHistoryChapterId = chapterId
             viewModelScope.launchNonCancellable {
-                upsertHistory.await(HistoryUpdate(chapterId, Date(), 0))
+                stampHistory(chapterId, Date(), 0)
             }
         }
     }
 
     private var lastStampedHistoryChapterId: Long? = null
+
+    /**
+     * Stamps reading history and mirrors the new recency into the library cache.
+     *
+     * `mangas.last_read` is maintained by a SQL trigger on `history`, so the database is already
+     * correct once the upsert lands. The library, however, is served from [GetLibraryManga]'s
+     * manually invalidated cache: without this patch a "Last read" sort keeps its pre-read order
+     * until the user reloads the library by hand.
+     *
+     * Only for the history writes that actually move `last_read`. The novel duration-only flush
+     * uses `awaitTimeReadOnly`, which deliberately leaves recency alone, and must not patch it.
+     */
+    private suspend fun stampHistory(chapterId: Long, readAt: Date, sessionReadDuration: Long) {
+        upsertHistory.await(HistoryUpdate(chapterId, readAt, sessionReadDuration))
+        manga?.id?.let { getLibraryManga.applyChapterUpdates(mangaId = it, lastRead = readAt.time) }
+    }
 
     /**
      * Saves reading progress for novel chapters using percentage (0-100).
@@ -1298,7 +1314,7 @@ class ReaderViewModel @JvmOverloads constructor(
                 )
             }
         } else {
-            upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
+            stampHistory(chapterId, endTime, sessionReadDuration)
         }
     }
 
