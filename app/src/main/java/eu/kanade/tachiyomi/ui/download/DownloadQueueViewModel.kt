@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -219,6 +220,14 @@ class DownloadQueueViewModel(
                         ) { novels }
                     }
                 }
+                // Sampled, not debounced, and sampled before the regrouping below. Every active
+                // download reports progress about every 50 ms (Download.progressFlow debounces by
+                // that much already), so a debounce window here never elapsed while anything was
+                // downloading and the list stayed empty until the queue went quiet. Sampling caps
+                // the rate instead of waiting for a gap, and doing it upstream of the grouping
+                // means the whole queue is regrouped five times a second rather than per progress
+                // tick.
+                .sample(200.milliseconds)
                 .map { novels ->
                     // Clean up initialTotals for manga no longer in queue
                     val currentMangaIds = novels.map { it.mangaId }.toSet()
@@ -246,7 +255,6 @@ class DownloadQueueViewModel(
                         }
                         .distinctBy { it.mangaId }
                 }
-                .debounce(80.milliseconds)
                 .flowOn(Dispatchers.Default)
                 .collect { novelItems -> _novelState.update { novelItems } }
         }
