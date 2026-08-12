@@ -89,7 +89,7 @@ fun novelExtensionsTab(
                 },
                 onRefresh = extensionsViewModel::findAvailableExtensions,
                 onEmptyReposAction = { navigator.push(NovelExtensionReposScreen()) },
-                emptyReposLabel = TDMR.strings.pref_novel_extension_repos,
+                emptyReposLabel = MR.strings.label_extension_repos,
             )
         },
     )

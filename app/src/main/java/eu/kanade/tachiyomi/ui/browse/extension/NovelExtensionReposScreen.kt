@@ -68,7 +68,7 @@ class NovelExtensionReposScreen(
         Scaffold(
             topBar = {
                 AppBar(
-                    title = stringResource(TDMR.strings.pref_novel_extension_repos),
+                    title = stringResource(MR.strings.label_extension_repos),
                     navigateUp = navigator::pop,
                     actions = {
                         IconButton(onClick = screenModel::refreshRepos) {

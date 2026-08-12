@@ -79,7 +79,7 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = TDMR.strings.pref_novel_extension_repos,
+                label = MR.strings.label_extension_repos,
                 getter = BackupOptions::extensionRepositories,
                 setter = { options, enabled -> options.copy(extensionRepositories = enabled) },
             ),
