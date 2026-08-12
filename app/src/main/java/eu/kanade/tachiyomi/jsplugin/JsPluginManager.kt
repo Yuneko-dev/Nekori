@@ -67,6 +67,26 @@ class JsPluginManager(
 
         internal fun isCustomAssetFileName(fileName: String): Boolean = CUSTOM_ASSET_FILE.matches(fileName)
 
+        internal fun deduplicatePlugins(plugins: List<JsPlugin>): List<JsPlugin> {
+            return plugins
+                .groupBy { it.id }
+                .map { (_, duplicates) ->
+                    duplicates.reduce { newest, current ->
+                        if (compareVersions(current.version, newest.version) > 0) current else newest
+                    }
+                }
+        }
+
+        private fun compareVersions(left: String, right: String): Int {
+            val leftParts = left.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+            val rightParts = right.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+            repeat(maxOf(leftParts.size, rightParts.size)) { index ->
+                val compared = leftParts.getOrElse(index) { 0 }.compareTo(rightParts.getOrElse(index) { 0 })
+                if (compared != 0) return compared
+            }
+            return 0
+        }
+
         /**
          * Combines what the runtime reported about a plugin with the fields only its listing knows.
          *
@@ -149,7 +169,6 @@ class JsPluginManager(
         cacheDir.mkdirs()
         loadRepositoriesFromPrefs()
         scope.launch {
-            loadRepositories()
             loadInstalledPlugins()
             loadCachedPluginList()
         }
@@ -157,7 +176,6 @@ class JsPluginManager(
         storageManager.changes
             .onEach {
                 logcat(LogPriority.INFO) { "JsPluginManager: storage changed, reloading plugins" }
-                loadRepositories()
                 loadInstalledPlugins()
             }
             .launchIn(scope)
@@ -198,8 +216,6 @@ class JsPluginManager(
     suspend fun refreshAvailablePlugins(forceRefresh: Boolean = false) = refreshMutex.withLock {
         _isLoading.value = true
         try {
-            loadRepositories()
-
             // Load from cache first if not forcing refresh
             if (!forceRefresh && _availablePlugins.value.isNotEmpty()) {
                 logcat(LogPriority.DEBUG) { "Using cached plugin list (${_availablePlugins.value.size} plugins)" }
@@ -219,13 +235,14 @@ class JsPluginManager(
                 }
             }
 
-            _availablePlugins.value = allPlugins
+            val dedupedPlugins = deduplicatePlugins(allPlugins)
+            _availablePlugins.value = dedupedPlugins
 
             // Save to cache file
-            saveCachedPluginList(allPlugins)
+            saveCachedPluginList(dedupedPlugins)
 
             // Cache icons to avoid re-fetching each time
-            cacheIcons(allPlugins)
+            cacheIcons(dedupedPlugins)
         } finally {
             _isLoading.value = false
         }
@@ -828,64 +845,6 @@ class JsPluginManager(
     }
 
     /**
-     * Load repositories from the plugin directory file (requires storage to be available).
-     * If the directory is unavailable, keeps current repos (possibly already loaded from prefs).
-     */
-    private fun loadRepositories() {
-        try {
-            val dir = pluginsDir
-            if (dir == null) {
-                logcat(LogPriority.WARN) {
-                    "Plugins directory not available for loading repositories — keeping existing (${_repositories.value.size} repos)"
-                }
-                return
-            }
-            val reposFile = dir.findFile("repositories.json")
-            if (reposFile != null && reposFile.exists()) {
-                val content = reposFile.readText().trim()
-                if (content.isNotBlank() && content.startsWith("[")) {
-                    val allRepos = mutableListOf<JsPluginRepository>()
-                    try {
-                        allRepos.addAll(json.decodeFromString<List<JsPluginRepository>>(content))
-                    } catch (e: Exception) {
-                        logcat(LogPriority.WARN) {
-                            "repositories.json has concatenated JSON, attempting to split and merge"
-                        }
-                        val segments = content.split(Regex("""\]\s*\["""))
-                        for ((i, segment) in segments.withIndex()) {
-                            val fixed = when {
-                                i == 0 && !segment.endsWith("]") -> "$segment]"
-                                i == segments.lastIndex && !segment.startsWith("[") -> "[$segment"
-                                !segment.startsWith("[") && !segment.endsWith("]") -> "[$segment]"
-                                else -> segment
-                            }
-                            try {
-                                allRepos.addAll(json.decodeFromString<List<JsPluginRepository>>(fixed))
-                            } catch (e2: Exception) {
-                                logcat(LogPriority.WARN) {
-                                    "Skipping malformed JSON segment in repositories.json: ${e2.message}"
-                                }
-                            }
-                        }
-                    }
-                    val distinct = allRepos.distinctBy { normalizeRepositoryUrl(it.url) }
-                    _repositories.value = distinct
-                    logcat(LogPriority.INFO) {
-                        "Loaded ${distinct.size} repositories from disk"
-                    }
-                    saveRepositoriesToPreferences()
-                    return
-                }
-            }
-            if (_repositories.value.isNotEmpty()) {
-                saveRepositoriesToFile()
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to load repositories from disk" }
-        }
-    }
-
-    /**
      * Load repositories from SharedPreferences.
      */
     private fun loadRepositoriesFromPrefs() {
@@ -904,11 +863,6 @@ class JsPluginManager(
     }
 
     private fun saveRepositories() {
-        saveRepositoriesToPreferences()
-        saveRepositoriesToFile()
-    }
-
-    private fun saveRepositoriesToPreferences() {
         try {
             val jsonContent = json.encodeToString(_repositories.value)
             sourcePreferences.jsRepositoriesBackup.set(jsonContent)
@@ -918,38 +872,7 @@ class JsPluginManager(
         }
     }
 
-    private fun saveRepositoriesToFile() {
-        try {
-            val dir = pluginsDir
-            if (dir == null) {
-                logcat(LogPriority.WARN) { "Plugins directory not available for saving repositories.json" }
-                return
-            }
-            val reposFile = dir.replaceFile("repositories.json")
-            if (reposFile == null) {
-                logcat(LogPriority.ERROR) { "Failed to create repositories.json file" }
-                return
-            }
-            val jsonContent = json.encodeToString(_repositories.value)
-            reposFile.writeText(jsonContent)
-            logcat(LogPriority.INFO) { "Wrote ${jsonContent.length} chars to repositories.json" }
-            logcat(LogPriority.INFO) { "Saved ${_repositories.value.size} repositories to disk" }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to save repositories to disk" }
-        }
-    }
-
     private fun normalizeRepositoryUrl(url: String): String = url.trim().trimEnd('/')
-
-    private fun compareVersions(left: String, right: String): Int {
-        val leftParts = left.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
-        val rightParts = right.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
-        repeat(maxOf(leftParts.size, rightParts.size)) { index ->
-            val compared = leftParts.getOrElse(index) { 0 }.compareTo(rightParts.getOrElse(index) { 0 })
-            if (compared != 0) return compared
-        }
-        return 0
-    }
 
     /**
      * Group plugins by language

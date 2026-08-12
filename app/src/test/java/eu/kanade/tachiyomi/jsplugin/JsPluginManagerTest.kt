@@ -69,4 +69,18 @@ class JsPluginManagerTest {
         assertTrue(JsPluginManager.isSafePluginId("testplugin"))
         assertFalse(JsPluginManager.isSafePluginId("../testplugin"))
     }
+
+    @Test
+    fun `repository duplicates keep the newest numeric version`() {
+        val plugins = listOf(
+            JsPlugin(id = "acme", name = "Acme", site = "", version = "1.10"),
+            JsPlugin(id = "other", name = "Other", site = "", version = "1.0"),
+            JsPlugin(id = "acme", name = "Acme", site = "", version = "2.9"),
+        )
+
+        val deduplicated = JsPluginManager.deduplicatePlugins(plugins)
+
+        assertEquals(2, deduplicated.size)
+        assertEquals("2.9", deduplicated.single { it.id == "acme" }.version)
+    }
 }
