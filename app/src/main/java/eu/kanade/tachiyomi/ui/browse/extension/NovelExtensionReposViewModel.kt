@@ -40,7 +40,9 @@ class NovelExtensionReposViewModel(
 
     fun setRepoEnabled(url: String, enabled: Boolean) {
         jsPluginManager.setRepositoryEnabled(url, enabled)
-        viewModelScope.launchIO { jsPluginManager.refreshAvailablePlugins() }
+        // Force it: the plugin list is only empty on a cold start, and a cached non-empty list makes
+        // an unforced refresh return immediately, which is exactly the toggle that has to invalidate it.
+        viewModelScope.launchIO { jsPluginManager.refreshAvailablePlugins(forceRefresh = true) }
     }
 
     fun refreshRepos() {
