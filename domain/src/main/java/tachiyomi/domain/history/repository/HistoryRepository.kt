@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.history.model.MangaReadStats
 
 interface HistoryRepository {
 
@@ -14,6 +15,8 @@ interface HistoryRepository {
     suspend fun getLastHistory(): HistoryWithRelations?
 
     suspend fun getTotalReadDuration(): Long
+
+    suspend fun getMostReadManga(limit: Long): List<MangaReadStats>
 
     suspend fun getHistoryByMangaId(mangaId: Long): List<History>
 

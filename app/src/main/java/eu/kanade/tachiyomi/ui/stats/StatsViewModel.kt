@@ -9,9 +9,12 @@ import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
 import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.history.interactor.GetMostReadManga
+import tachiyomi.domain.history.interactor.GetReadingSessions
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -24,17 +27,24 @@ import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 class StatsViewModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val getTotalReadDuration: GetTotalReadDuration = Injekt.get(),
+    private val getReadingSessions: GetReadingSessions = Injekt.get(),
+    private val getMostReadManga: GetMostReadManga = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
     private val preferences: LibraryPreferences = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
 ) : StateViewModel<StatsScreenState>(StatsScreenState.Loading) {
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
+    private var advancedLoadJob: Job? = null
+    private var yearLoadJob: Job? = null
 
     init {
         viewModelScope.launchIO {
@@ -82,6 +92,69 @@ class StatsViewModel(
                 )
             }
         }
+    }
+
+    fun loadAdvancedStats() {
+        val current = state.value as? StatsScreenState.Success ?: return
+        if (current.advanced != null || advancedLoadJob?.isActive == true) return
+
+        advancedLoadJob = viewModelScope.launchIO {
+            val advanced = queryAdvancedStats()
+            mutableState.update { state ->
+                val success = state as? StatsScreenState.Success ?: return@update state
+                success.copy(advanced = advanced)
+            }
+        }
+    }
+
+    fun selectYear(year: Int) {
+        val current = state.value as? StatsScreenState.Success ?: return
+        val advanced = current.advanced ?: return
+        if (year !in advanced.availableYears) return
+
+        yearLoadJob?.cancel()
+        if (year == advanced.selectedYear) return
+
+        yearLoadJob = viewModelScope.launchIO {
+            val zone = ZoneId.systemDefault()
+            val from = LocalDate.of(year, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val until = LocalDate.of(year + 1, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val sessions = getReadingSessions.await(from, until)
+            mutableState.update { state ->
+                val success = state as? StatsScreenState.Success ?: return@update state
+                val currentAdvanced = success.advanced ?: return@update state
+                success.copy(
+                    advanced = currentAdvanced.copy(
+                        selectedYear = year,
+                        yearSessions = sessions,
+                    ),
+                )
+            }
+        }
+    }
+
+    private suspend fun queryAdvancedStats(): StatsData.Advanced {
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val currentYear = today.year
+        val yearStart = LocalDate.of(currentYear, 1, 1)
+        val recentStart = today.minusYears(1).plusDays(1)
+        val recentStartMillis = recentStart.atStartOfDay(zone).toInstant().toEpochMilli()
+        val queryStart = minOf(yearStart, recentStart).atStartOfDay(zone).toInstant().toEpochMilli()
+        val queryUntil = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val sessions = getReadingSessions.await(queryStart, queryUntil)
+        val oldestYear = getReadingSessions.awaitOldestStartedAt()
+            ?.let { Instant.ofEpochMilli(it).atZone(zone).year }
+            ?.coerceAtMost(currentYear)
+            ?: currentYear
+
+        return StatsData.Advanced(
+            selectedYear = currentYear,
+            availableYears = (currentYear downTo oldestYear).toList(),
+            recentSessions = sessions.filter { it.startedAt >= recentStartMillis },
+            yearSessions = sessions.filter { it.startedAt >= yearStart.atStartOfDay(zone).toInstant().toEpochMilli() },
+            mostReadManga = getMostReadManga.await(),
+        )
     }
 
     private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {

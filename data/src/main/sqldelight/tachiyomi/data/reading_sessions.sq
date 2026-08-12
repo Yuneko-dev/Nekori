@@ -13,6 +13,9 @@ CREATE TABLE reading_sessions(
 CREATE INDEX reading_sessions_chapter_started_index
 ON reading_sessions(chapter_id, started_at);
 
+CREATE INDEX reading_sessions_started_index
+ON reading_sessions(started_at);
+
 insert:
 INSERT INTO reading_sessions(chapter_id, started_at, ended_at, read_duration)
 VALUES (:chapterId, :startedAt, :endedAt, :readDuration);
@@ -38,3 +41,25 @@ JOIN chapters
 ON chapters._id = reading_sessions.chapter_id
 WHERE chapters.manga_id = :mangaId
 ORDER BY reading_sessions.started_at;
+
+getBetweenWithRelations:
+SELECT
+    reading_sessions._id,
+    reading_sessions.chapter_id,
+    chapters.manga_id,
+    mangas.title,
+    chapters.name,
+    reading_sessions.started_at,
+    reading_sessions.ended_at,
+    reading_sessions.read_duration
+FROM reading_sessions
+JOIN chapters ON chapters._id = reading_sessions.chapter_id
+JOIN mangas ON mangas._id = chapters.manga_id
+WHERE reading_sessions.started_at >= :fromInclusive
+AND reading_sessions.started_at < :untilExclusive
+ORDER BY reading_sessions.started_at DESC;
+
+getOldestStartedAt:
+SELECT min(started_at)
+FROM reading_sessions
+WHERE started_at > 0;

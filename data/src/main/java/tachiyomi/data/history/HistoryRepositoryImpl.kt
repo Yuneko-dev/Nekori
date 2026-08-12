@@ -11,6 +11,7 @@ import tachiyomi.data.subscribeToList
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.history.model.MangaReadStats
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.model.MangaCover
 import java.util.Date
@@ -79,6 +80,37 @@ class HistoryRepositoryImpl(
 
     override suspend fun getTotalReadDuration(): Long {
         return database.historyQueries.getReadDuration().awaitAsOne()
+    }
+
+    override suspend fun getMostReadManga(limit: Long): List<MangaReadStats> {
+        return database.historyQueries.getMostReadManga(limit) {
+                mangaId,
+                title,
+                thumbnailUrl,
+                source,
+                favorite,
+                coverLastModified,
+                readDuration,
+                chapterCount,
+                lastRead,
+                readChapterCount,
+                totalChapterCount,
+                sessionCount,
+                sessionDuration,
+            ->
+            MangaReadStats(
+                mangaId = mangaId,
+                title = title,
+                coverData = MangaCover(mangaId, source, favorite, thumbnailUrl, coverLastModified),
+                readDuration = readDuration,
+                chapterCount = chapterCount,
+                lastRead = lastRead,
+                readChapterCount = readChapterCount,
+                totalChapterCount = totalChapterCount,
+                sessionCount = sessionCount,
+                sessionDuration = sessionDuration,
+            )
+        }.awaitAsList()
     }
 
     override suspend fun getHistoryByMangaId(mangaId: Long): List<History> {

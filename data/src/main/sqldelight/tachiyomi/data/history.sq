@@ -161,6 +161,58 @@ getReadDuration:
 SELECT coalesce(sum(time_read), 0)
 FROM history;
 
+getMostReadManga:
+WITH history_stats AS (
+    SELECT
+        mangas._id,
+        mangas.title,
+        mangas.thumbnail_url,
+        mangas.source,
+        mangas.favorite,
+        mangas.cover_last_modified,
+        coalesce(sum(history.time_read), 0) AS read_duration,
+        count(*) AS chapter_count,
+        mangas.last_read AS last_read,
+        mangas.read_count AS read_chapter_count,
+        mangas.total_count AS total_chapter_count
+    FROM history
+    JOIN chapters ON chapters._id = history.chapter_id
+    JOIN mangas ON mangas._id = chapters.manga_id
+    WHERE history.time_read > 0
+    GROUP BY mangas._id
+    ORDER BY sum(history.time_read) DESC, mangas.title COLLATE NOCASE
+    LIMIT :limit
+),
+session_stats AS (
+    SELECT
+        chapters.manga_id,
+        count(*) AS session_count,
+        coalesce(sum(reading_sessions.read_duration), 0) AS session_duration
+    FROM history_stats
+    CROSS JOIN chapters
+    CROSS JOIN reading_sessions
+    WHERE chapters.manga_id = history_stats._id
+    AND reading_sessions.chapter_id = chapters._id
+    GROUP BY chapters.manga_id
+)
+SELECT
+    history_stats._id,
+    history_stats.title,
+    history_stats.thumbnail_url,
+    history_stats.source,
+    history_stats.favorite,
+    history_stats.cover_last_modified,
+    history_stats.read_duration,
+    history_stats.chapter_count,
+    history_stats.last_read,
+    history_stats.read_chapter_count,
+    history_stats.total_chapter_count,
+    coalesce(session_stats.session_count, 0) AS session_count,
+    coalesce(session_stats.session_duration, 0) AS session_duration
+FROM history_stats
+LEFT JOIN session_stats ON session_stats.manga_id = history_stats._id
+ORDER BY history_stats.read_duration DESC, history_stats.title COLLATE NOCASE;
+
 countDistinctManga:
 SELECT COUNT(DISTINCT C.manga_id)
 FROM history H

@@ -1,5 +1,8 @@
 package eu.kanade.presentation.more.stats.data
 
+import tachiyomi.domain.history.model.MangaReadStats
+import tachiyomi.domain.history.model.ReadingSessionWithRelations
+
 sealed interface StatsData {
 
     data class Overview(
@@ -24,5 +27,13 @@ sealed interface StatsData {
         val trackedTitleCount: Int,
         val meanScore: Double,
         val trackerCount: Int,
+    ) : StatsData
+
+    data class Advanced(
+        val selectedYear: Int,
+        val availableYears: List<Int>,
+        val recentSessions: List<ReadingSessionWithRelations>,
+        val yearSessions: List<ReadingSessionWithRelations>,
+        val mostReadManga: List<MangaReadStats>,
     ) : StatsData
 }

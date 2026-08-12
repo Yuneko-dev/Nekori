@@ -21,3 +21,8 @@ BEGIN
     WHERE _id = (SELECT manga_id FROM chapters WHERE _id = new.chapter_id)
     AND favorite = 1;
 END;
+
+-- Let me borrow Tsundoku upstream's migration file real quick, hehe.
+-- Ellie
+CREATE INDEX reading_sessions_started_index
+ON reading_sessions(started_at);
