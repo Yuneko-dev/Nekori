@@ -14,4 +14,6 @@ interface ReadingSessionRepository {
     suspend fun getBetween(fromInclusive: Long, untilExclusive: Long): List<ReadingSessionWithRelations>
 
     suspend fun getOldestStartedAt(): Long?
+
+    suspend fun deleteAll(): Boolean
 }

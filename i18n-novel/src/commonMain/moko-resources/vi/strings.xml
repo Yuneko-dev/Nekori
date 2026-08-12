@@ -1090,6 +1090,14 @@
     <string name="lnreader_import_action">Nhập</string>
     <string name="lnreader_import_started">Đã bắt đầu nhập. Tiến trình được hiển thị trong thông báo.</string>
     <!-- Thống kê nâng cao -->
+    <string name="pref_novel_read_tracking_group">Thống kê đọc</string>
+    <string name="pref_novel_read_tracking">Theo dõi phiên đọc</string>
+    <string name="pref_novel_read_tracking_summary">Ghi lại các phiên đọc cho thống kê nâng cao. Lịch sử chương và tổng thời gian đọc vẫn hoạt động khi tắt.</string>
+    <string name="pref_novel_read_tracking_dialog_title">Giữ lại lịch sử phiên đọc?</string>
+    <string name="pref_novel_read_tracking_dialog_message">Khi tắt, ứng dụng sẽ ngừng ghi phiên đọc mới. Hãy chọn giữ lại hoặc xóa các phiên đã lưu.</string>
+    <string name="pref_novel_read_tracking_keep">Giữ lịch sử</string>
+    <string name="pref_novel_read_tracking_delete">Xóa lịch sử</string>
+    <string name="pref_novel_read_tracking_delete_error">Không thể xóa lịch sử phiên đọc</string>
     <string name="stats_tab_advanced">Nâng cao</string>
     <string name="stats_chapter_duration_source">Thời lượng theo chương</string>
     <string name="stats_reading_rhythm">Nhịp đọc</string>

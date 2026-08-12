@@ -51,6 +51,8 @@ class ReaderPreferences(
 
     val autoTranslate: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_translate", false)
 
+    val novelReadTracking: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_read_tracking", true)
+
     // endregion
 
     // region Color filter

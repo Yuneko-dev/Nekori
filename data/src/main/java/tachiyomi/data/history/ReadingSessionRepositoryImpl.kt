@@ -63,4 +63,14 @@ class ReadingSessionRepositoryImpl(
     override suspend fun getOldestStartedAt(): Long? {
         return database.reading_sessionsQueries.getOldestStartedAt().awaitAsOne().min
     }
+
+    override suspend fun deleteAll(): Boolean {
+        return try {
+            database.reading_sessionsQueries.deleteAll()
+            true
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            false
+        }
+    }
 }

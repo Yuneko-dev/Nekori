@@ -1107,6 +1107,14 @@
     <string name="lnreader_import_action">Import</string>
     <string name="lnreader_import_started">Import started. Progress is shown in notifications.</string>
     <!-- Advanced statistics -->
+    <string name="pref_novel_read_tracking_group">Reading statistics</string>
+    <string name="pref_novel_read_tracking">Reading session tracking</string>
+    <string name="pref_novel_read_tracking_summary">Record reading sessions for advanced statistics. Chapter history and total reading time still work when disabled.</string>
+    <string name="pref_novel_read_tracking_dialog_title">Keep reading session history?</string>
+    <string name="pref_novel_read_tracking_dialog_message">Turning this off stops recording new sessions. Choose whether to keep or delete the sessions already saved.</string>
+    <string name="pref_novel_read_tracking_keep">Keep history</string>
+    <string name="pref_novel_read_tracking_delete">Delete history</string>
+    <string name="pref_novel_read_tracking_delete_error">Could not delete reading session history</string>
     <string name="stats_tab_advanced">Advanced</string>
     <string name="stats_chapter_duration_source">Chapter reading duration</string>
     <string name="stats_reading_rhythm">Reading rhythm</string>

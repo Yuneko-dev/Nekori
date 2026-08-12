@@ -63,3 +63,6 @@ getOldestStartedAt:
 SELECT min(started_at)
 FROM reading_sessions
 WHERE started_at > 0;
+
+deleteAll:
+DELETE FROM reading_sessions;

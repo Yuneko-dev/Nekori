@@ -1305,7 +1305,7 @@ class ReaderViewModel @JvmOverloads constructor(
         // accumulate duration for novels; manga keeps the entry-less last_read = now behavior.
         if (manga?.isNovel == true) {
             upsertHistory.awaitTimeReadOnly(HistoryUpdate(chapterId, endTime, sessionReadDuration))
-            if (startedAt != null && sessionReadDuration > 0) {
+            if (readerPreferences.novelReadTracking.get() && startedAt != null && sessionReadDuration > 0) {
                 readingSessionRepository.insert(
                     chapterId = chapterId,
                     startedAt = startedAt,

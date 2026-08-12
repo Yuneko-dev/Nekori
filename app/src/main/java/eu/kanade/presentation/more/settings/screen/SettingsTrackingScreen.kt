@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -64,13 +65,16 @@ import eu.kanade.tachiyomi.data.track.hikka.HikkaApi
 import eu.kanade.tachiyomi.data.track.mangabaka.MangaBakaApi
 import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.webview.TrackerWebViewLoginActivity
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.domain.history.repository.ReadingSessionRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
@@ -97,6 +101,7 @@ object SettingsTrackingScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
         val trackPreferences = remember { Injekt.get<TrackPreferences>() }
+        val readerPreferences = remember { Injekt.get<ReaderPreferences>() }
         val trackerManager = remember { Injekt.get<TrackerManager>() }
         val sourceManager = remember { Injekt.get<SourceManager>() }
 
@@ -149,6 +154,7 @@ object SettingsTrackingScreen : SearchableSettings {
         }
 
         return listOf(
+            getReadingStatisticsGroup(readerPreferences),
             Preference.PreferenceItem.SwitchPreference(
                 preference = trackPreferences.autoUpdateTrack,
                 title = stringResource(MR.strings.pref_auto_update_manga_sync),
@@ -335,6 +341,69 @@ object SettingsTrackingScreen : SearchableSettings {
                             )
                         } + listOf(Preference.PreferenceItem.InfoPreference(enhancedTrackerInfo))
                     ),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getReadingStatisticsGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val repository = remember { Injekt.get<ReadingSessionRepository>() }
+        var showDisableDialog by remember { mutableStateOf(false) }
+
+        if (showDisableDialog) {
+            AlertDialog(
+                onDismissRequest = { showDisableDialog = false },
+                title = { Text(stringResource(TDMR.strings.pref_novel_read_tracking_dialog_title)) },
+                text = { Text(stringResource(TDMR.strings.pref_novel_read_tracking_dialog_message)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            readerPreferences.novelReadTracking.set(false)
+                            showDisableDialog = false
+                        },
+                    ) {
+                        Text(stringResource(TDMR.strings.pref_novel_read_tracking_keep))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            scope.launchIO {
+                                val deleted = repository.deleteAll()
+                                withUIContext {
+                                    if (deleted) {
+                                        readerPreferences.novelReadTracking.set(false)
+                                        showDisableDialog = false
+                                    } else {
+                                        context.toast(TDMR.strings.pref_novel_read_tracking_delete_error)
+                                    }
+                                }
+                            }
+                        },
+                    ) {
+                        Text(
+                            text = stringResource(TDMR.strings.pref_novel_read_tracking_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+            )
+        }
+
+        return Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_novel_read_tracking_group),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelReadTracking,
+                    title = stringResource(TDMR.strings.pref_novel_read_tracking),
+                    subtitle = stringResource(TDMR.strings.pref_novel_read_tracking_summary),
+                    onValueChanged = { enabled ->
+                        if (!enabled) showDisableDialog = true
+                        enabled
+                    },
+                ),
             ),
         )
     }
