@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.notificationBuilder
@@ -29,6 +30,7 @@ import mihon.domain.migration.usecases.MigrateMangaUseCase
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
@@ -49,6 +51,7 @@ class MigrationJob(private val context: Context, workerParams: WorkerParameters)
 
     private val getManga: GetManga by lazy { Injekt.get() }
     private val migrateManga: MigrateMangaUseCase by lazy { Injekt.get() }
+    private val sourceManager: SourceManager by lazy { Injekt.get() }
 
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_MIGRATION) {
         setSmallIcon(android.R.drawable.stat_notify_sync)
@@ -64,6 +67,15 @@ class MigrationJob(private val context: Context, workerParams: WorkerParameters)
     }
 
     override suspend fun doWork(): Result {
+        // WorkManager can resume this after a process death, before the JS plugins have registered.
+        // MigrateMangaUseCase returns immediately when it cannot resolve the target source, and the
+        // loop below still counts that as done, so an unguarded run would report "migrated N/N",
+        // delete its recovery file and leave nothing to retry. Retry before touching that file.
+        if (!sourceManager.awaitInitialized()) {
+            logcat(LogPriority.WARN) { "Migration job deferred: sources not registered" }
+            return Result.retry()
+        }
+
         val dataFile = inputData.getString(KEY_DATA_FILE)?.let { File(it) }
         val replace = inputData.getBoolean(KEY_REPLACE, true)
 

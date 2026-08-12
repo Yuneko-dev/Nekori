@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isRunning
@@ -93,6 +94,14 @@ class QuickMigrateJob(private val context: Context, workerParams: WorkerParamete
     }
 
     override suspend fun doWork(): Result {
+        // WorkManager can resume this after a process death, before the JS plugins have registered.
+        // Every source lookup below would then resolve to a stub, so retry rather than run the batch
+        // against sources that do not exist yet - and do it before the id file can be deleted.
+        if (!sourceManager.awaitInitialized()) {
+            logcat(LogPriority.WARN) { "Quick migrate deferred: sources not registered" }
+            return Result.retry()
+        }
+
         val sourceId = inputData.getLong(KEY_SOURCE_ID, -1L)
         val targetSourceId = inputData.getLong(KEY_TARGET_SOURCE_ID, -1L)
         val mangaIdsFile = inputData.getString(KEY_MANGA_IDS_FILE)?.let { File(it) }
@@ -120,9 +129,19 @@ class QuickMigrateJob(private val context: Context, workerParams: WorkerParamete
             val newSource = sourceManager.getOrStub(targetSourceId)
             val targetFavorites = getFavorites.subscribe(targetSourceId).first()
             val targetFavoriteUrls = targetFavorites.mapTo(mutableSetOf()) { it.url }
-            val targets = quickMigrateTargets(selectedManga, targetFavoriteUrls)
+            // An attempt killed mid-run leaves the rows it already flipped sitting on the target
+            // source, still listed in the persisted id file. Each is now its own entry in
+            // targetFavorites, so classifying it normally makes it a duplicate of itself - and with
+            // removeSkipped that unfavorites the very novels the previous attempt migrated. Count
+            // them as the completed work they are and classify only what is still on the old source.
+            // ponytail: post-actions for a resumed row are re-run, which is why the category assign
+            // must stay additive; a run that died between its last flush and its post-actions still
+            // loses them, which needs per-entry checkpointing rather than this partition.
+            val (resumed, pending) = selectedManga.partition { it.source == targetSourceId }
+            migratedIds.addAll(resumed.map { it.id })
+            val targets = quickMigrateTargets(pending, targetFavoriteUrls)
             val skipped = if (removeSkipped) {
-                quickMigrateSkipped(selectedManga, targetFavoriteUrls)
+                quickMigrateSkipped(pending, targetFavoriteUrls)
             } else {
                 emptyList()
             }
@@ -131,13 +150,23 @@ class QuickMigrateJob(private val context: Context, workerParams: WorkerParamete
                 // Still posts a completion notification like every other exit path below - without
                 // it, a run that finishes while the app is backgrounded leaves the user with zero
                 // indication it ever ran.
+                val alreadyDone = migratedIds.size
                 notificationBuilder
                     .setOngoing(false)
                     .setProgress(0, 0, false)
-                    .setContentText(context.stringResource(TDMR.strings.quick_migrate_notification_result, 0, 0, 0))
+                    .setContentText(
+                        context.stringResource(
+                            TDMR.strings.quick_migrate_notification_result,
+                            alreadyDone,
+                            0,
+                            0,
+                        ),
+                    )
                     .clearActions()
                 context.notify(Notifications.ID_QUICK_MIGRATE_COMPLETE, notificationBuilder.build())
-                return Result.success(workDataOf(KEY_RESULT_MIGRATED to 0, KEY_RESULT_REMOVED to 0))
+                return Result.success(
+                    workDataOf(KEY_RESULT_MIGRATED to alreadyDone, KEY_RESULT_REMOVED to 0),
+                )
             }
 
             val oldSource = sourceManager.getOrStub(sourceId)

@@ -63,9 +63,16 @@ internal class DownloadPageLoader(
     private suspend fun getPagesFromArchive(file: UniFile): List<ReaderPage> {
         // One reader for both passes: useEntries only opens and closes an ArchiveInputStream over the
         // reader's existing mapping, so the loader can still take ownership and close it on recycle.
+        // Until that handover the reader owns an mmap nothing else will release, so a truncated or
+        // corrupt archive failing enumeration has to close it here.
         val reader = file.archiveReader(context)
-        val entryNames = reader.useEntries { entries ->
-            entries.filter { it.isFile }.map { it.name.substringAfterLast('/') }.toSet()
+        val entryNames = try {
+            reader.useEntries { entries ->
+                entries.filter { it.isFile }.map { it.name.substringAfterLast('/') }.toSet()
+            }
+        } catch (e: Throwable) {
+            reader.close()
+            throw e
         }
         val loader = ArchivePageLoader(reader).also { archivePageLoader = it }
         return loader.getPages().onEach { page ->
