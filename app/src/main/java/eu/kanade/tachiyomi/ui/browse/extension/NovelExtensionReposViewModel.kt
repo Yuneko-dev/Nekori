@@ -40,6 +40,7 @@ class NovelExtensionReposViewModel(
 
     fun setRepoEnabled(url: String, enabled: Boolean) {
         jsPluginManager.setRepositoryEnabled(url, enabled)
+        viewModelScope.launchIO { jsPluginManager.refreshAvailablePlugins() }
     }
 
     fun refreshRepos() {

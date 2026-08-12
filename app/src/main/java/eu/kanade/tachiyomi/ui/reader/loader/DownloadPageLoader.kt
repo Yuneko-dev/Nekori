@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
 import eu.kanade.tachiyomi.util.TextSplitter
 import mihon.core.archive.archiveReader
+import mihon.core.archive.rewriteResolvedAssetRefs
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.injectLazy
@@ -50,7 +51,7 @@ internal class DownloadPageLoader(
             getPagesFromArchive(chapterPath)
         } else {
             logcat { "DownloadPageLoader.getPages: Loading from directory" }
-            getPagesFromDirectory()
+            getPagesFromDirectory(chapterPath)
         }
     }
 
@@ -60,11 +61,18 @@ internal class DownloadPageLoader(
     }
 
     private suspend fun getPagesFromArchive(file: UniFile): List<ReaderPage> {
+        val entryNames = file.archiveReader(context).use { reader ->
+            reader.useEntries { entries ->
+                entries.filter { it.isFile }.map { it.name.substringAfterLast('/') }.toSet()
+            }
+        }
         val loader = ArchivePageLoader(file.archiveReader(context)).also { archivePageLoader = it }
-        return loader.getPages()
+        return loader.getPages().onEach { page ->
+            page.text = page.text?.let { rewriteAssetRefs(it, entryNames::contains) }
+        }
     }
 
-    private fun getPagesFromDirectory(): List<ReaderPage> {
+    private fun getPagesFromDirectory(chapterDir: UniFile?): List<ReaderPage> {
         logcat { "DownloadPageLoader.getPagesFromDirectory: Starting" }
         val pages = downloadManager.buildPageList(source, manga, chapter.chapter.toDomainChapter()!!)
         logcat { "DownloadPageLoader.getPagesFromDirectory: Got ${pages.size} pages from buildPageList" }
@@ -77,7 +85,7 @@ internal class DownloadPageLoader(
                 logcat { "DownloadPageLoader: Reading HTML content from $uriString" }
                 context.contentResolver.openInputStream(page.uri!!)?.use {
                     it.bufferedReader().readText()
-                }
+                }?.let { rewriteAssetRefs(it) { name -> chapterDir?.findFile(name) != null } }
             } else {
                 null
             }
@@ -145,4 +153,7 @@ internal class DownloadPageLoader(
         val normalized = lowercase()
         return normalized.endsWith(".html") || normalized.endsWith(".htm") || normalized.endsWith(".xhtml")
     }
+
+    private fun rewriteAssetRefs(text: String, fileExists: (String) -> Boolean): String =
+        rewriteResolvedAssetRefs(text, fileExists)
 }

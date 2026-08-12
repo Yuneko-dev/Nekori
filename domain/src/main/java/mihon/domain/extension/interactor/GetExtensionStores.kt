@@ -12,7 +12,11 @@ class GetExtensionStores(
 
     fun subscribe(): Flow<List<ExtensionStore>> = repository.getAllAsFlow()
 
-    /** Stores filtered by content type so the manga and novel screens list only their own. */
+    /**
+     * Stores filtered by which screen registered them, for tidier repo-management lists.
+     * Novel only shows stores explicitly tagged isNovel=true; manga shows everything else,
+     * so an untagged/legacy store (isNovel defaults false) still shows up somewhere.
+     */
     fun subscribe(isNovel: Boolean): Flow<List<ExtensionStore>> =
         repository.getAllAsFlow().map { stores -> stores.filter { it.isNovel == isNovel } }
 }
