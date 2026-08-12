@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.discord.SensitiveContentPolicy
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
@@ -70,7 +71,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -458,7 +458,7 @@ class ReaderViewModel @JvmOverloads constructor(
         withIOContext {
             try {
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
-                sourceManager.isInitialized.first { it }
+                sourceManager.awaitInitialized()
                 mutableState.update { it.copy(manga = manga) }
                 if (chapterId == -1L) chapterId = initialChapterId
 

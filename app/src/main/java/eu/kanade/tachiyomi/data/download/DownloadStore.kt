@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.core.content.edit
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.awaitInitialized
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -88,12 +91,24 @@ class DownloadStore(
 
     /**
      * Returns the list of downloads to restore. It should be called in a background thread.
+     *
+     * Awaits source registration first, and gives up without touching the store when it never
+     * arrives. Both matter: this runs from [Downloader]'s init on every cold start, an unresolved
+     * source drops the entry, and the store is cleared afterwards — so restoring eagerly would
+     * delete the whole queue whenever the JS runtime is slower than the downloader's construction.
      */
-    fun restore(): List<Download> {
+    suspend fun restore(): List<Download> {
         val objs = preferences.all
             .mapNotNull { it.value as? String }
             .mapNotNull { deserialize(it) }
             .sortedBy { it.order }
+
+        if (objs.isNotEmpty() && !sourceManager.awaitInitialized()) {
+            logcat(LogPriority.WARN) {
+                "Sources unavailable; keeping ${objs.size} queued downloads for the next start"
+            }
+            return emptyList()
+        }
 
         val downloads = mutableListOf<Download>()
         if (objs.isNotEmpty()) {

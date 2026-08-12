@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.translation.engine.LibreTranslateEngine
+import eu.kanade.tachiyomi.source.awaitSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.coroutines.CancellationException
@@ -395,7 +396,7 @@ class TranslationService(
             ?: throw IllegalStateException("Chapter ${task.chapterId} not found")
         val manga = getManga.await(task.mangaId)
             ?: throw IllegalStateException("Manga ${task.mangaId} not found")
-        val source = sourceManager.get(manga.source)
+        val source = sourceManager.awaitSource(manga.source)
             ?: throw IllegalStateException("Source ${manga.source} not found")
 
         val locator = TranslationLocator(

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.download.model
 
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.awaitSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,7 +139,9 @@ data class Download(
         ): Download? {
             val chapter = getChapter.await(chapterId) ?: return null
             val manga = getManga.await(chapter.mangaId) ?: return null
-            val source = sourceManager.get(manga.source) as? CatalogueSource ?: return null
+            // Reached from notification actions, which can revive a dead process: the source is not
+            // registered yet at that point, and a plain get() would report it as uninstalled.
+            val source = sourceManager.awaitSource(manga.source) as? CatalogueSource ?: return null
 
             return from(manga = manga, chapter = chapter, source = source)
         }

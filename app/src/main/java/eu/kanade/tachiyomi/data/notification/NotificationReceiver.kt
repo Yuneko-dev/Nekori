@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.updater.AppUpdateDownloadJob
+import eu.kanade.tachiyomi.source.awaitSource
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -232,7 +233,7 @@ class NotificationReceiver : BroadcastReceiver() {
                     if (downloadPreferences.removeAfterMarkedAsRead.get()) {
                         val manga = getManga.await(mangaId)
                         if (manga != null) {
-                            val source = sourceManager.get(manga.source)
+                            val source = sourceManager.awaitSource(manga.source)
                             if (source != null) {
                                 downloadManager.deleteChapters(listOf(it), manga, source)
                             }

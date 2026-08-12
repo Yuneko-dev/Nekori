@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import kotlinx.coroutines.flow.first
@@ -107,11 +108,7 @@ class ChapterLoader(
             source.isNovelSource && source !is StubSource -> LocalNovelPageLoader(chapter, source, forceFromSource)
             source is StubSource -> {
                 // Wait for sourceManager to finish combining all sources (KT ext + JS plugins)
-                if (!sourceManager.isInitialized.value) {
-                    withTimeoutOrNull(30_000L) {
-                        sourceManager.isInitialized.first { it }
-                    }
-                }
+                sourceManager.awaitInitialized()
                 val resolvedSource = sourceManager.get(source.id)
                 if (resolvedSource != null && resolvedSource !is StubSource) {
                     logcat { "ChapterLoader: StubSource ${source.id} resolved → ${resolvedSource.name}" }

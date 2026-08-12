@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -29,8 +30,6 @@ import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.core.archive.EpubWriter
@@ -651,9 +650,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     private suspend fun resolveExportSource(manga: Manga): Source? {
         sourceManager.get(manga.source)?.let { return it }
 
-        withTimeoutOrNull(10_000) {
-            sourceManager.isInitialized.first { it }
-        }
+        sourceManager.awaitInitialized()
 
         sourceManager.get(manga.source)?.let { return it }
 

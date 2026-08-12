@@ -11,6 +11,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -50,6 +51,12 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
     override suspend fun doWork(): Result {
         setForegroundSafely()
+
+        // Same cold-start race as LibraryUpdateJob: unregistered sources make every entry a no-op.
+        if (!sourceManager.awaitInitialized()) {
+            logcat(LogPriority.WARN) { "Metadata update skipped: sources not registered" }
+            return Result.retry()
+        }
 
         addMangaToQueue()
 

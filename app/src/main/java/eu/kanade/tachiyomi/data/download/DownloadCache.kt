@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.awaitInitialized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
@@ -418,11 +417,7 @@ class DownloadCache(
             }
 
             // Wait until the JS/local novel source topology has loaded.
-            val sources = withTimeoutOrNull(30.seconds) {
-                sourceManager.isInitialized.first { it }
-
-                getSources()
-            }
+            val sources = if (sourceManager.awaitInitialized()) getSources() else null
 
             // An empty source map matches no download directory, so publishing it would index
             // nothing, mark that nothing fresh for renewInterval and persist it - every chapter

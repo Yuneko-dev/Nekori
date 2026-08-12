@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.interceptor.BackgroundRateLimitGuard
 import eu.kanade.tachiyomi.network.interceptor.withRateLimitWaitUpdates
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.source.rateLimitHost
@@ -125,6 +126,13 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         }
 
         setForegroundSafely()
+
+        // A scheduled update can start before the JS sources register, and every entry would then
+        // resolve to a stub and be reported as a failed update. Retry instead of burning the run.
+        if (!sourceManager.awaitInitialized()) {
+            logcat(LogPriority.WARN) { "Library update skipped: sources not registered" }
+            return Result.retry()
+        }
 
         libraryPreferences.lastUpdatedTimestamp.set(Clock.System.now().toEpochMilliseconds())
 
