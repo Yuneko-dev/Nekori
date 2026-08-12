@@ -1,4 +1,3 @@
-import mihon.gradle.tasks.GenerateLocalesConfigTask
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
@@ -22,16 +21,6 @@ kotlin {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
-    }
-}
-
-androidComponents {
-    onVariants { variant ->
-        val resSource = variant.sources.res ?: return@onVariants
-
-        val variantName = variant.name.replaceFirstChar { it.uppercase() }
-        val task = tasks.register<GenerateLocalesConfigTask>("generate${variantName}LocalesConfig")
-        resSource.addGeneratedSourceDirectory(task) { it.outputDir }
     }
 }
 
