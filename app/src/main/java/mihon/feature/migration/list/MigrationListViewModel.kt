@@ -1,13 +1,16 @@
 package mihon.feature.migration.list
 
+import android.content.Context
 import androidx.annotation.FloatRange
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.work.WorkInfo
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -15,7 +18,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -23,6 +28,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
+import mihon.domain.migration.MigrationJob
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.feature.migration.list.models.MigratingManga
@@ -40,8 +46,9 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class MigrationListViewModel(
-    mangaIds: Collection<Long>,
+    private val mangaIds: Collection<Long>,
     extraSearchQuery: String?,
+    private val context: Context = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
@@ -77,6 +84,9 @@ class MigrationListViewModel(
     private val navigateBackChannel = Channel<Unit>()
     val navigateBackEvent = navigateBackChannel.receiveAsFlow()
 
+    private val migrationFailedChannel = Channel<Unit>()
+    val migrationFailedEvent = migrationFailedChannel.receiveAsFlow()
+
     private var migrateJob: Job? = null
 
     init {
@@ -98,7 +108,15 @@ class MigrationListViewModel(
                 .awaitAll()
                 .filterNotNull()
             mutableState.update { it.copy(items = manga) }
-            runMigrations(manga)
+            // isRunning(context) alone isn't enough here: MigrationJob is identified only by a
+            // global TAG, so it would match any running job, including one started by a
+            // different MigrationListViewModel for an unrelated manga set - which would skip the
+            // search phase below entirely and later report false success for this screen's items.
+            if (MigrationJob.isRunningFor(context, mangaIds)) {
+                observeMigrationJob(estimatedTotal = manga.size)
+            } else {
+                runMigrations(manga)
+            }
         }
     }
 
@@ -264,53 +282,98 @@ class MigrationListViewModel(
     }
 
     private fun migrateMangas(replace: Boolean) {
-        migrateJob = viewModelScope.launchIO {
-            mutableState.update { it.copy(dialog = Dialog.Progress(0f)) }
-            val items = items
-            try {
-                // Use semaphore to allow limited concurrency for migrations
-                // (each migration involves network calls that benefit from parallelism)
-                val migrationSemaphore = Semaphore(3)
-                val completed = java.util.concurrent.atomic.AtomicInteger(0)
+        // Guards against a fast double-tap racing two calls in before either has enqueued its
+        // WorkManager job: the dialog is otherwise only swapped to Dialog.Progress asynchronously
+        // inside observeMigrationJob() below, leaving a window where the confirm dialog is still
+        // showing and a second tap would fire another migrateMangas() call.
+        if (state.value.dialog is Dialog.Progress) return
 
-                items.map { manga ->
-                    async {
-                        migrationSemaphore.withPermit {
-                            try {
-                                ensureActive()
-                                val target = manga.searchResult.value.let {
-                                    if (it is SearchResult.Success) {
-                                        it.manga
-                                    } else {
-                                        null
-                                    }
-                                }
-                                if (target != null) {
-                                    migrateManga(current = manga.manga, target = target, replace = replace)
-                                }
-                            } catch (e: Exception) {
-                                if (e is CancellationException) throw e
-                                logcat(LogPriority.WARN, throwable = e)
-                            }
-                            val done = completed.incrementAndGet()
-                            mutableState.update {
-                                it.copy(dialog = Dialog.Progress((done.toFloat() / items.size).coerceAtMost(1f)))
-                            }
-                        }
-                    }
-                }.awaitAll()
+        val pairs = items.mapNotNull { manga ->
+            (manga.searchResult.value as? SearchResult.Success)?.let { manga.manga.id to it.manga.id }
+        }
+        if (pairs.isEmpty()) return
 
-                navigateBack()
-            } finally {
+        mutableState.update { it.copy(dialog = Dialog.Progress(0f)) }
+
+        // MigrationJob.start() does blocking file I/O (writes the id pairs to a cache file), so
+        // it can't run directly on the caller's thread - onMigrate is invoked synchronously from
+        // a Compose click.
+        viewModelScope.launchIO {
+            // start() itself reports whether it actually enqueued this batch (it's a silent no-op
+            // under ExistingWorkPolicy.KEEP while another migration job is already running) -
+            // without this check, observeMigrationJob() below would attach to and report
+            // completion of that unrelated job instead of this batch ever actually migrating.
+            val started = try {
+                // activeIds must be the screen's full original selection, not just pairs (which
+                // drops entries with no search match) - isRunningFor() in init() compares against
+                // that full set when a recreated ViewModel tries to reattach to this job.
+                MigrationJob.start(context, pairs, replace, activeIds = mangaIds)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to start migration job" }
                 mutableState.update { it.copy(dialog = null) }
-                migrateJob = null
+                migrationFailedChannel.send(Unit)
+                navigateBack()
+                return@launchIO
             }
+            if (!started) {
+                mutableState.update { it.copy(dialog = null) }
+                migrationFailedChannel.send(Unit)
+                navigateBack()
+                return@launchIO
+            }
+            observeMigrationJob(estimatedTotal = pairs.size)
         }
     }
 
+    // Also used to reattach from init() when the app was reopened while a migration started in
+    // a previous process was still running - the WorkManager job survives process death, but
+    // nothing was resubscribing to it, so the screen showed idle state instead of progress.
+    private fun observeMigrationJob(estimatedTotal: Int) {
+        mutableState.update { it.copy(dialog = Dialog.Progress(0f)) }
+
+        // Backed by a durable WorkManager job (with its own notification) rather than this
+        // coroutine, so an accidental app kill mid-migration no longer loses whatever hadn't
+        // been swapped over yet. This just mirrors that job's progress back into the dialog.
+        migrateJob = context.workManager.getWorkInfosForUniqueWorkFlow(MigrationJob.TAG)
+            .mapNotNull { it.firstOrNull() }
+            .onEach { workInfo ->
+                when (workInfo.state) {
+                    WorkInfo.State.RUNNING -> {
+                        val current = workInfo.progress.getInt(MigrationJob.KEY_PROGRESS_CURRENT, 0)
+                        val total = workInfo.progress.getInt(MigrationJob.KEY_PROGRESS_TOTAL, estimatedTotal)
+                        val fraction = if (total > 0) current.toFloat() / total else 0f
+                        mutableState.update { it.copy(dialog = Dialog.Progress(fraction.coerceIn(0f, 1f))) }
+                    }
+                    WorkInfo.State.FAILED -> {
+                        mutableState.update { it.copy(dialog = null) }
+                        migrateJob = null
+                        migrationFailedChannel.send(Unit)
+                        navigateBack()
+                    }
+                    WorkInfo.State.SUCCEEDED, WorkInfo.State.CANCELLED -> {
+                        mutableState.update { it.copy(dialog = null) }
+                        migrateJob = null
+                        navigateBack()
+                    }
+                    else -> {}
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
     fun cancelMigrate() {
-        migrateJob?.cancel()
-        migrateJob = null
+        // migrateJob is only non-null when this screen actually started or reattached to the
+        // running MigrationJob (see migrateMangas()/observeMigrationJob()). MigrationJob is a
+        // single app-wide unique work item, so stopping it unconditionally here - e.g. from a
+        // plain back-press exit on a screen that only ever ran the search phase for its own,
+        // different manga set - would cancel an unrelated migration still running for another
+        // screen instead of a no-op.
+        if (migrateJob != null) {
+            MigrationJob.stop(context)
+            migrateJob?.cancel()
+            migrateJob = null
+        }
+        mutableState.update { it.copy(dialog = null) }
     }
 
     private suspend fun navigateBack() {

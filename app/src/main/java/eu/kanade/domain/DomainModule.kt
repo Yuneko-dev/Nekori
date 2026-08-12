@@ -225,8 +225,8 @@ class DomainModule : InjektModule {
         addFactory { GetEnabledNovelSources(get(), get(), get()) }
         addFactory { GetLanguagesWithSources(get(), get()) }
         addFactory { GetRemoteManga(get()) }
-        addFactory { GetSourcesWithFavoriteCount(get(), get(), get()) }
-        addFactory { GetNovelSourcesWithFavoriteCount(get(), get(), get()) }
+        addFactory { GetSourcesWithFavoriteCount(get(), get()) }
+        addFactory { GetNovelSourcesWithFavoriteCount(get(), get()) }
         addFactory { GetSourcesWithNonLibraryManga(get()) }
         addFactory { GetSourcePinGroups(get()) }
         addFactory { SetMigrateSorting(get()) }

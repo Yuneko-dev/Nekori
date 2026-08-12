@@ -173,6 +173,12 @@ data class MigrateMangaScreen(
                     onDismissRequest = { viewModel.dismissDialog() },
                 )
             }
+            is MigrateMangaViewModel.Dialog.QuickMigrateProgress -> {
+                QuickMigrateProgressDialog(
+                    progress = dialog.progress,
+                    onCancel = { viewModel.cancelQuickMigrate() },
+                )
+            }
             null -> {}
         }
 
@@ -181,6 +187,9 @@ data class MigrateMangaScreen(
                 when (event) {
                     MigrationMangaEvent.FailedFetchingFavorites -> {
                         context.toast(MR.strings.internal_error)
+                    }
+                    MigrationMangaEvent.QuickMigrateAlreadyRunning -> {
+                        context.toast(TDMR.strings.quick_migrate_already_running)
                     }
                     is MigrationMangaEvent.QuickMigrateComplete -> {
                         context.toast(

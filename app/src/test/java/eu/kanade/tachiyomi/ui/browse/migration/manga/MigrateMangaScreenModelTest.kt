@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.browse.migration.manga
 
+import mihon.domain.migration.quickMigrateSkipped
+import mihon.domain.migration.quickMigrateTargets
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.manga.model.Manga
