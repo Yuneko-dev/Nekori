@@ -21,8 +21,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Fixed
 - Prevent crash with setting search on duplicate key [@mrissaoussama](https://github.com/mrissaoussama) [#383](https://github.com/tsundoku-otaku/tsundoku/pull/383)
 - Fix importing new LNreader backups, all novels in DB come favorited [@mrissaoussama](https://github.com/mrissaoussama) [#388](https://github.com/tsundoku-otaku/tsundoku/pull/388)
-- Avoid applying URL normalization across incompatible source identities [@mrissaoussama](https://github.com/mrissaoussama) [#384](https://github.com/tsundoku-otaku/tsundoku/pull/384)
-
+- Scope leading-slash normalization [@mrissaoussama](https://github.com/mrissaoussama) [#384](https://github.com/tsundoku-otaku/tsundoku/pull/384)
+- Recover .js plugin files renamed by SAF mimetype guessing [@mrissaoussama](https://github.com/mrissaoussama) [#387](https://github.com/tsundoku-otaku/tsundoku/pull/387)
 
 ### Other
 - Merged v0.20.4 from Mihon [@Rojikku](https://github.com/Rojikku) [#380](https://github.com/tsundoku-otaku/tsundoku/pull/380)
