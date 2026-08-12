@@ -418,13 +418,7 @@ class Downloader(
 
         // Use a background thread for the heavy lifting of checking file existence
         scope.launchIO {
-            val (_, downloadedDirs) = provider.findChapterDirs(chapters, manga, source)
-            val downloadedChapterIds = HashSet<Long>(downloadedDirs.size)
-            for (i in downloadedDirs.indices) {
-                if (downloadedDirs[i] != null) {
-                    downloadedChapterIds.add(chapters[i].id)
-                }
-            }
+            val downloadedChapterIds = provider.findChapterDirs(chapters, manga, source).second.keys
 
             val queuedChapterIds = HashSet<Long>(queueState.value.size)
             for (queued in queueState.value) {

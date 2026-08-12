@@ -113,19 +113,28 @@ class DownloadProvider(
     }
 
     /**
-     * Returns a list of downloaded directories for the chapters that exist.
+     * Returns the downloaded directory of each chapter that has one, keyed by chapter id.
+     *
+     * Keyed rather than positional: chapters without a download are absent, so a list would not
+     * line up with [chapters] and a caller reading it by index would attribute each download to the
+     * wrong chapter.
      *
      * @param chapters the chapters to query.
      * @param manga the manga of the chapter.
      * @param source the source of the chapter.
      */
-    fun findChapterDirs(chapters: List<Chapter>, manga: Manga, source: Source): Pair<UniFile?, List<UniFile>> {
-        val mangaDir = findMangaDir(manga.title, source) ?: return null to emptyList()
+    fun findChapterDirs(chapters: List<Chapter>, manga: Manga, source: Source): Pair<UniFile?, Map<Long, UniFile>> {
+        val mangaDir = findMangaDir(manga.title, source) ?: return null to emptyMap()
+        // One listing for the whole manga instead of up to six lookups per chapter. Each lookup is
+        // a document query on SAF storage, and novel entries routinely run to hundreds of chapters.
+        val filesByName = mangaDir.listFiles().orEmpty()
+            .mapNotNull { file -> file.name?.let { it to file } }
+            .toMap()
         return mangaDir to chapters.mapNotNull { chapter ->
-            getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url).asSequence()
-                .mapNotNull { mangaDir.findFile(it) }
-                .firstOrNull()
-        }
+            getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url)
+                .firstNotNullOfOrNull(filesByName::get)
+                ?.let { chapter.id to it }
+        }.toMap()
     }
 
     /**

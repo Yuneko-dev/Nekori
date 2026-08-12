@@ -313,7 +313,7 @@ class DownloadManager(
             removeFromDownloadQueue(filteredChapters)
 
             val (mangaDir, chapterDirs) = provider.findChapterDirs(filteredChapters, manga, source)
-            chapterDirs.forEach { it.delete() }
+            chapterDirs.values.forEach { it.delete() }
             cache.removeChapters(filteredChapters, manga)
             // Decrement in-memory badge count so library reflects the deletion immediately
             getLibraryManga.applyBatchChapterUpdates(
