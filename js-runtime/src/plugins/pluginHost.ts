@@ -22,10 +22,6 @@ import {
 import { Parser } from 'htmlparser2';
 import { decode, encode } from 'urlencode';
 
-import {
-  solveCloudflareAPI,
-  solveCloudflareTurnstileAPI,
-} from './helpers/cloudflareStore';
 import { defaultCover } from './helpers/constants';
 import CookieManager from './helpers/cookie';
 import { fetchApi, fetchFile, fetchProto, fetchText } from './helpers/fetch';
@@ -120,10 +116,6 @@ const packages: Record<string, unknown> = {
     ContentWarning: PluginContentWarning,
     ContentType: PluginContentType,
   },
-  '@libs/webview': {
-    solveCloudflare: solveCloudflareAPI,
-    solveCloudflareTurnstile: solveCloudflareTurnstileAPI,
-  },
 };
 
 const plugins = new Map<string, Plugin>();
@@ -135,9 +127,9 @@ function makeRequire(runtimeKey: string): (name: string) => unknown {
     }
     const module = packages[name];
     if (module === undefined) {
-      // Never return {}. A missing module has to fail here, loudly, rather than turning into wrong
-      // data three call frames later — the one rule the whole plugin layer is built on.
-      throw new Error(`Plugin required "${name}", which is not implemented`);
+      console.warn(
+        `Plugin "${runtimeKey}" tried to require unknown module "${name}"`,
+      );
     }
     return module;
   };

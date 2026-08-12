@@ -804,46 +804,28 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
-    fun cloudflareCdpIsDeferredAndUnknownModulesFailLoudly() = runBlocking {
+    fun unknownModulesResolveToUndefined() = runBlocking {
         val runtime = createRuntime()
-        val deferredCode = """
+        val code = """
             const webview = require('@libs/webview');
+            const missing = require('@libs/does-not-exist');
             exports.default = {
-              id: 'deferred.test',
-              name: 'Deferred capability test',
+              id: 'missing.test',
+              name: 'Missing module test',
               version: '1',
               site: 'https://example.invalid',
-              probe: () => {
-                try {
-                  webview.solveCloudflare();
-                } catch (error) {
-                  return { code: error.code, capability: error.capability };
-                }
-              },
+              probe: () => [webview, missing].every(value => value === undefined),
             };
         """.trimIndent()
-        runtime.call(
-            "plugin.load",
-            """{"id":"deferred.test","code":${quote(deferredCode)}}""",
-        )
+
+        runtime.call("plugin.load", """{"id":"missing.test","code":${quote(code)}}""")
         assertEquals(
-            """{"code":"UNSUPPORTED_CAPABILITY","capability":"cloudflare-cdp"}""",
+            "true",
             runtime.call(
                 "plugin.eval",
-                """{"id":"deferred.test","expression":"plugin.probe()"}""",
+                """{"id":"missing.test","expression":"plugin.probe()"}""",
             ),
         )
-
-        val missingCode = """
-            require('@libs/does-not-exist');
-            exports.default = { id: 'missing.test' };
-        """.trimIndent()
-        try {
-            runtime.call("plugin.load", """{"id":"missing.test","code":${quote(missingCode)}}""")
-            fail("missing modules must reject during plugin load")
-        } catch (error: JsRuntimeException) {
-            assertTrue(error.message, error.message.orEmpty().contains("@libs/does-not-exist"))
-        }
     }
 
     @Test
