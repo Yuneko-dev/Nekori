@@ -61,12 +61,13 @@ internal class DownloadPageLoader(
     }
 
     private suspend fun getPagesFromArchive(file: UniFile): List<ReaderPage> {
-        val entryNames = file.archiveReader(context).use { reader ->
-            reader.useEntries { entries ->
-                entries.filter { it.isFile }.map { it.name.substringAfterLast('/') }.toSet()
-            }
+        // One reader for both passes: useEntries only opens and closes an ArchiveInputStream over the
+        // reader's existing mapping, so the loader can still take ownership and close it on recycle.
+        val reader = file.archiveReader(context)
+        val entryNames = reader.useEntries { entries ->
+            entries.filter { it.isFile }.map { it.name.substringAfterLast('/') }.toSet()
         }
-        val loader = ArchivePageLoader(file.archiveReader(context)).also { archivePageLoader = it }
+        val loader = ArchivePageLoader(reader).also { archivePageLoader = it }
         return loader.getPages().onEach { page ->
             page.text = page.text?.let { rewriteAssetRefs(it, entryNames::contains) }
         }
