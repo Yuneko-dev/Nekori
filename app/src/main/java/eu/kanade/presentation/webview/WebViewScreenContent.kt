@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 class WebViewWindow(webContent: WebContent, val navigator: WebViewNavigator) {
     var state by mutableStateOf(WebViewState(webContent))
+
+    /**
+     * URL this window is showing. Per window, like the page title it sits next to in the app bar:
+     * closing a popup has to put the parent's URL back, which one shared value cannot do.
+     */
+    var currentUrl by mutableStateOf((webContent as? WebContent.Url)?.url)
     var popupMessage: Message? = null
         private set
     var webView: WebView? = null
@@ -100,7 +107,7 @@ fun WebViewScreenContent(
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
 
-    var currentUrl by remember { mutableStateOf(url) }
+    val currentUrl = currentWindow.currentUrl ?: url
     var showCloudflareHelp by remember { mutableStateOf(false) }
     var isActive by remember { mutableStateOf(true) }
     val currentSaveWebStorage by rememberUpdatedState(saveWebStorage)
@@ -119,14 +126,20 @@ fun WebViewScreenContent(
         onDispose { isActive = false }
     }
 
+    // Reports whatever URL is on screen, closing a popup included. Calling this from the client
+    // callbacks instead would leave the assist URL behind on a window switch, since no callback
+    // fires for one.
+    LaunchedEffect(currentUrl) { onUrlChange(currentUrl) }
+
     val webClient = remember {
         object : AccompanistWebViewClient() {
+            // One client serves every window, so attribute the event to the window that owns the
+            // reporting WebView rather than to whichever window happens to be on top.
+            private fun windowFor(view: WebView) = windowStack.items.find { it.webView == view }
+
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                url?.let {
-                    currentUrl = it
-                    onUrlChange(it)
-                }
+                url?.let { windowFor(view)?.currentUrl = it }
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
@@ -144,10 +157,7 @@ fun WebViewScreenContent(
                 isReload: Boolean,
             ) {
                 super.doUpdateVisitedHistory(view, url, isReload)
-                url?.let {
-                    currentUrl = it
-                    onUrlChange(it)
-                }
+                url?.let { windowFor(view)?.currentUrl = it }
             }
 
             override fun shouldOverrideUrlLoading(
