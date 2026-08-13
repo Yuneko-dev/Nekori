@@ -69,9 +69,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.stats.components.StatsItem
 import eu.kanade.presentation.more.stats.data.StatsData
+import eu.kanade.tachiyomi.source.model.SManga
 import tachiyomi.domain.history.model.MangaReadStats
 import tachiyomi.domain.history.model.ReadingSessionWithRelations
 import tachiyomi.i18n.MR
@@ -117,6 +119,7 @@ fun AdvancedStatsScreenContent(
             )
         }
         item { LibrarySection(state) }
+        item { PublicationStatusSection(state.titles.publicationStatusCounts) }
         item {
             MostReadSection(advanced.mostReadManga) { rank, manga ->
                 selectedManga = rank to manga
@@ -628,6 +631,170 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
                 subtitle = stringResource(MR.strings.label_local),
             )
         }
+    }
+}
+
+private data class PublicationStatusItem(
+    val status: Int,
+    val label: StringResource,
+    val count: Int,
+    val color: Color,
+)
+
+@Composable
+private fun LazyItemScope.PublicationStatusSection(statusCounts: Map<Long, Int>) {
+    val colorScheme = MaterialTheme.colorScheme
+    fun status(status: Int, label: StringResource, color: Color) = PublicationStatusItem(
+        status = status,
+        label = label,
+        count = statusCounts[status.toLong()] ?: 0,
+        color = color,
+    )
+
+    val statuses = listOf(
+        status(SManga.ONGOING, MR.strings.ongoing, colorScheme.primary),
+        status(SManga.COMPLETED, MR.strings.completed, colorScheme.tertiary),
+        status(SManga.ON_HIATUS, MR.strings.on_hiatus, colorScheme.secondary),
+        status(SManga.LICENSED, MR.strings.licensed, colorScheme.inversePrimary),
+        status(SManga.PUBLISHING_FINISHED, MR.strings.publishing_finished, colorScheme.onTertiaryContainer),
+        status(SManga.CANCELLED, MR.strings.cancelled, colorScheme.error),
+        status(SManga.UNKNOWN, MR.strings.unknown, colorScheme.outline),
+    ).filter { it.count > 0 }
+    val total = statuses.sumOf { it.count }
+    var selectedStatus by remember(statusCounts) {
+        mutableIntStateOf(statuses.firstOrNull()?.status ?: SManga.UNKNOWN)
+    }
+    val selected = statuses.firstOrNull { it.status == selectedStatus } ?: statuses.firstOrNull()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MaterialTheme.padding.extraLarge),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(TDMR.strings.stats_publication_status),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = stringResource(TDMR.strings.stats_titles_count, formatCount(total.toLong())),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    SectionCard {
+        if (selected == null) {
+            Text(
+                text = stringResource(MR.strings.information_empty_library),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = MaterialTheme.padding.large),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            return@SectionCard
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    text = formatCount(selected.count.toLong()),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(selected.label),
+                    modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Text(
+                text = "${selected.count * 100 / total}%",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = MaterialTheme.padding.medium)
+                .height(10.dp)
+                .clip(CircleShape),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            statuses.forEach { status ->
+                Spacer(
+                    modifier = Modifier
+                        .weight(status.count.toFloat())
+                        .fillMaxHeight()
+                        .background(status.color),
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier.padding(top = MaterialTheme.padding.medium),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+        ) {
+            statuses.chunked(2).forEach { rowStatuses ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                ) {
+                    rowStatuses.forEach { status ->
+                        Surface(
+                            onClick = { selectedStatus = status.status },
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.large,
+                            color = if (status.status == selected.status) {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            } else {
+                                Color.Transparent
+                            },
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(status.color),
+                                )
+                                Text(
+                                    text = stringResource(status.label),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = MaterialTheme.padding.small),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = formatCount(status.count.toLong()),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
+                    }
+                    if (rowStatuses.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.medium))
+        DataNote(
+            text = stringResource(TDMR.strings.stats_publication_status_note),
+            modifier = Modifier.padding(top = MaterialTheme.padding.medium),
+        )
     }
 }
 

@@ -1132,6 +1132,9 @@
     <string name="stats_less">Less</string>
     <string name="stats_more">More</string>
     <string name="stats_library_yours">Your library</string>
+    <string name="stats_publication_status">Publication status</string>
+    <string name="stats_titles_count">%1$s titles</string>
+    <string name="stats_publication_status_note">Status comes from the novel information stored in your library.</string>
     <string name="stats_read_progress">Read</string>
     <string name="stats_chapters_progress">%1$s / %2$s chapters</string>
     <string name="stats_chapters_remaining">%1$s chapters unread</string>

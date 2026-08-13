@@ -1115,6 +1115,9 @@
     <string name="stats_less">Ít</string>
     <string name="stats_more">Nhiều</string>
     <string name="stats_library_yours">Thư viện của bạn</string>
+    <string name="stats_publication_status">Trạng thái phát hành</string>
+    <string name="stats_titles_count">%1$s truyện</string>
+    <string name="stats_publication_status_note">Trạng thái lấy từ thông tin truyện được lưu trong thư viện.</string>
     <string name="stats_read_progress">Đã đọc</string>
     <string name="stats_chapters_progress">%1$s / %2$s chương</string>
     <string name="stats_chapters_remaining">Còn %1$s chương chưa đọc</string>

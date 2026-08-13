@@ -69,6 +69,7 @@ class StatsViewModel(
                 globalUpdateItemCount = getGlobalUpdateItemCount(libraryManga),
                 startedMangaCount = distinctLibraryManga.count { it.hasStarted },
                 localMangaCount = distinctLibraryManga.count { it.manga.isLocal() },
+                publicationStatusCounts = distinctLibraryManga.groupingBy { it.manga.status }.eachCount(),
             )
 
             val chaptersStatData = StatsData.Chapters(
