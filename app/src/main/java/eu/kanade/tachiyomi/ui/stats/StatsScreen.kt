@@ -56,8 +56,9 @@ class StatsScreen : Screen() {
 
             val success = state as StatsScreenState.Success
             LaunchedEffect(useModernStats, success.advanced == null) {
-                if (useModernStats && success.advanced == null) {
-                    viewModel.loadAdvancedStats()
+                if (useModernStats) {
+                    if (success.advanced == null) viewModel.loadAdvancedStats()
+                    if (success.storage == null && !success.storageLoading) viewModel.refreshStorageStats()
                 }
             }
             Column(
@@ -79,6 +80,7 @@ class StatsScreen : Screen() {
                         paddingValues = contentPadding,
                         onSelectYear = viewModel::selectYear,
                         onOpenManga = { navigator.push(MangaScreen(it)) },
+                        onRefreshStorage = viewModel::refreshStorageStats,
                     )
                 }
             }

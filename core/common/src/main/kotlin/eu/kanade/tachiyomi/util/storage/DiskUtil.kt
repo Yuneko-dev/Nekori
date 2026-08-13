@@ -8,6 +8,7 @@ import android.os.StatFs
 import androidx.core.content.ContextCompat
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.lang.Hash
+import tachiyomi.core.common.storage.displayablePath
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
@@ -77,7 +78,7 @@ object DiskUtil {
      */
     fun getAvailableStorageSpace(f: UniFile): Long {
         return try {
-            val stat = StatFs(f.uri.path)
+            val stat = StatFs(f.displayablePath)
             stat.availableBlocksLong * stat.blockSizeLong
         } catch (_: Exception) {
             -1L

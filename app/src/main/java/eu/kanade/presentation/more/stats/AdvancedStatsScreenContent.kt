@@ -100,6 +100,7 @@ fun AdvancedStatsScreenContent(
     paddingValues: PaddingValues,
     onSelectYear: (Int) -> Unit,
     onOpenManga: (Long) -> Unit,
+    onRefreshStorage: () -> Unit,
 ) {
     val advanced = state.advanced ?: return
     var selectedDay by remember { mutableStateOf<HeatDay?>(null) }
@@ -119,6 +120,16 @@ fun AdvancedStatsScreenContent(
             )
         }
         item { LibrarySection(state) }
+        if (state.storage != null || state.storageLoading || state.storageError) {
+            item {
+                StorageSection(
+                    data = state.storage,
+                    loading = state.storageLoading,
+                    error = state.storageError,
+                    onRefresh = onRefreshStorage,
+                )
+            }
+        }
         item { PublicationStatusSection(state.titles.publicationStatusCounts) }
         item {
             MostReadSection(advanced.mostReadManga) { rank, manga ->
@@ -1332,7 +1343,7 @@ private fun MiniReadingBarChart(buckets: List<ReadingBucket>) {
 }
 
 @Composable
-private fun DataNote(
+internal fun DataNote(
     text: String,
     modifier: Modifier = Modifier,
     trailingContent: (@Composable () -> Unit)? = null,

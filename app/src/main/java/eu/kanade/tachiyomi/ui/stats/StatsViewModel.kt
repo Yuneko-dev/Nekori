@@ -22,6 +22,7 @@ import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_U
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_READ
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
@@ -38,6 +39,7 @@ class StatsViewModel(
     private val getReadingSessions: GetReadingSessions = Injekt.get(),
     private val getMostReadManga: GetMostReadManga = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
+    private val storageManager: StorageManager = Injekt.get(),
     private val preferences: LibraryPreferences = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
 ) : StateViewModel<StatsScreenState>(StatsScreenState.Loading) {
@@ -45,6 +47,7 @@ class StatsViewModel(
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
     private var advancedLoadJob: Job? = null
     private var yearLoadJob: Job? = null
+    private var storageLoadJob: Job? = null
 
     init {
         viewModelScope.launchIO {
@@ -129,6 +132,26 @@ class StatsViewModel(
                         selectedYear = year,
                         yearSessions = sessions,
                     ),
+                )
+            }
+        }
+    }
+
+    fun refreshStorageStats() {
+        if (state.value !is StatsScreenState.Success || storageLoadJob?.isActive == true) return
+
+        mutableState.update { state ->
+            val success = state as? StatsScreenState.Success ?: return@update state
+            success.copy(storageLoading = true, storageError = false)
+        }
+        storageLoadJob = viewModelScope.launchIO {
+            val storage = runCatching { storageManager.getStats() }.getOrNull()
+            mutableState.update { state ->
+                val success = state as? StatsScreenState.Success ?: return@update state
+                success.copy(
+                    storage = storage ?: success.storage,
+                    storageLoading = false,
+                    storageError = storage == null,
                 )
             }
         }
