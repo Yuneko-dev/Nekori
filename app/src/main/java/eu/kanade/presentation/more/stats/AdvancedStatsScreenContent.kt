@@ -574,26 +574,13 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
     val reading = (state.titles.startedMangaCount - state.overview.completedMangaCount).coerceAtLeast(0)
     val notStarted = (state.overview.libraryMangaCount - state.titles.startedMangaCount).coerceAtLeast(0)
 
-    Row(
+    Text(
+        text = stringResource(TDMR.strings.stats_library_yours),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MaterialTheme.padding.extraLarge),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(TDMR.strings.stats_library_yours),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            text = stringResource(
-                TDMR.strings.stats_novels_count,
-                formatCount(state.overview.libraryMangaCount.toLong()),
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+        style = MaterialTheme.typography.titleSmall,
+    )
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(92.dp), contentAlignment = Alignment.Center) {
