@@ -396,6 +396,11 @@ object SettingsTrackingScreen : SearchableSettings {
             title = stringResource(TDMR.strings.pref_novel_read_tracking_group),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.useModernStats,
+                    title = stringResource(TDMR.strings.pref_stats_use_modern),
+                    subtitle = stringResource(TDMR.strings.pref_stats_use_modern_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelReadTracking,
                     title = stringResource(TDMR.strings.pref_novel_read_tracking),
                     subtitle = stringResource(TDMR.strings.pref_novel_read_tracking_summary),
