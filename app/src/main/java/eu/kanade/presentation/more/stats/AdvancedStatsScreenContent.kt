@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.presentation.more.stats.components.StatsItem
 import eu.kanade.presentation.more.stats.data.StatsData
 import tachiyomi.domain.history.model.MangaReadStats
 import tachiyomi.domain.history.model.ReadingSessionWithRelations
@@ -162,35 +163,19 @@ private fun LazyItemScope.AdvancedOverviewSection(state: StatsScreenState.Succes
         )
         HorizontalDivider(modifier = Modifier.padding(vertical = MaterialTheme.padding.medium))
         Row(modifier = Modifier.fillMaxWidth()) {
-            OverviewMetric(
-                modifier = Modifier.weight(1f),
-                value = formatCount(state.chapters.readChapterCount.toLong()),
-                label = stringResource(MR.strings.label_read_chapters),
+            StatsItem(
+                title = formatCount(state.chapters.readChapterCount.toLong()),
+                subtitle = stringResource(MR.strings.label_read_chapters),
             )
-            OverviewMetric(
-                modifier = Modifier.weight(1f),
-                value = formatCount(state.titles.startedMangaCount.toLong()),
-                label = stringResource(MR.strings.label_started),
+            StatsItem(
+                title = formatCount(state.titles.startedMangaCount.toLong()),
+                subtitle = stringResource(MR.strings.label_started),
             )
-            OverviewMetric(
-                modifier = Modifier.weight(1f),
-                value = formatCount(state.overview.completedMangaCount.toLong()),
-                label = stringResource(MR.strings.completed),
+            StatsItem(
+                title = formatCount(state.overview.completedMangaCount.toLong()),
+                subtitle = stringResource(MR.strings.completed),
             )
         }
-    }
-}
-
-@Composable
-private fun OverviewMetric(modifier: Modifier, value: String, label: String) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
@@ -372,20 +357,17 @@ private fun LazyItemScope.ReadingHistorySection(
 
     SectionCard {
         Row(modifier = Modifier.fillMaxWidth()) {
-            OverviewMetric(
-                Modifier.weight(1f),
-                exactDuration(visibleDays.sumOf { it.duration }),
-                stringResource(TDMR.strings.stats_sessions_in_year),
+            StatsItem(
+                title = exactDuration(visibleDays.sumOf { it.duration }),
+                subtitle = stringResource(TDMR.strings.stats_sessions_in_year),
             )
-            OverviewMetric(
-                Modifier.weight(1f),
-                stringResource(TDMR.strings.stats_days_count, activeDays),
-                stringResource(TDMR.strings.stats_active_days),
+            StatsItem(
+                title = stringResource(TDMR.strings.stats_days_count, activeDays),
+                subtitle = stringResource(TDMR.strings.stats_active_days),
             )
-            OverviewMetric(
-                Modifier.weight(1f),
-                stringResource(TDMR.strings.stats_days_count, longestStreak),
-                stringResource(TDMR.strings.stats_longest_streak),
+            StatsItem(
+                title = stringResource(TDMR.strings.stats_days_count, longestStreak),
+                subtitle = stringResource(TDMR.strings.stats_longest_streak),
             )
         }
         Heatmap(days, onSelectDay)
@@ -634,39 +616,19 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
                 .fillMaxWidth()
                 .padding(vertical = MaterialTheme.padding.large),
         ) {
-            LibraryStatus(
-                Modifier.weight(1f),
-                state.chapters.downloadCount,
-                stringResource(TDMR.strings.stats_chapters_downloaded),
+            StatsItem(
+                title = formatCount(state.chapters.downloadCount.toLong()),
+                subtitle = stringResource(TDMR.strings.stats_chapters_downloaded),
             )
-            LibraryStatus(
-                Modifier.weight(1f),
-                reading,
-                stringResource(MR.strings.reading),
+            StatsItem(
+                title = formatCount(reading.toLong()),
+                subtitle = stringResource(MR.strings.reading),
             )
-            LibraryStatus(
-                Modifier.weight(1f),
-                notStarted,
-                stringResource(TDMR.strings.stats_not_started),
+            StatsItem(
+                title = formatCount(notStarted.toLong()),
+                subtitle = stringResource(TDMR.strings.stats_not_started),
             )
         }
-    }
-}
-
-@Composable
-private fun LibraryStatus(modifier: Modifier, value: Int, label: String) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            formatCount(value.toLong()),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
@@ -873,25 +835,8 @@ private fun DetailMetric(modifier: Modifier, value: String, label: String) {
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = label,
-                modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            StatsItem(title = value, subtitle = label)
         }
     }
 }
