@@ -131,7 +131,7 @@ private fun LazyItemScope.ChapterStats(
 }
 
 @Composable
-private fun LazyItemScope.TrackerStats(
+internal fun LazyItemScope.TrackerStats(
     data: StatsData.Trackers,
 ) {
     val notApplicable = stringResource(MR.strings.not_applicable)

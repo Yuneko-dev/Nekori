@@ -1132,14 +1132,12 @@
     <string name="stats_less">Less</string>
     <string name="stats_more">More</string>
     <string name="stats_library_yours">Your library</string>
-    <string name="stats_novels_count">%1$s novels</string>
     <string name="stats_read_progress">Read</string>
     <string name="stats_chapters_progress">%1$s / %2$s chapters</string>
     <string name="stats_chapters_remaining">%1$s chapters unread</string>
-    <string name="stats_not_started">Not started</string>
     <string name="stats_chapters_downloaded">Downloaded chapters</string>
     <string name="stats_most_read">Most read</string>
-    <string name="stats_show_all">Show all</string>
+    <string name="stats_top_20">Top 20</string>
     <string name="stats_collapse">Collapse</string>
     <string name="stats_chapters_count">%1$s chapters</string>
     <string name="stats_day_details">Details for the day</string>

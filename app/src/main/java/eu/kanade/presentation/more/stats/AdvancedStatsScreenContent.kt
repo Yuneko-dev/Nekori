@@ -122,6 +122,7 @@ fun AdvancedStatsScreenContent(
                 selectedManga = rank to manga
             }
         }
+        item { TrackerStats(state.trackers) }
     }
 
     selectedDay?.let { day ->
@@ -143,6 +144,8 @@ fun AdvancedStatsScreenContent(
 
 @Composable
 private fun LazyItemScope.AdvancedOverviewSection(state: StatsScreenState.Success) {
+    val reading = (state.titles.startedMangaCount - state.overview.completedMangaCount).coerceAtLeast(0)
+
     SectionCard(MR.strings.label_overview_section) {
         Text(
             text = stringResource(MR.strings.label_read_duration),
@@ -164,16 +167,16 @@ private fun LazyItemScope.AdvancedOverviewSection(state: StatsScreenState.Succes
         HorizontalDivider(modifier = Modifier.padding(vertical = MaterialTheme.padding.medium))
         Row(modifier = Modifier.fillMaxWidth()) {
             StatsItem(
-                title = formatCount(state.chapters.readChapterCount.toLong()),
-                subtitle = stringResource(MR.strings.label_read_chapters),
+                title = formatCount(state.overview.libraryMangaCount.toLong()),
+                subtitle = stringResource(MR.strings.in_library),
             )
             StatsItem(
-                title = formatCount(state.titles.startedMangaCount.toLong()),
-                subtitle = stringResource(MR.strings.label_started),
+                title = formatCount(reading.toLong()),
+                subtitle = stringResource(MR.strings.reading),
             )
             StatsItem(
                 title = formatCount(state.overview.completedMangaCount.toLong()),
-                subtitle = stringResource(MR.strings.completed),
+                subtitle = stringResource(MR.strings.label_completed_titles),
             )
         }
     }
@@ -553,8 +556,6 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
     val read = state.chapters.readChapterCount
     val progress = if (total == 0) 0f else (read.toFloat() / total).coerceIn(0f, 1f)
     val progressPercent = (progress * 100).roundToInt()
-    val reading = (state.titles.startedMangaCount - state.overview.completedMangaCount).coerceAtLeast(0)
-    val notStarted = (state.overview.libraryMangaCount - state.titles.startedMangaCount).coerceAtLeast(0)
 
     Text(
         text = stringResource(TDMR.strings.stats_library_yours),
@@ -601,10 +602,8 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = stringResource(
-                        TDMR.strings.stats_novels_count,
-                        formatCount(state.overview.libraryMangaCount.toLong()),
-                    ),
+                    text = "${formatCount(state.chapters.downloadCount.toLong())} " +
+                        stringResource(TDMR.strings.stats_chapters_downloaded),
                     modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -614,19 +613,19 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = MaterialTheme.padding.large),
+                .padding(top = MaterialTheme.padding.large),
         ) {
             StatsItem(
-                title = formatCount(state.chapters.downloadCount.toLong()),
-                subtitle = stringResource(TDMR.strings.stats_chapters_downloaded),
+                title = formatCount(state.titles.globalUpdateItemCount.toLong()),
+                subtitle = stringResource(MR.strings.label_titles_in_global_update),
             )
             StatsItem(
-                title = formatCount(reading.toLong()),
-                subtitle = stringResource(MR.strings.reading),
+                title = formatCount(state.titles.startedMangaCount.toLong()),
+                subtitle = stringResource(MR.strings.label_started),
             )
             StatsItem(
-                title = formatCount(notStarted.toLong()),
-                subtitle = stringResource(TDMR.strings.stats_not_started),
+                title = formatCount(state.titles.localMangaCount.toLong()),
+                subtitle = stringResource(MR.strings.label_local),
             )
         }
     }
@@ -653,7 +652,7 @@ private fun LazyItemScope.MostReadSection(
         )
         if (items.size > 3) {
             TextButton(onClick = { expanded = !expanded }) {
-                Text(stringResource(if (expanded) TDMR.strings.stats_collapse else TDMR.strings.stats_show_all))
+                Text(stringResource(if (expanded) TDMR.strings.stats_collapse else TDMR.strings.stats_top_20))
             }
         }
     }

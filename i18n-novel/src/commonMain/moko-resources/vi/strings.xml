@@ -1115,14 +1115,12 @@
     <string name="stats_less">Ít</string>
     <string name="stats_more">Nhiều</string>
     <string name="stats_library_yours">Thư viện của bạn</string>
-    <string name="stats_novels_count">%1$s tiểu thuyết</string>
     <string name="stats_read_progress">Đã đọc</string>
     <string name="stats_chapters_progress">%1$s / %2$s chương</string>
     <string name="stats_chapters_remaining">Còn %1$s chương chưa đọc</string>
-    <string name="stats_not_started">Chưa bắt đầu</string>
     <string name="stats_chapters_downloaded">Chương đã tải</string>
     <string name="stats_most_read">Đọc nhiều nhất</string>
-    <string name="stats_show_all">Xem tất cả</string>
+    <string name="stats_top_20">Top 20</string>
     <string name="stats_collapse">Thu gọn</string>
     <string name="stats_chapters_count">%1$s chương</string>
     <string name="stats_day_details">Chi tiết trong ngày</string>
