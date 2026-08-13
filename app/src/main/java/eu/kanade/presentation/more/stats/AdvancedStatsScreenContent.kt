@@ -438,6 +438,10 @@ private data class HeatDay(
     val duration = sessions.sumOf { it.readDuration }
 }
 
+private const val HEAT_LEVEL_COUNT = 5
+private const val HEAT_LEVEL_DURATION = 150 / HEAT_LEVEL_COUNT * 60_000L
+private const val HEAT_MIN_INTENSITY = 0.3f
+
 @Composable
 private fun Heatmap(days: List<HeatDay>, onSelectDay: (HeatDay) -> Unit) {
     val cellSize = 12.dp
@@ -529,39 +533,41 @@ private fun heatColor(day: HeatDay): Color {
     if (!day.inYear) return Color.Transparent
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     val primary = MaterialTheme.colorScheme.primary
-    return when {
-        day.future || day.duration == 0L -> empty
-        day.duration < 30 * 60_000L -> lerp(empty, primary, 0.35f)
-        day.duration < 60 * 60_000L -> lerp(empty, primary, 0.58f)
-        day.duration < 90 * 60_000L -> lerp(empty, primary, 0.78f)
-        else -> primary
-    }
+    if (day.future || day.duration == 0L) return empty
+    return lerp(empty, primary, heatIntensity(day.duration))
 }
 
 @Composable
 private fun HeatLegend() {
+    val empty = MaterialTheme.colorScheme.surfaceContainerHighest
+    val primary = MaterialTheme.colorScheme.primary
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(stringResource(TDMR.strings.stats_less), style = MaterialTheme.typography.labelSmall)
-        listOf(0f, 0.35f, 0.58f, 0.78f, 1f).forEach { level ->
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(
-                        if (level == 0f) {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        } else {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            repeat(HEAT_LEVEL_COUNT) { level ->
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
                             lerp(
-                                MaterialTheme.colorScheme.surfaceContainerHighest,
-                                MaterialTheme.colorScheme.primary,
-                                level,
-                            )
-                        },
-                    ),
-            )
+                                empty,
+                                primary,
+                                heatIntensity((level + 1) * HEAT_LEVEL_DURATION),
+                            ),
+                        ),
+                )
+            }
         }
         Text(stringResource(TDMR.strings.stats_more), style = MaterialTheme.typography.labelSmall)
     }
+}
+
+private fun heatIntensity(duration: Long): Float {
+    val level = ((duration - 1) / HEAT_LEVEL_DURATION).coerceAtMost((HEAT_LEVEL_COUNT - 1).toLong())
+    return HEAT_MIN_INTENSITY + level.toFloat() / (HEAT_LEVEL_COUNT - 1) * (1f - HEAT_MIN_INTENSITY)
 }
 
 @Composable
