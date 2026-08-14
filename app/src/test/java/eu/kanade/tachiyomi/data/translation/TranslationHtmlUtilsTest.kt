@@ -29,4 +29,13 @@ class TranslationHtmlUtilsTest {
         plan.apply(listOf("Mở đầu", "Nội dung", "Kết")) shouldBe
             "<div>Mở đầu<p>Nội dung</p>Kết</div>"
     }
+
+    @Test
+    fun `translation plan skips segments without letters`() {
+        val plan = TranslationHtmlUtils.prepareTranslation("<p>* * *</p><p>Hello</p><p>123</p>")
+
+        plan.texts shouldContainExactly listOf("Hello")
+
+        plan.apply(listOf("Xin chào")) shouldBe "<p>* * *</p><p>Xin chào</p><p>123</p>"
+    }
 }

@@ -9,10 +9,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.translation.model.AIApiFamily
 import tachiyomi.domain.translation.model.AIApiMode
 import tachiyomi.domain.translation.model.AIProvider
@@ -20,7 +21,8 @@ import tachiyomi.domain.translation.model.ReasoningEffort
 import tachiyomi.domain.translation.model.TranslationContext
 import tachiyomi.domain.translation.model.TranslationResult
 
-internal const val PARAGRAPH_MARKER = "<br>"
+/** Labels a paragraph in non-structured mode; the index survives a merge or drop, a plain separator does not. */
+private fun paragraphMarker(index: Int) = "⟦$index⟧"
 
 data class LlmPrompt(val system: String, val user: String)
 
@@ -35,12 +37,12 @@ object LlmPromptBuilder {
     ): LlmPrompt {
         val custom = guidelines.trim().ifEmpty { "No specific guidelines." }
         val formattingConstraint = if (structuredOutput) {
-            "You MUST output ONLY a valid JSON object."
+            """You MUST output ONLY a valid JSON object shaped as {"paragraphs":[{"i":0,"t":"translation"}]}, """ +
+                """where "i" is copied verbatim from the input entry being translated."""
         } else {
-            "You MUST maintain the exact structural integrity of the input. " +
-                "Keep all $PARAGRAPH_MARKER markers exactly as they appear between paragraphs."
+            "You MUST repeat every index marker (${paragraphMarker(0)}, ${paragraphMarker(1)}, …) exactly as " +
+                "it appears, alone on the line above the paragraph it labels."
         }
-        val taskSubject = if (structuredOutput) "text array" else "text"
         return LlmPrompt(
             system = """
                 You are an Expert Transcreator. Your task is to translate the source text accurately while dynamically adapting the style, tone, and localization based on any provided custom guidelines.
@@ -51,7 +53,8 @@ object LlmPromptBuilder {
 
                 Strict Technical Constraints (CRITICAL):
                 - Formatting: $formattingConstraint
-                - Ensure that the number of translated paragraphs is exactly equal to the number of input paragraphs.
+                - Return exactly one entry per input paragraph, in the input order. NEVER merge, split, reorder or omit paragraphs.
+                - A paragraph that needs no translation MUST be repeated unchanged instead of being dropped.
                 - Preserve image placeholders and internal markers verbatim.
                 - Clean Output: Output ONLY the final processed text. Do NOT include any explanations, formatting tags (unless present in the source), intro/outro conversational filler, or internal thinking.
 
@@ -62,15 +65,26 @@ object LlmPromptBuilder {
                 ${context.asPromptSection()}
 
                 ---
-                Task: Translate the following $taskSubject from $sourceLanguage to $targetLanguage.
+                Task: Translate the following paragraphs from $sourceLanguage to $targetLanguage.
             """.trimIndent(),
-            user = if (structuredOutput) {
-                Json.encodeToString(texts)
-            } else {
-                texts.joinToString("\n$PARAGRAPH_MARKER\n")
-            },
+            user = if (structuredOutput) indexedJson(texts) else indexedMarkers(texts),
         )
     }
+
+    private fun indexedJson(texts: List<String>) = buildJsonArray {
+        texts.forEachIndexed { index, text ->
+            add(
+                buildJsonObject {
+                    put("i", index)
+                    put("t", text)
+                },
+            )
+        }
+    }.toString()
+
+    private fun indexedMarkers(texts: List<String>) = texts
+        .mapIndexed { index, text -> "${paragraphMarker(index)}\n$text" }
+        .joinToString("\n\n")
 
     private fun TranslationContext?.asPromptSection(): String {
         if (this == null || previousTranslatedParagraphs.isEmpty()) return ""
@@ -89,26 +103,69 @@ class InvalidStructuredOutputException(message: String) : IllegalArgumentExcepti
 
 object LlmResponseParser {
     private val json = Json { ignoreUnknownKeys = true }
+    private val markerRegex = Regex("⟦(\\d+)⟧")
 
-    fun parseStructured(content: String, expectedCount: Int): List<String> {
-        val paragraphs = runCatching {
-            json.parseToJsonElement(content.trim()).jsonObject.getValue("paragraphs").jsonArray
-                .map { it.jsonPrimitive.content }
-        }.getOrElse { throw InvalidStructuredOutputException("Invalid structured translation response") }
-        if (paragraphs.size != expectedCount) {
-            throw InvalidStructuredOutputException("Expected $expectedCount paragraphs, received ${paragraphs.size}")
+    /**
+     * Realign a model response onto [texts] by paragraph index.
+     *
+     * Paragraphs the model dropped or returned blank keep their source text, so a single
+     * missing paragraph no longer discards the whole chunk. Only a response without any
+     * usable paragraph is an error.
+     */
+    fun parse(content: String, texts: List<String>, structuredOutput: Boolean): List<String> {
+        val body = stripCodeFence(content)
+        val byIndex = if (structuredOutput) parseStructured(body, texts.size) else parseMarker(body)
+        if (byIndex.isEmpty()) {
+            // A single-paragraph request (chapter titles) is unambiguous without any marker, but an
+            // envelope we merely failed to read must not be pasted into the chapter as a translation.
+            if (texts.size == 1 && !body.startsWith('{') && !body.startsWith('[')) return listOf(body.trim())
+            throw InvalidStructuredOutputException("No translated paragraphs in response")
         }
-        return paragraphs
+
+        fun translationAt(index: Int) = byIndex[index]?.takeIf(String::isNotBlank)
+
+        val dropped = texts.indices.count { translationAt(it) == null }
+        if (dropped > 0) {
+            logcat(LogPriority.WARN) { "Translation dropped $dropped/${texts.size} paragraphs, kept source text" }
+        }
+        return texts.mapIndexed { index, source -> translationAt(index) ?: source }
     }
 
-    fun parseMarker(content: String, expectedCount: Int): List<String> {
-        val paragraphs = content.split(PARAGRAPH_MARKER).map(String::trim)
-        if (paragraphs.size != expectedCount) {
-            throw InvalidStructuredOutputException(
-                "Expected $expectedCount marker paragraphs, received ${paragraphs.size}",
-            )
+    /** Accepts `{"paragraphs":[…]}` or a bare array, of either indexed objects or plain strings. */
+    private fun parseStructured(content: String, expectedCount: Int): Map<Int, String> {
+        val root = runCatching { json.parseToJsonElement(content) }.getOrNull() ?: return emptyMap()
+        val array = root as? JsonArray
+            ?: (root as? JsonObject)?.get("paragraphs") as? JsonArray
+            ?: return emptyMap()
+        val indexed = array.filterIsInstance<JsonObject>()
+        // A provider that ignored the schema answers with plain strings, whose position is only
+        // trustworthy when it returned every paragraph — a short array would shift the rest.
+        if (indexed.isEmpty()) {
+            if (array.size != expectedCount) return emptyMap()
+            return array.mapIndexed { position, element ->
+                position to (element as? JsonPrimitive)?.contentOrNull.orEmpty()
+            }.toMap()
         }
-        return paragraphs
+        return indexed.mapIndexed { position, element ->
+            (element["i"]?.jsonPrimitive?.intOrNull ?: position) to
+                element["t"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        }.toMap()
+    }
+
+    private fun parseMarker(content: String): Map<Int, String> {
+        val markers = markerRegex.findAll(content).toList()
+        return markers.mapIndexedNotNull { position, match ->
+            val index = match.groupValues[1].toIntOrNull() ?: return@mapIndexedNotNull null
+            val end = markers.getOrNull(position + 1)?.range?.first ?: content.length
+            index to content.substring(match.range.last + 1, end).trim()
+        }.toMap()
+    }
+
+    /** Models wrap the payload in a ```json fence often enough to be worth undoing. */
+    private fun stripCodeFence(content: String): String {
+        val trimmed = content.trim()
+        if (!trimmed.startsWith("```")) return trimmed
+        return trimmed.removePrefix("```").substringAfter('\n', "").substringBeforeLast("```").trim()
     }
 }
 
@@ -125,12 +182,32 @@ object LlmRequestFactory {
                     "paragraphs",
                     buildJsonObject {
                         put("type", "array")
-                        put("items", buildJsonObject { put("type", "string") })
+                        put("items", paragraphSchema(includeAdditionalProperties))
                     },
                 )
             },
         )
         put("required", buildJsonArray { add(JsonPrimitive("paragraphs")) })
+    }
+
+    /** `i` is the input paragraph index, `t` its translation — see [LlmResponseParser.parse]. */
+    private fun paragraphSchema(includeAdditionalProperties: Boolean) = buildJsonObject {
+        put("type", "object")
+        if (includeAdditionalProperties) put("additionalProperties", false)
+        put(
+            "properties",
+            buildJsonObject {
+                put("i", buildJsonObject { put("type", "integer") })
+                put("t", buildJsonObject { put("type", "string") })
+            },
+        )
+        put(
+            "required",
+            buildJsonArray {
+                add(JsonPrimitive("i"))
+                add(JsonPrimitive("t"))
+            },
+        )
     }
 
     fun create(provider: AIProvider, system: String, user: String, structuredOutput: Boolean): LlmWireRequest {

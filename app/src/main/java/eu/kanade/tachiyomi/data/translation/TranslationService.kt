@@ -450,6 +450,11 @@ class TranslationService(
         val translationPlan = TranslationHtmlUtils.prepareTranslation(allContent)
         val paragraphs = translationPlan.texts
 
+        if (paragraphs.isEmpty()) {
+            logcat(LogPriority.WARN) { "No translatable text in chapter ${chapter.name}, skipping" }
+            return@withContext
+        }
+
         logcat(LogPriority.DEBUG) { "Translating ${paragraphs.size} paragraphs for chapter ${chapter.name}" }
 
         // Group paragraphs into chunks to improve translation quality
@@ -475,22 +480,21 @@ class TranslationService(
             }
         }
 
-        // Determine which chunks were already translated (for resume)
-        // We count how many source paragraphs the existing tmp translation covers
-        var resumeFromChunk = 0
-        if (existingTmpParagraphs.isNotEmpty() && !task.forceRetranslate) {
-            var coveredParagraphs = 0
-            for ((i, chunk) in chunks.withIndex()) {
-                val chunkParagraphCount = chunk.size
-                coveredParagraphs += chunkParagraphCount
-                if (coveredParagraphs <= existingTmpParagraphs.size) {
-                    resumeFromChunk = i + 1
-                } else {
-                    break
-                }
-            }
-            if (resumeFromChunk > 0) {
-                logcat(LogPriority.INFO) { "Resuming from chunk $resumeFromChunk/${chunks.size}" }
+        // Resume only where the saved paragraphs land exactly on a chunk boundary. Partial data written
+        // against a different split (older build, changed source) would land on the wrong paragraphs.
+        val resumeFromChunk = if (task.forceRetranslate) {
+            0
+        } else {
+            chunks.runningFold(0) { covered, chunk -> covered + chunk.size }
+                .indexOf(existingTmpParagraphs.size)
+                .coerceAtLeast(0)
+        }
+        if (resumeFromChunk > 0) {
+            logcat(LogPriority.INFO) { "Resuming from chunk $resumeFromChunk/${chunks.size}" }
+        } else if (existingTmpParagraphs.isNotEmpty()) {
+            logcat(LogPriority.WARN) {
+                "Ignoring misaligned partial translation (${existingTmpParagraphs.size} paragraphs " +
+                    "vs ${paragraphs.size} in this chapter)"
             }
         }
 

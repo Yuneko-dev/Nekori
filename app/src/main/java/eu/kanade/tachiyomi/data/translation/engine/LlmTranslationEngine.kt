@@ -80,12 +80,7 @@ class LlmTranslationEngine(
         )
         try {
             val content = execute(provider, apiKey, prompt.system, prompt.user, structured)
-            val translated = if (structured) {
-                LlmResponseParser.parseStructured(content, request.texts.size)
-            } else {
-                LlmResponseParser.parseMarker(content, request.texts.size)
-            }
-            TranslationResult.Success(translated)
+            TranslationResult.Success(LlmResponseParser.parse(content, request.texts, structured))
         } catch (e: CancellationException) {
             throw e
         } catch (e: InvalidStructuredOutputException) {

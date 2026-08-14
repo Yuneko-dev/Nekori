@@ -28,7 +28,7 @@ class LlmTranslationProtocolTest {
 
         prompt.system shouldContain "Expert Transcreator"
         prompt.system shouldContain "Keep honorifics."
-        prompt.user shouldBe "[\"One\",\"Two\"]"
+        prompt.user shouldBe """[{"i":0,"t":"One"},{"i":1,"t":"Two"}]"""
     }
 
     @Test
@@ -42,8 +42,9 @@ class LlmTranslationProtocolTest {
         )
 
         prompt.system shouldContain "No specific guidelines."
-        prompt.user shouldBe "One\n<br>\nTwo"
-        LlmResponseParser.parseMarker(prompt.user, 2) shouldContainExactly listOf("One", "Two")
+        prompt.user shouldBe "⟦0⟧\nOne\n\n⟦1⟧\nTwo"
+        LlmResponseParser.parse(prompt.user, listOf("One", "Two"), structuredOutput = false) shouldContainExactly
+            listOf("One", "Two")
     }
 
     @Test
@@ -60,13 +61,70 @@ class LlmTranslationProtocolTest {
         prompt.system shouldContain "Previous Context"
         prompt.system shouldContain "Before"
         prompt.system shouldContain "Trước đó"
-        prompt.user shouldBe "[\"Current\"]"
+        prompt.user shouldBe """[{"i":0,"t":"Current"}]"""
     }
 
     @Test
-    fun `structured response rejects wrong paragraph count`() {
+    fun `structured response keeps the source of a dropped paragraph`() {
+        val translated = LlmResponseParser.parse(
+            """{"paragraphs":[{"i":0,"t":"Một"},{"i":2,"t":"Ba"}]}""",
+            texts = listOf("One", "Two", "Three"),
+            structuredOutput = true,
+        )
+
+        translated shouldContainExactly listOf("Một", "Two", "Ba")
+    }
+
+    @Test
+    fun `marker response keeps the source of a dropped paragraph`() {
+        val translated = LlmResponseParser.parse(
+            "⟦0⟧\nMột\n\n⟦2⟧\nBa",
+            texts = listOf("One", "Two", "Three"),
+            structuredOutput = false,
+        )
+
+        translated shouldContainExactly listOf("Một", "Two", "Ba")
+    }
+
+    @Test
+    fun `structured response tolerates code fences and complete plain string arrays`() {
+        val translated = LlmResponseParser.parse(
+            "```json\n{\"paragraphs\":[\"Một\",\"Hai\"]}\n```",
+            texts = listOf("One", "Two"),
+            structuredOutput = true,
+        )
+
+        translated shouldContainExactly listOf("Một", "Hai")
+    }
+
+    @Test
+    fun `structured response rejects a short plain string array instead of shifting it`() {
         shouldThrow<InvalidStructuredOutputException> {
-            LlmResponseParser.parseStructured("{\"paragraphs\":[\"only\"]}", expectedCount = 2)
+            LlmResponseParser.parse(
+                """{"paragraphs":["Một","Ba"]}""",
+                texts = listOf("One", "Two", "Three"),
+                structuredOutput = true,
+            )
+        }
+    }
+
+    @Test
+    fun `single paragraph request accepts an unmarked response`() {
+        LlmResponseParser.parse("Tiêu đề", texts = listOf("Title"), structuredOutput = false) shouldContainExactly
+            listOf("Tiêu đề")
+    }
+
+    @Test
+    fun `unusable response is rejected`() {
+        shouldThrow<InvalidStructuredOutputException> {
+            LlmResponseParser.parse("I cannot help with that.", listOf("One", "Two"), structuredOutput = true)
+        }
+    }
+
+    @Test
+    fun `single paragraph request rejects an empty json envelope`() {
+        shouldThrow<InvalidStructuredOutputException> {
+            LlmResponseParser.parse("""{"paragraphs":[]}""", listOf("Title"), structuredOutput = true)
         }
     }
 

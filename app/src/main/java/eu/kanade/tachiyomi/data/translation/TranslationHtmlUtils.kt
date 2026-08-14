@@ -53,6 +53,13 @@ object TranslationHtmlUtils {
     }
 
     /**
+     * A segment without letters (scene breaks, ellipses, bare numbers) has nothing to translate.
+     * Models silently drop or merge those, which used to break the paragraph alignment of a whole chunk,
+     * so they are left untouched in the DOM instead of being sent.
+     */
+    private fun hasTranslatableText(text: String) = text.any(Char::isLetter)
+
+    /**
      * Builds a LNReader-compatible translation plan: translate leaf block HTML and direct text nodes,
      * then write the results into the original DOM instead of rebuilding the chapter from plain text.
      */
@@ -66,7 +73,7 @@ object TranslationHtmlUtils {
             val isTranslatable = element.`is`(TRANSLATABLE_SELECTOR)
             if (isTranslatable && element.children().none { it.`is`(BLOCK_SELECTOR) }) {
                 val innerHtml = element.html().trim()
-                if (innerHtml.isNotEmpty() && element.text().isNotBlank()) {
+                if (innerHtml.isNotEmpty() && hasTranslatableText(element.text())) {
                     texts += innerHtml
                     targets += TranslationTarget.Html(element)
                 }
@@ -77,7 +84,7 @@ object TranslationHtmlUtils {
                 when (node) {
                     is TextNode -> if (isTranslatable) {
                         val text = node.text().trim()
-                        if (text.isNotEmpty()) {
+                        if (hasTranslatableText(text)) {
                             texts += text
                             targets += TranslationTarget.Text(node)
                         }
@@ -88,7 +95,7 @@ object TranslationHtmlUtils {
         }
         visit(document.body())
 
-        if (texts.isEmpty() && document.body().text().isNotBlank()) {
+        if (texts.isEmpty() && hasTranslatableText(document.body().text())) {
             texts += document.body().html().trim()
             targets += TranslationTarget.Html(document.body())
         }
