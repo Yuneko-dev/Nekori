@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -183,6 +184,7 @@ internal fun LazyItemScope.StorageSection(
                 value = data.availableBytes?.let { Formatter.formatFileSize(context, it) } ?: "—",
             )
         }
+        HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.medium))
         DataNote(
             text = stringResource(
                 if (data.availableBytes == null) {

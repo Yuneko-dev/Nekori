@@ -1298,6 +1298,7 @@ private fun MostReadDetailsSheet(
                 }
             }
             item {
+                HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.medium))
                 DataNote(
                     text = stringResource(TDMR.strings.stats_manga_data_note),
                     modifier = Modifier.padding(top = MaterialTheme.padding.medium),
