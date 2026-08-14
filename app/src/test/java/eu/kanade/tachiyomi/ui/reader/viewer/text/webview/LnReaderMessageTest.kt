@@ -13,8 +13,8 @@ class LnReaderMessageTest {
         assertEquals(LnReaderMessage.Refetch, LnReaderMessage.parse("""{"type":"refetch"}"""))
         assertEquals(LnReaderMessage.Next, LnReaderMessage.parse("""{"type":"next"}"""))
         assertEquals(
-            LnReaderMessage.ProxyUnavailable("Proxy disabled"),
-            LnReaderMessage.parse("""{"type":"proxyUnavailable","data":"Proxy disabled"}"""),
+            LnReaderMessage.ShowError("Proxy disabled"),
+            LnReaderMessage.parse("""{"type":"error","data":"Proxy disabled"}"""),
         )
     }
 
@@ -24,5 +24,9 @@ class LnReaderMessageTest {
         assertNull(LnReaderMessage.parse("""{"type":"save","data":"80"}"""))
         assertNull(LnReaderMessage.parse("""{"type":"unknown"}"""))
         assertNull(LnReaderMessage.parse("""[]"""))
+        // The retired per-error type must not keep working, or both spellings stay alive.
+        assertNull(LnReaderMessage.parse("""{"type":"proxyUnavailable","data":"Proxy disabled"}"""))
+        assertNull(LnReaderMessage.parse("""{"type":"error","data":"   "}"""))
+        assertNull(LnReaderMessage.parse("""{"type":"error","data":42}"""))
     }
 }

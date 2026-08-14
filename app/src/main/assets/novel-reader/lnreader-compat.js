@@ -88,9 +88,15 @@
     refetch: function () {
       reader.post({ type: "refetch" });
     },
+    // Shows `message` in the reader's inline error banner. Every in-page failure worth surfacing
+    // goes through here, so the native side never has to learn a new message type per error kind.
+    error: function (message) {
+      var text = String(message == null ? "" : message).trim();
+      if (text) reader.post({ type: "error", data: text });
+    },
     fetch: function (url, init) {
       if (!config.proxyEndpoint) {
-        reader.post({ type: "proxyUnavailable", data: proxyUnavailableError });
+        reader.error(proxyUnavailableError);
         return Promise.reject(new Error(proxyUnavailableError));
       }
       const requestInit = init || {};

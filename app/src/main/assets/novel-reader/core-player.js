@@ -4,6 +4,44 @@
 
 (function () {
   const FULL_SEGMENT_HLS_METHODS = new Set(["AES-128", "AES-256", "AES-256-CTR"]);
+  const MIME_CONTAINERS = {
+    "video/mp4": "mp4",
+    "video/x-matroska": "mkv",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+    "video/x-msvideo": "avi",
+    "video/mp2t": "ts",
+  };
+  const VIDEO_EXTENSIONS = ["mp4", "m4v", "mkv", "webm", "mov", "avi", "ts"];
+  const DIRECT_PLAYERS = {
+    m3u8: "playHls",
+    "video-file": "playDirect",
+    iframe: "playIframe",
+  };
+
+  const metaContent = (name) => {
+    const el = document.querySelector(`meta[name="${name}"]`);
+    return el ? el.content.trim() : "";
+  };
+
+  // window.reader is a native bridge that can vanish mid-playback, so every touch is guarded.
+  const readerCall = (name, ...args) => {
+    try {
+      if (window.reader && typeof window.reader[name] === "function") {
+        return window.reader[name](...args);
+      }
+    } catch (_) {
+      // The WebView may be torn down while a callback is in flight.
+    }
+    return undefined;
+  };
+  const readerProp = (name) => {
+    try {
+      return window.reader ? window.reader[name] : null;
+    } catch (_) {
+      return null;
+    }
+  };
 
   class LNReaderPlayer {
     constructor() {
@@ -27,114 +65,82 @@
 
     init() {
       if (this.container) return; // Prevent double initialization
-      // Check debug mode
-      const debugMeta = document.querySelector(
-        'meta[name="lnreader-debug-mode"]'
+
+      this.isDebugMode = metaContent("lnreader-debug-mode") === "true";
+      this.disableProgress = Boolean(
+        document.querySelector("meta#lnreader-video-disable-progress")
       );
-      if (debugMeta && debugMeta.content === "true") {
-        this.isDebugMode = true;
-      }
-
-      // Check disable progress mode
-      const disableProgressMeta = document.getElementById(
-        "lnreader-video-disable-progress"
+      this.downloadEndpoint = metaContent("lnreader-video-download").replace(
+        /\/+$/,
+        ""
       );
-      if (
-        disableProgressMeta &&
-        disableProgressMeta.tagName.toLowerCase() === "meta"
-      ) {
-        this.disableProgress = true;
-      }
 
-      const downloadMeta = document.querySelector(
-        'meta[name="lnreader-video-download"]'
-      );
-      if (downloadMeta && downloadMeta.content) {
-        this.downloadEndpoint = downloadMeta.content.trim().replace(/\/+$/, "");
-      }
-
-      // Get chapter content element to append player inside
-      const chapterEl = document.getElementById("LNReader-chapter");
-
-      // Create container
       this.container = document.createElement("div");
       this.container.id = "lnreader-player-container";
+      this.setupDebugOverlay();
 
-      // Create debug overlay
-      this.debugOverlay = document.createElement("div");
-      this.debugOverlay.id = "lnreader-debug-overlay";
-      if (this.isDebugMode) {
-        this.debugOverlay.classList.add("active");
-      }
-      document.body.appendChild(this.debugOverlay);
-      if (this.isDebugMode) {
-        const debugToggle = document.createElement("button");
-        debugToggle.id = "lnreader-debug-toggle";
-        debugToggle.type = "button";
-        debugToggle.setAttribute("aria-label", "Hide player log");
-        debugToggle.setAttribute("aria-expanded", "true");
-        debugToggle.innerHTML =
-          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 7 4 5-4 5m6 0h8"/></svg>';
-        debugToggle.addEventListener("click", () => {
-          const visible = this.debugOverlay.classList.toggle("active");
-          debugToggle.setAttribute("aria-expanded", String(visible));
-          debugToggle.setAttribute(
-            "aria-label",
-            visible ? "Hide player log" : "Show player log"
-          );
-        });
-        document.body.appendChild(debugToggle);
-      }
-      if (chapterEl) {
-        chapterEl.appendChild(this.container);
-      } else {
-        document.body.appendChild(this.container);
-      }
+      // Append the player inside the chapter content when it exists.
+      const chapterEl = document.getElementById("LNReader-chapter");
+      (chapterEl || document.body).appendChild(this.container);
 
       this.log("LNReaderPlayer initialized");
 
-      // Check auto-play direct mode
-      const modeMeta = document.querySelector(
-        'meta[name="lnreader-video-mode"]'
-      );
-      if (modeMeta && modeMeta.content === "direct") {
-        this.log("Direct mode detected");
-        const urlMeta = document.querySelector(
-          'meta[name="lnreader-video-url"]'
-        );
-        const typeMeta = document.querySelector(
-          'meta[name="lnreader-video-type"]'
-        );
-
-        if (urlMeta && urlMeta.content && typeMeta && typeMeta.content) {
-          const url = urlMeta.content;
-          const type = typeMeta.content;
-          this.log(`Auto-playing direct: type=${type}, url=${url}`);
-
-          if (type === "m3u8") {
-            this.playHls(url);
-          } else if (type === "video-file") {
-            this.playDirect(url);
-          } else if (type === "iframe") {
-            this.playIframe(url);
-          } else {
-            this.log(`Unknown direct type: ${type}`);
-            if (this.isDownloadMode()) {
-              this.startDownload(() =>
-                this.rejectNoStream(`Unknown video type: ${type}`)
-              );
-            }
-          }
-        } else {
-          this.log("Direct mode missing url or type meta tag");
-          if (this.isDownloadMode()) {
-            this.startDownload(() =>
-              this.rejectNoStream("Direct video URL or type is missing")
-            );
-          }
-        }
-      } else {
+      if (metaContent("lnreader-video-mode") !== "direct") {
         this.log("Lazy mode or no mode detected, waiting for plugin...");
+        return;
+      }
+      this.log("Direct mode detected");
+      const url = metaContent("lnreader-video-url");
+      const type = metaContent("lnreader-video-type");
+      if (!url || !type) {
+        this.fail("Direct video URL or type is missing");
+        return;
+      }
+      this.log(`Auto-playing direct: type=${type}, url=${url}`);
+      const method = DIRECT_PLAYERS[type];
+      if (method) {
+        this[method](url);
+      } else {
+        this.fail(`Unknown video type: ${type}`);
+      }
+    }
+
+    setupDebugOverlay() {
+      this.debugOverlay = document.createElement("div");
+      this.debugOverlay.id = "lnreader-debug-overlay";
+      document.body.appendChild(this.debugOverlay);
+      if (!this.isDebugMode) return;
+
+      this.debugOverlay.classList.add("active");
+      const toggle = document.createElement("button");
+      toggle.id = "lnreader-debug-toggle";
+      toggle.type = "button";
+      toggle.setAttribute("aria-label", "Hide player log");
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.innerHTML =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 7 4 5-4 5m6 0h8"/></svg>';
+      toggle.addEventListener("click", () => {
+        const visible = this.debugOverlay.classList.toggle("active");
+        toggle.setAttribute("aria-expanded", String(visible));
+        toggle.setAttribute(
+          "aria-label",
+          visible ? "Hide player log" : "Show player log"
+        );
+      });
+      document.body.appendChild(toggle);
+    }
+
+    // Single exit for every failure the user has to know about. Callers never pick a channel: in
+    // download mode the error must reach the download bridge or the download hangs waiting for bytes
+    // that never arrive; during playback it goes to the reader's inline error banner.
+    fail(message) {
+      this.log(message);
+      if (this.isDownloadMode()) {
+        this.startDownload(() => {
+          throw new Error(message);
+        });
+      } else {
+        readerCall("error", message);
       }
     }
 
@@ -166,12 +172,6 @@
       this.lastSaveTime = 0;
     }
 
-    ensureInit() {
-      if (!this.container) {
-        this.init();
-      }
-    }
-
     isDownloadMode() {
       return Boolean(this.downloadEndpoint);
     }
@@ -200,24 +200,47 @@
       return this.downloadPromise;
     }
 
-    async sinkRequest(route, init) {
+    // `label` names the sink operation for the error message; omit it to accept any status.
+    async sinkRequest(route, init, label) {
+      let response;
       try {
-        return await this.sinkFetch(`${this.downloadEndpoint}${route}`, init);
+        response = await this.sinkFetch(`${this.downloadEndpoint}${route}`, init);
       } catch (error) {
         if (error && error.name === "AbortError") throw error;
         throw new Error(
           `Download sink ${route} unreachable: ${(error && error.message) || error}`
         );
       }
+      if (label && !response.ok) {
+        throw new Error(`Download sink rejected ${label}: ${response.status}`);
+      }
+      return response;
     }
 
     deleteDownload() {
       return this.sinkRequest("/sink", { method: "DELETE" }).catch(() => {});
     }
 
+    readyDownload(container) {
+      return this.sinkRequest(
+        `/sink?container=${encodeURIComponent(container)}`,
+        { method: "POST" },
+        "ready"
+      );
+    }
+
+    putDownloadChunk(bytes) {
+      if (!bytes || bytes.byteLength === 0) return Promise.resolve();
+      return this.sinkRequest("/sink", { method: "PUT", body: bytes }, "chunk");
+    }
+
+    commitDownload() {
+      return this.sinkRequest("/sink", { method: "POST" }, "commit");
+    }
+
     // Only downloadDirect still fetches by hand; HLS goes through hls.js's own loader. The proxy is
     // kept here because a plain cross-origin video file usually carries no CORS headers of its own.
-    async sourceFetch(url) {
+    sourceFetch(url) {
       const target = String(url);
       // A lazy-mode plugin can hand back a blob:/data: url it built in-page after decrypting. Those
       // are already local and the proxy rejects them outright - it only accepts http(s) - so they
@@ -232,56 +255,14 @@
       });
     }
 
-    async readyDownload(container) {
-      const response = await this.sinkRequest(
-        `/sink?container=${encodeURIComponent(container)}`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        throw new Error(`Download sink rejected ready: ${response.status}`);
-      }
-    }
-
-    rejectNoStream(message) {
-      throw new Error(message);
-    }
-
-    async putDownloadChunk(bytes) {
-      if (!bytes || bytes.byteLength === 0) return;
-      const response = await this.sinkRequest("/sink", {
-        method: "PUT",
-        body: bytes,
-      });
-      if (!response.ok) {
-        throw new Error(`Download sink rejected chunk: ${response.status}`);
-      }
-    }
-
-    async commitDownload() {
-      const response = await this.sinkRequest("/sink", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(`Download sink rejected commit: ${response.status}`);
-      }
-    }
-
     videoContainer(url, contentType) {
-      const mimeContainers = {
-        "video/mp4": "mp4",
-        "video/x-matroska": "mkv",
-        "video/webm": "webm",
-        "video/quicktime": "mov",
-        "video/x-msvideo": "avi",
-        "video/mp2t": "ts",
-      };
-      const mime = String(contentType || "").split(";", 1)[0].toLowerCase();
       const match = new URL(String(url), document.baseURI).pathname.match(
         /\.([a-z0-9]{1,5})$/i
       );
       const extension = match ? match[1].toLowerCase() : "";
-      if (["mp4", "m4v", "mkv", "webm", "mov", "avi", "ts"].includes(extension)) {
-        return extension;
-      }
-      return mimeContainers[mime] || "mp4";
+      if (VIDEO_EXTENSIONS.includes(extension)) return extension;
+      const mime = String(contentType || "").split(";", 1)[0].toLowerCase();
+      return MIME_CONTAINERS[mime] || "mp4";
     }
 
     async downloadDirect(url) {
@@ -290,11 +271,10 @@
       try {
         response = await this.sourceFetch(url);
       } catch (error) {
-        return this.rejectNoStream((error && error.message) || "Video fetch failed");
+        throw new Error((error && error.message) || "Video fetch failed");
       }
-      const container = this.videoContainer(url, response.headers.get("content-type"));
       if (!response.ok) {
-        return this.rejectNoStream(`Video fetch failed: ${response.status}`);
+        throw new Error(`Video fetch failed: ${response.status}`);
       }
       // The loopback proxy cannot forward Content-Length as-is, so it re-exposes the upstream value
       // under its own header. Without one of the two there is no total, and a direct download can
@@ -305,7 +285,9 @@
       );
       const knownTotal =
         Number.isSafeInteger(totalBytes) && totalBytes > 0 ? totalBytes : 0;
-      await this.readyDownload(container);
+      await this.readyDownload(
+        this.videoContainer(url, response.headers.get("content-type"))
+      );
 
       // Reported as a percentage rather than a byte count: the bridge marshals ints, and a large
       // video overflows one. Only whole percent changes cross the bridge, so a chunked read does not
@@ -540,181 +522,124 @@
     }
 
     attachEventListeners(video) {
-      const self = this;
+      const saveProgress = (percent) => {
+        if (!this.disableProgress) readerCall("post", { type: "save", data: percent });
+      };
 
-      video.addEventListener("loadedmetadata", function () {
-        self.log("Video loadedmetadata");
-        try {
-          if (
-            !self.hasSeekedInitial &&
-            video.duration > 0 &&
-            window.reader &&
-            window.reader.chapter &&
-            !self.disableProgress
-          ) {
-            var initialProgress = window.reader.chapter.progress || 0;
-            self.log(`Initial progress: ${initialProgress}%`);
-            if (initialProgress > 0 && initialProgress < 100) {
-              video.currentTime = Math.floor(
-                (initialProgress / 100) * video.duration
-              );
-            }
-            self.hasSeekedInitial = true;
-          }
-        } catch (e) {
-          self.log(`Error in loadedmetadata: ${e.message}`);
+      video.addEventListener("loadedmetadata", () => {
+        this.log("Video loadedmetadata");
+        if (this.hasSeekedInitial || this.disableProgress || !(video.duration > 0)) {
+          return;
+        }
+        const chapter = readerProp("chapter");
+        if (!chapter) return;
+        const initialProgress = chapter.progress || 0;
+        this.log(`Initial progress: ${initialProgress}%`);
+        if (initialProgress > 0 && initialProgress < 100) {
+          video.currentTime = Math.floor((initialProgress / 100) * video.duration);
+        }
+        this.hasSeekedInitial = true;
+      });
+
+      video.addEventListener("timeupdate", () => {
+        if (this.disableProgress || !(video.duration > 0)) return;
+        const currentTime = video.currentTime;
+        if (Math.abs(currentTime - this.lastSaveTime) < 3) return;
+        this.lastSaveTime = currentTime;
+        saveProgress(Math.floor((currentTime / video.duration) * 100));
+      });
+
+      video.addEventListener("ended", () => {
+        this.log("Video ended");
+        saveProgress(100);
+        if (readerProp("nextChapter")) {
+          this.log("Moving to next chapter");
+          readerCall("post", { type: "next" });
         }
       });
 
-      video.addEventListener("timeupdate", function () {
-        try {
-          if (
-            video.duration > 0 &&
-            window.reader &&
-            typeof window.reader.post === "function" &&
-            !self.disableProgress
-          ) {
-            var currentTime = video.currentTime;
-            if (Math.abs(currentTime - self.lastSaveTime) >= 5) {
-              self.lastSaveTime = currentTime;
-              var progressInt = Math.floor(
-                (currentTime / video.duration) * 100
-              );
-              window.reader.post({
-                type: "save",
-                data: progressInt,
-              });
-            }
-          }
-        } catch (e) {
-          // skip
-        }
-      });
-
-      video.addEventListener("ended", function () {
-        self.log("Video ended");
-        try {
-          if (window.reader && typeof window.reader.post === "function") {
-            // mark as completed
-            if (!self.disableProgress) {
-              window.reader.post({
-                type: "save",
-                data: 100,
-              });
-            }
-            // move to next chapter
-            if (window.reader.nextChapter) {
-              self.log("Moving to next chapter");
-              window.reader.post({ type: "next" });
-            }
-          }
-        } catch (e) {
-          self.log(`Error in ended event: ${e.message}`);
-        }
-      });
-
-      video.addEventListener("error", (e) => {
-        self.log(
-          `Video error: ${video.error ? video.error.message : "Unknown"}`
+      video.addEventListener("error", () => {
+        this.fail(
+          `Video playback failed: ${
+            video.error && video.error.message ? video.error.message : "unknown error"
+          }`
         );
       });
     }
 
-    generateHTML5Video() {
+    mountVideo() {
+      this.destroyCurrentMedia();
       const video = document.createElement("video");
       video.controls = true;
       video.playsInline = true;
       video.preload = "auto";
+      this.attachEventListeners(video);
+      this.container.appendChild(video);
+      this.videoElement = video;
       return video;
     }
 
+    tryPlay(video) {
+      video.play().catch((e) => this.log(`Auto-play prevented: ${e.message}`));
+    }
+
     playDirect(url) {
-      this.ensureInit();
+      this.init();
       this.log(`playDirect called with ${url}`);
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadDirect(url));
       }
-      this.destroyCurrentMedia();
-
-      this.videoElement = this.generateHTML5Video();
-      this.videoElement.src = url;
-      this.attachEventListeners(this.videoElement);
-      this.container.appendChild(this.videoElement);
-
-      this.videoElement
-        .play()
-        .catch((e) => this.log(`Auto-play prevented: ${e.message}`));
+      const video = this.mountVideo();
+      video.src = url;
+      this.tryPlay(video);
     }
 
     playHls(url, customHlsConfig = {}) {
-      this.ensureInit();
+      this.init();
       this.log(`playHls called with ${url}`);
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadHls(url, customHlsConfig));
       }
-      this.destroyCurrentMedia();
+      const video = this.mountVideo();
 
-      this.videoElement = this.generateHTML5Video();
-      this.attachEventListeners(this.videoElement);
-      this.container.appendChild(this.videoElement);
-
-      if (window.Hls && Hls.isSupported()) {
-        this.log("Hls.js is supported");
-        const config = Object.assign(
-          {
-            debug: this.isDebugMode,
-          },
-          customHlsConfig
-        );
-
-        this.hlsInstance = new Hls(config);
-        this.hlsInstance.loadSource(url);
-        this.hlsInstance.attachMedia(this.videoElement);
-
-        this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-          this.log("HLS manifest parsed, playing...");
-          this.videoElement
-            .play()
-            .catch((e) => this.log(`Auto-play prevented: ${e.message}`));
-        });
-
-        this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            this.log(`Fatal HLS error: ${data.type} - ${data.details}`);
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                this.log("Fatal network error encountered, try to recover");
-                this.hlsInstance.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                this.log("Fatal media error encountered, try to recover");
-                this.hlsInstance.recoverMediaError();
-                break;
-              default:
-                this.destroyCurrentMedia();
-                break;
-            }
-          } else {
-            this.log(`HLS error: ${data.details}`);
-          }
-        });
-      } else if (
-        this.videoElement.canPlayType("application/vnd.apple.mpegurl")
-      ) {
-        this.log("Native HLS playback supported (Safari/iOS)");
-        this.videoElement.src = url;
-        this.videoElement.addEventListener("loadedmetadata", () => {
-          this.videoElement
-            .play()
-            .catch((e) => this.log(`Auto-play prevented: ${e.message}`));
-        });
-      } else {
-        this.log("HLS not supported on this platform");
+      // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
+      if (!window.Hls || !Hls.isSupported()) {
+        this.fail("hls.js is unavailable, cannot play HLS");
+        return;
       }
+      this.hlsInstance = new Hls(
+        Object.assign({ debug: this.isDebugMode }, customHlsConfig)
+      );
+      this.hlsInstance.loadSource(url);
+      this.hlsInstance.attachMedia(video);
+
+      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        this.log("HLS manifest parsed, playing...");
+        this.tryPlay(video);
+      });
+
+      this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        if (!data.fatal) {
+          this.log(`HLS error: ${data.details}`);
+          return;
+        }
+        this.log(`Fatal HLS error: ${data.type} - ${data.details}`);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          this.log("Fatal network error encountered, try to recover");
+          this.hlsInstance.startLoad();
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          this.log("Fatal media error encountered, try to recover");
+          this.hlsInstance.recoverMediaError();
+        } else {
+          // Nothing left to recover from, so this is the only point the user hears about it.
+          this.destroyCurrentMedia();
+          this.fail(`HLS playback failed: ${data.details || data.type}`);
+        }
+      });
     }
 
     playIframe(url) {
-      this.ensureInit();
+      this.init();
       this.log(`playIframe called with ${url}`);
       if (this.isDownloadMode()) {
         const message = "Iframe video downloads are not supported";
@@ -725,37 +650,26 @@
       try {
         iframeUrl = new URL(String(url), document.baseURI);
       } catch (_) {
-        this.log("Invalid iframe URL");
+        this.fail(`Invalid iframe URL: ${url}`);
         return;
       }
       if (iframeUrl.protocol !== "http:" && iframeUrl.protocol !== "https:") {
-        this.log(`Unsupported iframe protocol: ${iframeUrl.protocol}`);
+        this.fail(`Unsupported iframe protocol: ${iframeUrl.protocol}`);
         return;
       }
       this.destroyCurrentMedia();
 
-      this.iframeElement = document.createElement("iframe");
-      this.iframeElement.src = iframeUrl.href;
+      const iframe = document.createElement("iframe");
+      iframe.src = iframeUrl.href;
       // Using sandbox without allow-popups and allow-popups-to-escape-sandbox
       // will effectively block window.open and target="_blank"
-      this.iframeElement.sandbox =
-        "allow-scripts allow-same-origin allow-presentation";
+      iframe.sandbox = "allow-scripts allow-same-origin allow-presentation";
+      iframe.allowFullscreen = true; // reflects to the allowfullscreen attribute
+      iframe.onload = () => this.log("Iframe loaded");
+      iframe.onerror = () => this.log("Iframe failed to load");
 
-      // Additional attributes requested
-      this.iframeElement.allowFullscreen = true;
-      this.iframeElement.setAttribute("webkitallowfullscreen", "true");
-      this.iframeElement.setAttribute("mozallowfullscreen", "true");
-      this.iframeElement.setAttribute("allowfullscreen", "true");
-
-      this.iframeElement.onload = () => {
-        this.log("Iframe loaded");
-      };
-
-      this.iframeElement.onerror = () => {
-        this.log("Iframe failed to load");
-      };
-
-      this.container.appendChild(this.iframeElement);
+      this.container.appendChild(iframe);
+      this.iframeElement = iframe;
     }
   }
 
