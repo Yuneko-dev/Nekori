@@ -444,8 +444,8 @@ private const val HEAT_MIN_INTENSITY = 0.3f
 
 @Composable
 private fun Heatmap(days: List<HeatDay>, onSelectDay: (HeatDay) -> Unit) {
-    val cellSize = 12.dp
-    val cellGap = 3.dp
+    val cellSize = 16.dp
+    val cellGap = 4.dp
     val weekWidth = cellSize + cellGap
     val headerHeight = 20.dp
     val monthLabelWidth = 40.dp
