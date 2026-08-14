@@ -20,12 +20,14 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - avoid list copies during backup restore [@mrissaoussama](https://github.com/mrissaoussama) [#389](https://github.com/tsundoku-otaku/tsundoku/pull/389)
 - Improve UI filter panel with scroll, apply library filters [@mrissaoussama](https://github.com/mrissaoussama) [#382](https://github.com/tsundoku-otaku/tsundoku/pull/382)
 - Asset-rewrite logic uses relative paths for chapter embedder/local novels [@mrissaoussama](https://github.com/mrissaoussama) [#385](https://github.com/tsundoku-otaku/tsundoku/pull/385)
+- Add blank title/URL filter and category dialog to duplicate detection - #393 [@mrissaoussama](https://github.com/mrissaoussama) [#393](https://github.com/tsundoku-otaku/tsundoku/pull/393)
 
 ### Fixed
 - Prevent crash with setting search on duplicate key [@mrissaoussama](https://github.com/mrissaoussama) [#383](https://github.com/tsundoku-otaku/tsundoku/pull/383)
 - Fix importing new LNreader backups, all novels in DB come favorited [@mrissaoussama](https://github.com/mrissaoussama) [#388](https://github.com/tsundoku-otaku/tsundoku/pull/388)
 - Scope leading-slash normalization [@mrissaoussama](https://github.com/mrissaoussama) [#384](https://github.com/tsundoku-otaku/tsundoku/pull/384)
 - Recover .js plugin files renamed by SAF mimetype guessing [@mrissaoussama](https://github.com/mrissaoussama) [#387](https://github.com/tsundoku-otaku/tsundoku/pull/387)
+- Fix download-ahead gate bypassed for novels [@mrissaoussama](https://github.com/mrissaoussama) [#394](https://github.com/tsundoku-otaku/tsundoku/pull/394)
 
 ### Other
 - Merged v0.20.4 from Mihon [@Rojikku](https://github.com/Rojikku) [#380](https://github.com/tsundoku-otaku/tsundoku/pull/380)

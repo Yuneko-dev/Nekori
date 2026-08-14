@@ -1110,7 +1110,7 @@ class ReaderViewModel @JvmOverloads constructor(
         if (manga.isLocalNovel()) return
 
         // Only download ahead if current + next chapter is already downloaded too to avoid jank
-        if (!manga.isNovel && getCurrentChapter()?.pageLoader !is DownloadPageLoader) return
+        if (getCurrentChapter()?.pageLoader !is DownloadPageLoader) return
         val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
 
         viewModelScope.launchIO {
@@ -1121,7 +1121,7 @@ class ReaderViewModel @JvmOverloads constructor(
                 manga.title,
                 manga.source,
             )
-            if (!manga.isNovel && !isNextChapterDownloaded) return@launchIO
+            if (!isNextChapterDownloaded) return@launchIO
 
             val chaptersToDownload = getNextChapters.await(manga.id, nextChapter.id!!).run {
                 if (readerPreferences.skipDupe.get()) {

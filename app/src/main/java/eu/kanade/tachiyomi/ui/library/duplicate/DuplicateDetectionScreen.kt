@@ -78,12 +78,16 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.manga.model.toSManga
+import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
 import kotlinx.coroutines.launch
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.domain.manga.interactor.BlankTitleFilter
 import tachiyomi.domain.manga.interactor.DuplicateMatchMode
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.service.SourceManager
@@ -465,6 +469,55 @@ class DuplicateDetectionScreen : Screen {
                                     },
                                 )
                             }
+
+                            val blankFiltersEnabled = !state.listingMode &&
+                                state.matchMode != DuplicateMatchMode.CONTAINS
+                            FlowRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    stringResource(MR.strings.duplicate_blank_label),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.align(Alignment.CenterVertically),
+                                )
+                                FilterChip(
+                                    selected = state.blankTitleFilter == BlankTitleFilter.EXCLUDE,
+                                    enabled = blankFiltersEnabled,
+                                    onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.EXCLUDE) },
+                                    label = { Text(stringResource(MR.strings.duplicate_blank_exclude)) },
+                                    leadingIcon = if (state.blankTitleFilter == BlankTitleFilter.EXCLUDE) {
+                                        { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
+                                    } else {
+                                        null
+                                    },
+                                )
+                                FilterChip(
+                                    selected = state.blankTitleFilter == BlankTitleFilter.INCLUDE,
+                                    enabled = blankFiltersEnabled,
+                                    onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.INCLUDE) },
+                                    label = { Text(stringResource(MR.strings.duplicate_blank_include)) },
+                                    leadingIcon = if (state.blankTitleFilter == BlankTitleFilter.INCLUDE) {
+                                        { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
+                                    } else {
+                                        null
+                                    },
+                                )
+                                FilterChip(
+                                    selected = state.blankTitleFilter == BlankTitleFilter.ONLY,
+                                    enabled = blankFiltersEnabled,
+                                    onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.ONLY) },
+                                    label = { Text(stringResource(MR.strings.duplicate_blank_only)) },
+                                    leadingIcon = if (state.blankTitleFilter == BlankTitleFilter.ONLY) {
+                                        { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
+                                    } else {
+                                        null
+                                    },
+                                )
+                            }
+
                             // Sort mode selector
                             FlowRow(
                                 modifier = Modifier
@@ -847,9 +900,22 @@ class DuplicateDetectionScreen : Screen {
                             state.filteredDuplicateGroups.toList(),
                             key = { it.first },
                         ) { (title, mangaList) ->
+                            val materializedGroupCount = state.duplicateGroups[title]?.size ?: mangaList.size
+                            val scanFullCount = state.fullGroupIds[title]?.size ?: materializedGroupCount
+                            val fullGroupCount = if (scanFullCount > materializedGroupCount) {
+                                scanFullCount
+                            } else {
+                                mangaList.size
+                            }
+                            val canSelectHiddenTail = state.canIncludeHiddenTail
+                            val selectableGroupIds = state.selectableGroupIds(title, mangaList)
                             DuplicateGroupCard(
                                 groupTitle = title,
                                 mangaList = mangaList,
+                                fullGroupCount = fullGroupCount,
+                                canSelectHiddenTail = canSelectHiddenTail,
+                                allSelected = selectableGroupIds.isNotEmpty() &&
+                                    state.selection.containsAll(selectableGroupIds),
                                 selection = state.selection,
                                 mangaCategories = state.mangaCategories,
                                 showFullUrls = state.showFullUrls,
@@ -900,19 +966,45 @@ class DuplicateDetectionScreen : Screen {
 
         // Move to category dialog
         if (state.showMoveToCategoryDialog) {
-            MoveToCategoryDialog(
-                categories = state.categories,
-                onDismiss = { screenModel.closeMoveToCategoryDialog() },
-                onConfirm = { categoryIds ->
-                    val count = state.selection.size
-                    scope.launch {
-                        screenModel.moveSelectedToCategories(categoryIds)
-                        snackbarHostState.showSnackbar(
-                            context.ctxStringResource(MR.strings.duplicate_moved_count, count),
-                        )
+            ChangeCategoryDialog(
+                initialSelection = remember(state.selection, state.mangaCategoryIdSets, state.categories) {
+                    categorySelectionFor(state)
+                },
+                onDismissRequest = { screenModel.closeMoveToCategoryDialog() },
+                onEditCategories = {
+                    screenModel.closeMoveToCategoryDialog()
+                    navigator.push(CategoryScreen())
+                },
+                onConfirm = { addCategories, removeCategories ->
+                    if (addCategories.isNotEmpty() || removeCategories.isNotEmpty()) {
+                        val count = state.selection.size
+                        scope.launch {
+                            screenModel.moveSelectedToCategories(addCategories, removeCategories)
+                            snackbarHostState.showSnackbar(
+                                context.ctxStringResource(MR.strings.duplicate_moved_count, count),
+                            )
+                        }
                     }
                 },
             )
+        }
+    }
+}
+private fun categorySelectionFor(
+    state: DuplicateDetectionViewModel.State,
+): List<CheckboxState<CategoryModel>> {
+    val selectedIds = state.selection
+    if (selectedIds.isEmpty()) return state.categories.map { CheckboxState.State.None(it) }
+
+    val perManga = selectedIds.map { state.mangaCategoryIdSets[it] ?: setOf(0L) }
+    val common = perManga.reduce { a, b -> a intersect b }
+    val union = perManga.flatten().toSet()
+
+    return state.categories.map {
+        when {
+            it.id in common -> CheckboxState.State.Checked(it)
+            it.id in union -> CheckboxState.TriState.None(it)
+            else -> CheckboxState.State.None(it)
         }
     }
 }
@@ -921,6 +1013,9 @@ class DuplicateDetectionScreen : Screen {
 private fun DuplicateGroupCard(
     groupTitle: String,
     mangaList: List<MangaWithChapterCount>,
+    fullGroupCount: Int,
+    canSelectHiddenTail: Boolean,
+    allSelected: Boolean,
     selection: Set<Long>,
     mangaCategories: Map<Long, List<CategoryModel>>,
     showFullUrls: Boolean,
@@ -931,7 +1026,6 @@ private fun DuplicateGroupCard(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(true) }
-    val allSelected = mangaList.isNotEmpty() && mangaList.all { it.manga.id in selection }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -959,6 +1053,25 @@ private fun DuplicateGroupCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (fullGroupCount > mangaList.size) {
+                        Text(
+                            text = if (canSelectHiddenTail) {
+                                stringResource(
+                                    MR.strings.duplicate_group_truncated_selectable,
+                                    mangaList.size,
+                                    fullGroupCount,
+                                )
+                            } else {
+                                stringResource(
+                                    MR.strings.duplicate_group_truncated_filtered,
+                                    mangaList.size,
+                                    fullGroupCount,
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
                 IconButton(onClick = onSelectGroup) {
                     Icon(
@@ -1146,65 +1259,4 @@ private fun DuplicateItem(
             }
         }
     }
-}
-
-@Composable
-private fun MoveToCategoryDialog(
-    categories: List<CategoryModel>,
-    onDismiss: () -> Unit,
-    onConfirm: (List<Long>) -> Unit,
-) {
-    var selectedCategories by remember { mutableStateOf(setOf<Long>()) }
-
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.duplicate_move_to_category)) },
-        text = {
-            LazyColumn {
-                items(categories) { category ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedCategories = if (category.id in selectedCategories) {
-                                    selectedCategories - category.id
-                                } else {
-                                    selectedCategories + category.id
-                                }
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = category.id in selectedCategories,
-                            onCheckedChange = {
-                                selectedCategories = if (it) {
-                                    selectedCategories + category.id
-                                } else {
-                                    selectedCategories - category.id
-                                }
-                            },
-                        )
-                        Text(category.name.ifBlank { stringResource(MR.strings.label_default) })
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm(selectedCategories.toList())
-                    onDismiss()
-                },
-                enabled = selectedCategories.isNotEmpty(),
-            ) {
-                Text(stringResource(MR.strings.action_move))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
 }

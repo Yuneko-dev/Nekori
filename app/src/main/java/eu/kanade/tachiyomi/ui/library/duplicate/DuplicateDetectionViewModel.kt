@@ -17,9 +17,12 @@ import mihon.core.viewmodel.StateViewModel
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.manga.interactor.BlankTitleFilter
 import tachiyomi.domain.manga.interactor.DuplicateMatchMode
+import tachiyomi.domain.manga.interactor.DuplicateScanResult
 import tachiyomi.domain.manga.interactor.FindDuplicateNovels
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaSelectionMetric
@@ -44,6 +47,7 @@ class DuplicateDetectionViewModel(
     private val coverCache: CoverCache = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get(),
+    private val setMangaCategories: SetMangaCategories = Injekt.get(),
 ) : StateViewModel<DuplicateDetectionViewModel.State>(State()) {
 
     private val pinnedSourceIds: Set<Long> by lazy {
@@ -85,6 +89,7 @@ class DuplicateDetectionViewModel(
         val source: Long,
         val chapterCount: Int,
         val readCount: Int,
+        val downloadCount: Int = 0,
     )
 
     data class State(
@@ -118,10 +123,32 @@ class DuplicateDetectionViewModel(
         val listingMode: Boolean = false,
         val listingTruncated: Boolean = false,
         val listingTotalMatches: Int = 0,
+        val blankTitleFilter: BlankTitleFilter = BlankTitleFilter.EXCLUDE,
         val selectionGroups: List<List<SelItem>> = emptyList(),
+        /** Non-listing mode only: every id in each duplicate group, uncapped (see [DuplicateScanResult]). */
+        val fullGroupIds: Map<String, List<Long>> = emptyMap(),
+        /** Members of a truncated group beyond the materialized cap, keyed by group; empty when nothing was capped. */
+        val truncatedGroupExtraItems: Map<String, List<SelItem>> = emptyMap(),
         /** (scanned, total) while the precise tag recheck is running over a large candidate set. */
         val precheckProgress: Pair<Int, Int>? = null,
     ) {
+
+        /**
+         * Safe to include a truncated group's hidden tail (in selection/select-all) only when no
+         * filter needs per-manga data (genre/category/download/etc.) to decide whether it matches,
+         * since full rows were never fetched for it. Single source of truth shared by the
+         * selection logic and the "Showing X of Y" UI hint so they can't silently desync.
+         */
+        val canIncludeHiddenTail: Boolean
+            get() = searchQuery.isBlank() &&
+                selectedCategoryFilters.isEmpty() &&
+                excludedCategoryFilters.isEmpty() &&
+                !applyLibraryFilters
+
+        fun selectableGroupIds(key: String, group: List<MangaWithChapterCount>): Set<Long> {
+            val materializedIds = group.mapTo(LinkedHashSet()) { it.manga.id }
+            return if (canIncludeHiddenTail) fullGroupIds[key]?.toSet() ?: materializedIds else materializedIds
+        }
 
         fun computeFilteredGroups(): Map<String, List<MangaWithChapterCount>> {
             val visibleGroups = duplicateGroups.filterKeys { it !in dismissedGroups }
@@ -390,6 +417,8 @@ class DuplicateDetectionViewModel(
                     mangaDownloadCounts = emptyMap(),
                     mangaReadCounts = emptyMap(),
                     selectionGroups = emptyList(),
+                    fullGroupIds = emptyMap(),
+                    truncatedGroupExtraItems = emptyMap(),
                     precheckProgress = null,
                 )
             }
@@ -397,6 +426,7 @@ class DuplicateDetectionViewModel(
                 var truncated = false
                 var listingTotalMatches = 0
                 var selectionGroups = emptyList<List<SelItem>>()
+                var fullGroupIds: Map<String, List<Long>> = emptyMap()
                 val groups = if (state.value.listingMode) {
                     val restriction = resolveListingCategoryRestriction(state.value)
                     val rawMetrics = mangaRepository.getFavoriteSelectionMetrics(restriction.dbCategoryIds)
@@ -481,7 +511,12 @@ class DuplicateDetectionViewModel(
                         .map { (_, items) -> items.map { SelItem(it.id, it.source, it.chapterCount, it.readCount) } }
                     findDuplicateNovels.findGroupedByIds(downloadFilteredMetrics.take(LISTING_MAX).map { it.id })
                 } else {
-                    findDuplicateNovels.findDuplicatesGrouped(state.value.matchMode)
+                    val scanResult: DuplicateScanResult = findDuplicateNovels.findDuplicatesGrouped(
+                        state.value.matchMode,
+                        state.value.blankTitleFilter,
+                    )
+                    fullGroupIds = scanResult.fullGroupIds
+                    scanResult.displayGroups
                 }
 
                 val allMangaItems = groups.values.flatten()
@@ -505,6 +540,45 @@ class DuplicateDetectionViewModel(
 
                 val readCounts = allMangaItems.associate { it.manga.id to it.readCount.toInt() }
 
+                val materializedIds = allMangaItems.mapTo(HashSet()) { it.manga.id }
+                val hiddenIdsByGroup = fullGroupIds.mapValues { (_, ids) ->
+                    ids.filterNot { it in materializedIds }.distinct()
+                }.filterValues { it.isNotEmpty() }
+                val cappedHiddenIdsByGroup = hiddenIdsByGroup.mapValues { (_, ids) ->
+                    if (ids.size > HIDDEN_TAIL_METRICS_MAX) {
+                        logcat(LogPriority.WARN) {
+                            "loadDuplicates: hidden tail of ${ids.size} ids exceeds " +
+                                "$HIDDEN_TAIL_METRICS_MAX, truncating metrics hydration"
+                        }
+                        ids.take(HIDDEN_TAIL_METRICS_MAX)
+                    } else {
+                        ids
+                    }
+                }
+                val truncatedGroupExtraItems = if (cappedHiddenIdsByGroup.isEmpty()) {
+                    emptyMap()
+                } else {
+                    val allHiddenIds = cappedHiddenIdsByGroup.values.flatten().distinct()
+                    val metrics = mangaRepository.getSelectionMetricsForIds(allHiddenIds)
+                    val hiddenDownloadCounts = downloadManager.getDownloadCounts(
+                        metrics.map { Manga.create().copy(id = it.id, source = it.source, title = it.title) },
+                    )
+                    val metricsById = metrics.associateBy { it.id }
+                    cappedHiddenIdsByGroup.mapValues { (_, ids) ->
+                        ids.mapNotNull { id ->
+                            metricsById[id]?.let {
+                                SelItem(
+                                    it.id,
+                                    it.source,
+                                    it.chapterCount,
+                                    it.readCount,
+                                    hiddenDownloadCounts[it.id] ?: 0,
+                                )
+                            }
+                        }
+                    }
+                }
+
                 mutableState.update {
                     it.copy(
                         duplicateGroups = groups,
@@ -519,6 +593,8 @@ class DuplicateDetectionViewModel(
                         listingTruncated = truncated,
                         listingTotalMatches = listingTotalMatches,
                         selectionGroups = selectionGroups,
+                        fullGroupIds = fullGroupIds,
+                        truncatedGroupExtraItems = truncatedGroupExtraItems,
                         precheckProgress = null,
                     )
                 }
@@ -533,6 +609,8 @@ class DuplicateDetectionViewModel(
                         listingTruncated = false,
                         listingTotalMatches = 0,
                         selectionGroups = emptyList(),
+                        fullGroupIds = emptyMap(),
+                        truncatedGroupExtraItems = emptyMap(),
                     )
                 }
             }
@@ -582,18 +660,39 @@ class DuplicateDetectionViewModel(
      */
     private fun selectionItemGroups(state: State): List<List<SelItem>> {
         return if (state.listingMode) {
-            state.selectionGroups.filter { it.isNotEmpty() }
+            val downloadCounts = state.mangaDownloadCounts
+            state.selectionGroups.map { group ->
+                group.map { item -> item.copy(downloadCount = downloadCounts[item.id] ?: item.downloadCount) }
+            }
         } else {
             val readCounts = state.mangaReadCounts
-            state.filteredDuplicateGroups.values.map { group ->
-                group.map { entry ->
+            val downloadCounts = state.mangaDownloadCounts
+            val canIncludeHiddenTail = state.canIncludeHiddenTail
+            state.filteredDuplicateGroups.map { (key, group) ->
+                val materialized = group.map { entry ->
                     SelItem(
                         id = entry.manga.id,
                         source = entry.manga.source,
                         chapterCount = entry.chapterCount.toInt(),
                         readCount = readCounts[entry.manga.id] ?: entry.readCount.toInt(),
+                        downloadCount = downloadCounts[entry.manga.id] ?: 0,
                     )
                 }
+                if (canIncludeHiddenTail) {
+                    materialized + (state.truncatedGroupExtraItems[key] ?: emptyList())
+                } else {
+                    materialized
+                }
+            }
+        }
+    }
+
+    private fun selectableIds(state: State): Set<Long> {
+        return if (state.listingMode) {
+            selectionItemGroups(state).flatMapTo(HashSet()) { group -> group.map { it.id } }
+        } else {
+            state.filteredDuplicateGroups.flatMapTo(HashSet()) { (key, group) ->
+                state.selectableGroupIds(key, group)
             }
         }
     }
@@ -608,6 +707,12 @@ class DuplicateDetectionViewModel(
     fun setListingMode(enabled: Boolean) {
         if (enabled == state.value.listingMode) return
         mutableState.update { it.copy(listingMode = enabled, selection = emptySet()) }
+        loadDuplicates()
+    }
+
+    fun setBlankTitleFilter(filter: BlankTitleFilter) {
+        if (filter == state.value.blankTitleFilter) return
+        mutableState.update { it.copy(blankTitleFilter = filter, selection = emptySet()) }
         loadDuplicates()
     }
 
@@ -720,21 +825,25 @@ class DuplicateDetectionViewModel(
 
     fun invertSelection() {
         mutableState.update { state ->
-            val allIds = selectionItemGroups(state).flatMapTo(HashSet()) { group -> group.map { it.id } }
-            state.copy(selection = allIds - state.selection)
+            state.copy(selection = selectableIds(state) - state.selection)
         }
     }
 
     fun selectAllDuplicates() {
         mutableState.update { state ->
-            val allIds = selectionItemGroups(state).flatMapTo(HashSet()) { group -> group.map { it.id } }
-            state.copy(selection = allIds)
+            state.copy(selection = selectableIds(state))
         }
     }
 
     fun selectAllExceptFirst() {
         mutableState.update { state ->
-            val ids = selectionItemGroups(state).flatMapTo(HashSet()) { group -> group.drop(1).map { it.id } }
+            val ids = if (state.listingMode) {
+                selectionItemGroups(state).flatMapTo(HashSet()) { group -> group.drop(1).map { it.id } }
+            } else {
+                state.filteredDuplicateGroups.flatMapTo(HashSet()) { (key, group) ->
+                    state.selectableGroupIds(key, group) - setOfNotNull(group.firstOrNull()?.manga?.id)
+                }
+            }
             state.copy(selection = ids)
         }
     }
@@ -783,27 +892,21 @@ class DuplicateDetectionViewModel(
     }
 
     fun selectLowestDownloadCount() {
-        val downloadCounts = state.value.mangaDownloadCounts
-        val ids = state.value.filteredDuplicateGroups.values
-            .mapNotNull { group ->
-                // Filter to only those with downloads > 0
-                val withDownloads = group.filter { (downloadCounts[it.manga.id] ?: 0) > 0 }
-                withDownloads.minByOrNull { downloadCounts[it.manga.id] ?: 0 }?.manga?.id
+        mutableState.update { state ->
+            val ids = selectionItemGroups(state).mapNotNullTo(HashSet()) { group ->
+                group.filter { it.downloadCount > 0 }.minByOrNull { it.downloadCount }?.id
             }
-            .toSet()
-        mutableState.update { it.copy(selection = ids) }
+            state.copy(selection = ids)
+        }
     }
 
     fun selectHighestDownloadCount() {
-        val downloadCounts = state.value.mangaDownloadCounts
-        val ids = state.value.filteredDuplicateGroups.values
-            .mapNotNull { group ->
-                // Filter to only those with downloads > 0
-                val withDownloads = group.filter { (downloadCounts[it.manga.id] ?: 0) > 0 }
-                withDownloads.maxByOrNull { downloadCounts[it.manga.id] ?: 0 }?.manga?.id
+        mutableState.update { state ->
+            val ids = selectionItemGroups(state).mapNotNullTo(HashSet()) { group ->
+                group.filter { it.downloadCount > 0 }.maxByOrNull { it.downloadCount }?.id
             }
-            .toSet()
-        mutableState.update { it.copy(selection = ids) }
+            state.copy(selection = ids)
+        }
     }
 
     fun selectLowestReadCount() {
@@ -825,8 +928,9 @@ class DuplicateDetectionViewModel(
     }
 
     fun selectGroup(groupTitle: String) {
-        val group = state.value.filteredDuplicateGroups[groupTitle] ?: return
-        val groupIds = group.map { it.manga.id }.toSet()
+        val snapshot = state.value
+        val group = snapshot.filteredDuplicateGroups[groupTitle] ?: return
+        val groupIds = snapshot.selectableGroupIds(groupTitle, group)
         mutableState.update { state ->
             val allSelected = groupIds.isNotEmpty() && state.selection.containsAll(groupIds)
             val newSelection = if (allSelected) state.selection - groupIds else state.selection + groupIds
@@ -836,7 +940,9 @@ class DuplicateDetectionViewModel(
 
     fun dismissGroup(groupTitle: String) {
         val group = state.value.duplicateGroups[groupTitle]
-        val groupIds = group?.map { it.manga.id }?.toSet() ?: emptySet()
+        val groupIds = state.value.fullGroupIds[groupTitle]?.toSet()
+            ?: group?.map { it.manga.id }?.toSet()
+            ?: emptySet()
         mutableState.update { state ->
             state.copy(
                 dismissedGroups = state.dismissedGroups + groupTitle,
@@ -929,7 +1035,22 @@ class DuplicateDetectionViewModel(
     }
 
     fun openMoveToCategoryDialog() {
-        mutableState.update { it.copy(showMoveToCategoryDialog = true) }
+        val selectedIds = state.value.selection
+        viewModelScope.launch {
+            val missingIds = selectedIds - state.value.mangaCategoryIdSets.keys
+            val missingCategories = getCategories.awaitForMangas(missingIds.toList())
+            val missingCategoryIds = missingIds.associateWith { id ->
+                missingCategories[id]?.mapTo(HashSet<Long>()) { it.id }.orEmpty()
+                    .ifEmpty { setOf(UNCATEGORIZED_ID) }
+            }
+            mutableState.update { current ->
+                if (current.selection != selectedIds) return@update current
+                current.copy(
+                    mangaCategoryIdSets = current.mangaCategoryIdSets + missingCategoryIds,
+                    showMoveToCategoryDialog = true,
+                )
+            }
+        }
     }
 
     fun closeMoveToCategoryDialog() {
@@ -938,9 +1059,10 @@ class DuplicateDetectionViewModel(
 
     fun selectionContainsLocalManga(): Boolean {
         val selectedIds = state.value.selection
-        return selectionItemGroups(state.value).any { group ->
-            group.any { it.id in selectedIds && sourceManager.getOrStub(it.source).isLocal() }
-        }
+        val itemsById = selectionItemGroups(state.value).flatten().associateBy { it.id }
+        // ponytail: ids beyond the metrics cap are treated conservatively as local; add a
+        // targeted id-to-source query only if download deletion for 20k+ duplicate groups matters.
+        return selectedIds.any { id -> itemsById[id]?.let { sourceManager.getOrStub(it.source).isLocal() } != false }
     }
 
     suspend fun deleteSelected(
@@ -1003,10 +1125,14 @@ class DuplicateDetectionViewModel(
         }
     }
 
-    suspend fun moveSelectedToCategories(categoryIds: List<Long>) {
+    suspend fun moveSelectedToCategories(addCategories: List<Long>, removeCategories: List<Long>) {
         val selectedIds = state.value.selection.toList()
         withContext(Dispatchers.IO) {
-            mangaRepository.setMangasCategories(selectedIds, categoryIds)
+            if (addCategories.isNotEmpty()) setMangaCategories.add(selectedIds, addCategories, skipRefresh = true)
+            if (removeCategories.isNotEmpty()) {
+                setMangaCategories.remove(selectedIds, removeCategories, skipRefresh = true)
+            }
+            setMangaCategories.refreshLibrary()
             mutableState.update { it.copy(selection = emptySet()) }
             loadDuplicates()
         }
@@ -1017,6 +1143,7 @@ class DuplicateDetectionViewModel(
         private const val UNCATEGORIZED_ID = 0L
         private const val TAG_PRECISE_RECHECK_MAX = 200_000
         private const val TAG_PRECHECK_CHUNK = 2000
+        private const val HIDDEN_TAIL_METRICS_MAX = 20_000
 
         fun matchesTagFilter(genre: List<String>?, snapshot: LibraryFilterSnapshot): Boolean {
             if (snapshot.includedTags.isEmpty() &&

@@ -125,7 +125,7 @@ interface MangaRepository {
         limit: Long,
     ): List<MangaWithChapterCount>
 
-    suspend fun findDuplicatesExact(): List<DuplicateGroup>
+    suspend fun findDuplicatesExact(includeBlank: Boolean = false): List<DuplicateGroup>
 
     suspend fun findDuplicatesContains(): List<DuplicatePair>
 
@@ -151,6 +151,12 @@ interface MangaRepository {
     /** Unbounded selection metrics for favorites, optionally restricted to [categoryIds]. */
     suspend fun getFavoriteSelectionMetrics(categoryIds: List<Long>): List<MangaSelectionMetric>
 
+    /** Targeted selection metrics for [ids], so hydrating a small known set never scans the full favorites table. */
+    suspend fun getSelectionMetricsForIds(ids: List<Long>): List<MangaSelectionMetric>
+
+    /** Targeted (id, total_count) lookup for [ids], used to rank a group's members before truncation. */
+    suspend fun getTotalCountsForIds(ids: List<Long>): List<Pair<Long, Long>>
+
     /**
      * Get all favorite manga ids in [categoryId] (0 = uncategorized). Id-only for bulk category actions.
      */
@@ -172,7 +178,7 @@ interface MangaRepository {
      * Find duplicates by URL within the same source.
      * Returns groups where multiple manga have the same URL from the same source.
      */
-    suspend fun findDuplicatesByUrl(): List<DuplicateGroup>
+    suspend fun findDuplicatesByUrl(includeBlank: Boolean = false): List<DuplicateGroup>
 
     /**
      * Get lightweight favorite genres for tag counting.

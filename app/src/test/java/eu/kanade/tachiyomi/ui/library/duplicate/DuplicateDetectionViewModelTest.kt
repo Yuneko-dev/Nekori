@@ -409,4 +409,17 @@ class DuplicateDetectionViewModelTest {
             filtersOffButEnabled.mapValues { it.value.map { m -> m.manga.id } },
         )
     }
+
+    @Test
+    fun `unfiltered truncated group exposes every id while filtered group stays materialized`() {
+        val group = listOf(entry(id = 1), entry(id = 2))
+        val fullIds = (1L..25_000L).toList()
+        val state = DuplicateDetectionViewModel.State(fullGroupIds = mapOf("dup" to fullIds))
+
+        assertEquals(fullIds.toSet(), state.selectableGroupIds("dup", group))
+        assertEquals(
+            setOf(1L, 2L),
+            state.copy(searchQuery = "filtered").selectableGroupIds("dup", group),
+        )
+    }
 }
