@@ -19,7 +19,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.manga.interactor.BlankTitleFilter
 import tachiyomi.domain.manga.interactor.DuplicateMatchMode
 import tachiyomi.domain.manga.interactor.DuplicateScanResult
@@ -45,7 +44,6 @@ class DuplicateDetectionViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val libraryPreferences: tachiyomi.domain.library.service.LibraryPreferences = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
-    private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get(),
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
 ) : StateViewModel<DuplicateDetectionViewModel.State>(State()) {
