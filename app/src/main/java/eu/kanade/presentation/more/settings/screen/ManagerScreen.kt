@@ -27,6 +27,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
+import tachiyomi.domain.translation.model.AIProvider
+import tachiyomi.domain.translation.model.UserGuidelines
+import tachiyomi.domain.translation.model.resolve
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -141,4 +144,23 @@ internal fun ManagerSwitchRow(title: String, checked: Boolean, onChange: (Boolea
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Switch(checked, onChange)
     }
+}
+
+/** Describes the provider and optional guidelines after applying the shared explicit-or-active rule. */
+internal fun describeAiConfig(
+    providerId: String?,
+    guidelinesId: String?,
+    providers: List<AIProvider>,
+    guidelines: List<UserGuidelines>,
+    activeProviderId: String,
+    activeGuidelinesId: String,
+    noProviderLabel: String? = null,
+): String {
+    val resolvedGuidelines = guidelines.resolve(guidelinesId, activeGuidelinesId)
+    return listOfNotNull(
+        providers.resolve(providerId, activeProviderId)?.alias ?: noProviderLabel,
+        resolvedGuidelines.name.takeIf {
+            it.isNotBlank() && resolvedGuidelines.id != UserGuidelines.DEFAULT_ID
+        },
+    ).joinToString(" · ")
 }

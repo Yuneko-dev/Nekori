@@ -23,6 +23,7 @@ internal class NovelWebViewSummaryController(
     /** Chapter HTML as loaded from the source, never the translated or edited DOM. */
     private val chapterHtml: suspend (Long) -> String?,
     private val onUnconfigured: () -> Unit,
+    private val onUnavailable: () -> Unit,
 ) {
     data class Labels(
         val title: String,
@@ -30,6 +31,7 @@ internal class NovelWebViewSummaryController(
         val regenerate: String,
         val close: String,
         val cancel: String,
+        val cancelled: String,
         val contentUnavailable: String,
     )
 
@@ -47,13 +49,20 @@ internal class NovelWebViewSummaryController(
             return
         }
         evaluateJs(call("focus", "'$chapterId'")) { focused ->
-            if (focused != "true") start(chapterId)
+            when (focused) {
+                "true" -> Unit
+                "false" -> start(chapterId)
+                else -> onUnavailable()
+            }
         }
     }
 
     fun onAction(chapterId: Long, action: String) {
         when (action) {
-            ACTION_CANCEL -> cancel(chapterId)
+            ACTION_CANCEL -> {
+                cancel(chapterId)
+                render(chapterId, STATE_CANCELLED, labels.cancelled)
+            }
             ACTION_CLOSE -> {
                 cancel(chapterId)
                 evaluateJs(call("remove", "'$chapterId'"), null)
@@ -65,11 +74,6 @@ internal class NovelWebViewSummaryController(
     /** Drops the summary for a chapter leaving the page, so its job cannot outlive its card. */
     fun cancel(chapterId: Long) {
         jobs.remove(chapterId)?.cancel()
-    }
-
-    fun cancelAll() {
-        jobs.values.forEach(Job::cancel)
-        jobs.clear()
     }
 
     private fun start(chapterId: Long) {
@@ -109,12 +113,13 @@ internal class NovelWebViewSummaryController(
     }
 
     companion object {
-        const val ACTION_CANCEL = "cancel"
-        const val ACTION_CLOSE = "close"
-        const val ACTION_REGENERATE = "regenerate"
+        private const val ACTION_CANCEL = "cancel"
+        private const val ACTION_CLOSE = "close"
+        private const val ACTION_REGENERATE = "regenerate"
 
         private const val STATE_LOADING = "loading"
         private const val STATE_READY = "ready"
         private const val STATE_FAILED = "failed"
+        private const val STATE_CANCELLED = "cancelled"
     }
 }

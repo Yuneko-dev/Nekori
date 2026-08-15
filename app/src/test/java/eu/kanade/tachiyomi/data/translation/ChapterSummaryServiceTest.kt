@@ -26,7 +26,8 @@ class ChapterSummaryServiceTest {
     private val aiSettings = AiSettingsStore(preferences, json)
     private val profiles = AiTaskProfileStore(preferences, json)
     private val generator = mockk<LlmGenerator>()
-    private val service = ChapterSummaryService(generator, aiSettings, profiles, preferences)
+    private val noContentMessage = "Localized empty chapter"
+    private val service = ChapterSummaryService(generator, aiSettings, profiles, preferences) { noContentMessage }
 
     @Test
     fun `an unconfigured provider means no summary can be requested`() {
@@ -44,7 +45,7 @@ class ChapterSummaryServiceTest {
         val result = service.summarize("<p>   </p>")
 
         result shouldBe LlmResult.Failure(
-            "This chapter has no text to summarize",
+            noContentMessage,
             AiErrorCode.REQUEST_INVALID,
         )
         coVerify(exactly = 0) { generator.generate(any(), any()) }

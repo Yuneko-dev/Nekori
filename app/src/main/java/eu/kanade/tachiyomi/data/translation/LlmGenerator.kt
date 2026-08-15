@@ -44,14 +44,27 @@ class LlmGenerator(
 
     suspend fun generate(config: AiExecutionConfig, request: LlmGenerationRequest): LlmResult =
         withContext(Dispatchers.IO) {
-            val provider = config.provider
-                ?: return@withContext LlmResult.Failure("No AI provider configured", AiErrorCode.REQUEST_INVALID)
-            if (provider.requiresApiKey && config.apiKey.isBlank()) {
+            if (!config.isComplete) {
+                val provider = config.provider
+                    ?: return@withContext LlmResult.Failure(
+                        "No AI provider configured",
+                        AiErrorCode.REQUEST_INVALID,
+                    )
+                val message = when {
+                    provider.endpoint.isBlank() -> "Provider endpoint is missing for ${provider.alias}"
+                    provider.model.isBlank() -> "Model is missing for ${provider.alias}"
+                    else -> "API key is missing for ${provider.alias}"
+                }
                 return@withContext LlmResult.Failure(
-                    "API key is missing for ${provider.alias}",
-                    AiErrorCode.API_KEY_MISSING,
+                    message,
+                    if (provider.requiresApiKey && config.apiKey.isBlank()) {
+                        AiErrorCode.API_KEY_MISSING
+                    } else {
+                        AiErrorCode.REQUEST_INVALID
+                    },
                 )
             }
+            val provider = requireNotNull(config.provider)
             try {
                 LlmResult.Success(execute(provider, config.apiKey, request))
             } catch (e: CancellationException) {

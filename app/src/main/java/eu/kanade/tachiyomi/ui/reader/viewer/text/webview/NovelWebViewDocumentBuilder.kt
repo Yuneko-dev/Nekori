@@ -152,7 +152,6 @@ internal object NovelWebViewDocumentBuilder {
                 <!-- Owns tap/swipe classification; must be installed before any page script can
                      stop propagation or open a modal. -->
                 <script src="$ASSET_ROOT/reader-gestures.js"></script>
-                <script src="$ASSET_ROOT/chapter-summary.js"></script>
                 ${input.chapterDirectives.metadataHtml}
             </head>
             <body class="${input.style.bodyClasses}">
@@ -162,6 +161,7 @@ internal object NovelWebViewDocumentBuilder {
                 <div id="reader-ui"></div>
                 <script id="lnreader-compat-config" type="application/json">${input.compatConfigJson}</script>
                 <script src="$ASSET_ROOT/lnreader-compat.js"></script>
+                <script src="$ASSET_ROOT/chapter-summary.js"></script>
                 $videoAssets
                 $localVideoScript
                 ${if (pluginScript.isNotBlank() && input.chapterDirectives.localVideo == null) "<script>$pluginScript</script>" else ""}

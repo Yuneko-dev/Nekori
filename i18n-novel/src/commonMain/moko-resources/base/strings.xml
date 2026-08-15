@@ -625,6 +625,8 @@
     <string name="chapter_summary_title">Chapter summary</string>
     <string name="chapter_summary_loading">Summarizing this chapter…</string>
     <string name="chapter_summary_no_content">This chapter has no text to summarize</string>
+    <string name="chapter_summary_cancelled">Summary cancelled</string>
+    <string name="chapter_summary_unavailable">Chapter summary is unavailable on this page</string>
     <string name="action_regenerate">Regenerate</string>
     <string name="chapter_summary_unconfigured">Configure an AI provider in Settings > AI first</string>
     <string name="pref_ai_defaults">Defaults</string>

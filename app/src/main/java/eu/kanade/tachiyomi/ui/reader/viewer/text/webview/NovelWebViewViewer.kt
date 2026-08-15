@@ -229,12 +229,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 regenerate = activity.stringResource(TDMR.strings.action_regenerate),
                 close = activity.stringResource(MR.strings.action_close),
                 cancel = activity.stringResource(MR.strings.action_cancel),
+                cancelled = activity.stringResource(TDMR.strings.chapter_summary_cancelled),
                 contentUnavailable = activity.stringResource(TDMR.strings.chapter_summary_no_content),
             ),
             evaluateJs = { js, callback -> evaluateJavascriptSafe(js, callback) },
             chapterHtml = ::loadChapterHtml,
             onUnconfigured = {
                 activity.toast(activity.stringResource(TDMR.strings.chapter_summary_unconfigured))
+            },
+            onUnavailable = {
+                activity.toast(activity.stringResource(TDMR.strings.chapter_summary_unavailable))
             },
         )
     }
@@ -2043,7 +2047,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         if (page.text.isNullOrBlank() && loader != null) {
             awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
         }
-        return page.text
+        val html = page.text
+        if (!html.isNullOrBlank() && NovelWebViewChapterDirectives.parse(html).noCache) {
+            page.text = null
+        }
+        return html
     }
 
     private fun updateChapterMetaJs() {

@@ -55,6 +55,27 @@ class LlmGeneratorTest {
         result shouldBe LlmResult.Failure("API key is missing for Provider", AiErrorCode.API_KEY_MISSING)
     }
 
+    @Test
+    fun `an incomplete provider fails before networking`() = runTest {
+        val missingEndpoint = AiExecutionConfig(
+            provider = provider(AIProviderType.OPENAI).copy(endpoint = ""),
+            apiKey = "secret",
+        )
+        val missingModel = AiExecutionConfig(
+            provider = provider(AIProviderType.OPENAI).copy(model = ""),
+            apiKey = "secret",
+        )
+
+        generator().generate(missingEndpoint, request) shouldBe LlmResult.Failure(
+            "Provider endpoint is missing for Provider",
+            AiErrorCode.REQUEST_INVALID,
+        )
+        generator().generate(missingModel, request) shouldBe LlmResult.Failure(
+            "Model is missing for Provider",
+            AiErrorCode.REQUEST_INVALID,
+        )
+    }
+
     // Never touched on these paths: the client is created lazily, so an unstubbed mock proves the
     // guards run before any request is built.
     private fun generator() = LlmGenerator(networkHelper = mockk(), json = Json)

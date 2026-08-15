@@ -27,7 +27,6 @@ import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AiTaskProfile
 import tachiyomi.domain.translation.model.DEFAULT_PROFILE_ID
 import tachiyomi.domain.translation.model.UserGuidelines
-import tachiyomi.domain.translation.model.resolve
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -67,13 +66,14 @@ object AiTaskProfileManagerScreen : Screen() {
         ) { profile ->
             ManagerRow(
                 title = profile.name.ifBlank { defaultName },
-                subtitle = describeTaskProfile(
-                    profile,
-                    providers,
-                    allGuidelines,
-                    activeProviderId,
-                    activeGuidelinesId,
-                    noProvider,
+                subtitle = describeAiConfig(
+                    providerId = profile.providerId,
+                    guidelinesId = profile.guidelinesId,
+                    providers = providers,
+                    guidelines = allGuidelines,
+                    activeProviderId = activeProviderId,
+                    activeGuidelinesId = activeGuidelinesId,
+                    noProviderLabel = noProvider,
                 ),
                 icon = { Icon(Icons.Outlined.AutoAwesome, null) },
                 onClick = { navigator.push(AiTaskProfileEditorScreen(profile.id)) },
@@ -161,23 +161,4 @@ private data class AiTaskProfileEditorScreen(private val profileId: String? = nu
             }
         }
     }
-}
-
-/**
- * The subtitle under a task profile: what it will actually run with. Resolves through the same
- * [resolve] the store applies against preferences, so the label cannot drift from what runs.
- */
-private fun describeTaskProfile(
-    profile: AiTaskProfile,
-    providers: List<AIProvider>,
-    guidelines: List<UserGuidelines>,
-    activeProviderId: String,
-    activeGuidelinesId: String,
-    noProviderLabel: String,
-): String {
-    val resolved = guidelines.resolve(profile.guidelinesId, activeGuidelinesId)
-    return listOfNotNull(
-        providers.resolve(profile.providerId, activeProviderId)?.alias ?: noProviderLabel,
-        resolved.name.takeIf { it.isNotBlank() && resolved.id != UserGuidelines.DEFAULT_ID },
-    ).joinToString(" · ")
 }

@@ -77,7 +77,7 @@
     }
 
     window.__tsundokuSummary = {
-        // state: "loading" | "ready" | "failed". `labels` carries the localized strings so the
+        // state: "loading" | "ready" | "failed" | "cancelled". `labels` carries the localized strings so the
         // asset never has to know about the app's i18n.
         render: function (chapterId, state, text, labels) {
             var host = existingHost(chapterId) || createHost(chapterId);
@@ -92,6 +92,9 @@
                 renderParagraphs(body, text);
             } else {
                 body.textContent = state === "loading" ? labels.loading || "" : text || "";
+            }
+            if (state === "failed" && text && window.reader && window.reader.error) {
+                window.reader.error(text);
             }
 
             actions.textContent = "";

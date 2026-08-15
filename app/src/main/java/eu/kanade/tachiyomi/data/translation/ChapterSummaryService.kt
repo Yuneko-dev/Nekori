@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.data.translation
 
+import android.app.Application
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.AiTaskPurpose
@@ -7,6 +9,7 @@ import tachiyomi.domain.translation.model.LanguageCodes
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
 import tachiyomi.domain.translation.service.TranslationPreferences
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -21,6 +24,9 @@ class ChapterSummaryService(
     private val aiSettings: AiSettingsStore = Injekt.get(),
     private val profiles: AiTaskProfileStore = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
+    private val noContentMessage: () -> String = {
+        Injekt.get<Application>().stringResource(TDMR.strings.chapter_summary_no_content)
+    },
 ) {
     /** Whether a summary can be requested at all; false means the user has AI left unconfigured. */
     fun isConfigured(): Boolean = resolveConfig().isComplete
@@ -35,7 +41,7 @@ class ChapterSummaryService(
     suspend fun summarize(chapterHtml: String): LlmResult {
         val text = TranslationHtmlUtils.extractTextFromHtml(chapterHtml).trim()
         if (text.isEmpty()) {
-            return LlmResult.Failure("This chapter has no text to summarize", AiErrorCode.REQUEST_INVALID)
+            return LlmResult.Failure(noContentMessage(), AiErrorCode.REQUEST_INVALID)
         }
         val config = resolveConfig()
         val request = LlmGenerationRequest(

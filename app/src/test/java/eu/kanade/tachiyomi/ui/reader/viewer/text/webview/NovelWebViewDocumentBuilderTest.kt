@@ -276,4 +276,15 @@ class NovelWebViewDocumentBuilderTest {
         assertTrue(gestures < html.indexOf("core-player.js"))
         assertTrue(gestures < html.indexOf("window.pluginStarted"))
     }
+
+    @Test
+    fun `chapter summary API is installed after reader compatibility API`() {
+        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
+
+        val compat = html.indexOf("lnreader-compat.js")
+        val summary = html.indexOf("chapter-summary.js")
+        assertTrue(compat > 0)
+        assertTrue(summary > compat)
+        assertEquals(summary, html.lastIndexOf("chapter-summary.js"))
+    }
 }

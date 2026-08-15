@@ -35,7 +35,6 @@ import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationProfile
 import tachiyomi.domain.translation.model.UserGuidelines
-import tachiyomi.domain.translation.model.resolve
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -220,10 +219,10 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
 /**
  * The subtitle under a profile name: what it will actually run with.
  *
- * Pure, and resolves through the same [resolve] the store applies against preferences, so the label
- * cannot drift from the configuration the engine receives.
+ * Pure, and delegates provider/guidelines resolution to [describeAiConfig], so the label cannot
+ * drift from the configuration the engine receives.
  */
-internal fun describeProfile(
+private fun describeProfile(
     profile: TranslationProfile,
     engines: List<TranslationEngine>,
     providers: List<AIProvider>,
@@ -233,10 +232,13 @@ internal fun describeProfile(
 ): String {
     val engine = engines.first { it.id == profile.engineId }
     if (engine.id != TranslationEngineId.LLM) return engine.name
-    val resolved = guidelines.resolve(profile.guidelinesId, activeGuidelinesId)
-    return listOfNotNull(
-        engine.name,
-        providers.resolve(profile.aiProviderId, activeProviderId)?.alias,
-        resolved.name.takeIf { it.isNotBlank() && resolved.id != UserGuidelines.DEFAULT_ID },
-    ).joinToString(" · ")
+    val aiConfig = describeAiConfig(
+        providerId = profile.aiProviderId,
+        guidelinesId = profile.guidelinesId,
+        providers = providers,
+        guidelines = guidelines,
+        activeProviderId = activeProviderId,
+        activeGuidelinesId = activeGuidelinesId,
+    )
+    return listOf(engine.name, aiConfig).filter(String::isNotBlank).joinToString(" · ")
 }

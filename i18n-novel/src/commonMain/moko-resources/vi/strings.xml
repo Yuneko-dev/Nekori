@@ -615,6 +615,8 @@
     <string name="chapter_summary_title">Tóm tắt chương</string>
     <string name="chapter_summary_loading">Đang tóm tắt chương này…</string>
     <string name="chapter_summary_no_content">Chương này không có nội dung để tóm tắt</string>
+    <string name="chapter_summary_cancelled">Đã hủy tóm tắt</string>
+    <string name="chapter_summary_unavailable">Không thể tóm tắt ở trang hiện tại</string>
     <string name="action_regenerate">Tạo lại</string>
     <string name="chapter_summary_unconfigured">Hãy cấu hình nhà cung cấp AI trong Cài đặt > AI trước</string>
     <string name="pref_ai_defaults">Mặc định</string>
