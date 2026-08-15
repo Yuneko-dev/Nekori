@@ -27,6 +27,8 @@
     live: { player: "live-video-player", skin: "live-video-skin" },
     vod: { player: "video-player", skin: "video-skin" },
   };
+  // Only ever spent when the player scripts load late or not at all, which the offline bundle cannot do.
+  const ELEMENT_DEFINE_TIMEOUT_MS = 10000;
 
   const metaContent = (name) => {
     const el = document.querySelector(`meta[name="${name}"]`);
@@ -112,11 +114,16 @@
       }
       this.log(`Auto-playing direct: type=${type}, url=${url}`);
       const method = DIRECT_PLAYERS[type];
-      if (method) {
-        this[method](url);
-      } else {
+      if (!method) {
         this.fail(`Unknown video type: ${type}`);
+        return;
       }
+      // The play methods are async now, so nothing they reject with would reach a caller. They report
+      // through `fail` themselves; this only catches what escapes that, instead of losing it to an
+      // unhandled rejection.
+      Promise.resolve(this[method](url)).catch((error) =>
+        this.fail(`Video playback failed: ${(error && error.message) || error}`)
+      );
     }
 
     setupDebugOverlay() {
@@ -573,15 +580,30 @@
       );
     }
 
+    // The offline bundle is a classic script, so its elements are already defined and this resolves on
+    // the next microtask. A CDN build registers them from deferred module scripts, so a plugin that
+    // calls play*() as soon as it has a url would otherwise fail on an element that is merely late.
+    // Bounded, because a CDN that never arrives has to surface as an error rather than a silent wait.
+    async awaitElements(tags) {
+      const pending = tags.filter((tag) => tag !== "video" && !customElements.get(tag));
+      if (pending.length === 0) return;
+      const expired = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`custom element ${pending.join(", ")} is unavailable`)),
+          ELEMENT_DEFINE_TIMEOUT_MS
+        )
+      );
+      await Promise.race([
+        Promise.all(pending.map((tag) => customElements.whenDefined(tag))),
+        expired,
+      ]);
+    }
+
     // Player composition is plain DOM against upstream's custom elements, never a Tsundoku-specific
     // runtime API, so swapping videojs.min.js for a CDN build of the same version needs no change here.
-    buildPlayer(mediaTag) {
+    async buildPlayer(mediaTag) {
       const tags = this.disableProgress ? PLAYER_TAGS.live : PLAYER_TAGS.vod;
-      for (const tag of [tags.player, tags.skin, "media-i18n", mediaTag]) {
-        if (tag !== "video" && !customElements.get(tag)) {
-          throw new Error(`custom element ${tag} is unavailable`);
-        }
-      }
+      await this.awaitElements([tags.player, tags.skin, "media-i18n", mediaTag]);
       const thumbnailsVtt = metaContent("lnreader-video-thumbnails");
       const poster = metaContent("lnreader-video-poster");
 
@@ -652,10 +674,10 @@
       }
     }
 
-    mountVideo(mediaTag) {
+    async mountVideo(mediaTag) {
       this.destroyCurrentMedia();
       try {
-        const { root, media } = this.buildPlayer(mediaTag);
+        const { root, media } = await this.buildPlayer(mediaTag);
         this.attachEventListeners(media);
         this.container.prepend(root);
         this.playerElement = root;
@@ -669,8 +691,8 @@
 
     // hlsjs-video and dash-video differ only in how their engine is configured; setting src is what
     // starts either one. Throwing from `configure` reports through the shared failure channel.
-    playAdaptive(kind, mediaTag, url, configure) {
-      const video = this.mountVideo(mediaTag);
+    async playAdaptive(kind, mediaTag, url, configure) {
+      const video = await this.mountVideo(mediaTag);
       if (!video) return;
       try {
         configure(video);
@@ -685,13 +707,13 @@
       video.play().catch((e) => this.log(`Auto-play prevented: ${e.message}`));
     }
 
-    playDirect(url) {
+    async playDirect(url) {
       this.init();
       this.log(`playDirect called with ${url}`);
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadDirect(url));
       }
-      const video = this.mountVideo("video");
+      const video = await this.mountVideo("video");
       if (!video) return;
       video.src = url;
       this.tryPlay(video);
@@ -703,7 +725,7 @@
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadHls(url, customHlsConfig));
       }
-      this.playAdaptive("HLS", "hlsjs-video", url, (video) => {
+      return this.playAdaptive("HLS", "hlsjs-video", url, (video) => {
         // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
         if (!window.Hls || !Hls.isSupported()) throw new Error("hls.js is unavailable");
         video.config = {
@@ -727,7 +749,7 @@
           throw new Error("DASH and DRM video downloads are not supported");
         });
       }
-      this.playAdaptive("DASH", "dash-video", url, (video) => {
+      return this.playAdaptive("DASH", "dash-video", url, (video) => {
         const engine = video.engine;
         if (!engine) throw new Error("dash.js engine is unavailable");
         // dash.js ProtectionDataSet, passed through untouched: plugins write standard dash.js config.
