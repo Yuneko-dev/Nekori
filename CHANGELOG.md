@@ -11,8 +11,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
-### Added
 
+
+## [v0.3.1] - 2026-08-14
 ### Improved
 - Novel Extension Repo > Extension Store + Related fixes [@Rojikku](https://github.com/Rojikku) [#391](https://github.com/tsundoku-otaku/tsundoku/pull/391)
 - Import Stub isNovel improvements, fix last_read backup restore error, change quick + migrate to durable background jobs [@Rojikku](https://github.com/Rojikku) [#392](https://github.com/tsundoku-otaku/tsundoku/pull/392)
