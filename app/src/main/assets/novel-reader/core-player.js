@@ -730,7 +730,7 @@
       this.playAdaptive("DASH", "dash-video", url, (video) => {
         const engine = video.engine;
         if (!engine) throw new Error("dash.js engine is unavailable");
-        if (dashConfig.settings) engine.updateSettings(dashConfig.settings);
+        // dash.js ProtectionDataSet, passed through untouched: plugins write standard dash.js config.
         const protectionData = dashConfig.protectionData;
         if (protectionData && Object.keys(protectionData).length > 0) {
           // Widevine in a WebView needs the device DRM identifier even at L3, and Kotlin only honours
@@ -741,8 +741,14 @@
               "DRM video needs the device media identifier, which is not shared while incognito is on"
             );
           }
+          // Not part of dash.js settings, and it must land before attachSource, which the `source`
+          // assignment below triggers.
           engine.setProtectionData(protectionData);
         }
+        // Upstream's structured source is the supported way in: it resets and re-applies dash.js
+        // settings on the live engine. Assigning no `src` here leaves the manifest to playAdaptive,
+        // whose `video.src = url` re-derives the source and carries these settings over.
+        if (dashConfig.settings) video.source = { engine: { dashJs: dashConfig.settings } };
         this.dashInstance = engine;
         if (typeof engine.on === "function") {
           engine.on((engine.events && engine.events.ERROR) || "error", (event) => {
