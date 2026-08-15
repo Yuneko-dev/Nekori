@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
-import tachiyomi.domain.translation.model.TranslationProfileConfig
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -49,7 +49,7 @@ class LlmTranslationEngineTest {
         val profileProvider = provider(AIProviderType.CUSTOM_OPENAI).copy(id = "from-profile")
 
         engine.isConfigured() shouldBe false
-        engine.isConfigured(TranslationProfileConfig(provider = profileProvider)) shouldBe true
+        engine.isConfigured(AiExecutionConfig(provider = profileProvider)) shouldBe true
     }
 
     @Test
@@ -57,8 +57,8 @@ class LlmTranslationEngineTest {
         val engine = engine()
         val keyed = provider(AIProviderType.OPENAI)
 
-        engine.isConfigured(TranslationProfileConfig(provider = keyed)) shouldBe false
-        engine.isConfigured(TranslationProfileConfig(provider = keyed, apiKey = "secret")) shouldBe true
+        engine.isConfigured(AiExecutionConfig(provider = keyed)) shouldBe false
+        engine.isConfigured(AiExecutionConfig(provider = keyed, apiKey = "secret")) shouldBe true
     }
 
     @Test

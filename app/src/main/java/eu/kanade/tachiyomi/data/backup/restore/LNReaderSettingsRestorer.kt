@@ -26,8 +26,8 @@ import tachiyomi.domain.translation.model.AIHeader
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.ReasoningEffort
-import tachiyomi.domain.translation.model.SystemPrompt
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -162,22 +162,24 @@ class LNReaderSettingsRestorer(
             0
         }
         retryCount?.let(translationPreferences.requestRetryCount()::set)
-        restorePrompts(value)
+        restoreGuidelines(value)
     }
 
-    private fun restorePrompts(value: JsonObject) {
-        val prompts = value.arrayValue("llmSystemPrompts").mapNotNull { element ->
+    // "llmSystemPrompts" and "activeSystemPromptId" are LNReader's export keys, not ours: they stay
+    // spelled its way regardless of what the concept is called on this side.
+    private fun restoreGuidelines(value: JsonObject) {
+        val guidelines = value.arrayValue("llmSystemPrompts").mapNotNull { element ->
             runCatching {
                 val prompt = json.decodeFromJsonElement<LNPrompt>(element)
-                SystemPrompt(prompt.id, prompt.title, prompt.content)
+                UserGuidelines(prompt.id, prompt.title, prompt.content)
             }.getOrNull()?.takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
         }
-        val restoredIds = prompts.mapNotNullTo(mutableSetOf()) { prompt ->
-            runCatching { aiSettingsStore.savePrompt(prompt) }.map { prompt.id }.getOrNull()
+        val restoredIds = guidelines.mapNotNullTo(mutableSetOf()) { entry ->
+            runCatching { aiSettingsStore.saveGuidelines(entry) }.map { entry.id }.getOrNull()
         }
         value.stringValue("activeSystemPromptId")
-            ?.takeIf { it == SystemPrompt.DEFAULT_ID || it in restoredIds }
-            ?.let(aiSettingsStore::setActivePrompt)
+            ?.takeIf { it == UserGuidelines.DEFAULT_ID || it in restoredIds }
+            ?.let(aiSettingsStore::setActiveGuidelines)
     }
 
     private fun restoreAi(settings: JsonObject): Set<String> {

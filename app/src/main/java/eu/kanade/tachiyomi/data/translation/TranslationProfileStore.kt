@@ -36,7 +36,7 @@ class TranslationProfileStore(
         name = "",
         engineId = TranslationEngineId.fromKey(preferences.selectedEngineId().get()),
         aiProviderId = preferences.activeAiProviderId().get().ifBlank { null },
-        systemPromptId = preferences.activeSystemPromptId().get().ifBlank { null },
+        guidelinesId = preferences.activeGuidelinesId().get().ifBlank { null },
     )
 
     fun profile(id: String): TranslationProfile? = profiles().firstOrNull { it.id == id }

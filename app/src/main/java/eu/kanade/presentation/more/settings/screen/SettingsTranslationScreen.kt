@@ -80,11 +80,11 @@ object SettingsTranslationScreen : SearchableSettings {
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
         val providersJson by prefs.aiProvidersJson().collectAsState()
-        val promptsJson by prefs.systemPromptsJson().collectAsState()
+        val promptsJson by prefs.userGuidelinesJson().collectAsState()
         val activeProviderId by prefs.activeAiProviderId().collectAsState()
-        val activePromptId by prefs.activeSystemPromptId().collectAsState()
+        val activePromptId by prefs.activeGuidelinesId().collectAsState()
         val providers = remember(providersJson) { ai.providers() }
-        val prompts = remember(promptsJson) { ai.prompts() }
+        val prompts = remember(promptsJson) { ai.guidelines() }
         val progress by translationService.progressState.collectAsState()
         val isPaused by translationService.isPaused.collectAsState()
         val queueStatus = when {
@@ -216,7 +216,7 @@ object SettingsTranslationScreen : SearchableSettings {
         engine: TranslationEngineId,
         prefs: TranslationPreferences,
         providers: List<tachiyomi.domain.translation.model.AIProvider>,
-        prompts: List<tachiyomi.domain.translation.model.SystemPrompt>,
+        prompts: List<tachiyomi.domain.translation.model.UserGuidelines>,
         activeProviderId: String,
         activePromptId: String,
         ai: AiSettingsStore,
@@ -242,7 +242,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     value = activePromptId,
                     entries = prompts.associate { it.id to it.name },
                     title = stringResource(TDMR.strings.pref_ai_active_prompt),
-                    onValueChanged = ai::setActivePrompt,
+                    onValueChanged = ai::setActiveGuidelines,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.structuredOutput(),

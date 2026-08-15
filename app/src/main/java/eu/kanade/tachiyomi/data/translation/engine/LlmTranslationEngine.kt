@@ -23,10 +23,10 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.domain.translation.model.AIApiFamily
 import tachiyomi.domain.translation.model.AIProvider
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.LanguageCodes
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.mergeHeaders
@@ -51,7 +51,7 @@ class LlmTranslationEngine(
     override val isOffline = false
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
-    override fun isConfigured(config: TranslationProfileConfig?): Boolean =
+    override fun isConfigured(config: AiExecutionConfig?): Boolean =
         config?.provider?.let { provider ->
             provider.endpoint.isNotBlank() && provider.model.isNotBlank() &&
                 (!provider.requiresApiKey || config.apiKey.isNotBlank())

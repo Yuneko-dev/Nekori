@@ -32,10 +32,11 @@ import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import tachiyomi.domain.translation.model.AIProvider
-import tachiyomi.domain.translation.model.SystemPrompt
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationProfile
+import tachiyomi.domain.translation.model.UserGuidelines
+import tachiyomi.domain.translation.model.resolve
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -56,12 +57,12 @@ object SettingsTranslationProfilesScreen : Screen() {
         val preferences = remember { Injekt.get<TranslationPreferences>() }
         val profilesJson by preferences.translationProfilesJson().collectAsState()
         val providersJson by preferences.aiProvidersJson().collectAsState()
-        val promptsJson by preferences.systemPromptsJson().collectAsState()
+        val guidelinesJson by preferences.userGuidelinesJson().collectAsState()
         val activeProviderId by preferences.activeAiProviderId().collectAsState()
-        val activePromptId by preferences.activeSystemPromptId().collectAsState()
+        val activeGuidelinesId by preferences.activeGuidelinesId().collectAsState()
         val profiles = remember(profilesJson) { store.profiles() }
         val providers = remember(providersJson) { aiSettings.providers() }
-        val prompts = remember(promptsJson) { aiSettings.prompts() }
+        val allGuidelines = remember(guidelinesJson) { aiSettings.guidelines() }
         val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
 
         Scaffold(topBar = {
@@ -75,9 +76,9 @@ object SettingsTranslationProfilesScreen : Screen() {
                             profile,
                             engines.engines,
                             providers,
-                            prompts,
+                            allGuidelines,
                             activeProviderId,
-                            activePromptId,
+                            activeGuidelinesId,
                         ),
                         icon = { Icon(Icons.Outlined.Translate, null) },
                         onClick = { navigator.push(TranslationProfileEditorScreen(profile.id)) },
@@ -119,7 +120,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
         val id = original?.id ?: remember { UUID.randomUUID().toString() }
         val availableEngines = engines.engines
         val providers = remember { listOf<AIProvider?>(null) + aiSettings.providers() }
-        val prompts = remember { listOf<SystemPrompt?>(null) + aiSettings.prompts() }
+        val guidelinesOptions = remember { listOf<UserGuidelines?>(null) + aiSettings.guidelines() }
 
         var name by remember { mutableStateOf(original?.name.orEmpty()) }
         var engine by remember {
@@ -131,8 +132,8 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
         var provider by remember {
             mutableStateOf(original?.aiProviderId?.let { id -> providers.firstOrNull { it?.id == id } })
         }
-        var prompt by remember {
-            mutableStateOf(original?.systemPromptId?.let { id -> prompts.firstOrNull { it?.id == id } })
+        var selectedGuidelines by remember {
+            mutableStateOf(original?.guidelinesId?.let { id -> guidelinesOptions.firstOrNull { it?.id == id } })
         }
 
         // "Use the globally active one" is a real choice, so both pickers carry a null entry.
@@ -147,7 +148,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                     name = if (isDefault) "" else name.trim(),
                     engineId = engine.id,
                     aiProviderId = provider?.id,
-                    systemPromptId = prompt?.id,
+                    guidelinesId = selectedGuidelines?.id,
                 ),
             )
             navigator.pop()
@@ -204,7 +205,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                         onSelected = { engine = it },
                     )
                 }
-                // Provider and prompt are meaningless on the other engines; hidden rather than
+                // Provider and guidelines are meaningless on the other engines; hidden rather than
                 // disabled so they do not read as a misconfiguration.
                 if (engine.id == TranslationEngineId.LLM) {
                     item {
@@ -219,10 +220,10 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                     item {
                         SettingsDropdownField(
                             label = stringResource(TDMR.strings.pref_ai_active_prompt),
-                            value = prompt,
-                            values = prompts,
+                            value = selectedGuidelines,
+                            values = guidelinesOptions,
                             valueLabel = { it?.name ?: useActive },
-                            onSelected = { prompt = it },
+                            onSelected = { selectedGuidelines = it },
                         )
                     }
                 }
@@ -231,22 +232,26 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
     }
 }
 
-private fun describeProfile(
+/**
+ * The subtitle under a profile name: what it will actually run with.
+ *
+ * Pure, and resolves through the same [resolve] the store applies against preferences, so the label
+ * cannot drift from the configuration the engine receives.
+ */
+internal fun describeProfile(
     profile: TranslationProfile,
     engines: List<TranslationEngine>,
     providers: List<AIProvider>,
-    prompts: List<SystemPrompt>,
+    guidelines: List<UserGuidelines>,
     activeProviderId: String,
-    activePromptId: String,
+    activeGuidelinesId: String,
 ): String {
     val engine = engines.first { it.id == profile.engineId }
     if (engine.id != TranslationEngineId.LLM) return engine.name
-    val providerId = profile.aiProviderId?.takeIf { it.isNotBlank() } ?: activeProviderId
-    val promptId = profile.systemPromptId?.takeIf { it.isNotBlank() } ?: activePromptId
-    val prompt = prompts.firstOrNull { it.id == promptId } ?: SystemPrompt.DEFAULT
+    val resolved = guidelines.resolve(profile.guidelinesId, activeGuidelinesId)
     return listOfNotNull(
         engine.name,
-        providers.firstOrNull { it.id == providerId }?.alias,
-        prompt.name.takeIf { it.isNotBlank() && prompt.id != SystemPrompt.DEFAULT_ID },
+        providers.resolve(profile.aiProviderId, activeProviderId)?.alias,
+        resolved.name.takeIf { it.isNotBlank() && resolved.id != UserGuidelines.DEFAULT_ID },
     ).joinToString(" · ")
 }

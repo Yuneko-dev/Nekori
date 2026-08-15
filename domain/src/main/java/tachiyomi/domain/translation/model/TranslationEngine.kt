@@ -60,7 +60,7 @@ interface TranslationEngine {
      * Only the LLM engine varies per profile; engines keyed by a service-wide API key ignore the
      * argument. The LLM engine is unconfigured when [config] is null.
      */
-    fun isConfigured(config: TranslationProfileConfig? = null): Boolean = true
+    fun isConfigured(config: AiExecutionConfig? = null): Boolean = true
 }
 
 /**

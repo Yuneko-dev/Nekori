@@ -22,14 +22,14 @@ data class TranslationContext(
 )
 
 /**
- * Execution overrides resolved from the calling purpose's [TranslationProfile]. Only
- * [tachiyomi.domain.translation.model.TranslationEngineId.LLM] reads these; the other engines are
- * configured by service-wide API keys, which are not a per-purpose concern.
+ * Everything needed to run one LLM call: which provider, its key, and the user's optional
+ * guidelines. Shared by translation profiles and AI task profiles - both resolve to the same three
+ * values, so they resolve through the same type.
  *
- * Deliberately does not carry the engine: [TranslationEngine.translate] already takes a
+ * Deliberately does not carry a translation engine: [TranslationEngine.translate] already takes a
  * [TranslationRequest], so an engine reference here would make the two types mutually referential.
  */
-data class TranslationProfileConfig(
+data class AiExecutionConfig(
     val provider: AIProvider? = null,
     val apiKey: String = "",
     val guidelines: String? = null,
@@ -41,7 +41,7 @@ data class TranslationRequest(
     val targetLanguage: String,
     val context: TranslationContext? = null,
     /** Filled in by TranslationEngineManager; callers name a purpose instead of building this. */
-    val config: TranslationProfileConfig? = null,
+    val config: AiExecutionConfig? = null,
 )
 
 @Serializable
@@ -117,8 +117,15 @@ data class AIProvider(
     val requiresApiKey: Boolean get() = type != AIProviderType.CUSTOM_OPENAI
 }
 
+/**
+ * A named set of optional user instructions appended to whichever AI task is running - translation
+ * today, chapter summaries next. It is not the task's system prompt: each task owns that, along with
+ * its output contract, and the user cannot replace it.
+ *
+ * Field names are the ones the pre-rename `SystemPrompt` serialized, so stored JSON still reads.
+ */
 @Serializable
-data class SystemPrompt(
+data class UserGuidelines(
     val id: String,
     val name: String,
     val guidelines: String = "",
@@ -127,9 +134,26 @@ data class SystemPrompt(
 
     companion object {
         const val DEFAULT_ID = "default"
-        val DEFAULT = SystemPrompt(DEFAULT_ID, "Default")
+        val DEFAULT = UserGuidelines(DEFAULT_ID, "Default")
     }
 }
+
+/** A named id, or the globally active one when the caller named none. */
+private fun effectiveId(id: String?, activeId: String) = id?.takeIf(String::isNotBlank) ?: activeId
+
+/**
+ * The provider a profile named, or the globally active one.
+ *
+ * A named provider that has since been deleted resolves to null rather than silently borrowing the
+ * active one: the profile is unconfigured, and saying so beats translating with a provider the user
+ * did not pick. Defined here so the store and the settings UI share one rule instead of two copies.
+ */
+fun List<AIProvider>.resolve(id: String?, activeId: String): AIProvider? =
+    firstOrNull { it.id == effectiveId(id, activeId) }
+
+/** As [resolve], but deleted guidelines fall back to the empty default - no instructions, not a failure. */
+fun List<UserGuidelines>.resolve(id: String?, activeId: String): UserGuidelines =
+    firstOrNull { it.id == effectiveId(id, activeId) } ?: UserGuidelines.DEFAULT
 
 data class HeaderValidationResult(val errors: List<String>) {
     val isValid: Boolean get() = errors.isEmpty()

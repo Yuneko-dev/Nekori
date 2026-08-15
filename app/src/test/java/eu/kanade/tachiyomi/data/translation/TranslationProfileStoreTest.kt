@@ -18,14 +18,14 @@ class TranslationProfileStoreTest {
     fun `default profile mirrors the pre-profile global settings`() {
         preferences.selectedEngineId().set(TranslationEngineId.DEEPL.key)
         preferences.activeAiProviderId().set("provider-a")
-        preferences.activeSystemPromptId().set("prompt-a")
+        preferences.activeGuidelinesId().set("prompt-a")
 
         val default = store.profiles().single()
 
         default.id shouldBe TranslationProfile.DEFAULT_ID
         default.engineId shouldBe TranslationEngineId.DEEPL
         default.aiProviderId shouldBe "provider-a"
-        default.systemPromptId shouldBe "prompt-a"
+        default.guidelinesId shouldBe "prompt-a"
     }
 
     @Test
@@ -85,6 +85,18 @@ class TranslationProfileStoreTest {
         profiles.first().id shouldBe TranslationProfile.DEFAULT_ID
         profiles.first().engineId shouldBe TranslationEngineId.LIBRE
         profiles.size shouldBe 2
+    }
+
+    @Test
+    fun `profiles written before the guidelines rename still read`() {
+        preferences.translationProfilesJson().set(
+            """[{"id":"fast","name":"Fast","engineId":"LLM","aiProviderId":"p1","systemPromptId":"g1"}]""",
+        )
+
+        val stored = store.profiles().first { it.id == "fast" }
+
+        stored.aiProviderId shouldBe "p1"
+        stored.guidelinesId shouldBe "g1"
     }
 
     @Test

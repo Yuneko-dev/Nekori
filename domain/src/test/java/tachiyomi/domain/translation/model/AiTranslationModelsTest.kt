@@ -56,7 +56,7 @@ class AiTranslationModelsTest {
 
     @Test
     fun `default prompt cannot be deleted`() {
-        SystemPrompt.DEFAULT.deletable shouldBe false
+        UserGuidelines.DEFAULT.deletable shouldBe false
     }
 
     @Test

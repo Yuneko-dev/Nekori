@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
-import tachiyomi.domain.translation.model.SystemPrompt
+import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.service.TranslationPreferences
 
 class AiSettingsStoreTest {
@@ -28,14 +28,74 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `deleting active custom prompt returns to default`() {
-        val prompt = SystemPrompt("custom", "Names", "Keep names")
-        store.savePrompt(prompt)
-        store.setActivePrompt(prompt.id)
+    fun `deleting active custom guidelines returns to default`() {
+        store.saveGuidelines(names)
+        store.setActiveGuidelines(names.id)
 
-        store.deletePrompt(prompt.id)
+        store.deleteGuidelines(names.id)
 
-        store.activePrompt() shouldBe SystemPrompt.DEFAULT
+        preferences.activeGuidelinesId().get() shouldBe UserGuidelines.DEFAULT_ID
+        store.resolveConfig(null, null).guidelines shouldBe ""
+    }
+
+    @Test
+    fun `guidelines written under the old system-prompt name still read`() {
+        preferences.userGuidelinesJson().set(
+            """[{"id":"default","name":"Default","guidelines":""},{"id":"c","name":"C","guidelines":"Keep honorifics"}]""",
+        )
+
+        store.resolveConfig(null, "c").guidelines shouldBe "Keep honorifics"
+    }
+
+    @Test
+    fun `naming nothing resolves to the active provider and guidelines`() {
+        store.saveProvider(provider("one"), "secret")
+        store.saveGuidelines(names)
+        store.setActiveGuidelines(names.id)
+
+        val config = store.resolveConfig(null, null)
+
+        config.provider shouldBe provider("one")
+        config.apiKey shouldBe "secret"
+        config.guidelines shouldBe "Keep names"
+    }
+
+    @Test
+    fun `naming a provider and guidelines overrides the active ones`() {
+        store.saveProvider(provider("one"), "active-key")
+        store.saveProvider(provider("two"), "named-key")
+        store.saveGuidelines(names)
+
+        val config = store.resolveConfig("two", names.id)
+
+        config.provider?.id shouldBe "two"
+        config.apiKey shouldBe "named-key"
+        config.guidelines shouldBe "Keep names"
+    }
+
+    @Test
+    fun `a deleted provider leaves the caller unconfigured instead of borrowing the active one`() {
+        store.saveProvider(provider("one"), "secret")
+
+        val config = store.resolveConfig("gone", null)
+
+        config.provider shouldBe null
+        config.apiKey shouldBe ""
+    }
+
+    @Test
+    fun `deleted guidelines fall back to no instructions, not to the active ones`() {
+        store.saveGuidelines(names)
+        store.setActiveGuidelines(names.id)
+
+        store.resolveConfig(null, "gone").guidelines shouldBe ""
+    }
+
+    @Test
+    fun `a blank id counts as naming nothing`() {
+        store.saveProvider(provider("one"))
+
+        store.resolveConfig("", "").provider?.id shouldBe "one"
     }
 
     @Test
@@ -63,6 +123,8 @@ class AiSettingsStoreTest {
             store.saveProvider(provider("bad").copy(endpoint = "not a url"))
         }
     }
+
+    private val names = UserGuidelines("custom", "Names", "Keep names")
 
     private fun provider(id: String) = AIProvider(
         id = id,

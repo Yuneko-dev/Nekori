@@ -12,9 +12,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -134,7 +134,7 @@ class GoogleTranslateEngine(
     )
 
     // The Google Cloud key belongs to the service, not the calling purpose.
-    override fun isConfigured(config: TranslationProfileConfig?): Boolean {
+    override fun isConfigured(config: AiExecutionConfig?): Boolean {
         return preferences.googleApiKey().get().isNotBlank()
     }
 

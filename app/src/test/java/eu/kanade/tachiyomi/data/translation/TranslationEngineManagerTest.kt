@@ -7,10 +7,10 @@ import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationProfile
-import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
@@ -103,18 +103,18 @@ class TranslationEngineManagerTest {
 
     private class FakeEngine(
         override val id: TranslationEngineId,
-        private val configured: (TranslationProfileConfig?) -> Boolean = { true },
+        private val configured: (AiExecutionConfig?) -> Boolean = { true },
     ) : TranslationEngine {
         override val name = id.key
         override val requiresApiKey = false
         override val isRateLimited = false
         override val isOffline = false
         override val supportedLanguages = emptyList<Pair<String, String>>()
-        var configChecked: TranslationProfileConfig? = null
+        var configChecked: AiExecutionConfig? = null
         var lastRequest: TranslationRequest? = null
         var configurationChecks = 0
 
-        override fun isConfigured(config: TranslationProfileConfig?): Boolean {
+        override fun isConfigured(config: AiExecutionConfig?): Boolean {
             configurationChecks++
             configChecked = config
             return configured(config)

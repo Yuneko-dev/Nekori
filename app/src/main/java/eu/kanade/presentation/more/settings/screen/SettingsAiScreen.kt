@@ -61,7 +61,7 @@ import tachiyomi.domain.translation.model.AIHeader
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.ReasoningEffort
-import tachiyomi.domain.translation.model.SystemPrompt
+import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.model.validateCustomHeaders
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
@@ -135,8 +135,8 @@ private object AiPromptManagerScreen : Screen() {
         val back = LocalBackPress.currentOrThrow
         val store = remember { Injekt.get<AiSettingsStore>() }
         val preferences = remember { Injekt.get<TranslationPreferences>() }
-        val promptsJson by preferences.systemPromptsJson().collectAsState()
-        val prompts = remember(promptsJson) { store.prompts() }
+        val promptsJson by preferences.userGuidelinesJson().collectAsState()
+        val prompts = remember(promptsJson) { store.guidelines() }
 
         Scaffold(topBar = {
             AppBar(stringResource(TDMR.strings.pref_ai_system_prompts), navigateUp = back::invoke)
@@ -150,7 +150,7 @@ private object AiPromptManagerScreen : Screen() {
                         },
                         icon = { Icon(Icons.Outlined.Description, null) },
                         onClick = { navigator.push(AiPromptEditorScreen(prompt.id)) },
-                        onDelete = prompt.takeIf { it.deletable }?.let { { store.deletePrompt(it.id) } },
+                        onDelete = prompt.takeIf { it.deletable }?.let { { store.deleteGuidelines(it.id) } },
                     )
                 }
                 item {
@@ -450,14 +450,14 @@ data class AiPromptEditorScreen(private val promptId: String? = null) : Screen()
         val navigator = LocalNavigator.currentOrThrow
         val back = LocalBackPress.currentOrThrow
         val store = remember { Injekt.get<AiSettingsStore>() }
-        val original = remember(promptId) { store.prompts().firstOrNull { it.id == promptId } }
+        val original = remember(promptId) { store.guidelines().firstOrNull { it.id == promptId } }
         val id = original?.id ?: remember { UUID.randomUUID().toString() }
         var name by remember { mutableStateOf(original?.name.orEmpty()) }
         var guidelines by remember { mutableStateOf(original?.guidelines.orEmpty()) }
 
         fun save() {
             if (name.isBlank()) return
-            store.savePrompt(SystemPrompt(id, name.trim(), guidelines))
+            store.saveGuidelines(UserGuidelines(id, name.trim(), guidelines))
             navigator.pop()
         }
 
@@ -482,7 +482,7 @@ data class AiPromptEditorScreen(private val promptId: String? = null) : Screen()
                     name,
                     { name = it },
                     stringResource(TDMR.strings.pref_ai_prompt_name),
-                    readOnly = id == SystemPrompt.DEFAULT_ID,
+                    readOnly = id == UserGuidelines.DEFAULT_ID,
                 )
                 OutlinedTextField(
                     value = guidelines,

@@ -1,5 +1,6 @@
 package tachiyomi.domain.translation.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -26,7 +27,7 @@ enum class TranslationPurpose(val key: String) {
 }
 
 /**
- * A named engine configuration. [aiProviderId] and [systemPromptId] are meaningful only when
+ * A named engine configuration. [aiProviderId] and [guidelinesId] are meaningful only when
  * [engineId] is [TranslationEngineId.LLM]; blank means "use the globally active one", which is also
  * what the synthesized default profile relies on.
  */
@@ -36,7 +37,9 @@ data class TranslationProfile(
     val name: String,
     val engineId: TranslationEngineId,
     val aiProviderId: String? = null,
-    val systemPromptId: String? = null,
+    /** Serialized under its pre-rename name so profiles saved before the rename still read. */
+    @SerialName("systemPromptId")
+    val guidelinesId: String? = null,
 ) {
     val deletable: Boolean get() = id != DEFAULT_ID
 

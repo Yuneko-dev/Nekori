@@ -5,12 +5,9 @@ import eu.kanade.tachiyomi.data.translation.engine.GoogleTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.GoogleTranslateScraperEngine
 import eu.kanade.tachiyomi.data.translation.engine.LibreTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.LlmTranslationEngine
-import tachiyomi.domain.translation.model.AIProvider
-import tachiyomi.domain.translation.model.SystemPrompt
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfile
-import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
@@ -44,44 +41,20 @@ class TranslationEngineManager(
     }
 
     /** Engine plus the execution overrides for one purpose. */
-    data class Resolved(val engine: TranslationEngine, val config: TranslationProfileConfig?)
+    data class Resolved(val engine: TranslationEngine, val config: AiExecutionConfig?)
 
     /** The engine and overrides [purpose] should use. */
     fun resolve(purpose: TranslationPurpose): Resolved {
         val profile = profileStore.profileFor(purpose)
         val engine = getEngineById(profile.engineId)
-        // Only the LLM engine reads the config, and building it decodes the provider and prompt
+        // Only the LLM engine reads the config, and building it decodes the provider and guidelines
         // stores; skip that work entirely for the others.
-        return Resolved(engine, if (engine.id == TranslationEngineId.LLM) configFor(profile) else null)
-    }
-
-    /**
-     * The provider a profile names, or the globally active one. A null id means "use the active
-     * setting", which is how the synthesized default profile reproduces pre-profile behaviour.
-     */
-    private fun providerOf(profile: TranslationProfile): AIProvider? = when (
-        val id = profile.aiProviderId?.takeIf { it.isNotBlank() }
-    ) {
-        null -> aiSettings.activeProvider()
-        else -> aiSettings.providers().firstOrNull { it.id == id }
-    }
-
-    /** The prompt a profile names, or the globally active one when it names none. */
-    private fun promptOf(profile: TranslationProfile): SystemPrompt = when (
-        val id = profile.systemPromptId?.takeIf { it.isNotBlank() }
-    ) {
-        null -> aiSettings.activePrompt()
-        else -> aiSettings.prompts().firstOrNull { it.id == id } ?: SystemPrompt.DEFAULT
-    }
-
-    /** LLM overrides for [profile]. */
-    private fun configFor(profile: TranslationProfile): TranslationProfileConfig {
-        val provider = providerOf(profile)
-        return TranslationProfileConfig(
-            provider = provider,
-            apiKey = provider?.let { aiSettings.apiKey(it.id) }.orEmpty(),
-            guidelines = promptOf(profile).guidelines,
-        )
+        val config = if (engine.id == TranslationEngineId.LLM) {
+            aiSettings.resolveConfig(profile.aiProviderId, profile.guidelinesId)
+        } else {
+            null
+        }
+        return Resolved(engine, config)
     }
 
     /**

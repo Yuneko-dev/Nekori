@@ -12,9 +12,9 @@ import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -105,7 +105,7 @@ class DeepLTranslateEngine(
     )
 
     // The DeepL key belongs to the service, not the calling purpose, so the profile config is ignored.
-    override fun isConfigured(config: TranslationProfileConfig?): Boolean {
+    override fun isConfigured(config: AiExecutionConfig?): Boolean {
         return preferences.deepLApiKey().get().isNotBlank()
     }
 
