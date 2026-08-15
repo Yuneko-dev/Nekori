@@ -1,0 +1,16 @@
+{
+  "name": "tsundoku-videojs-bundle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  },
+  "dependencies": {
+    "@videojs/html": "10.0.0-beta.26",
+    "hls.js": "1.6.15"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9"
+  }
+}

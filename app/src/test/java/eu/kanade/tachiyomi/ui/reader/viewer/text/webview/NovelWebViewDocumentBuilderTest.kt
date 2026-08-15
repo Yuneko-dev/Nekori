@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import androidx.core.os.LocaleListCompat
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ProcessedContent
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.Locale
 
 class NovelWebViewDocumentBuilderTest {
 
@@ -221,11 +223,41 @@ class NovelWebViewDocumentBuilderTest {
 
         assertFalse(textHtml.contains("core-player.js"))
         assertTrue(videoHtml.contains("hls.min.js"))
+        assertTrue(videoHtml.contains("videojs.min.js"))
         assertTrue(videoHtml.contains("core-player.js"))
+        // The bundle deliberately emits no stylesheet; reader layout is core-player.css alone.
+        assertFalse(videoHtml.contains("videojs.min.css"))
         assertTrue(videoHtml.contains("core-player.css"))
+        assertTrue(videoHtml.indexOf("hls.min.js") < videoHtml.indexOf("videojs.min.js"))
+        assertTrue(videoHtml.indexOf("videojs.min.js") < videoHtml.indexOf("core-player.js"))
         assertFalse(localVideoHtml.contains("core-player.js"))
+        assertFalse(localVideoHtml.contains("videojs.min.js"))
         assertTrue(localVideoHtml.contains("core-player.css"))
         assertTrue(localVideoHtml.contains("Android.playLocalVideo()"))
+    }
+
+    @Test
+    fun `reader language tag drives the document lang the player resolves its locale from`() {
+        assertEquals(
+            "vi",
+            readerLanguageTag(LocaleListCompat.forLanguageTags("vi"), Locale.ENGLISH),
+        )
+        // App language wins over the system one.
+        assertEquals(
+            "ja",
+            readerLanguageTag(LocaleListCompat.forLanguageTags("ja,ko"), Locale.forLanguageTag("de")),
+        )
+        // No app override: fall back to the system locale.
+        assertEquals(
+            "pt-BR",
+            readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("pt-BR")),
+        )
+        // An undetermined locale is not a usable lang value.
+        assertEquals(
+            "en",
+            readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("")),
+        )
+        assertTrue(NovelWebViewDocumentBuilder.assemble(minimalInput()).contains("<html lang=\""))
     }
 
     @Test

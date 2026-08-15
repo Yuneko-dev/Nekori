@@ -68,9 +68,16 @@ internal data class NovelWebViewChapterDirectives(
                 "meta#lnreader-video-disable-progress, " +
                 "meta[name=lnreader-chapter-type], meta[name=lnreader-video-mode], " +
                 "meta[name=lnreader-video-type], meta[name=lnreader-video-url], " +
+                "meta[name=lnreader-video-poster], meta[name=lnreader-video-thumbnails], " +
                 "meta[name=lnreader-debug-mode], meta[name=lnreader-player-type], " +
                 "meta[name=lnreader-video-local]"
-        private val VIDEO_TYPES = setOf("m3u8", "video-file", "iframe")
+
+        /**
+         * Named after the manifest extension, like `m3u8` — there is deliberately no `dash` alias,
+         * because its counterpart `hls` is not accepted either. Mirrored by DIRECT_PLAYERS in
+         * `assets/novel-reader/core-player.js`; a type accepted here but missing there fails at playback.
+         */
+        private val VIDEO_TYPES = setOf("m3u8", "mpd", "video-file", "iframe")
     }
 }
 

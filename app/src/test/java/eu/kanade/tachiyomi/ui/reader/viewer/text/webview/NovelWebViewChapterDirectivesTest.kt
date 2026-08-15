@@ -18,6 +18,8 @@ class NovelWebViewChapterDirectivesTest {
                 <meta name="lnreader-video-mode" content="direct">
                 <meta name="lnreader-video-type" content="m3u8">
                 <meta name="lnreader-video-url" content="https://media.example/video.m3u8">
+                <meta name="lnreader-video-poster" content="https://media.example/poster.jpg">
+                <meta name="lnreader-video-thumbnails" content="https://media.example/thumbs.vtt">
                 <meta name="lnreader-debug-mode" content="true">
                 <meta name="lnreader-player-type" content="html5">
                 <meta id="lnreader-video-disable-progress">
@@ -29,6 +31,8 @@ class NovelWebViewChapterDirectivesTest {
         assertTrue(directives.video?.disableProgress == true)
         assertTrue(directives.metadataHtml.contains("no-prefetch-marker"))
         assertTrue(directives.metadataHtml.contains("https://media.example/video.m3u8"))
+        assertTrue(directives.metadataHtml.contains("https://media.example/poster.jpg"))
+        assertTrue(directives.metadataHtml.contains("https://media.example/thumbs.vtt"))
     }
 
     @Test
@@ -82,6 +86,27 @@ class NovelWebViewChapterDirectivesTest {
         )
 
         assertFalse(directives.metadataHtml.contains("lnreader-video-url"))
+    }
+
+    @Test
+    fun `mpd is the only accepted DASH type`() {
+        fun parseWithType(type: String, url: String) = NovelWebViewChapterDirectives.parse(
+            """
+                <meta name="lnreader-chapter-type" content="video">
+                <meta name="lnreader-video-mode" content="direct">
+                <meta name="lnreader-video-type" content="$type">
+                <meta name="lnreader-video-url" content="$url">
+            """.trimIndent(),
+        )
+
+        val playable = parseWithType("mpd", "https://media.example/manifest.mpd")
+        assertTrue(playable.metadataHtml.contains("https://media.example/manifest.mpd"))
+
+        // Only a whitelisted type gets its unusable url stripped, so a blank url separates the two:
+        // `mpd` is recognized and cleaned up, `dash` falls through as an unknown type. core-player.js
+        // maps `mpd` alone, and accepting `dash` here would strand it at playback.
+        assertFalse(parseWithType("mpd", "").metadataHtml.contains("lnreader-video-url"))
+        assertTrue(parseWithType("dash", "").metadataHtml.contains("lnreader-video-url"))
     }
 
     @Test

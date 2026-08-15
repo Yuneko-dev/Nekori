@@ -2,6 +2,8 @@
 
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ProcessedContent
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
@@ -15,6 +17,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_CHAPTER_ATTR
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.htmlAttributeEscape
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
+import java.util.Locale
 
 internal object NovelWebViewDocumentBuilder {
 
@@ -106,6 +109,7 @@ internal object NovelWebViewDocumentBuilder {
         val playerScripts = if (input.chapterDirectives.video != null) {
             """
                 <script src="$ASSET_ROOT/hls.min.js"></script>
+                <script src="$ASSET_ROOT/videojs.min.js"></script>
                 <script src="$ASSET_ROOT/core-player.js"></script>
             """.trimIndent()
         } else {
@@ -133,7 +137,7 @@ internal object NovelWebViewDocumentBuilder {
         }
         return """
             <!DOCTYPE html>
-            <html>
+            <html lang="${readerLanguageTag().htmlAttributeEscape()}">
             <head>
                 <meta charset="UTF-8">
                 <meta id="tsundoku-viewport" name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -234,4 +238,20 @@ internal object NovelWebViewDocumentBuilder {
     const val PLAIN_TEXT_CLASS = "tsundoku-plain-text"
     const val ATTR_DATA_PLAIN_TEXT = "data-tsundoku-plain-text"
     private const val ASSET_ROOT = "https://tsundoku.reader/assets"
+}
+
+/**
+ * BCP 47 tag for the reader document's `lang`. Video.js resolves the player locale by walking the
+ * ancestor `lang` chain from its `media-i18n` element, so this attribute is what translates the video
+ * controls; it also gives the text reader correct hyphenation and screen-reader pronunciation.
+ *
+ * Locales are parameters so this stays unit-testable without an Android runtime.
+ */
+internal fun readerLanguageTag(
+    appLocales: LocaleListCompat = AppCompatDelegate.getApplicationLocales(),
+    systemLocale: Locale = Locale.getDefault(),
+): String {
+    val tag = (appLocales.get(0) ?: systemLocale).toLanguageTag()
+    // Locale.toLanguageTag() answers "und" for an undetermined locale, which is not a usable lang value.
+    return tag.takeIf { it.isNotBlank() && it != "und" } ?: "en"
 }

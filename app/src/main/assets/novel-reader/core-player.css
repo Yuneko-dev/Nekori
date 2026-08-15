@@ -43,9 +43,23 @@ body {
   overflow: hidden;
 }
 
-#lnreader-player-container video {
+/* Video.js ships its own baseline sheet setting `display: contents` on media-i18n and the player
+   elements, so they are transparent boxes on purpose — never size them here. The skin is the real
+   layout box and upstream gives it no intrinsic size, so that part is ours. */
+#lnreader-player-container video-skin,
+#lnreader-player-container live-video-skin,
+#lnreader-player-container media-container,
+#lnreader-player-container video,
+#lnreader-player-container hlsjs-video,
+#lnreader-player-container dash-video {
+  display: block;
   width: 100%;
   height: 100%;
+}
+
+#lnreader-player-container video,
+#lnreader-player-container hlsjs-video,
+#lnreader-player-container dash-video {
   object-fit: contain;
 }
 

@@ -13,10 +13,19 @@
     "video/mp2t": "ts",
   };
   const VIDEO_EXTENSIONS = ["mp4", "m4v", "mkv", "webm", "mov", "avi", "ts"];
+  // Keys must stay in sync with VIDEO_TYPES in NovelWebViewChapterDirectives.kt; a type Kotlin lets
+  // through but this map does not know becomes an "Unknown video type" failure at playback.
   const DIRECT_PLAYERS = {
     m3u8: "playHls",
+    mpd: "playDash",
     "video-file": "playDirect",
     iframe: "playIframe",
+  };
+  // Upstream Video.js tag names, deliberately not Tsundoku-specific ones: the bundled videojs.min.js
+  // and a CDN build of the same version register exactly these, so either can back this file.
+  const PLAYER_TAGS = {
+    live: { player: "live-video-player", skin: "live-video-skin" },
+    vod: { player: "video-player", skin: "video-skin" },
   };
 
   const metaContent = (name) => {
@@ -24,17 +33,17 @@
     return el ? el.content.trim() : "";
   };
 
-  // window.reader is a native bridge that can vanish mid-playback, so every touch is guarded.
-  const readerCall = (name, ...args) => {
+  // Native bridges (window.reader, window.Android, TsundokuVideoDownload) can vanish mid-playback or
+  // mid-teardown, so every call through one is guarded the same way.
+  const hostCall = (host, name, ...args) => {
     try {
-      if (window.reader && typeof window.reader[name] === "function") {
-        return window.reader[name](...args);
-      }
+      if (host && typeof host[name] === "function") return host[name](...args);
     } catch (_) {
       // The WebView may be torn down while a callback is in flight.
     }
     return undefined;
   };
+  const readerCall = (name, ...args) => hostCall(window.reader, name, ...args);
   const readerProp = (name) => {
     try {
       return window.reader ? window.reader[name] : null;
@@ -47,8 +56,10 @@
     constructor() {
       this.container = null;
       this.videoElement = null;
+      this.playerElement = null;
       this.iframeElement = null;
       this.hlsInstance = null;
+      this.dashInstance = null;
       this.debugOverlay = null;
 
       this.hasSeekedInitial = false;
@@ -79,9 +90,12 @@
       this.container.id = "lnreader-player-container";
       this.setupDebugOverlay();
 
-      // Append the player inside the chapter content when it exists.
       const chapterEl = document.getElementById("LNReader-chapter");
-      (chapterEl || document.body).appendChild(this.container);
+      if (!chapterEl) {
+        this.fail("Chapter container #LNReader-chapter is missing");
+        return;
+      }
+      chapterEl.prepend(this.container);
 
       this.log("LNReaderPlayer initialized");
 
@@ -156,16 +170,13 @@
     }
 
     destroyCurrentMedia() {
-      if (this.hlsInstance) {
-        this.hlsInstance.destroy();
-        this.hlsInstance = null;
-      }
-      if (this.videoElement) {
-        this.container.removeChild(this.videoElement);
-        this.videoElement = null;
-      }
+      this.hlsInstance = null;
+      this.dashInstance = null;
+      if (this.playerElement) this.playerElement.remove();
+      this.playerElement = null;
+      this.videoElement = null;
       if (this.iframeElement) {
-        this.container.removeChild(this.iframeElement);
+        this.iframeElement.remove();
         this.iframeElement = null;
       }
       this.hasSeekedInitial = false;
@@ -177,14 +188,7 @@
     }
 
     bridgeCall(name, ...args) {
-      const bridge = window.TsundokuVideoDownload;
-      if (bridge && typeof bridge[name] === "function") {
-        try {
-          bridge[name](...args);
-        } catch (_) {
-          // The WebView may be torn down while a final callback is in flight.
-        }
-      }
+      return hostCall(window.TsundokuVideoDownload, name, ...args);
     }
 
     startDownload(task) {
@@ -558,25 +562,123 @@
         }
       });
 
-      video.addEventListener("error", () => {
-        this.fail(
-          `Video playback failed: ${
-            video.error && video.error.message ? video.error.message : "unknown error"
-          }`
-        );
-      });
+      // A failing <video> re-fires error, and the first message is the useful one.
+      video.addEventListener(
+        "error",
+        () => {
+          const detail = video.error && video.error.message ? video.error.message : "unknown error";
+          this.fail(`Video playback failed: ${detail}`);
+        },
+        { once: true }
+      );
     }
 
-    mountVideo() {
+    // Player composition is plain DOM against upstream's custom elements, never a Tsundoku-specific
+    // runtime API, so swapping videojs.min.js for a CDN build of the same version needs no change here.
+    buildPlayer(mediaTag) {
+      const tags = this.disableProgress ? PLAYER_TAGS.live : PLAYER_TAGS.vod;
+      for (const tag of [tags.player, tags.skin, "media-i18n", mediaTag]) {
+        if (tag !== "video" && !customElements.get(tag)) {
+          throw new Error(`custom element ${tag} is unavailable`);
+        }
+      }
+      const thumbnailsVtt = metaContent("lnreader-video-thumbnails");
+      const poster = metaContent("lnreader-video-poster");
+
+      const media = document.createElement(mediaTag);
+      media.setAttribute("playsinline", "");
+      media.setAttribute("preload", "auto");
+      // A cross-origin thumbnail VTT is only readable when the media element opts into CORS. On a
+      // plain <video> that also forces a CORS fetch of the video itself, so it stays opt-in.
+      if (mediaTag !== "video" || thumbnailsVtt) {
+        media.setAttribute("crossorigin", "anonymous");
+      }
+      // No slot="media": upstream removed it in #997 and only restored it as deprecated in #1020.
+      // The skin's default slot picks the media element up.
+      if (thumbnailsVtt) {
+        const track = document.createElement("track");
+        track.kind = "metadata";
+        track.label = "thumbnails";
+        track.src = thumbnailsVtt;
+        track.default = true;
+        media.append(track);
+      }
+
+      const skin = document.createElement(tags.skin);
+      this.stripUnsupportedControls(skin);
+      skin.append(media);
+      if (poster) {
+        const image = document.createElement("img");
+        image.slot = "poster";
+        image.src = poster;
+        image.alt = "";
+        skin.append(image);
+      }
+
+      const player = document.createElement(tags.player);
+      player.append(skin);
+
+      // Every media-text in the skin reads its translator from the i18n context, and only media-i18n
+      // provides it — without this wrapper the controls stay English no matter what <html lang> says.
+      // The element takes no lang of its own so it resolves through the ancestor lang chain.
+      const root = document.createElement("media-i18n");
+      root.append(player);
+      return { root, media };
+    }
+
+    // A CDN build ships the Cast/AirPlay/PiP controls that the offline bundle tree-shakes away. None
+    // of them work in this WebView, so strip them here and one skin serves both builds.
+    stripUnsupportedControls(skin) {
+      const shadow = skin.shadowRoot;
+      if (!shadow) throw new Error(`${skin.localName} shadow root is unavailable`);
+      shadow
+        .querySelectorAll(
+          "media-cast-button, media-airplay-button, media-pip-button, " +
+            "#cast-tooltip, #airplay-tooltip, #pip-tooltip, " +
+            'media-hotkey[action="togglePictureInPicture"], ' +
+            ".media-icon--pip-enter, .media-icon--pip-exit"
+        )
+        .forEach((element) => element.remove());
+      shadow.querySelectorAll("media-status-indicator[actions]").forEach((element) => {
+        const actions = (element.getAttribute("actions") || "")
+          .split(/\s+/)
+          .filter((action) => action && action !== "togglePictureInPicture");
+        element.setAttribute("actions", actions.join(" "));
+      });
+      const container = shadow.querySelector("media-container");
+      if (container) {
+        container.style.setProperty("--media-border-radius", "0");
+        container.style.setProperty("--media-video-border-radius", "0");
+      }
+    }
+
+    mountVideo(mediaTag) {
       this.destroyCurrentMedia();
-      const video = document.createElement("video");
-      video.controls = true;
-      video.playsInline = true;
-      video.preload = "auto";
-      this.attachEventListeners(video);
-      this.container.appendChild(video);
-      this.videoElement = video;
-      return video;
+      try {
+        const { root, media } = this.buildPlayer(mediaTag);
+        this.attachEventListeners(media);
+        this.container.prepend(root);
+        this.playerElement = root;
+        this.videoElement = media;
+        return media;
+      } catch (error) {
+        this.fail(`Video player initialization failed: ${(error && error.message) || error}`);
+        return null;
+      }
+    }
+
+    // hlsjs-video and dash-video differ only in how their engine is configured; setting src is what
+    // starts either one. Throwing from `configure` reports through the shared failure channel.
+    playAdaptive(kind, mediaTag, url, configure) {
+      const video = this.mountVideo(mediaTag);
+      if (!video) return;
+      try {
+        configure(video);
+        video.src = String(url);
+        video.addEventListener("loadedmetadata", () => this.tryPlay(video), { once: true });
+      } catch (error) {
+        this.fail(`${kind} playback failed: ${(error && error.message) || error}`);
+      }
     }
 
     tryPlay(video) {
@@ -589,7 +691,8 @@
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadDirect(url));
       }
-      const video = this.mountVideo();
+      const video = this.mountVideo("video");
+      if (!video) return;
       video.src = url;
       this.tryPlay(video);
     }
@@ -600,40 +703,54 @@
       if (this.isDownloadMode()) {
         return this.startDownload(() => this.downloadHls(url, customHlsConfig));
       }
-      const video = this.mountVideo();
-
-      // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
-      if (!window.Hls || !Hls.isSupported()) {
-        this.fail("hls.js is unavailable, cannot play HLS");
-        return;
-      }
-      this.hlsInstance = new Hls(
-        Object.assign({ debug: this.isDebugMode }, customHlsConfig)
-      );
-      this.hlsInstance.loadSource(url);
-      this.hlsInstance.attachMedia(video);
-
-      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        this.log("HLS manifest parsed, playing...");
-        this.tryPlay(video);
+      this.playAdaptive("HLS", "hlsjs-video", url, (video) => {
+        // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
+        if (!window.Hls || !Hls.isSupported()) throw new Error("hls.js is unavailable");
+        video.config = {
+          preferPlayback: "mse",
+          contentType: "application/vnd.apple.mpegurl",
+          // The download-capture patch must stay off during playback; it forwards every decrypted
+          // fragment and only the headless download WebView has a sink to receive them.
+          hlsJs: Object.assign({ debug: this.isDebugMode }, customHlsConfig, {
+            tsundokuCaptureFragments: false,
+          }),
+        };
+        this.hlsInstance = video.engine || null;
       });
+    }
 
-      this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-        if (!data.fatal) {
-          this.log(`HLS error: ${data.details}`);
-          return;
+    playDash(url, dashConfig = {}) {
+      this.init();
+      this.log(`playDash called with ${url}`);
+      if (this.isDownloadMode()) {
+        return this.startDownload(() => {
+          throw new Error("DASH and DRM video downloads are not supported");
+        });
+      }
+      this.playAdaptive("DASH", "dash-video", url, (video) => {
+        const engine = video.engine;
+        if (!engine) throw new Error("dash.js engine is unavailable");
+        if (dashConfig.settings) engine.updateSettings(dashConfig.settings);
+        const protectionData = dashConfig.protectionData;
+        if (protectionData && Object.keys(protectionData).length > 0) {
+          // Widevine in a WebView needs the device DRM identifier even at L3, and Kotlin only honours
+          // the grant right after this call. It refuses while incognito is on, because that identifier
+          // is permanent and unresettable.
+          if (!hostCall(window.Android, "requestProtectedMediaPlayback")) {
+            throw new Error(
+              "DRM video needs the device media identifier, which is not shared while incognito is on"
+            );
+          }
+          engine.setProtectionData(protectionData);
         }
-        this.log(`Fatal HLS error: ${data.type} - ${data.details}`);
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          this.log("Fatal network error encountered, try to recover");
-          this.hlsInstance.startLoad();
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          this.log("Fatal media error encountered, try to recover");
-          this.hlsInstance.recoverMediaError();
-        } else {
-          // Nothing left to recover from, so this is the only point the user hears about it.
-          this.destroyCurrentMedia();
-          this.fail(`HLS playback failed: ${data.details || data.type}`);
+        this.dashInstance = engine;
+        if (typeof engine.on === "function") {
+          engine.on((engine.events && engine.events.ERROR) || "error", (event) => {
+            const detail =
+              (event && ((event.error && event.error.message) || (event.event && event.event.message) || event.message)) ||
+              "unknown error";
+            this.fail(`DASH playback failed: ${detail}`);
+          });
         }
       });
     }

@@ -24,6 +24,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -205,6 +206,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         get() = preferences.novelTtsEnabled.get()
     private val libraryPreferences: tachiyomi.domain.library.service.LibraryPreferences by injectLazy()
     private val networkHelper: NetworkHelper by injectLazy()
+    private val getIncognitoState: eu.kanade.domain.source.interactor.GetIncognitoState by injectLazy()
     private val contentPipeline = ContentPipeline(preferences)
     private val assetLoader = NovelWebViewAssetLoader(activity.assets)
     private var proxyServer: NovelReaderProxyServer? = null
@@ -221,6 +223,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var currentChapters: ViewerChapters? = null
     private var currentDocumentIsVideo = false
     private var currentLocalVideo: Pair<Long, UniFile>? = null
+
+    @Volatile
+    private var protectedMediaPlaybackArmed = false
+
+    @Volatile
+    private var protectedMediaPlaybackOrigin: ProtectedMediaOrigin? = null
 
     // Prevent reopening the player until the chapter changes or the user taps Play.
     private var launchedVideoChapterId: Long? = null
@@ -845,6 +853,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    protectedMediaPlaybackArmed = false
                     // The new document has not installed reader-gestures.js yet.
                     pageOwnsGestures = false
                 }
@@ -872,6 +881,26 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
             val devToolsEnabled = preferences.novelWebViewDevTools.get()
             webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    val granted = canGrantProtectedMediaPlayback(
+                        armed = protectedMediaPlaybackArmed,
+                        requestOrigin = protectedMediaOrigin(
+                            request.origin.scheme,
+                            request.origin.host,
+                            request.origin.port,
+                        ),
+                        documentOrigin = protectedMediaPlaybackOrigin,
+                        resources = request.resources.toList(),
+                        protectedMediaResource = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID,
+                    )
+                    protectedMediaPlaybackArmed = false
+                    if (granted) {
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID))
+                    } else {
+                        request.deny()
+                    }
+                }
+
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null || callback == null) return
                     showFullscreenVideo(view, callback)
@@ -1115,6 +1144,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     override fun destroy() {
         if (isDestroyed) return
+        protectedMediaPlaybackArmed = false
         hideFullscreenVideo()
         WebView.setWebContentsDebuggingEnabled(
             BuildConfig.DEBUG &&
@@ -1775,7 +1805,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastSavedProgress = 0f
         lastPersistedPercent = -1
         reachedNovelEnd = false
-        webView.loadDataWithBaseURL(resolveWebViewBaseUrl(chapterPath), html, "text/html", "UTF-8", null)
+        val baseUrl = resolveWebViewBaseUrl(chapterPath)
+        protectedMediaPlaybackOrigin = baseUrl?.let(Uri::parse)?.let {
+            protectedMediaOrigin(it.scheme, it.host, it.port)
+        }
+        webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null)
         launchLocalVideo()
     }
 
@@ -2446,6 +2480,19 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     @Keep
     @Suppress("unused")
     inner class WebViewInterface {
+        /**
+         * Arms a single protected-media grant for the DASH flow. Android WebView's Widevine needs the
+         * device DRM identifier even at L3 — denying the permission leaves ClearKey only — and that
+         * identifier is a permanent, unresettable handle on the device. Incognito promises the plugin
+         * site learns nothing durable about this session, so DRM playback loses rather than incognito.
+         */
+        @JavascriptInterface
+        fun requestProtectedMediaPlayback(): Boolean {
+            val incognito = getIncognitoState.await(activity.viewModel.getSource()?.id)
+            protectedMediaPlaybackArmed = !incognito && protectedMediaPlaybackOrigin != null
+            return protectedMediaPlaybackArmed
+        }
+
         @JavascriptInterface
         fun onReaderMessage(message: String) {
             val parsed = LnReaderMessage.parse(message) ?: return
