@@ -41,6 +41,12 @@ class DomainForwarding(
         saveMappings()
     }
 
+    fun rewrite(url: String, fromJsPlugin: Boolean): String {
+        val httpUrl = url.toHttpUrlOrNull() ?: return url
+        val rewrittenUrl = rewrite(httpUrl, fromJsPlugin)
+        return if (rewrittenUrl == httpUrl) url else rewrittenUrl.toString()
+    }
+
     internal fun rewrite(url: HttpUrl, fromJsPlugin: Boolean): HttpUrl {
         val source = url.origin()
         val mapping = _mappings.value.firstOrNull { it.source == source } ?: return url

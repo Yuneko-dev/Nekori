@@ -8,12 +8,15 @@ import androidx.test.platform.app.InstrumentationRegistry
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import kotlin.system.measureTimeMillis
 
 @RunWith(AndroidJUnit4::class)
@@ -87,6 +90,13 @@ class JsSourceMainThreadTest {
 
         assertEquals("https://selected.invalid", source.baseUrl)
         assertEquals("https://selected.invalid/novel/book", source.resolveUrl("/book", isNovel = true))
+        val forwarding = Injekt.get<NetworkHelper>().domainForwarding
+        forwarding.put("https://selected.invalid", "https://forwarded.invalid", global = false)
+        try {
+            assertEquals("https://forwarded.invalid/novel/book", source.resolveUrl("/book", isNovel = true))
+        } finally {
+            forwarding.remove("https://selected.invalid")
+        }
     }
 
     @Test

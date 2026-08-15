@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.resolveJsPluginSite
 import eu.kanade.tachiyomi.jsruntime.JsRuntime
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Filter
@@ -54,6 +55,7 @@ class JsSource(
     private val jsCode: String = installedPlugin.code
     private val hermesRuntime: JsRuntime = Injekt.get()
     private val applicationScope: CoroutineScope = Injekt.get()
+    private val domainForwarding = Injekt.get<NetworkHelper>().domainForwarding
 
     private val json = Json { ignoreUnknownKeys = true }
     private val hermesLoadMutex = kotlinx.coroutines.sync.Mutex()
@@ -331,12 +333,13 @@ class JsSource(
         val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
             hermesRuntime.call("plugin.resolveUrl", payload)
         }
-        return json.parseToJsonElement(result)
+        val resolvedUrl = json.parseToJsonElement(result)
             .jsonObject["url"]
             ?.jsonPrimitive
             ?.content
             ?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Plugin \"$pluginId\" returned an empty URL")
+        return domainForwarding.rewrite(resolvedUrl, fromJsPlugin = true)
     }
 
     private suspend fun getPluginSetting(key: String): JsonElement? {
