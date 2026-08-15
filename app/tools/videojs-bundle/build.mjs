@@ -81,6 +81,9 @@ const videoResult = await build({
   alias: { "hls.js": hlsGlobal },
   plugins: [adapterOverrides],
   write: !checkOnly,
+  banner: {
+    js: "/* eslint-disable */\n",
+  },
 });
 
 const bundledInputs = new Map();
