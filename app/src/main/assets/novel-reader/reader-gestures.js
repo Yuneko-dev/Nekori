@@ -23,6 +23,9 @@
         '[role="dialog"]', '[aria-modal="true"]',
         '#Image-Modal', '#TTS-Controller', '#next-chapter-btn-container',
         '#lnreader-player-container', '#lnreader-debug-overlay', '#lnreader-debug-toggle',
+        // The summary card's own buttons live in a shadow root, so `event.target` is retargeted to
+        // the host: matching the host is what keeps a tap on the card from toggling the chrome.
+        'tsundoku-chapter-summary',
     ].join(',');
 
     document.addEventListener(

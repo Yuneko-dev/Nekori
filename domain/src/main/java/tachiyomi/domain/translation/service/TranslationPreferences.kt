@@ -32,8 +32,13 @@ class TranslationPreferences(
      *  provider/prompt, so an upgrade needs no migration. */
     fun translationProfilesJson() = preferenceStore.getString("translation_profiles", "[]")
 
-    /** Serialized task key -> profile id map. A missing task falls back to the default profile. */
+    /** Serialized purpose key -> profile id map. A missing purpose falls back to the default profile. */
     fun translationTaskProfilesJson() = preferenceStore.getString("translation_task_profiles", "{}")
+
+    /** Serialized [tachiyomi.domain.translation.model.AiTaskProfile] list, for AI tasks other than translation. */
+    fun aiTaskProfilesJson() = preferenceStore.getString("ai_task_profiles", "[]")
+
+    fun aiTaskAssignmentsJson() = preferenceStore.getString("ai_task_assignments", "{}")
 
     fun aiProvidersJson() = preferenceStore.getString("translation_ai_providers", "[]")
 

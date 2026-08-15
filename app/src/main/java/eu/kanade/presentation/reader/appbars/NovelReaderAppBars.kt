@@ -169,6 +169,7 @@ fun NovelReaderAppBars(
     onToggleTranslation: () -> Unit,
     onLongPressTranslation: () -> Unit,
     onRetranslate: (() -> Unit)? = null,
+    onSummarizeChapter: (() -> Unit)? = null,
     isTtsActive: Boolean,
     isTtsPaused: Boolean,
     ttsEnabled: Boolean,
@@ -252,6 +253,7 @@ fun NovelReaderAppBars(
                         onReloadSource = onReloadSource,
                         onEditBottomBar = onEditBottomBar,
                         onRetranslate = onRetranslate,
+                        onSummarizeChapter = onSummarizeChapter,
                     )
                 }
             }
@@ -487,6 +489,7 @@ private fun NovelReaderTopBar(
     onReloadSource: () -> Unit,
     onEditBottomBar: () -> Unit,
     onRetranslate: (() -> Unit)? = null,
+    onSummarizeChapter: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AppBar(
@@ -567,6 +570,14 @@ private fun NovelReaderTopBar(
                         add(
                             AppBar.OverflowAction(
                                 title = stringResource(TDMR.strings.action_retranslate),
+                                onClick = it,
+                            ),
+                        )
+                    }
+                    onSummarizeChapter?.let {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(TDMR.strings.action_summarize_chapter),
                                 onClick = it,
                             ),
                         )

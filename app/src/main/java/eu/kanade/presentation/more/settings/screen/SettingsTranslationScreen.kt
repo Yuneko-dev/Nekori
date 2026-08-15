@@ -36,7 +36,6 @@ object SettingsTranslationScreen : SearchableSettings {
     override fun getAdditionalResetPreferences(): List<tachiyomi.core.common.preference.Preference<*>> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
         return listOf(
-            prefs.requestRetryCount(),
             prefs.rateLimitDelayMs(),
             prefs.translationTimeoutMs(),
             prefs.maxParallelTranslations(),
@@ -146,7 +145,7 @@ object SettingsTranslationScreen : SearchableSettings {
         navigator: Navigator,
     ): Preference.PreferenceGroup {
         val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
-        val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
+        val defaultName = stringResource(TDMR.strings.pref_profile_default)
         val purposeLabels = mapOf(
             TranslationPurpose.CHAPTER to stringResource(TDMR.strings.pref_translation_purpose_chapter),
             TranslationPurpose.METADATA to stringResource(TDMR.strings.pref_translation_purpose_metadata),
@@ -158,9 +157,9 @@ object SettingsTranslationScreen : SearchableSettings {
             preferenceItems = buildList {
                 add(
                     Preference.PreferenceItem.TextPreference(
-                        title = stringResource(TDMR.strings.pref_translation_profiles_manage),
+                        title = stringResource(TDMR.strings.pref_profiles_manage),
                         subtitle = stringResource(
-                            TDMR.strings.pref_translation_profiles_count,
+                            TDMR.strings.pref_profiles_count,
                             profiles.size,
                         ),
                         onClick = { navigator.push(SettingsTranslationProfilesScreen) },
@@ -306,21 +305,12 @@ object SettingsTranslationScreen : SearchableSettings {
 
     @Composable
     private fun rateLimitGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
-        val retries by prefs.requestRetryCount().collectAsState()
         val delay by prefs.rateLimitDelayMs().collectAsState()
         val timeout by prefs.translationTimeoutMs().collectAsState()
         val maxParallel by prefs.maxParallelTranslations().collectAsState()
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_rate_limit),
             preferenceItems = listOf(
-                Preference.PreferenceItem.SliderPreference(
-                    value = retries,
-                    title = stringResource(TDMR.strings.pref_translation_retry_count),
-                    valueString = "$retries",
-                    valueRange = 0..5,
-                    onValueChanged = prefs.requestRetryCount()::set,
-                    preference = prefs.requestRetryCount(),
-                ),
                 Preference.PreferenceItem.SliderPreference(
                     value = delay,
                     title = stringResource(TDMR.strings.pref_translation_rate_limit_delay),

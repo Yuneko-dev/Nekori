@@ -22,6 +22,8 @@ import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
+import eu.kanade.tachiyomi.data.translation.AiTaskProfileStore
+import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
 import eu.kanade.tachiyomi.data.translation.LlmGenerator
 import eu.kanade.tachiyomi.data.translation.TranslationCache
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
@@ -167,6 +169,8 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { TranslationCache(app) }
         addSingletonFactory { AiSettingsStore(get(), get()) }
         addSingletonFactory { LlmGenerator(get(), get()) }
+        addSingletonFactory { AiTaskProfileStore(get(), get()) }
+        addSingletonFactory { ChapterSummaryService(get(), get(), get(), get()) }
         addSingletonFactory { TranslationProfileStore(get(), get()) }
         addSingletonFactory { TranslationEngineManager(get(), get(), get()) }
         addSingletonFactory { TranslationService(app) }

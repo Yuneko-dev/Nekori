@@ -63,13 +63,13 @@ object SettingsTranslationProfilesScreen : Screen() {
         val profiles = remember(profilesJson) { store.profiles() }
         val providers = remember(providersJson) { aiSettings.providers() }
         val allGuidelines = remember(guidelinesJson) { aiSettings.guidelines() }
-        val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
+        val defaultName = stringResource(TDMR.strings.pref_profile_default)
 
         ManagerScreen(
             title = stringResource(TDMR.strings.pref_translation_profiles),
             entries = profiles,
             entryKey = { it.id },
-            addLabel = stringResource(TDMR.strings.pref_translation_profile_add),
+            addLabel = stringResource(TDMR.strings.pref_profile_add),
             onAdd = { navigator.push(TranslationProfileEditorScreen()) },
             onBack = back::invoke,
         ) { profile ->
@@ -122,8 +122,8 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
         }
 
         // "Use the globally active one" is a real choice, so both pickers carry a null entry.
-        val useActive = stringResource(TDMR.strings.pref_translation_profile_use_active)
-        val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
+        val useActive = stringResource(TDMR.strings.pref_profile_use_active)
+        val defaultName = stringResource(TDMR.strings.pref_profile_default)
 
         fun save() {
             store.save(
@@ -146,7 +146,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                 } else {
                     stringResource(
                         if (original == null) {
-                            TDMR.strings.pref_translation_profile_new
+                            TDMR.strings.pref_profile_new
                         } else {
                             TDMR.strings.pref_translation_profiles
                         },
@@ -175,7 +175,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
-                            label = { Text(stringResource(TDMR.strings.pref_translation_profile_name)) },
+                            label = { Text(stringResource(TDMR.strings.pref_profile_name)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )

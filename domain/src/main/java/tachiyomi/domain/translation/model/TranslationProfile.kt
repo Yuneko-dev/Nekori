@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
  * Adding a purpose is one constant here plus one assignment row in the translation settings.
  */
 @Serializable
-enum class TranslationPurpose(val key: String) {
+enum class TranslationPurpose(override val key: String) : Purpose {
     /** Chapter text: chunked, cached, resumable. */
     CHAPTER("chapter"),
 
@@ -33,17 +33,15 @@ enum class TranslationPurpose(val key: String) {
  */
 @Serializable
 data class TranslationProfile(
-    val id: String,
-    val name: String,
+    override val id: String,
+    override val name: String,
     val engineId: TranslationEngineId,
     val aiProviderId: String? = null,
     /** Serialized under its pre-rename name so profiles saved before the rename still read. */
     @SerialName("systemPromptId")
     val guidelinesId: String? = null,
-) {
-    val deletable: Boolean get() = id != DEFAULT_ID
-
+) : Profile {
     companion object {
-        const val DEFAULT_ID = "default"
+        const val DEFAULT_ID = DEFAULT_PROFILE_ID
     }
 }

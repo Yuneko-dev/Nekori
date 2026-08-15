@@ -1,13 +1,19 @@
 package eu.kanade.presentation.more.settings.screen
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
+import eu.kanade.tachiyomi.data.translation.AiTaskProfileStore
+import tachiyomi.domain.translation.model.AiTaskPurpose
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -38,6 +44,7 @@ object SettingsAiScreen : SearchableSettings {
         val activeGuidelinesId by prefs.activeGuidelinesId().collectAsState()
         val providers = remember(providersJson) { store.providers() }
         val guidelines = remember(guidelinesJson) { store.guidelines() }
+        val retries by prefs.requestRetryCount().collectAsState()
         val noProviders = stringResource(TDMR.strings.pref_ai_no_providers)
 
         return listOf(
@@ -71,6 +78,16 @@ object SettingsAiScreen : SearchableSettings {
                         title = stringResource(TDMR.strings.pref_translation_structured_output),
                         subtitle = stringResource(TDMR.strings.pref_translation_structured_output_summary),
                     ),
+                    // Every AI task retries on the same transient failures, so one setting covers all
+                    // of them rather than one per task.
+                    Preference.PreferenceItem.SliderPreference(
+                        value = retries,
+                        title = stringResource(TDMR.strings.pref_translation_retry_count),
+                        valueString = "$retries",
+                        valueRange = 0..5,
+                        onValueChanged = prefs.requestRetryCount()::set,
+                        preference = prefs.requestRetryCount(),
+                    ),
                 ),
             ),
             Preference.PreferenceGroup(
@@ -88,6 +105,55 @@ object SettingsAiScreen : SearchableSettings {
                     ),
                 ),
             ),
+            taskGroup(navigator),
+        )
+    }
+
+    /**
+     * Profile management plus one assignment row per [AiTaskPurpose]. Adding a task adds a row here
+     * and nothing else.
+     */
+    @Composable
+    private fun taskGroup(navigator: Navigator): Preference.PreferenceGroup {
+        val store = remember { Injekt.get<AiTaskProfileStore>() }
+        val prefs = remember { Injekt.get<TranslationPreferences>() }
+        val profilesJson by prefs.aiTaskProfilesJson().collectAsState()
+        val assignmentsJson by prefs.aiTaskAssignmentsJson().collectAsState()
+        val profiles = remember(profilesJson) { store.profiles() }
+        val defaultName = stringResource(TDMR.strings.pref_profile_default)
+        val purposeLabels = mapOf(
+            AiTaskPurpose.CHAPTER_SUMMARY to stringResource(TDMR.strings.pref_ai_purpose_chapter_summary),
+        )
+
+        return Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_ai_tasks),
+            preferenceItems = buildList {
+                add(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(TDMR.strings.pref_ai_task_profiles),
+                        subtitle = stringResource(TDMR.strings.pref_profiles_count, profiles.size),
+                        onClick = { navigator.push(AiTaskProfileManagerScreen) },
+                    ),
+                )
+                AiTaskPurpose.entries.forEach { purpose ->
+                    val current = remember(profiles, assignmentsJson) { store.profileFor(purpose) }
+                    add(
+                        Preference.PreferenceItem.CustomPreference(
+                            title = purposeLabels.getValue(purpose),
+                            content = {
+                                SettingsDropdownField(
+                                    label = purposeLabels.getValue(purpose),
+                                    value = current,
+                                    values = profiles,
+                                    valueLabel = { it.name.ifBlank { defaultName } },
+                                    onSelected = { store.assign(purpose, it.id) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            },
+                        ),
+                    )
+                }
+            },
         )
     }
 }

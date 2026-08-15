@@ -39,6 +39,7 @@ import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
+import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -207,6 +208,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val libraryPreferences: tachiyomi.domain.library.service.LibraryPreferences by injectLazy()
     private val networkHelper: NetworkHelper by injectLazy()
     private val getIncognitoState: eu.kanade.domain.source.interactor.GetIncognitoState by injectLazy()
+    private val chapterSummaryService: ChapterSummaryService by injectLazy()
     private val contentPipeline = ContentPipeline(preferences)
     private val assetLoader = NovelWebViewAssetLoader(activity.assets)
     private var proxyServer: NovelReaderProxyServer? = null
@@ -215,6 +217,28 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Jobs launched in `scope`, so destroy()'s scope.cancel() already stops any request in flight.
+    private val summaryController by lazy {
+        NovelWebViewSummaryController(
+            scope = scope,
+            service = chapterSummaryService,
+            labels = NovelWebViewSummaryController.Labels(
+                title = activity.stringResource(TDMR.strings.chapter_summary_title),
+                loading = activity.stringResource(TDMR.strings.chapter_summary_loading),
+                regenerate = activity.stringResource(TDMR.strings.action_regenerate),
+                close = activity.stringResource(MR.strings.action_close),
+                cancel = activity.stringResource(MR.strings.action_cancel),
+                contentUnavailable = activity.stringResource(TDMR.strings.chapter_summary_no_content),
+            ),
+            evaluateJs = { js, callback -> evaluateJavascriptSafe(js, callback) },
+            chapterHtml = ::loadChapterHtml,
+            onUnconfigured = {
+                activity.toast(activity.stringResource(TDMR.strings.chapter_summary_unconfigured))
+            },
+        )
+    }
+
     private var loadJob: Job? = null
     private var contentJob: Job? = null
     private var appendJob: Job? = null
@@ -684,6 +708,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // Collect IDs of all chapters up to the current one (using the ordered
         // list, not the id set, to guarantee declaration order).
         val idsToRemove = loadedChapters.take(nextIdx).mapNotNull { it.chapter.id }
+        // Their summary cards go with them; a job whose card is gone has nothing to render into.
+        idsToRemove.forEach(summaryController::cancel)
 
         logcat(LogPriority.DEBUG) {
             "TTS (WebView): Unloading ${idsToRemove.size} chapter(s) from DOM before starting next ($nextChapterId)"
@@ -1996,6 +2022,30 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun getCurrentTsundokuChapter(): ReaderChapter? =
         loadedChapters.getOrNull(currentChapterIndex) ?: currentChapters?.currChapter
 
+    /** Summarizes the chapter currently in view, or scrolls to the summary it already has. */
+    fun requestChapterSummary() {
+        val chapterId = getCurrentTsundokuChapter()?.chapter?.id ?: return
+        summaryController.request(chapterId)
+    }
+
+    /**
+     * The chapter's source HTML, loading it first if `noCache` dropped it.
+     *
+     * Deliberately not the rendered DOM: that may hold a translation, and summarizing a translation
+     * summarizes the translator's choices rather than the chapter.
+     */
+    private suspend fun loadChapterHtml(chapterId: Long): String? {
+        val chapter = loadedChapters.firstOrNull { it.chapter.id == chapterId }
+            ?: currentChapters?.currChapter?.takeIf { it.chapter.id == chapterId }
+            ?: return null
+        val page = chapter.pages?.firstOrNull() ?: return null
+        val loader = page.chapter.pageLoader
+        if (page.text.isNullOrBlank() && loader != null) {
+            awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
+        }
+        return page.text
+    }
+
     private fun updateChapterMetaJs() {
         val js = buildTsundokuScript()
         evaluateJavascriptSafe("(function(){$js})();", null)
@@ -2605,6 +2655,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     updateChapterMetaJs()
                 }
             }
+        }
+
+        // The summary card's own buttons. Cancel, close and regenerate are the only actions; anything
+        // else the page sends is ignored rather than trusted.
+        @JavascriptInterface
+        fun onChapterSummaryAction(chapterId: String, action: String) {
+            val id = chapterId.toLongOrNull() ?: return
+            activity.runOnUiThread { summaryController.onAction(id, action) }
         }
 
         @JavascriptInterface
