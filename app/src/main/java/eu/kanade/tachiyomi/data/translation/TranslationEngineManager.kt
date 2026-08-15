@@ -42,16 +42,16 @@ class TranslationEngineManager(
         )
     }
 
-    /** Engine plus the execution overrides for one task. */
+    /** Engine plus the execution overrides for one purpose. */
     data class Resolved(val engine: TranslationEngine, val config: TranslationProfileConfig?)
 
     /**
-     * The engine and overrides [task] should use. Falls back to the globally selected engine when a
+     * The engine and overrides [purpose] should use. Falls back to the globally selected engine when a
      * profile names an engine that no longer exists, so a corrupt preference degrades instead of
      * failing.
      */
-    fun resolve(task: TranslationPurpose): Resolved {
-        val profile = profileStore.profileFor(task)
+    fun resolve(purpose: TranslationPurpose): Resolved {
+        val profile = profileStore.profileFor(purpose)
         val engine = getEngineById(profile.engineId) ?: getSelectedEngine()
         // Only the LLM engine reads the config, and building it decodes the provider and prompt
         // stores; skip that work entirely for the others.
@@ -109,23 +109,26 @@ class TranslationEngineManager(
         return engines.find { it.id == id }
     }
 
+    // setSelectedEngine() was removed with the global engine dropdown: the engine is now a property
+    // of a profile, and selectedEngineId survives only as a read-only fallback.
+
     /**
-     * The engine [task] should use, or null when its profile is not fully configured.
+     * The engine [purpose] should use, or null when its profile is not fully configured.
      */
-    fun getEngine(task: TranslationPurpose): TranslationEngine? {
-        val (engine, config) = resolve(task)
+    fun getEngine(purpose: TranslationPurpose): TranslationEngine? {
+        val (engine, config) = resolve(purpose)
         return engine.takeIf { it.isConfigured(config) }
     }
 
     /**
-     * Get supported languages for the engine [task] uses.
+     * Get supported languages for the engine [purpose] uses.
      */
-    fun getSupportedLanguages(task: TranslationPurpose): List<Pair<String, String>> {
-        return resolve(task).engine.supportedLanguages
+    fun getSupportedLanguages(purpose: TranslationPurpose): List<Pair<String, String>> {
+        return resolve(purpose).engine.supportedLanguages
     }
 
-    suspend fun translate(task: TranslationPurpose, request: TranslationRequest): TranslationResult {
-        val (engine, config) = resolve(task)
+    suspend fun translate(purpose: TranslationPurpose, request: TranslationRequest): TranslationResult {
+        val (engine, config) = resolve(purpose)
         return TranslationRetryPolicy.execute(
             retries = preferences.requestRetryCount().get(),
         ) { engine.translate(request.copy(config = config)) }

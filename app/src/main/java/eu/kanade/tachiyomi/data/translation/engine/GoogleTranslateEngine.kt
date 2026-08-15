@@ -133,7 +133,7 @@ class GoogleTranslateEngine(
         val status: String? = null,
     )
 
-    // The Google Cloud key belongs to the service, not the calling task.
+    // The Google Cloud key belongs to the service, not the calling purpose.
     override fun isConfigured(config: TranslationProfileConfig?): Boolean {
         return preferences.googleApiKey().get().isNotBlank()
     }

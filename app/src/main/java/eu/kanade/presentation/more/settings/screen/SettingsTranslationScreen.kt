@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationProfile
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
@@ -47,6 +48,8 @@ object SettingsTranslationScreen : SearchableSettings {
             prefs.translationTimeoutMs(),
             prefs.maxParallelTranslations(),
             prefs.selectedEngineId(),
+            prefs.translationProfilesJson(),
+            prefs.translationTaskProfilesJson(),
         )
     }
 
@@ -72,7 +75,8 @@ object SettingsTranslationScreen : SearchableSettings {
             )
         }
 
-        val engineId by prefs.selectedEngineId().collectAsState()
+        val profilesJson by prefs.translationProfilesJson().collectAsState()
+        val profiles = remember(profilesJson) { profileStore.profiles() }
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
         val providersJson by prefs.aiProvidersJson().collectAsState()
@@ -106,7 +110,7 @@ object SettingsTranslationScreen : SearchableSettings {
             title = stringResource(TDMR.strings.pref_translation_general),
             preferenceItems = listOf(masterPreference(prefs)),
         )
-        groups += profilesGroup(prefs, profileStore, navigator)
+        groups += profilesGroup(prefs, profileStore, profiles, navigator)
         groups += Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_languages),
             preferenceItems = listOf(
@@ -124,9 +128,13 @@ object SettingsTranslationScreen : SearchableSettings {
                 ),
             ),
         )
-        engineConfiguration(engineId, prefs, providers, prompts, activeProviderId, activePromptId, ai) {
-            navigator.push(SettingsAiScreen)
-        }?.let(groups::add)
+        // Driven by the engines profiles actually use, not one global id: an API key field reachable
+        // only through this group would otherwise be unreachable for an engine no profile "selected".
+        profiles.map { it.engineId }.distinct().forEach { engine ->
+            engineConfiguration(engine, prefs, providers, prompts, activeProviderId, activePromptId, ai) {
+                navigator.push(SettingsAiScreen)
+            }?.let(groups::add)
+        }
         groups += behaviorGroup(prefs)
         groups += Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_translation_queue),
@@ -150,11 +158,10 @@ object SettingsTranslationScreen : SearchableSettings {
     private fun profilesGroup(
         prefs: TranslationPreferences,
         profileStore: TranslationProfileStore,
+        profiles: List<TranslationProfile>,
         navigator: Navigator,
     ): Preference.PreferenceGroup {
-        val profilesJson by prefs.translationProfilesJson().collectAsState()
         val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
-        val profiles = remember(profilesJson) { profileStore.profiles() }
         val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
         val purposeLabels = mapOf(
             TranslationPurpose.CHAPTER to stringResource(TDMR.strings.pref_translation_purpose_chapter),
@@ -176,7 +183,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     ),
                 )
                 TranslationPurpose.entries.forEach { purpose ->
-                    val current = remember(profilesJson, assignmentsJson) { profileStore.profileFor(purpose) }
+                    val current = remember(profiles, assignmentsJson) { profileStore.profileFor(purpose) }
                     add(
                         Preference.PreferenceItem.CustomPreference(
                             title = purposeLabels.getValue(purpose),
@@ -206,7 +213,7 @@ object SettingsTranslationScreen : SearchableSettings {
 
     @Composable
     private fun engineConfiguration(
-        engineKey: String,
+        engine: TranslationEngineId,
         prefs: TranslationPreferences,
         providers: List<tachiyomi.domain.translation.model.AIProvider>,
         prompts: List<tachiyomi.domain.translation.model.SystemPrompt>,
@@ -215,7 +222,6 @@ object SettingsTranslationScreen : SearchableSettings {
         ai: AiSettingsStore,
         openAiSettings: () -> Unit,
     ): Preference.PreferenceGroup? {
-        val engine = TranslationEngineId.fromKey(engineKey)
         val items = when (engine) {
             TranslationEngineId.LLM -> listOf(
                 if (providers.isEmpty()) {

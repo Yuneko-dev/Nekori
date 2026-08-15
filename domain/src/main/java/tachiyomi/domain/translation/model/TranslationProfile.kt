@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * A translation entry point. Each one resolves to its own [TranslationProfile], so browsing a source
  * can use a fast free engine while chapter text uses a tuned LLM.
  *
- * Adding a task is one constant here plus one assignment row in the translation settings.
+ * Adding a purpose is one constant here plus one assignment row in the translation settings.
  */
 @Serializable
 enum class TranslationPurpose(val key: String) {

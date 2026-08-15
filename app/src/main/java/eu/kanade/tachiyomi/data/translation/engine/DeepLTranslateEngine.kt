@@ -104,7 +104,7 @@ class DeepLTranslateEngine(
         val text: String,
     )
 
-    // The DeepL key belongs to the service, not the calling task, so the profile config is ignored.
+    // The DeepL key belongs to the service, not the calling purpose, so the profile config is ignored.
     override fun isConfigured(config: TranslationProfileConfig?): Boolean {
         return preferences.deepLApiKey().get().isNotBlank()
     }

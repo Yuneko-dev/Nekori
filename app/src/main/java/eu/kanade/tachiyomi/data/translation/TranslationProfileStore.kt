@@ -9,7 +9,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * Stores named engine configurations and which task uses which, both as JSON in preferences -
+ * Stores named engine configurations and which purpose uses which, both as JSON in preferences -
  * the same shape [AiSettingsStore] uses for providers and prompts.
  */
 class TranslationProfileStore(
@@ -41,10 +41,10 @@ class TranslationProfileStore(
 
     fun profile(id: String): TranslationProfile? = profiles().firstOrNull { it.id == id }
 
-    /** The profile assigned to [task], falling back to the default when unassigned or dangling. */
-    fun profileFor(task: TranslationPurpose): TranslationProfile {
+    /** The profile assigned to [purpose], falling back to the default when unassigned or dangling. */
+    fun profileFor(purpose: TranslationPurpose): TranslationProfile {
         val all = profiles()
-        val assignedId = assignments()[task]
+        val assignedId = assignments()[purpose]
         return all.firstOrNull { it.id == assignedId } ?: all.first()
     }
 
@@ -53,8 +53,8 @@ class TranslationProfileStore(
             .mapNotNull { (key, id) -> TranslationPurpose.fromKey(key)?.let { it to id } }
             .toMap()
 
-    fun assign(task: TranslationPurpose, profileId: String) {
-        val updated = assignments().mapKeys { it.key.key } + (task.key to profileId)
+    fun assign(purpose: TranslationPurpose, profileId: String) {
+        val updated = assignments().mapKeys { it.key.key } + (purpose.key to profileId)
         preferences.translationTaskProfilesJson().set(json.encodeToString(updated))
     }
 

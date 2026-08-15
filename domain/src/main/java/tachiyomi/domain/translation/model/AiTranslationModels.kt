@@ -22,9 +22,9 @@ data class TranslationContext(
 )
 
 /**
- * Execution overrides resolved from the calling task's [TranslationProfile]. Only
+ * Execution overrides resolved from the calling purpose's [TranslationProfile]. Only
  * [tachiyomi.domain.translation.model.TranslationEngineId.LLM] reads these; the other engines are
- * configured by service-wide API keys, which are not a per-task concern.
+ * configured by service-wide API keys, which are not a per-purpose concern.
  *
  * Deliberately does not carry the engine: [TranslationEngine.translate] already takes a
  * [TranslationRequest], so an engine reference here would make the two types mutually referential.
@@ -40,7 +40,7 @@ data class TranslationRequest(
     val sourceLanguage: String,
     val targetLanguage: String,
     val context: TranslationContext? = null,
-    /** Filled in by TranslationEngineManager; callers name a task instead of building this. */
+    /** Filled in by TranslationEngineManager; callers name a purpose instead of building this. */
     val config: TranslationProfileConfig? = null,
 )
 
