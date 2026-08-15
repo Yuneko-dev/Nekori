@@ -87,6 +87,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.toCommonCheckboxState
 import tachiyomi.domain.manga.interactor.BlankTitleFilter
 import tachiyomi.domain.manga.interactor.DuplicateMatchMode
 import tachiyomi.domain.manga.model.MangaWithChapterCount
@@ -373,6 +374,21 @@ class DuplicateDetectionScreen : Screen {
                     }
                 }
 
+                if (!state.listingMode && state.scanGroupsTruncated) {
+                    item(key = "scan_groups_truncated") {
+                        Text(
+                            text = stringResource(
+                                MR.strings.duplicate_scan_groups_truncated,
+                                state.duplicateGroups.size,
+                                state.scanTotalGroups,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
                 if (state.hasStartedAnalysis && state.duplicateGroups.isNotEmpty()) {
                     item(key = "search_field") {
                         OutlinedTextField(
@@ -500,17 +516,6 @@ class DuplicateDetectionScreen : Screen {
                                     onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.INCLUDE) },
                                     label = { Text(stringResource(MR.strings.duplicate_blank_include)) },
                                     leadingIcon = if (state.blankTitleFilter == BlankTitleFilter.INCLUDE) {
-                                        { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                                    } else {
-                                        null
-                                    },
-                                )
-                                FilterChip(
-                                    selected = state.blankTitleFilter == BlankTitleFilter.ONLY,
-                                    enabled = blankFiltersEnabled,
-                                    onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.ONLY) },
-                                    label = { Text(stringResource(MR.strings.duplicate_blank_only)) },
-                                    leadingIcon = if (state.blankTitleFilter == BlankTitleFilter.ONLY) {
                                         { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
                                     } else {
                                         null
@@ -901,7 +906,7 @@ class DuplicateDetectionScreen : Screen {
                             key = { it.first },
                         ) { (title, mangaList) ->
                             val materializedGroupCount = state.duplicateGroups[title]?.size ?: mangaList.size
-                            val scanFullCount = state.fullGroupIds[title]?.size ?: materializedGroupCount
+                            val scanFullCount = state.allGroupIds[title]?.size ?: materializedGroupCount
                             val fullGroupCount = if (scanFullCount > materializedGroupCount) {
                                 scanFullCount
                             } else {
@@ -979,10 +984,13 @@ class DuplicateDetectionScreen : Screen {
                     if (addCategories.isNotEmpty() || removeCategories.isNotEmpty()) {
                         val count = state.selection.size
                         scope.launch {
-                            screenModel.moveSelectedToCategories(addCategories, removeCategories)
-                            snackbarHostState.showSnackbar(
-                                context.ctxStringResource(MR.strings.duplicate_moved_count, count),
-                            )
+                            val success = screenModel.moveSelectedToCategories(addCategories, removeCategories)
+                            val message = if (success) {
+                                context.ctxStringResource(MR.strings.duplicate_moved_count, count)
+                            } else {
+                                context.ctxStringResource(MR.strings.duplicate_move_failed)
+                            }
+                            snackbarHostState.showSnackbar(message)
                         }
                     }
                 },
@@ -996,17 +1004,10 @@ private fun categorySelectionFor(
     val selectedIds = state.selection
     if (selectedIds.isEmpty()) return state.categories.map { CheckboxState.State.None(it) }
 
-    val perManga = selectedIds.map { state.mangaCategoryIdSets[it] ?: setOf(0L) }
-    val common = perManga.reduce { a, b -> a intersect b }
-    val union = perManga.flatten().toSet()
-
-    return state.categories.map {
-        when {
-            it.id in common -> CheckboxState.State.Checked(it)
-            it.id in union -> CheckboxState.TriState.None(it)
-            else -> CheckboxState.State.None(it)
-        }
-    }
+    // Hidden-tail selections have no materialized category data; skip them rather than assuming
+    // Uncategorized, which would wrongly drag a category that's actually common down to "mixed".
+    val perManga = selectedIds.mapNotNull { state.mangaCategoryIdSets[it] }
+    return state.categories.toCommonCheckboxState({ it.id }, perManga)
 }
 
 @Composable

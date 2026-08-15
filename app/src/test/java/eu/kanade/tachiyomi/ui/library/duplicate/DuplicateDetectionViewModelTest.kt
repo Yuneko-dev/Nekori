@@ -414,12 +414,26 @@ class DuplicateDetectionViewModelTest {
     fun `unfiltered truncated group exposes every id while filtered group stays materialized`() {
         val group = listOf(entry(id = 1), entry(id = 2))
         val fullIds = (1L..25_000L).toList()
-        val state = DuplicateDetectionViewModel.State(fullGroupIds = mapOf("dup" to fullIds))
+        val state = DuplicateDetectionViewModel.State(allGroupIds = mapOf("dup" to fullIds))
 
         assertEquals(fullIds.toSet(), state.selectableGroupIds("dup", group))
         assertEquals(
             setOf(1L, 2L),
             state.copy(searchQuery = "filtered").selectableGroupIds("dup", group),
         )
+    }
+
+    @Test
+    fun `groups dropped by the total-group cap stay selectable while nothing is filtered`() {
+        val shown = listOf(entry(id = 1), entry(id = 2))
+        val state = DuplicateDetectionViewModel.State(
+            allGroupIds = mapOf("shown" to listOf(1L, 2L), "dropped" to listOf(3L, 4L)),
+            filteredDuplicateGroups = mapOf("shown" to shown),
+        )
+
+        assertEquals(listOf(listOf(3L, 4L)), state.whollyHiddenGroupIdLists().toList())
+        // Dismissed and filtered views must not resurrect ids that were never checked against a filter.
+        assertTrue(state.copy(dismissedGroups = setOf("dropped")).whollyHiddenGroupIdLists().isEmpty())
+        assertTrue(state.copy(searchQuery = "x").whollyHiddenGroupIdLists().isEmpty())
     }
 }
