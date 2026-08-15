@@ -881,6 +881,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
             val devToolsEnabled = preferences.novelWebViewDevTools.get()
             webChromeClient = object : WebChromeClient() {
+                // The arm deliberately survives this callback. One DASH source asks many times: dash.js
+                // probes MediaCapabilities.decodingInfo() once per representation before it ever calls
+                // requestMediaKeySystemAccess, and every probe on encrypted content raises its own
+                // permission request. Consuming the arm on the first one let a capability probe spend it,
+                // after which every representation was reported unsupported and the real key-system
+                // request was denied. The window is still bounded - onPageStarted and destroy() clear it,
+                // and the origin and resource checks below are unchanged.
                 override fun onPermissionRequest(request: PermissionRequest) {
                     val granted = canGrantProtectedMediaPlayback(
                         armed = protectedMediaPlaybackArmed,
@@ -893,7 +900,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         resources = request.resources.toList(),
                         protectedMediaResource = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID,
                     )
-                    protectedMediaPlaybackArmed = false
                     if (granted) {
                         request.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID))
                     } else {
@@ -2481,10 +2487,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     @Suppress("unused")
     inner class WebViewInterface {
         /**
-         * Arms a single protected-media grant for the DASH flow. Android WebView's Widevine needs the
-         * device DRM identifier even at L3 — denying the permission leaves ClearKey only — and that
-         * identifier is a permanent, unresettable handle on the device. Incognito promises the plugin
-         * site learns nothing durable about this session, so DRM playback loses rather than incognito.
+         * Arms protected-media grants for the DASH flow until the document changes. Android WebView's
+         * Widevine needs the device DRM identifier even at L3 — denying the permission leaves ClearKey
+         * only — and that identifier is a permanent, unresettable handle on the device. Incognito
+         * promises the plugin site learns nothing durable about this session, so DRM playback loses
+         * rather than incognito.
+         *
+         * The arm covers every permission request in the document, not one: see onPermissionRequest.
          */
         @JavascriptInterface
         fun requestProtectedMediaPlayback(): Boolean {
