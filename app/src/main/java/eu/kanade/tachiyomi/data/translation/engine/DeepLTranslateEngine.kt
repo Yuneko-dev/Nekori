@@ -14,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -103,7 +104,8 @@ class DeepLTranslateEngine(
         val text: String,
     )
 
-    override fun isConfigured(): Boolean {
+    // The DeepL key belongs to the service, not the calling task, so the profile config is ignored.
+    override fun isConfigured(config: TranslationProfileConfig?): Boolean {
         return preferences.deepLApiKey().get().isNotBlank()
     }
 

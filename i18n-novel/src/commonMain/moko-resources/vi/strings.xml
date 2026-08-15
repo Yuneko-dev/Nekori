@@ -646,6 +646,17 @@
     <string name="pref_translation_retry_count">Số lần thử lại sau lỗi</string>
     <string name="action_translation_settings">Cài đặt dịch</string>
     <string name="pref_translation_engine">Công cụ dịch</string>
+    <string name="pref_translation_profiles">Hồ sơ dịch</string>
+    <string name="pref_translation_profiles_manage">Quản lý hồ sơ</string>
+    <string name="pref_translation_profiles_count">%d hồ sơ</string>
+    <string name="pref_translation_profile_default">Mặc định</string>
+    <string name="pref_translation_profile_new">Hồ sơ mới</string>
+    <string name="pref_translation_profile_name">Tên</string>
+    <string name="pref_translation_profile_add">Thêm hồ sơ</string>
+    <string name="pref_translation_profile_use_active">Dùng thiết lập đang chọn</string>
+    <string name="pref_translation_purpose_chapter">Nội dung chương</string>
+    <string name="pref_translation_purpose_metadata">Thông tin truyện</string>
+    <string name="pref_translation_purpose_browse_title">Tiêu đề khi duyệt nguồn</string>
     <string name="pref_translation_languages">Ngôn ngữ</string>
     <string name="pref_translation_behavior">Hành vi</string>
     <string name="pref_translation_llm">LLM</string>

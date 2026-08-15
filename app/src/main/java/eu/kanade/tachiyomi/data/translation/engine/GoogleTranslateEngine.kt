@@ -14,6 +14,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationProfileConfig
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -132,7 +133,8 @@ class GoogleTranslateEngine(
         val status: String? = null,
     )
 
-    override fun isConfigured(): Boolean {
+    // The Google Cloud key belongs to the service, not the calling task.
+    override fun isConfigured(config: TranslationProfileConfig?): Boolean {
         return preferences.googleApiKey().get().isNotBlank()
     }
 

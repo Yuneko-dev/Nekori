@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -77,6 +78,7 @@ fun TranslateMangaDetailsDialog(
 
             // Translate title
             val titleResult = translationEngineManager.translate(
+                TranslationPurpose.METADATA,
                 TranslationRequest(listOf(manga.title), sourceLang, targetLang),
             )
             when (titleResult) {
@@ -93,6 +95,7 @@ fun TranslateMangaDetailsDialog(
             manga.description?.let { desc ->
                 if (desc.isNotBlank()) {
                     val descResult = translationEngineManager.translate(
+                        TranslationPurpose.METADATA,
                         TranslationRequest(listOf(desc), sourceLang, targetLang),
                     )
                     when (descResult) {
@@ -111,6 +114,7 @@ fun TranslateMangaDetailsDialog(
             val genres = manga.genre
             if (!genres.isNullOrEmpty()) {
                 val genresResult = translationEngineManager.translate(
+                    TranslationPurpose.METADATA,
                     TranslationRequest(genres, sourceLang, targetLang),
                 )
                 when (genresResult) {

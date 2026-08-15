@@ -66,6 +66,7 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -760,7 +761,7 @@ class BrowseSourceViewModel(
         translationJob?.cancel()
         translationJob = viewModelScope.launchIO {
             try {
-                val engine = translationEngineManager.getEngine()
+                val engine = translationEngineManager.getEngine(TranslationPurpose.BROWSE_TITLE)
                     ?: error("Translation engine is not configured")
                 val targetLang = translationPreferences.targetLanguage().get()
                 logcat { "Translation enabled: engine=${engine.name}, target=$targetLang" }
@@ -794,6 +795,7 @@ class BrowseSourceViewModel(
 
             mutableState.update { it.copy(translatingTitles = true) }
             val result = translationEngineManager.translate(
+                TranslationPurpose.BROWSE_TITLE,
                 TranslationRequest(
                     texts = toTranslate.map { it.title },
                     sourceLanguage = translationPreferences.sourceLanguage().get(),

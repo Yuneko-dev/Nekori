@@ -500,7 +500,7 @@ data class AiPromptEditorScreen(private val promptId: String? = null) : Screen()
 private enum class ProviderAction { LOAD_MODELS, TEST_CONNECTION }
 
 @Composable
-private fun ManagerRow(
+internal fun ManagerRow(
     title: String,
     subtitle: String,
     icon: @Composable () -> Unit,
@@ -538,7 +538,7 @@ private fun ManagerRow(
 }
 
 @Composable
-private fun EmptyManagerMessage(text: String) {
+internal fun EmptyManagerMessage(text: String) {
     Text(
         text,
         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 16.dp),
@@ -549,7 +549,7 @@ private fun EmptyManagerMessage(text: String) {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(
         text,
         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),

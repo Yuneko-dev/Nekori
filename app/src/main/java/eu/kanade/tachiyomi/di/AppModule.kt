@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationCache
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
+import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.discord.DiscordAuth
 import eu.kanade.tachiyomi.discord.DiscordRpcManager
@@ -164,7 +165,8 @@ class AppModule(val app: Application) : InjektModule {
         // Translation services
         addSingletonFactory { TranslationCache(app) }
         addSingletonFactory { AiSettingsStore(get(), get()) }
-        addSingletonFactory { TranslationEngineManager(get()) }
+        addSingletonFactory { TranslationProfileStore(get(), get()) }
+        addSingletonFactory { TranslationEngineManager(get(), get(), get()) }
         addSingletonFactory { TranslationService(app) }
 
         // JS Plugin management (LNReader-style plugins)

@@ -38,6 +38,7 @@ import tachiyomi.domain.translation.model.TranslationContext
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationLocator
 import tachiyomi.domain.translation.model.TranslationProgress
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.TranslationStatus
@@ -388,7 +389,7 @@ class TranslationService(
      * with a .tmp extension and can be resumed on the next attempt.
      */
     private suspend fun translateChapter(task: TranslationTask) = withContext(Dispatchers.IO) {
-        val engine = translationEngineManager.getEngine()
+        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
             ?: throw IllegalStateException("No translation engine available")
 
         // Get chapter and manga from database
@@ -502,6 +503,7 @@ class TranslationService(
         var translatedTitle: String? = null
         try {
             val titleResult = translationEngineManager.translate(
+                TranslationPurpose.CHAPTER,
                 TranslationRequest(listOf(chapter.name), task.sourceLanguage, task.targetLanguage),
             )
             if (titleResult is TranslationResult.Success) {
@@ -571,6 +573,7 @@ class TranslationService(
             for (attempt in 1..MAX_CHUNK_RETRIES) {
                 try {
                     val result = translationEngineManager.translate(
+                        TranslationPurpose.CHAPTER,
                         TranslationRequest(
                             texts = chunkParagraphsList[chunkIndex],
                             sourceLanguage = task.sourceLanguage,
@@ -853,13 +856,14 @@ class TranslationService(
         sourceLanguage: String = translationPreferences.sourceLanguage().get(),
         targetLanguage: String = translationPreferences.targetLanguage().get(),
     ): TranslationResult {
-        val engine = translationEngineManager.getEngine()
+        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
             ?: return TranslationResult.Error("No translation engine available")
 
         logcat(LogPriority.DEBUG) {
             "Translation: sending ${text.length} chars via ${engine.name} ($sourceLanguage → $targetLanguage)"
         }
         val result = translationEngineManager.translate(
+            TranslationPurpose.CHAPTER,
             TranslationRequest(listOf(text), sourceLanguage, targetLanguage),
         )
         when (result) {
@@ -931,6 +935,7 @@ class TranslationService(
                 try {
                     when (
                         val result = translationEngineManager.translate(
+                            TranslationPurpose.CHAPTER,
                             TranslationRequest(texts, srcLang, tgtLang),
                         )
                     ) {
@@ -950,7 +955,7 @@ class TranslationService(
         val translatedHtml = translationPlan.apply(translatedSegments)
         return translatedHtml.also {
             if (locator != null) {
-                val engine = translationEngineManager.getEngine()
+                val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
                 val translatedChapter = TranslatedChapter(
                     chapterId = 0,
                     mangaId = 0,

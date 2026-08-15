@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -99,7 +100,7 @@ private fun DialogContent(
     // Use the selected engine's supported languages, falling back to a basic list
     val engineManager = remember { Injekt.get<TranslationEngineManager>() }
     val languages = remember {
-        val engineLangs = engineManager.getSupportedLanguages()
+        val engineLangs = engineManager.getSupportedLanguages(TranslationPurpose.CHAPTER)
         if (engineLangs.isNotEmpty()) {
             engineLangs
                 .filter { it.first != "auto" }

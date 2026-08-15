@@ -21,11 +21,27 @@ data class TranslationContext(
     val previousTranslatedParagraphs: List<String> = emptyList(),
 )
 
+/**
+ * Execution overrides resolved from the calling task's [TranslationProfile]. Only
+ * [tachiyomi.domain.translation.model.TranslationEngineId.LLM] reads these; the other engines are
+ * configured by service-wide API keys, which are not a per-task concern.
+ *
+ * Deliberately does not carry the engine: [TranslationEngine.translate] already takes a
+ * [TranslationRequest], so an engine reference here would make the two types mutually referential.
+ */
+data class TranslationProfileConfig(
+    val provider: AIProvider? = null,
+    val apiKey: String = "",
+    val guidelines: String? = null,
+)
+
 data class TranslationRequest(
     val texts: List<String>,
     val sourceLanguage: String,
     val targetLanguage: String,
     val context: TranslationContext? = null,
+    /** Filled in by TranslationEngineManager; callers name a task instead of building this. */
+    val config: TranslationProfileConfig? = null,
 )
 
 @Serializable

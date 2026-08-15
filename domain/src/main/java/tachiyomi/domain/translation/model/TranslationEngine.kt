@@ -55,9 +55,12 @@ interface TranslationEngine {
     }
 
     /**
-     * Check if the engine is properly configured (API key set, etc.).
+     * Check if the engine is properly configured (API key set, etc.) for [config].
+     *
+     * Only the LLM engine varies per profile; engines keyed by a service-wide API key ignore the
+     * argument. A null [config] means "use the globally active configuration".
      */
-    fun isConfigured(): Boolean = true
+    fun isConfigured(config: TranslationProfileConfig? = null): Boolean = true
 }
 
 /**

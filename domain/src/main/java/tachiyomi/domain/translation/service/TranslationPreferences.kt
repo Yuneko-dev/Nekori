@@ -27,6 +27,14 @@ class TranslationPreferences(
         TranslationEngineId.GOOGLE_FREE.key,
     )
 
+    /** Serialized [tachiyomi.domain.translation.model.TranslationProfile] list. Empty until the user
+     *  creates one; the store then synthesizes a default from [selectedEngineId] and the active
+     *  provider/prompt, so an upgrade needs no migration. */
+    fun translationProfilesJson() = preferenceStore.getString("translation_profiles", "[]")
+
+    /** Serialized task key -> profile id map. A missing task falls back to the default profile. */
+    fun translationTaskProfilesJson() = preferenceStore.getString("translation_task_profiles", "{}")
+
     fun aiProvidersJson() = preferenceStore.getString("translation_ai_providers", "[]")
 
     fun activeAiProviderId() = preferenceStore.getString("translation_active_ai_provider", "")

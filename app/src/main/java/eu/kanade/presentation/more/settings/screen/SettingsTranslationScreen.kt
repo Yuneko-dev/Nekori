@@ -17,13 +17,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
+import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -55,6 +58,7 @@ object SettingsTranslationScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
         val engines = remember { Injekt.get<TranslationEngineManager>() }
+        val profileStore = remember { Injekt.get<TranslationProfileStore>() }
         val ai = remember { Injekt.get<AiSettingsStore>() }
         val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
@@ -95,31 +99,14 @@ object SettingsTranslationScreen : SearchableSettings {
             )
             else -> stringResource(MR.strings.pref_translation_status_idle)
         }
-        val selectedEngine = engines.engines.firstOrNull { it.id.key == engineId } ?: engines.engines.first()
-        val languageEntries = selectedEngine.supportedLanguages.toMap()
+        // The language list follows the chapter profile's engine: it is the one the reader uses.
+        val languageEntries = engines.getSupportedLanguages(TranslationPurpose.CHAPTER).toMap()
         val groups = mutableListOf<Preference>()
         groups += Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_general),
             preferenceItems = listOf(masterPreference(prefs)),
         )
-        groups += Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_engine),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(TDMR.strings.pref_translation_engine),
-                    content = {
-                        SettingsDropdownField(
-                            label = stringResource(TDMR.strings.pref_translation_engine),
-                            value = selectedEngine,
-                            values = engines.engines,
-                            valueLabel = { it.name },
-                            onSelected = { prefs.selectedEngineId().set(it.id.key) },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    },
-                ),
-            ),
-        )
+        groups += profilesGroup(prefs, profileStore, navigator)
         groups += Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_languages),
             preferenceItems = listOf(
@@ -153,6 +140,61 @@ object SettingsTranslationScreen : SearchableSettings {
         )
         groups += rateLimitGroup(prefs)
         return groups
+    }
+
+    /**
+     * Profile management plus one assignment row per [TranslationPurpose]. Adding a purpose adds a
+     * row here and nothing else.
+     */
+    @Composable
+    private fun profilesGroup(
+        prefs: TranslationPreferences,
+        profileStore: TranslationProfileStore,
+        navigator: Navigator,
+    ): Preference.PreferenceGroup {
+        val profilesJson by prefs.translationProfilesJson().collectAsState()
+        val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
+        val profiles = remember(profilesJson) { profileStore.profiles() }
+        val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
+        val purposeLabels = mapOf(
+            TranslationPurpose.CHAPTER to stringResource(TDMR.strings.pref_translation_purpose_chapter),
+            TranslationPurpose.METADATA to stringResource(TDMR.strings.pref_translation_purpose_metadata),
+            TranslationPurpose.BROWSE_TITLE to stringResource(TDMR.strings.pref_translation_purpose_browse_title),
+        )
+
+        return Preference.PreferenceGroup(
+            title = stringResource(TDMR.strings.pref_translation_profiles),
+            preferenceItems = buildList {
+                add(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(TDMR.strings.pref_translation_profiles_manage),
+                        subtitle = stringResource(
+                            TDMR.strings.pref_translation_profiles_count,
+                            profiles.size,
+                        ),
+                        onClick = { navigator.push(SettingsTranslationProfilesScreen) },
+                    ),
+                )
+                TranslationPurpose.entries.forEach { purpose ->
+                    val current = remember(profilesJson, assignmentsJson) { profileStore.profileFor(purpose) }
+                    add(
+                        Preference.PreferenceItem.CustomPreference(
+                            title = purposeLabels.getValue(purpose),
+                            content = {
+                                SettingsDropdownField(
+                                    label = purposeLabels.getValue(purpose),
+                                    value = current,
+                                    values = profiles,
+                                    valueLabel = { it.name.ifBlank { defaultName } },
+                                    onSelected = { profileStore.assign(purpose, it.id) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            },
+                        ),
+                    )
+                }
+            },
+        )
     }
 
     @Composable
