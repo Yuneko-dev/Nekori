@@ -25,6 +25,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
+import eu.kanade.presentation.more.settings.screen.advanced.DomainForwardingScreen
 import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
 import eu.kanade.tachiyomi.data.database.DatabaseMaintenanceJob
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -639,6 +640,7 @@ object SettingsAdvancedScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
         val networkHelper = remember { Injekt.get<NetworkHelper>() }
+        val navigator = LocalNavigator.currentOrThrow
 
         val userAgentPref = networkPreferences.defaultUserAgent
         val userAgent by userAgentPref.collectAsState()
@@ -646,6 +648,11 @@ object SettingsAdvancedScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
             preferenceItems = listOf(
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(TDMR.strings.domain_forwarding_title),
+                    subtitle = stringResource(TDMR.strings.domain_forwarding_summary),
+                    onClick = { navigator.push(DomainForwardingScreen) },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_clear_cookies),
                     onClick = {

@@ -208,6 +208,11 @@ class JsSource(
     val customCSS: String get() = installedPlugin.customCSS
     val customJS: String get() = installedPlugin.customJS
 
+    suspend fun getCurrentBaseUrl(): String {
+        ensureLoadedInHermes()
+        return baseUrl
+    }
+
     /** Unload this plugin's Hermes context while keeping the process-wide runtime alive. */
     suspend fun releaseRuntime() {
         hermesLoadMutex.withLock {

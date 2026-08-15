@@ -5,13 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
-/**
- * Tag marking a request as issued by plugin JavaScript (a `fetch` inside Hermes) rather than by
- * Kotlin app code. The JS runtime shares the app's single [eu.kanade.tachiyomi.network.NetworkHelper.client],
- * so without a marker on the request itself there is nothing downstream to tell the two apart -
- * which is what the "throttle plugin requests only" preference needs in order to pace plugin
- * traffic while leaving the rest of the app's requests alone.
- */
+/** Marks Hermes plugin traffic so JS-only network policies do not affect app requests. */
 object JsPluginOrigin
 
 private class JsPluginOriginInterceptor : Interceptor {

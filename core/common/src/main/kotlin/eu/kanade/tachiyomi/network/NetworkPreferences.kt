@@ -14,6 +14,8 @@ class NetworkPreferences(
 
     val dpiBypass: Preference<Boolean> = preferenceStore.getBoolean("dpi_bypass", false)
 
+    val domainForwarding: Preference<String> = preferenceStore.getString("domain_forwarding")
+
     val defaultUserAgent: Preference<String> = preferenceStore.getString(
         "default_user_agent",
         "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36",

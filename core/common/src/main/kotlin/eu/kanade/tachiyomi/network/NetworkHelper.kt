@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.network
 
 import android.content.Context
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
+import eu.kanade.tachiyomi.network.interceptor.DomainForwarding
+import eu.kanade.tachiyomi.network.interceptor.DomainForwardingInterceptor
 import eu.kanade.tachiyomi.network.interceptor.PerHostDynamicRateLimitInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
@@ -21,6 +23,7 @@ class NetworkHelper(
     val cookieJar = AndroidCookieJar()
 
     val rateLimitInterceptor = PerHostDynamicRateLimitInterceptor()
+    val domainForwarding = DomainForwarding(preferences.domainForwarding)
 
     private val clientBuilder: OkHttpClient.Builder = run {
         val builder = OkHttpClient.Builder()
@@ -34,6 +37,7 @@ class NetworkHelper(
                     maxSize = 5L * 1024 * 1024, // 5 MiB
                 ),
             )
+            .addInterceptor(DomainForwardingInterceptor(domainForwarding))
             .addInterceptor(UncaughtExceptionInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
             .addInterceptor(rateLimitInterceptor)
@@ -62,7 +66,6 @@ class NetworkHelper(
             PREF_DOH_CONTROLD -> builder.dohControlD()
             PREF_DOH_NJALLA -> builder.dohNajalla()
             PREF_DOH_SHECAN -> builder.dohShecan()
-            else -> builder
         }
 
         builder.socketFactory(RoutingSocketFactory { preferences.dpiBypass.get() })
@@ -75,7 +78,7 @@ class NetworkHelper(
         .build()
 
     /**
-     * The client the JS runtime hands to React Native's networking, so plugin `fetch` traffic is
+     * The client the JS runtime hands to React Native's networking, so plugin traffic is
      * distinguishable from the app's own requests to the same hosts (see [markJsPluginOrigin]).
      * Derived from [client], so it shares its connection pool, cache, cookie jar and interceptors.
      */

@@ -33,20 +33,24 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.screen.advanced.DomainForwardingDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.SharedPreferencesDataStore
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncognito
 import kotlinx.coroutines.launch
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.i18n.stringResource as contextStringResource
 
 class SourcePreferencesScreen(val sourceId: Long) : Screen() {
 
@@ -59,6 +63,16 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
 
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
+        var domainForwardingSource by rememberSaveable { mutableStateOf<String?>(null) }
+
+        domainForwardingSource?.let { source ->
+            DomainForwardingDialog(
+                manager = Injekt.get<NetworkHelper>().domainForwarding,
+                initialSource = source,
+                lockSource = true,
+                onDismissRequest = { domainForwardingSource = null },
+            )
+        }
 
         Scaffold(
             topBar = {
@@ -75,7 +89,13 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
                     .fillMaxSize()
                     .padding(contentPadding),
             ) {
-                add(it, SourcePreferencesFragment.getInstance(sourceId), null)
+                add(
+                    it,
+                    SourcePreferencesFragment.getInstance(sourceId).apply {
+                        onDomainForwardingClick = { domainForwardingSource = it }
+                    },
+                    null,
+                )
             }
         }
     }
@@ -123,6 +143,8 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
 
 class SourcePreferencesFragment : PreferenceFragmentCompat() {
 
+    var onDomainForwardingClick: ((String) -> Unit)? = null
+
     override fun getContext(): Context? {
         val superCtx = super.getContext() ?: return null
         val tv = TypedValue()
@@ -165,6 +187,23 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
             }
         }
         sourceScreen.addPreference(reverseChapterPref)
+
+        if (source is JsSource) {
+            sourceScreen.addPreference(
+                androidx.preference.Preference(requireContext()).apply {
+                    key = "tsundoku_domain_forwarding"
+                    title = requireContext().contextStringResource(TDMR.strings.domain_forwarding_title)
+                    summary = requireContext().contextStringResource(TDMR.strings.domain_forwarding_plugin_summary)
+                    setOnPreferenceClickListener {
+                        lifecycleScope.launch {
+                            val origin = runCatching { source.getCurrentBaseUrl() }.getOrDefault(source.baseUrl)
+                            onDomainForwardingClick?.invoke(origin)
+                        }
+                        true
+                    }
+                },
+            )
+        }
 
         if (source is ConfigurableSource) {
             val dataStore = SharedPreferencesDataStore(source.sourcePreferences())

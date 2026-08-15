@@ -7,7 +7,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import uy.kohesive.injekt.Injekt
@@ -23,7 +22,7 @@ class JsRuntimeProductionNetworkTest {
     private val runtime by lazy { Injekt.get<JsRuntime>() }
 
     @Test
-    fun pluginFetchUsesProductionNetworkHelperClient() = runBlocking {
+    fun pluginXmlHttpRequestUsesProductionClientAndDomainForwarding() = runBlocking {
         ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
             val response = async(Dispatchers.IO) {
                 server.accept().use { socket ->
@@ -55,11 +54,20 @@ class JsRuntimeProductionNetworkTest {
             runtime.start()
             assertSame(networkClient, reactNativeNetworkingClient())
 
-            runtime.call("plugin.load", """{"id":"network.test","code":${quote(PLUGIN_SOURCE)}}""")
-            val result = runtime.call(
-                "plugin.parseChapter",
-                """{"id":"network.test","path":"http://127.0.0.1:${server.localPort}/chapter"}""",
+            networkHelper.domainForwarding.put(
+                "http://original.invalid",
+                "http://127.0.0.1:${server.localPort}",
+                global = false,
             )
+            val result = try {
+                runtime.call("plugin.load", """{"id":"network.test","code":${quote(PLUGIN_SOURCE)}}""")
+                runtime.call(
+                    "plugin.parseChapter",
+                    """{"id":"network.test","path":"/chapter"}""",
+                )
+            } finally {
+                networkHelper.domainForwarding.remove("http://original.invalid")
+            }
 
             val requestHeaders = response.await()
             assertEquals(networkHelper.defaultUserAgentProvider(), requestHeaders["user-agent"])
@@ -89,13 +97,18 @@ class JsRuntimeProductionNetworkTest {
 
     private companion object {
         val PLUGIN_SOURCE = """
-            const { fetchApi } = require('@libs/fetch');
             exports.default = {
               id: 'network.test',
               name: 'Network identity test',
               version: '1',
-              site: 'http://127.0.0.1',
-              parseChapter: async path => (await fetchApi(path)).text(),
+              get site() { return 'http://original.invalid'; },
+              parseChapter(path) { return new Promise((resolve, reject) => {
+                const request = new XMLHttpRequest();
+                request.onload = () => resolve(request.responseText);
+                request.onerror = reject;
+                request.open('GET', this.site + path);
+                request.send();
+              }); },
             };
         """.trimIndent()
     }

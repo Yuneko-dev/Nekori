@@ -477,6 +477,14 @@
     <string name="novel_downloads_more_errors">+%d lỗi khác</string>
     <string name="novel_downloads_show_less">Thu gọn</string>
     <string name="js_plugin_repo_url">URL</string>
+    <string name="domain_forwarding_title">Chuyển tiếp tên miền</string>
+    <string name="domain_forwarding_summary">Ánh xạ một URL origin sang origin khác cho các yêu cầu mạng</string>
+    <string name="domain_forwarding_plugin_summary">Chuyển tiếp các yêu cầu từ tên miền của plugin này</string>
+    <string name="domain_forwarding_empty">Chưa có quy tắc chuyển tiếp tên miền</string>
+    <string name="domain_forwarding_scope_global">Áp dụng toàn cục</string>
+    <string name="domain_forwarding_scope_js">Chỉ yêu cầu của plugin</string>
+    <string name="domain_forwarding_source">Origin nguồn</string>
+    <string name="domain_forwarding_target">Origin đích</string>
 
     <!-- Some novel settings -->
     <string name="pref_font_size">Cỡ chữ</string>

@@ -485,6 +485,14 @@
     <string name="novel_downloads_more_errors">+%d more</string>
     <string name="novel_downloads_show_less">Show less</string>
     <string name="js_plugin_repo_url">URL</string>
+    <string name="domain_forwarding_title">Domain forwarding</string>
+    <string name="domain_forwarding_summary">Map one URL origin to another for network requests</string>
+    <string name="domain_forwarding_plugin_summary">Forward requests from this plugin\'s domain</string>
+    <string name="domain_forwarding_empty">No domain forwarding rules</string>
+    <string name="domain_forwarding_scope_global">Apply globally</string>
+    <string name="domain_forwarding_scope_js">Plugin requests only</string>
+    <string name="domain_forwarding_source">Source origin</string>
+    <string name="domain_forwarding_target">Target origin</string>
 
     <!-- Some novel settings -->
     <string name="pref_font_size">Font size</string>
