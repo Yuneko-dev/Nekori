@@ -202,21 +202,20 @@ class BrowseSourceViewModel(
                     source.getFilterList()
                 }
 
-                if (manageFilterPresets.getAutoApplyEnabled()) {
-                    val presetState = manageFilterPresets.getDefaultPresetState(sourceId)
-                    if (presetState != null) {
-                        ManageFilterPresets.applyPresetState(initialFilters, presetState)
-                        logcat(LogPriority.INFO) { "BrowseSource: Default preset applied on init" }
-                    }
+                val defaultPreset = _filterPresets.value
+                    .firstOrNull { it.isDefault }
+                    ?.takeIf { manageFilterPresets.getAutoApplyEnabled() }
+                if (defaultPreset != null) {
+                    ManageFilterPresets.applyPresetState(initialFilters, defaultPreset.filterState)
+                    logcat(LogPriority.INFO) { "BrowseSource: Default preset applied on init" }
                 }
 
                 mutableState.update {
-                    var query: String? = null
-                    var listing = it.listing
-
-                    if (listing is Listing.Search) {
-                        query = listing.query
-                        listing = Listing.Search(query, initialFilters)
+                    val query = (it.listing as? Listing.Search)?.query
+                    val listing = when {
+                        defaultPreset != null -> Listing.Search(query, initialFilters, defaultPreset.id)
+                        it.listing is Listing.Search -> it.listing.copy(filters = initialFilters)
+                        else -> it.listing
                     }
 
                     it.copy(
@@ -388,7 +387,7 @@ class BrowseSourceViewModel(
         }
     }
 
-    fun search(query: String? = null, filters: FilterList? = null) {
+    fun search(query: String? = null, filters: FilterList? = null, filterPresetId: Long? = null) {
         if (source !is CatalogueSource) return
         logcat(LogPriority.DEBUG) { "search called: query='$query', filters=${filters?.hashCode()}" }
 
@@ -406,8 +405,10 @@ class BrowseSourceViewModel(
                 listing = input.copy(
                     query = query ?: input.query,
                     filters = newFilters,
+                    filterPresetId = filterPresetId ?: input.filterPresetId.takeIf { filters == null },
                 ),
                 filters = newFilters, // Ensure state.filters is also updated
+                pendingFilters = newFilters,
                 toolbarQuery = query ?: input.query,
             )
         }
@@ -638,11 +639,28 @@ class BrowseSourceViewModel(
         }
     }
 
+    fun applyFilterPreset(presetId: Long) {
+        if (source !is CatalogueSource) return
+
+        val presetState = manageFilterPresets.loadPresetState(sourceId, presetId) ?: return
+        val filters = source.getFilterList()
+        ManageFilterPresets.applyPresetState(filters, presetState)
+        search(filters = filters, filterPresetId = presetId)
+    }
+
     fun deleteFilterPreset(presetId: Long) {
         logcat(LogPriority.DEBUG) { "BrowseSource: deleteFilterPreset presetId=$presetId" }
         manageFilterPresets.deletePreset(sourceId, presetId)
         // Immediately refresh the presets list
         refreshFilterPresets()
+        mutableState.update { state ->
+            val listing = state.listing as? Listing.Search
+            if (listing?.filterPresetId == presetId) {
+                state.copy(listing = listing.copy(filterPresetId = null))
+            } else {
+                state
+            }
+        }
         logcat(LogPriority.INFO) { "BrowseSource: Preset deleted" }
     }
 
@@ -663,27 +681,6 @@ class BrowseSourceViewModel(
         manageFilterPresets.setAutoApplyEnabled(enabled)
     }
 
-    private fun applyDefaultPresetIfEnabled() {
-        if (source !is CatalogueSource) return
-        if (!manageFilterPresets.getAutoApplyEnabled()) return
-
-        logcat(LogPriority.DEBUG) { "BrowseSource: applyDefaultPresetIfEnabled sourceId=$sourceId" }
-        val presetState = manageFilterPresets.getDefaultPresetState(sourceId)
-        if (presetState != null) {
-            logcat(LogPriority.DEBUG) { "BrowseSource: Found default preset, applying..." }
-            val filters = source.getFilterList()
-            ManageFilterPresets.applyPresetState(filters, presetState)
-            mutableState.update { it.copy(filters = filters) }
-            // Force a search with the new filters if we are in a search listing
-            if (state.value.listing is Listing.Search) {
-                search(state.value.listing.query, filters)
-            }
-            logcat(LogPriority.INFO) { "BrowseSource: Default preset applied" }
-        } else {
-            logcat(LogPriority.DEBUG) { "BrowseSource: No default preset found" }
-        }
-    }
-
     fun setDialog(dialog: Dialog?) {
         logcat(LogPriority.DEBUG) { "setDialog: $dialog" }
         mutableState.update { it.copy(dialog = dialog) }
@@ -699,6 +696,7 @@ class BrowseSourceViewModel(
         data class Search(
             override val query: String?,
             override val filters: FilterList,
+            val filterPresetId: Long? = null,
         ) : Listing(query = query, filters = filters)
 
         companion object {

@@ -15,6 +15,16 @@ import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Filter1
+import androidx.compose.material.icons.outlined.Filter2
+import androidx.compose.material.icons.outlined.Filter3
+import androidx.compose.material.icons.outlined.Filter4
+import androidx.compose.material.icons.outlined.Filter5
+import androidx.compose.material.icons.outlined.Filter6
+import androidx.compose.material.icons.outlined.Filter7
+import androidx.compose.material.icons.outlined.Filter8
+import androidx.compose.material.icons.outlined.Filter9
+import androidx.compose.material.icons.outlined.Filter9Plus
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Translate
@@ -121,6 +131,7 @@ data class BrowseSourceScreen(
             },
         )
         val state by viewModel.state.collectAsState()
+        val filterPresets by viewModel.filterPresets.collectAsState()
         val source = viewModel.source
         val discordRpc = remember { Injekt.get<DiscordRpcManager>() }
         val jsPluginManager = remember { Injekt.get<eu.kanade.tachiyomi.jsplugin.JsPluginManager>() }
@@ -315,9 +326,10 @@ data class BrowseSourceScreen(
                         },
                         onHelpClick = onHelpClick,
                         onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
-                        onSearch = viewModel::search,
+                        onSearch = { viewModel.search(it) },
                     )
 
+                    val activeFilterPresetId = (state.listing as? Listing.Search)?.filterPresetId
                     Row(
                         modifier = Modifier
                             .horizontalScroll(rememberScrollState())
@@ -364,7 +376,7 @@ data class BrowseSourceScreen(
                         }
                         if (state.filters.isNotEmpty()) {
                             FilterChip(
-                                selected = state.listing is Listing.Search,
+                                selected = state.listing is Listing.Search && activeFilterPresetId == null,
                                 onClick = viewModel::openFilterSheet,
                                 leadingIcon = {
                                     Icon(
@@ -377,6 +389,20 @@ data class BrowseSourceScreen(
                                 label = {
                                     Text(text = stringResource(MR.strings.action_filter))
                                 },
+                            )
+                        }
+                        filterPresets.forEachIndexed { index, preset ->
+                            FilterChip(
+                                selected = activeFilterPresetId == preset.id,
+                                onClick = { viewModel.applyFilterPreset(preset.id) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = filterPresetIcons.getOrElse(index) { Icons.Outlined.Filter9Plus },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                },
+                                label = { Text(text = preset.name) },
                             )
                         }
                         // Translation chip
@@ -761,6 +787,18 @@ data class BrowseSourceScreen(
         class Genre(txt: String) : SearchType(txt)
     }
 }
+
+private val filterPresetIcons = listOf(
+    Icons.Outlined.Filter1,
+    Icons.Outlined.Filter2,
+    Icons.Outlined.Filter3,
+    Icons.Outlined.Filter4,
+    Icons.Outlined.Filter5,
+    Icons.Outlined.Filter6,
+    Icons.Outlined.Filter7,
+    Icons.Outlined.Filter8,
+    Icons.Outlined.Filter9,
+)
 
 @Composable
 private fun LocalNovelsAddToCategoryDialog(
