@@ -1170,37 +1170,40 @@ class DuplicateDetectionViewModel(
     ) {
         val selectedIdList = state.value.selection.toList()
         withContext(Dispatchers.IO) {
-            val selectedManga = mangaRepository.getMangaWithCountsLight(selectedIdList).map { it.manga }
-            if (deleteDownloads) {
-                selectedManga.forEach { manga ->
-                    try {
-                        val source = sourceManager.get(manga.source) ?: return@forEach
-                        downloadManager.deleteManga(manga, source)
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR) { "Error deleting downloads for manga ${manga.id}: ${e.message}" }
+            // The selection is id-based and uncapped (see State.selectableGroupIds), so the rows are
+            // materialized a chunk at a time: loading every selected manga at once is the same heap
+            // spike the scan-side caps exist to avoid.
+            selectedIdList.chunked(DELETE_CHUNK).forEach { idChunk ->
+                val chunkManga = mangaRepository.getMangaWithCountsLight(idChunk).map { it.manga }
+                if (deleteDownloads) {
+                    chunkManga.forEach { manga ->
+                        try {
+                            val source = sourceManager.get(manga.source) ?: return@forEach
+                            downloadManager.deleteManga(manga, source)
+                        } catch (e: Exception) {
+                            logcat(LogPriority.ERROR) { "Error deleting downloads for manga ${manga.id}: ${e.message}" }
+                        }
                     }
                 }
-            }
 
-            if (removeFromLibrary) {
-                selectedManga.forEach { it.removeCovers(coverCache) }
-                selectedIdList.chunked(100).forEach { batch ->
+                if (removeFromLibrary) {
+                    chunkManga.forEach { it.removeCovers(coverCache) }
                     try {
                         mangaRepository.updateAll(
-                            batch.map { tachiyomi.domain.manga.model.MangaUpdate(id = it, favorite = false) },
+                            idChunk.map { tachiyomi.domain.manga.model.MangaUpdate(id = it, favorite = false) },
                         )
                     } catch (e: Exception) {
                         logcat(LogPriority.ERROR) { "Error batch updating manga favorites: ${e.message}" }
                     }
                 }
-            }
 
-            if (deleteTranslations) {
-                selectedManga.forEach { manga ->
-                    translatedChapterRepository.deleteAllForManga(
-                        sourceManager.getOrStub(manga.source).toString(),
-                        manga.title,
-                    )
+                if (deleteTranslations) {
+                    chunkManga.forEach { manga ->
+                        translatedChapterRepository.deleteAllForManga(
+                            sourceManager.getOrStub(manga.source).toString(),
+                            manga.title,
+                        )
+                    }
                 }
             }
 
@@ -1246,6 +1249,7 @@ class DuplicateDetectionViewModel(
         private const val UNCATEGORIZED_ID = 0L
         private const val TAG_PRECISE_RECHECK_MAX = 200_000
         private const val TAG_PRECHECK_CHUNK = 2000
+        private const val DELETE_CHUNK = 100
         private const val HIDDEN_TAIL_METRICS_MAX = 20_000
         private const val HIDDEN_TAIL_TOTAL_MAX = 200_000
 
