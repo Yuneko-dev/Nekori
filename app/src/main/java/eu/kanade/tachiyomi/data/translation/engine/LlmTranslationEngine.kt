@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.translation.engine
 
-import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.InvalidStructuredOutputException
 import eu.kanade.tachiyomi.data.translation.LlmPromptBuilder
 import eu.kanade.tachiyomi.data.translation.LlmRequestFactory
@@ -40,7 +39,6 @@ import java.net.SocketTimeoutException
 class LlmTranslationEngine(
     private val networkHelper: NetworkHelper = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
-    private val settings: AiSettingsStore = Injekt.get(),
     private val json: Json = Injekt.get(),
 ) : TranslationEngine {
 
@@ -54,26 +52,21 @@ class LlmTranslationEngine(
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
     override fun isConfigured(config: TranslationProfileConfig?): Boolean =
-        (config?.provider ?: settings.activeProvider())?.let { provider ->
+        config?.provider?.let { provider ->
             provider.endpoint.isNotBlank() && provider.model.isNotBlank() &&
-                (!provider.requiresApiKey || resolveApiKey(config, provider).isNotBlank())
+                (!provider.requiresApiKey || config.apiKey.isNotBlank())
         } == true
 
-    /**
-     * The profile's provider and key when the caller resolved one, otherwise the globally active
-     * configuration. The fallback keeps the interface's default [translateSingle] and any direct
-     * engine use working without a profile.
-     */
-    private fun resolveApiKey(config: TranslationProfileConfig?, provider: AIProvider): String =
-        config?.apiKey?.ifBlank { null } ?: settings.apiKey(provider.id)
-
     override suspend fun translate(request: TranslationRequest): TranslationResult = withContext(Dispatchers.IO) {
-        val config = request.config
-        val provider = config?.provider ?: settings.activeProvider() ?: return@withContext TranslationResult.Error(
-            "No active AI provider configured",
+        val config = request.config ?: return@withContext TranslationResult.Error(
+            "No translation profile configuration",
             TranslationResult.ErrorCode.REQUEST_INVALID,
         )
-        val apiKey = resolveApiKey(config, provider)
+        val provider = config.provider ?: return@withContext TranslationResult.Error(
+            "No AI provider configured",
+            TranslationResult.ErrorCode.REQUEST_INVALID,
+        )
+        val apiKey = config.apiKey
         if (provider.requiresApiKey && apiKey.isBlank()) {
             return@withContext TranslationResult.Error(
                 "API key is missing for ${provider.alias}",
@@ -85,7 +78,7 @@ class LlmTranslationEngine(
             texts = request.texts,
             sourceLanguage = LanguageCodes.getDisplayName(request.sourceLanguage),
             targetLanguage = LanguageCodes.getDisplayName(request.targetLanguage),
-            guidelines = config?.guidelines ?: settings.activePrompt().guidelines,
+            guidelines = config.guidelines.orEmpty(),
             structuredOutput = structured,
             context = request.context,
         )

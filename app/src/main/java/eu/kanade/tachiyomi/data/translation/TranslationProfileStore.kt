@@ -48,7 +48,7 @@ class TranslationProfileStore(
         return all.firstOrNull { it.id == assignedId } ?: all.first()
     }
 
-    fun assignments(): Map<TranslationPurpose, String> =
+    private fun assignments(): Map<TranslationPurpose, String> =
         decode(preferences.translationTaskProfilesJson().get(), emptyMap<String, String>())
             .mapNotNull { (key, id) -> TranslationPurpose.fromKey(key)?.let { it to id } }
             .toMap()

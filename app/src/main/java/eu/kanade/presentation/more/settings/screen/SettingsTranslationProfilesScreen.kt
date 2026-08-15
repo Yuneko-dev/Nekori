@@ -31,6 +31,9 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
+import tachiyomi.domain.translation.model.AIProvider
+import tachiyomi.domain.translation.model.SystemPrompt
+import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationProfile
 import tachiyomi.domain.translation.service.TranslationPreferences
@@ -49,9 +52,16 @@ object SettingsTranslationProfilesScreen : Screen() {
         val back = LocalBackPress.currentOrThrow
         val store = remember { Injekt.get<TranslationProfileStore>() }
         val engines = remember { Injekt.get<TranslationEngineManager>() }
+        val aiSettings = remember { Injekt.get<AiSettingsStore>() }
         val preferences = remember { Injekt.get<TranslationPreferences>() }
         val profilesJson by preferences.translationProfilesJson().collectAsState()
+        val providersJson by preferences.aiProvidersJson().collectAsState()
+        val promptsJson by preferences.systemPromptsJson().collectAsState()
+        val activeProviderId by preferences.activeAiProviderId().collectAsState()
+        val activePromptId by preferences.activeSystemPromptId().collectAsState()
         val profiles = remember(profilesJson) { store.profiles() }
+        val providers = remember(providersJson) { aiSettings.providers() }
+        val prompts = remember(promptsJson) { aiSettings.prompts() }
         val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
 
         Scaffold(topBar = {
@@ -61,7 +71,14 @@ object SettingsTranslationProfilesScreen : Screen() {
                 items(profiles, key = { it.id }) { profile ->
                     ManagerRow(
                         title = profile.name.ifBlank { defaultName },
-                        subtitle = engines.describe(profile),
+                        subtitle = describeProfile(
+                            profile,
+                            engines.engines,
+                            providers,
+                            prompts,
+                            activeProviderId,
+                            activePromptId,
+                        ),
                         icon = { Icon(Icons.Outlined.Translate, null) },
                         onClick = { navigator.push(TranslationProfileEditorScreen(profile.id)) },
                         onDelete = if (profile.deletable) {
@@ -100,17 +117,25 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
         val original = remember(profileId) { profileId?.let(store::profile) }
         val isDefault = original?.id == TranslationProfile.DEFAULT_ID
         val id = original?.id ?: remember { UUID.randomUUID().toString() }
+        val availableEngines = engines.engines
+        val providers = remember { listOf<AIProvider?>(null) + aiSettings.providers() }
+        val prompts = remember { listOf<SystemPrompt?>(null) + aiSettings.prompts() }
 
         var name by remember { mutableStateOf(original?.name.orEmpty()) }
-        var engineId by remember {
-            mutableStateOf(original?.engineId ?: engines.getSelectedEngine().id)
+        var engine by remember {
+            mutableStateOf(
+                original?.let { profile -> availableEngines.first { it.id == profile.engineId } }
+                    ?: engines.getSelectedEngine(),
+            )
         }
-        var providerId by remember { mutableStateOf(original?.aiProviderId) }
-        var promptId by remember { mutableStateOf(original?.systemPromptId) }
+        var provider by remember {
+            mutableStateOf(original?.aiProviderId?.let { id -> providers.firstOrNull { it?.id == id } })
+        }
+        var prompt by remember {
+            mutableStateOf(original?.systemPromptId?.let { id -> prompts.firstOrNull { it?.id == id } })
+        }
 
         // "Use the globally active one" is a real choice, so both pickers carry a null entry.
-        val providers = remember { listOf(null) + aiSettings.providers().map { it.id } }
-        val prompts = remember { listOf(null) + aiSettings.prompts().map { it.id } }
         val useActive = stringResource(TDMR.strings.pref_translation_profile_use_active)
         val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
 
@@ -120,9 +145,9 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                     id = id,
                     // The default profile has no editable name; it is labelled by the UI.
                     name = if (isDefault) "" else name.trim(),
-                    engineId = engineId,
-                    aiProviderId = providerId,
-                    systemPromptId = promptId,
+                    engineId = engine.id,
+                    aiProviderId = provider?.id,
+                    systemPromptId = prompt?.id,
                 ),
             )
             navigator.pop()
@@ -173,41 +198,55 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                 item {
                     SettingsDropdownField(
                         label = stringResource(TDMR.strings.pref_translation_engine),
-                        value = engineId,
-                        values = engines.engines.map { it.id },
-                        valueLabel = { id -> engines.getEngineById(id)?.name ?: id.key },
-                        onSelected = { engineId = it },
+                        value = engine,
+                        values = availableEngines,
+                        valueLabel = { it.name },
+                        onSelected = { engine = it },
                     )
                 }
                 // Provider and prompt are meaningless on the other engines; hidden rather than
                 // disabled so they do not read as a misconfiguration.
-                if (engineId == TranslationEngineId.LLM) {
+                if (engine.id == TranslationEngineId.LLM) {
                     item {
                         SettingsDropdownField(
                             label = stringResource(TDMR.strings.pref_ai_active_provider),
-                            value = providerId,
+                            value = provider,
                             values = providers,
-                            valueLabel = { pid ->
-                                pid?.let { p -> aiSettings.providers().firstOrNull { it.id == p }?.alias }
-                                    ?: useActive
-                            },
-                            onSelected = { providerId = it },
+                            valueLabel = { it?.alias ?: useActive },
+                            onSelected = { provider = it },
                         )
                     }
                     item {
                         SettingsDropdownField(
                             label = stringResource(TDMR.strings.pref_ai_active_prompt),
-                            value = promptId,
+                            value = prompt,
                             values = prompts,
-                            valueLabel = { sid ->
-                                sid?.let { s -> aiSettings.prompts().firstOrNull { it.id == s }?.name }
-                                    ?: useActive
-                            },
-                            onSelected = { promptId = it },
+                            valueLabel = { it?.name ?: useActive },
+                            onSelected = { prompt = it },
                         )
                     }
                 }
             }
         }
     }
+}
+
+private fun describeProfile(
+    profile: TranslationProfile,
+    engines: List<TranslationEngine>,
+    providers: List<AIProvider>,
+    prompts: List<SystemPrompt>,
+    activeProviderId: String,
+    activePromptId: String,
+): String {
+    val engine = engines.first { it.id == profile.engineId }
+    if (engine.id != TranslationEngineId.LLM) return engine.name
+    val providerId = profile.aiProviderId?.takeIf { it.isNotBlank() } ?: activeProviderId
+    val promptId = profile.systemPromptId?.takeIf { it.isNotBlank() } ?: activePromptId
+    val prompt = prompts.firstOrNull { it.id == promptId } ?: SystemPrompt.DEFAULT
+    return listOfNotNull(
+        engine.name,
+        providers.firstOrNull { it.id == providerId }?.alias,
+        prompt.name.takeIf { it.isNotBlank() && prompt.id != SystemPrompt.DEFAULT_ID },
+    ).joinToString(" · ")
 }

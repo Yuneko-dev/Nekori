@@ -28,12 +28,13 @@ class TranslationEngineManager(
     private val preferences: TranslationPreferences = Injekt.get(),
     private val profileStore: TranslationProfileStore = Injekt.get(),
     private val aiSettings: AiSettingsStore = Injekt.get(),
+    private val providedEngines: List<TranslationEngine>? = null,
 ) {
     /**
      * List of all available translation engines.
      */
     val engines: List<TranslationEngine> by lazy {
-        listOf(
+        providedEngines ?: listOf(
             GoogleTranslateScraperEngine(),
             LlmTranslationEngine(),
             LibreTranslateEngine(),
@@ -45,14 +46,10 @@ class TranslationEngineManager(
     /** Engine plus the execution overrides for one purpose. */
     data class Resolved(val engine: TranslationEngine, val config: TranslationProfileConfig?)
 
-    /**
-     * The engine and overrides [purpose] should use. Falls back to the globally selected engine when a
-     * profile names an engine that no longer exists, so a corrupt preference degrades instead of
-     * failing.
-     */
+    /** The engine and overrides [purpose] should use. */
     fun resolve(purpose: TranslationPurpose): Resolved {
         val profile = profileStore.profileFor(purpose)
-        val engine = getEngineById(profile.engineId) ?: getSelectedEngine()
+        val engine = getEngineById(profile.engineId)
         // Only the LLM engine reads the config, and building it decodes the provider and prompt
         // stores; skip that work entirely for the others.
         return Resolved(engine, if (engine.id == TranslationEngineId.LLM) configFor(profile) else null)
@@ -62,14 +59,20 @@ class TranslationEngineManager(
      * The provider a profile names, or the globally active one. A null id means "use the active
      * setting", which is how the synthesized default profile reproduces pre-profile behaviour.
      */
-    private fun providerOf(profile: TranslationProfile): AIProvider? = profile.aiProviderId
-        ?.let { id -> aiSettings.providers().firstOrNull { it.id == id } }
-        ?: aiSettings.activeProvider()
+    private fun providerOf(profile: TranslationProfile): AIProvider? = when (
+        val id = profile.aiProviderId?.takeIf { it.isNotBlank() }
+    ) {
+        null -> aiSettings.activeProvider()
+        else -> aiSettings.providers().firstOrNull { it.id == id }
+    }
 
-    /** The prompt a profile names, or the globally active one. */
-    private fun promptOf(profile: TranslationProfile): SystemPrompt = profile.systemPromptId
-        ?.let { id -> aiSettings.prompts().firstOrNull { it.id == id } }
-        ?: aiSettings.activePrompt()
+    /** The prompt a profile names, or the globally active one when it names none. */
+    private fun promptOf(profile: TranslationProfile): SystemPrompt = when (
+        val id = profile.systemPromptId?.takeIf { it.isNotBlank() }
+    ) {
+        null -> aiSettings.activePrompt()
+        else -> aiSettings.prompts().firstOrNull { it.id == id } ?: SystemPrompt.DEFAULT
+    }
 
     /** LLM overrides for [profile]. */
     private fun configFor(profile: TranslationProfile): TranslationProfileConfig {
@@ -81,36 +84,20 @@ class TranslationEngineManager(
         )
     }
 
-    /** Human-readable summary of a profile's configuration, for the settings list. */
-    fun describe(profile: TranslationProfile): String {
-        val engineName = getEngineById(profile.engineId)?.name ?: profile.engineId.key
-        if (profile.engineId != TranslationEngineId.LLM) return engineName
-        val prompt = promptOf(profile)
-        return listOfNotNull(
-            engineName,
-            providerOf(profile)?.alias,
-            prompt.name.takeIf { it.isNotBlank() && prompt.id != SystemPrompt.DEFAULT_ID },
-        ).joinToString(" · ")
-    }
-
     /**
-     * Get the globally selected translation engine. Retained as the fallback for a missing or
-     * corrupt profile, and for the engine picker inside the profile editor.
+     * Get the legacy globally selected engine, used as the initial value in the profile editor.
      */
     fun getSelectedEngine(): TranslationEngine {
-        val selectedId = preferences.selectedEngineId().get()
-        return engines.find { it.id.key == selectedId } ?: engines.first()
+        return getEngineById(TranslationEngineId.fromKey(preferences.selectedEngineId().get()))
     }
 
     /**
      * Get an engine by its ID.
      */
-    fun getEngineById(id: TranslationEngineId): TranslationEngine? {
-        return engines.find { it.id == id }
-    }
+    private fun getEngineById(id: TranslationEngineId): TranslationEngine = engines.first { it.id == id }
 
     // setSelectedEngine() was removed with the global engine dropdown: the engine is now a property
-    // of a profile, and selectedEngineId survives only as a read-only fallback.
+    // of a profile, and selectedEngineId survives only to seed the default and newly created profiles.
 
     /**
      * The engine [purpose] should use, or null when its profile is not fully configured.

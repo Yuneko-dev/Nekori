@@ -52,7 +52,6 @@ class TranslationProfileStoreTest {
         store.delete(fast.id)
 
         store.profileFor(TranslationPurpose.BROWSE_TITLE).id shouldBe TranslationProfile.DEFAULT_ID
-        store.assignments() shouldBe emptyMap()
     }
 
     @Test
@@ -94,7 +93,6 @@ class TranslationProfileStoreTest {
         preferences.translationTaskProfilesJson().set("also not json")
 
         store.profiles().single().id shouldBe TranslationProfile.DEFAULT_ID
-        store.assignments() shouldBe emptyMap()
     }
 
     private val fast = TranslationProfile(

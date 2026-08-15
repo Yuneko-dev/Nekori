@@ -789,7 +789,7 @@ class BrowseSourceViewModel(
             }
             if (!state.value.translateTitles) continue
 
-            val engine = translationEngineManager.getSelectedEngine()
+            val engine = translationEngineManager.resolve(TranslationPurpose.BROWSE_TITLE).engine
             val toTranslate = batch.filterNot { state.value.translatedTitles.containsKey(it.id) }.distinctBy { it.id }
             if (toTranslate.isEmpty()) continue
 

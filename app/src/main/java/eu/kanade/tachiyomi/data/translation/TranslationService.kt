@@ -1007,7 +1007,7 @@ class TranslationService(
      * otherwise falls back to using the manga source's language setting.
      */
     suspend fun detectLanguage(text: String, mangaId: Long? = null): String? {
-        val engine = translationEngineManager.getSelectedEngine()
+        val engine = translationEngineManager.resolve(TranslationPurpose.CHAPTER).engine
 
         if (engine is LibreTranslateEngine) {
             val sample = text.take(DETECT_SAMPLE_SIZE)

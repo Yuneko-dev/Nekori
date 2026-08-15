@@ -6,12 +6,15 @@ import eu.kanade.tachiyomi.data.translation.engine.resolveProviderUrl
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.TranslationProfileConfig
+import tachiyomi.domain.translation.model.TranslationRequest
+import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 
 class LlmTranslationEngineTest {
@@ -41,11 +44,10 @@ class LlmTranslationEngineTest {
     }
 
     @Test
-    fun `a profile provider is used even when no global provider is active`() {
+    fun `a profile provider configures the engine`() {
         val engine = engine()
         val profileProvider = provider(AIProviderType.CUSTOM_OPENAI).copy(id = "from-profile")
 
-        // No global active provider configured, so only the profile can satisfy this.
         engine.isConfigured() shouldBe false
         engine.isConfigured(TranslationProfileConfig(provider = profileProvider)) shouldBe true
     }
@@ -60,22 +62,28 @@ class LlmTranslationEngineTest {
     }
 
     @Test
-    fun `no profile falls back to the globally active provider`() {
-        val preferences = TranslationPreferences(InMemoryPreferenceStore())
-        val settings = AiSettingsStore(preferences, Json)
-        settings.saveProvider(provider(AIProviderType.CUSTOM_OPENAI))
+    fun `no profile config is unconfigured`() {
+        engine().isConfigured() shouldBe false
+    }
 
-        engine(preferences, settings).isConfigured() shouldBe true
+    @Test
+    fun `translation without profile config is rejected before networking`() = runTest {
+        val result = engine().translate(
+            TranslationRequest(listOf("text"), "en", "vi"),
+        )
+
+        result shouldBe TranslationResult.Error(
+            "No translation profile configuration",
+            TranslationResult.ErrorCode.REQUEST_INVALID,
+        )
     }
 
     private fun engine(
         preferences: TranslationPreferences = TranslationPreferences(InMemoryPreferenceStore()),
-        settings: AiSettingsStore = AiSettingsStore(preferences, Json),
     ) = LlmTranslationEngine(
         // Never touched by isConfigured: the client is created lazily on the first request.
         networkHelper = mockk(),
         preferences = preferences,
-        settings = settings,
         json = Json,
     )
 
