@@ -80,23 +80,8 @@ sealed class TranslationResult {
      */
     data class Error(
         val message: String,
-        val errorCode: ErrorCode = ErrorCode.UNKNOWN,
+        val errorCode: AiErrorCode = AiErrorCode.UNKNOWN,
     ) : TranslationResult()
-
-    enum class ErrorCode {
-        UNKNOWN,
-        NETWORK_ERROR,
-        API_KEY_INVALID,
-        API_KEY_MISSING,
-        RATE_LIMITED,
-        QUOTA_EXCEEDED,
-        LANGUAGE_NOT_SUPPORTED,
-        TEXT_TOO_LONG,
-        SERVICE_UNAVAILABLE,
-        REQUEST_INVALID,
-        STRUCTURED_OUTPUT_INVALID,
-        TIMEOUT,
-    }
 }
 
 /**

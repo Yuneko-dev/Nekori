@@ -89,8 +89,9 @@ class TranslationEngineManager(
 
     suspend fun translate(purpose: TranslationPurpose, request: TranslationRequest): TranslationResult {
         val (engine, config) = resolve(purpose)
-        return TranslationRetryPolicy.execute(
+        return AiRetryPolicy.execute(
             retries = preferences.requestRetryCount().get(),
+            failureCode = { (it as? TranslationResult.Error)?.errorCode },
         ) { engine.translate(request.copy(config = config)) }
     }
 }

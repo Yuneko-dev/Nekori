@@ -1,13 +1,7 @@
 package eu.kanade.presentation.more.settings.screen
 
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -20,7 +14,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
@@ -62,7 +55,6 @@ object SettingsTranslationScreen : SearchableSettings {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
         val engines = remember { Injekt.get<TranslationEngineManager>() }
         val profileStore = remember { Injekt.get<TranslationProfileStore>() }
-        val ai = remember { Injekt.get<AiSettingsStore>() }
         val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
         val enabled by prefs.translationEnabled().collectAsState()
@@ -79,12 +71,6 @@ object SettingsTranslationScreen : SearchableSettings {
         val profiles = remember(profilesJson) { profileStore.profiles() }
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
-        val providersJson by prefs.aiProvidersJson().collectAsState()
-        val promptsJson by prefs.userGuidelinesJson().collectAsState()
-        val activeProviderId by prefs.activeAiProviderId().collectAsState()
-        val activePromptId by prefs.activeGuidelinesId().collectAsState()
-        val providers = remember(providersJson) { ai.providers() }
-        val prompts = remember(promptsJson) { ai.guidelines() }
         val progress by translationService.progressState.collectAsState()
         val isPaused by translationService.isPaused.collectAsState()
         val queueStatus = when {
@@ -131,9 +117,7 @@ object SettingsTranslationScreen : SearchableSettings {
         // Driven by the engines profiles actually use, not one global id: an API key field reachable
         // only through this group would otherwise be unreachable for an engine no profile "selected".
         profiles.map { it.engineId }.distinct().forEach { engine ->
-            engineConfiguration(engine, prefs, providers, prompts, activeProviderId, activePromptId, ai) {
-                navigator.push(SettingsAiScreen)
-            }?.let(groups::add)
+            apiKeyGroup(engine, prefs)?.let(groups::add)
         }
         groups += behaviorGroup(prefs)
         groups += Preference.PreferenceGroup(
@@ -211,60 +195,18 @@ object SettingsTranslationScreen : SearchableSettings {
         subtitle = stringResource(TDMR.strings.pref_translation_enabled_summary),
     )
 
+    /**
+     * The service-wide API key an engine needs, if any.
+     *
+     * The LLM engine has none: its provider, key and guidelines are per-profile, resolved through
+     * Settings > AI, so it contributes no group here.
+     */
     @Composable
-    private fun engineConfiguration(
+    private fun apiKeyGroup(
         engine: TranslationEngineId,
         prefs: TranslationPreferences,
-        providers: List<tachiyomi.domain.translation.model.AIProvider>,
-        prompts: List<tachiyomi.domain.translation.model.UserGuidelines>,
-        activeProviderId: String,
-        activePromptId: String,
-        ai: AiSettingsStore,
-        openAiSettings: () -> Unit,
     ): Preference.PreferenceGroup? {
         val items = when (engine) {
-            TranslationEngineId.LLM -> listOf(
-                if (providers.isEmpty()) {
-                    Preference.PreferenceItem.TextPreference(
-                        title = stringResource(TDMR.strings.pref_ai_active_provider),
-                        subtitle = stringResource(TDMR.strings.pref_ai_no_active_provider),
-                        onClick = openAiSettings,
-                    )
-                } else {
-                    Preference.PreferenceItem.BasicListPreference(
-                        value = activeProviderId,
-                        entries = providers.associate { it.id to it.alias },
-                        title = stringResource(TDMR.strings.pref_ai_active_provider),
-                        onValueChanged = ai::setActiveProvider,
-                    )
-                },
-                Preference.PreferenceItem.BasicListPreference(
-                    value = activePromptId,
-                    entries = prompts.associate { it.id to it.name },
-                    title = stringResource(TDMR.strings.pref_ai_active_prompt),
-                    onValueChanged = ai::setActiveGuidelines,
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.structuredOutput(),
-                    title = stringResource(TDMR.strings.pref_translation_structured_output),
-                    subtitle = stringResource(TDMR.strings.pref_translation_structured_output_summary),
-                ),
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(TDMR.strings.pref_category_ai),
-                    content = {
-                        OutlinedButton(
-                            onClick = openAiSettings,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        ) {
-                            Icon(Icons.Outlined.Settings, contentDescription = null)
-                            Spacer(Modifier.size(8.dp))
-                            Text(stringResource(TDMR.strings.pref_category_ai))
-                        }
-                    },
-                ),
-            )
             TranslationEngineId.LIBRE -> listOf(
                 Preference.PreferenceItem.EditTextPreference(
                     preference = prefs.libreTranslateUrl(),
@@ -287,17 +229,11 @@ object SettingsTranslationScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_translation_api_key),
                 ),
             )
-            TranslationEngineId.GOOGLE_FREE -> emptyList()
+            TranslationEngineId.LLM, TranslationEngineId.GOOGLE_FREE -> emptyList()
         }
         if (items.isEmpty()) return null
         return Preference.PreferenceGroup(
-            title = stringResource(
-                if (engine == TranslationEngineId.LLM) {
-                    TDMR.strings.pref_translation_llm
-                } else {
-                    TDMR.strings.pref_translation_api_keys
-                },
-            ),
+            title = stringResource(TDMR.strings.pref_translation_api_keys),
             preferenceItems = items,
         )
     }

@@ -14,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
+import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.LanguageCodes
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
@@ -51,11 +52,11 @@ class GoogleTranslateScraperEngine : TranslationEngine {
         } catch (e: CancellationException) {
             throw e
         } catch (e: SocketTimeoutException) {
-            TranslationResult.Error(e.message ?: "Request timed out", TranslationResult.ErrorCode.TIMEOUT)
+            TranslationResult.Error(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
         } catch (e: IOException) {
-            TranslationResult.Error(e.message ?: "Network request failed", TranslationResult.ErrorCode.NETWORK_ERROR)
+            TranslationResult.Error(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)
         } catch (e: Exception) {
-            TranslationResult.Error(e.message ?: "Google Translate failed", TranslationResult.ErrorCode.UNKNOWN)
+            TranslationResult.Error(e.message ?: "Google Translate failed", AiErrorCode.UNKNOWN)
         }
     }
 
@@ -116,10 +117,10 @@ class GoogleTranslateScraperEngine : TranslationEngine {
 
     private class GoogleTranslateHttpException(code: Int) : IOException("Google Translate HTTP $code") {
         val errorCode = when (code) {
-            408 -> TranslationResult.ErrorCode.TIMEOUT
-            425, 429 -> TranslationResult.ErrorCode.RATE_LIMITED
-            in 500..599 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
-            else -> TranslationResult.ErrorCode.REQUEST_INVALID
+            408 -> AiErrorCode.TIMEOUT
+            425, 429 -> AiErrorCode.RATE_LIMITED
+            in 500..599 -> AiErrorCode.SERVICE_UNAVAILABLE
+            else -> AiErrorCode.REQUEST_INVALID
         }
     }
 

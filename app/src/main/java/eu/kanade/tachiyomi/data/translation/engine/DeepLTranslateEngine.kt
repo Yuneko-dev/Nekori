@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
@@ -116,7 +117,7 @@ class DeepLTranslateEngine(
         if (apiKey.isBlank()) {
             return@withContext TranslationResult.Error(
                 "DeepL API key not configured",
-                TranslationResult.ErrorCode.API_KEY_MISSING,
+                AiErrorCode.API_KEY_MISSING,
             )
         }
 
@@ -133,13 +134,13 @@ class DeepLTranslateEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: SocketTimeoutException) {
-            TranslationResult.Error(e.message ?: "Request timed out", TranslationResult.ErrorCode.TIMEOUT)
+            TranslationResult.Error(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
         } catch (e: IOException) {
-            TranslationResult.Error(e.message ?: "Network request failed", TranslationResult.ErrorCode.NETWORK_ERROR)
+            TranslationResult.Error(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)
         } catch (e: Exception) {
             TranslationResult.Error(
                 e.message ?: "Unknown error",
-                TranslationResult.ErrorCode.UNKNOWN,
+                AiErrorCode.UNKNOWN,
             )
         }
     }
@@ -183,13 +184,13 @@ class DeepLTranslateEngine(
 
         if (!response.isSuccessful) {
             val errorCode = when (response.code) {
-                401, 403 -> TranslationResult.ErrorCode.API_KEY_INVALID
-                408 -> TranslationResult.ErrorCode.TIMEOUT
-                425, 429 -> TranslationResult.ErrorCode.RATE_LIMITED
-                456 -> TranslationResult.ErrorCode.QUOTA_EXCEEDED
-                in 500..599 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
-                in 400..499 -> TranslationResult.ErrorCode.REQUEST_INVALID
-                else -> TranslationResult.ErrorCode.UNKNOWN
+                401, 403 -> AiErrorCode.API_KEY_INVALID
+                408 -> AiErrorCode.TIMEOUT
+                425, 429 -> AiErrorCode.RATE_LIMITED
+                456 -> AiErrorCode.QUOTA_EXCEEDED
+                in 500..599 -> AiErrorCode.SERVICE_UNAVAILABLE
+                in 400..499 -> AiErrorCode.REQUEST_INVALID
+                else -> AiErrorCode.UNKNOWN
             }
 
             val errorMessage = try {
@@ -204,7 +205,7 @@ class DeepLTranslateEngine(
 
         val translateResponse = json.decodeFromString(TranslateResponse.serializer(), responseBody)
         val translations = translateResponse.translations
-            ?: throw TranslationException("Empty response from DeepL", TranslationResult.ErrorCode.UNKNOWN)
+            ?: throw TranslationException("Empty response from DeepL", AiErrorCode.UNKNOWN)
 
         return BatchResult(
             translatedTexts = translations.map { it.text },
@@ -214,6 +215,6 @@ class DeepLTranslateEngine(
 
     private class TranslationException(
         message: String,
-        val errorCode: TranslationResult.ErrorCode,
+        val errorCode: AiErrorCode,
     ) : Exception(message)
 }

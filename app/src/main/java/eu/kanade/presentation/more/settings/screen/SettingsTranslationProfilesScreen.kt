@@ -13,7 +13,6 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +39,7 @@ import tachiyomi.domain.translation.model.resolve
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -65,43 +65,28 @@ object SettingsTranslationProfilesScreen : Screen() {
         val allGuidelines = remember(guidelinesJson) { aiSettings.guidelines() }
         val defaultName = stringResource(TDMR.strings.pref_translation_profile_default)
 
-        Scaffold(topBar = {
-            AppBar(stringResource(TDMR.strings.pref_translation_profiles), navigateUp = back::invoke)
-        }) { padding ->
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
-                items(profiles, key = { it.id }) { profile ->
-                    ManagerRow(
-                        title = profile.name.ifBlank { defaultName },
-                        subtitle = describeProfile(
-                            profile,
-                            engines.engines,
-                            providers,
-                            allGuidelines,
-                            activeProviderId,
-                            activeGuidelinesId,
-                        ),
-                        icon = { Icon(Icons.Outlined.Translate, null) },
-                        onClick = { navigator.push(TranslationProfileEditorScreen(profile.id)) },
-                        onDelete = if (profile.deletable) {
-                            { store.delete(profile.id) }
-                        } else {
-                            null
-                        },
-                    )
-                }
-                item {
-                    Button(
-                        onClick = { navigator.push(TranslationProfileEditorScreen()) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-                    ) {
-                        Icon(Icons.Outlined.Add, null)
-                        Text(
-                            stringResource(TDMR.strings.pref_translation_profile_add),
-                            Modifier.padding(start = 8.dp),
-                        )
-                    }
-                }
-            }
+        ManagerScreen(
+            title = stringResource(TDMR.strings.pref_translation_profiles),
+            entries = profiles,
+            entryKey = { it.id },
+            addLabel = stringResource(TDMR.strings.pref_translation_profile_add),
+            onAdd = { navigator.push(TranslationProfileEditorScreen()) },
+            onBack = back::invoke,
+        ) { profile ->
+            ManagerRow(
+                title = profile.name.ifBlank { defaultName },
+                subtitle = describeProfile(
+                    profile,
+                    engines.engines,
+                    providers,
+                    allGuidelines,
+                    activeProviderId,
+                    activeGuidelinesId,
+                ),
+                icon = { Icon(Icons.Outlined.Translate, null) },
+                onClick = { navigator.push(TranslationProfileEditorScreen(profile.id)) },
+                onDelete = profile.takeIf { it.deletable }?.let { { store.delete(it.id) } },
+            )
         }
     }
 }
@@ -219,7 +204,7 @@ private data class TranslationProfileEditorScreen(private val profileId: String?
                     }
                     item {
                         SettingsDropdownField(
-                            label = stringResource(TDMR.strings.pref_ai_active_prompt),
+                            label = stringResource(TDMR.strings.pref_ai_active_guidelines),
                             value = selectedGuidelines,
                             values = guidelinesOptions,
                             valueLabel = { it?.name ?: useActive },

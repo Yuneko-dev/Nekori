@@ -12,6 +12,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
@@ -145,7 +146,7 @@ class GoogleTranslateEngine(
         if (apiKey.isBlank()) {
             return@withContext TranslationResult.Error(
                 "Google Translate API key not configured",
-                TranslationResult.ErrorCode.API_KEY_MISSING,
+                AiErrorCode.API_KEY_MISSING,
             )
         }
 
@@ -161,13 +162,13 @@ class GoogleTranslateEngine(
         } catch (e: CancellationException) {
             throw e
         } catch (e: SocketTimeoutException) {
-            TranslationResult.Error(e.message ?: "Request timed out", TranslationResult.ErrorCode.TIMEOUT)
+            TranslationResult.Error(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
         } catch (e: IOException) {
-            TranslationResult.Error(e.message ?: "Network request failed", TranslationResult.ErrorCode.NETWORK_ERROR)
+            TranslationResult.Error(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)
         } catch (e: Exception) {
             TranslationResult.Error(
                 e.message ?: "Unknown error",
-                TranslationResult.ErrorCode.UNKNOWN,
+                AiErrorCode.UNKNOWN,
             )
         }
     }
@@ -203,13 +204,13 @@ class GoogleTranslateEngine(
 
         if (!response.isSuccessful) {
             val errorCode = when (response.code) {
-                401, 403 -> TranslationResult.ErrorCode.API_KEY_INVALID
-                408 -> TranslationResult.ErrorCode.TIMEOUT
-                425, 429 -> TranslationResult.ErrorCode.RATE_LIMITED
-                402 -> TranslationResult.ErrorCode.QUOTA_EXCEEDED
-                in 500..599 -> TranslationResult.ErrorCode.SERVICE_UNAVAILABLE
-                in 400..499 -> TranslationResult.ErrorCode.REQUEST_INVALID
-                else -> TranslationResult.ErrorCode.UNKNOWN
+                401, 403 -> AiErrorCode.API_KEY_INVALID
+                408 -> AiErrorCode.TIMEOUT
+                425, 429 -> AiErrorCode.RATE_LIMITED
+                402 -> AiErrorCode.QUOTA_EXCEEDED
+                in 500..599 -> AiErrorCode.SERVICE_UNAVAILABLE
+                in 400..499 -> AiErrorCode.REQUEST_INVALID
+                else -> AiErrorCode.UNKNOWN
             }
 
             val errorMessage = try {
@@ -224,7 +225,7 @@ class GoogleTranslateEngine(
 
         val translateResponse = json.decodeFromString(TranslateResponse.serializer(), responseBody)
         val translations = translateResponse.data?.translations
-            ?: throw TranslationException("Empty response from Google", TranslationResult.ErrorCode.UNKNOWN)
+            ?: throw TranslationException("Empty response from Google", AiErrorCode.UNKNOWN)
 
         return BatchResult(
             translatedTexts = translations.map { it.translatedText },
@@ -234,6 +235,6 @@ class GoogleTranslateEngine(
 
     private class TranslationException(
         message: String,
-        val errorCode: TranslationResult.ErrorCode,
+        val errorCode: AiErrorCode,
     ) : Exception(message)
 }

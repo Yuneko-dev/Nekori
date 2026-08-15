@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test
 import tachiyomi.domain.translation.model.AIApiMode
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
+import tachiyomi.domain.translation.model.AiErrorCode
+import tachiyomi.domain.translation.model.LlmGenerationRequest
+import tachiyomi.domain.translation.model.LlmOutputFormat
 import tachiyomi.domain.translation.model.ReasoningEffort
 import tachiyomi.domain.translation.model.TranslationContext
 import tachiyomi.domain.translation.model.TranslationResult
@@ -140,7 +143,7 @@ class LlmTranslationProtocolTest {
             temperature = 1.2f,
         )
 
-        LlmRequestFactory.create(provider, "system", "user", structuredOutput = true)
+        LlmRequestFactory.create(provider, generation(structured = true))
             .body.toString().contains("temperature") shouldBe false
     }
 
@@ -156,9 +159,7 @@ class LlmTranslationProtocolTest {
                 apiMode = AIApiMode.CHAT_COMPLETIONS,
                 temperature = 0.6f,
             ),
-            "system",
-            "user",
-            structuredOutput = true,
+            generation(structured = true),
         ).body.toString()
 
         body shouldContain "response_format"
@@ -178,9 +179,7 @@ class LlmTranslationProtocolTest {
                 temperature = 1.4f,
                 reasoning = true,
             ),
-            "system",
-            "user",
-            structuredOutput = false,
+            generation(structured = false),
         ).body.toString()
 
         body.contains("temperature") shouldBe false
@@ -197,9 +196,7 @@ class LlmTranslationProtocolTest {
                 endpoint = "https://generativelanguage.googleapis.com",
                 model = "gemini-2.5-flash",
             ),
-            "system",
-            "user",
-            structuredOutput = true,
+            generation(structured = true),
         ).body.toString()
 
         body shouldContain "application/json"
@@ -220,9 +217,7 @@ class LlmTranslationProtocolTest {
                 reasoning = true,
                 reasoningEffort = ReasoningEffort.XHIGH,
             ),
-            "system",
-            "user",
-            structuredOutput = false,
+            generation(structured = false),
         ).body.toString()
 
         body shouldContain "thinkingConfig"
@@ -232,9 +227,9 @@ class LlmTranslationProtocolTest {
     @Test
     fun `retry policy does not retry invalid structured output`() = runTest {
         var calls = 0
-        TranslationRetryPolicy.execute(retries = 5, sleeper = {}) {
+        AiRetryPolicy.execute(retries = 5, failureCode = translationFailure, sleeper = {}) {
             calls++
-            TranslationResult.Error("invalid", TranslationResult.ErrorCode.STRUCTURED_OUTPUT_INVALID)
+            TranslationResult.Error("invalid", AiErrorCode.STRUCTURED_OUTPUT_INVALID)
         }
         calls shouldBe 1
     }
@@ -243,13 +238,14 @@ class LlmTranslationProtocolTest {
     fun `retry policy retries transient errors and uses fibonacci delays`() = runTest {
         val delays = mutableListOf<Long>()
         var calls = 0
-        val result = TranslationRetryPolicy.execute(
+        val result = AiRetryPolicy.execute(
             retries = 2,
+            failureCode = translationFailure,
             sleeper = { delays += it },
         ) {
             calls++
             if (calls < 3) {
-                TranslationResult.Error("busy", TranslationResult.ErrorCode.RATE_LIMITED)
+                TranslationResult.Error("busy", AiErrorCode.RATE_LIMITED)
             } else {
                 TranslationResult.Success(listOf("ok"))
             }
@@ -264,7 +260,7 @@ class LlmTranslationProtocolTest {
     fun `retry policy never retries cancellation`() = runTest {
         var calls = 0
         shouldThrow<CancellationException> {
-            TranslationRetryPolicy.execute(retries = 5, sleeper = {}) {
+            AiRetryPolicy.execute(retries = 5, failureCode = translationFailure, sleeper = {}) {
                 calls++
                 throw CancellationException()
             }
@@ -277,12 +273,22 @@ class LlmTranslationProtocolTest {
         var calls = 0
         val delays = mutableListOf<Long>()
 
-        TranslationRetryPolicy.execute(retries = 99, sleeper = { delays += it }) {
+        AiRetryPolicy.execute(retries = 99, failureCode = translationFailure, sleeper = { delays += it }) {
             calls++
-            TranslationResult.Error("offline", TranslationResult.ErrorCode.NETWORK_ERROR)
+            TranslationResult.Error("offline", AiErrorCode.NETWORK_ERROR)
         }
 
         calls shouldBe 6
         delays shouldContainExactly listOf(1_000L, 2_000L, 3_000L, 5_000L, 8_000L)
+    }
+
+    private fun generation(structured: Boolean) = LlmGenerationRequest(
+        systemPrompt = "system",
+        input = "user",
+        outputFormat = if (structured) TranslationOutputSchema.format else LlmOutputFormat.Text,
+    )
+
+    private val translationFailure: (TranslationResult) -> AiErrorCode? = {
+        (it as? TranslationResult.Error)?.errorCode
     }
 }

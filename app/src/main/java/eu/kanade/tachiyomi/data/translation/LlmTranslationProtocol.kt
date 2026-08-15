@@ -17,6 +17,9 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.translation.model.AIApiFamily
 import tachiyomi.domain.translation.model.AIApiMode
 import tachiyomi.domain.translation.model.AIProvider
+import tachiyomi.domain.translation.model.AiErrorCode
+import tachiyomi.domain.translation.model.LlmGenerationRequest
+import tachiyomi.domain.translation.model.LlmOutputFormat
 import tachiyomi.domain.translation.model.ReasoningEffort
 import tachiyomi.domain.translation.model.TranslationContext
 import tachiyomi.domain.translation.model.TranslationResult
@@ -171,29 +174,12 @@ object LlmResponseParser {
 
 data class LlmWireRequest(val path: String, val body: JsonObject)
 
-object LlmRequestFactory {
-    private fun schema(includeAdditionalProperties: Boolean = true) = buildJsonObject {
-        put("type", "object")
-        if (includeAdditionalProperties) put("additionalProperties", false)
-        put(
-            "properties",
-            buildJsonObject {
-                put(
-                    "paragraphs",
-                    buildJsonObject {
-                        put("type", "array")
-                        put("items", paragraphSchema(includeAdditionalProperties))
-                    },
-                )
-            },
-        )
-        put("required", buildJsonArray { add(JsonPrimitive("paragraphs")) })
-    }
-
+/** The structured shape translation asks for: `{"paragraphs":[{"i":0,"t":"…"}]}`. */
+object TranslationOutputSchema {
     /** `i` is the input paragraph index, `t` its translation — see [LlmResponseParser.parse]. */
-    private fun paragraphSchema(includeAdditionalProperties: Boolean) = buildJsonObject {
+    private val paragraph = buildJsonObject {
         put("type", "object")
-        if (includeAdditionalProperties) put("additionalProperties", false)
+        put("additionalProperties", false)
         put(
             "properties",
             buildJsonObject {
@@ -210,34 +196,70 @@ object LlmRequestFactory {
         )
     }
 
-    fun create(provider: AIProvider, system: String, user: String, structuredOutput: Boolean): LlmWireRequest {
+    val format = LlmOutputFormat.JsonSchema(
+        name = "translation",
+        schema = buildJsonObject {
+            put("type", "object")
+            put("additionalProperties", false)
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "paragraphs",
+                        buildJsonObject {
+                            put("type", "array")
+                            put("items", paragraph)
+                        },
+                    )
+                },
+            )
+            put("required", buildJsonArray { add(JsonPrimitive("paragraphs")) })
+        },
+    )
+}
+
+object LlmRequestFactory {
+    fun create(provider: AIProvider, request: LlmGenerationRequest): LlmWireRequest {
+        val system = request.systemPrompt
+        val user = request.input
+        val schema = request.outputFormat as? LlmOutputFormat.JsonSchema
         return when {
-            provider.type.apiFamily == AIApiFamily.GEMINI -> gemini(provider, system, user, structuredOutput)
-            provider.apiMode == AIApiMode.RESPONSES -> responses(provider, system, user, structuredOutput)
-            else -> chat(provider, system, user, structuredOutput)
+            provider.type.apiFamily == AIApiFamily.GEMINI -> gemini(provider, system, user, schema)
+            provider.apiMode == AIApiMode.RESPONSES -> responses(provider, system, user, schema)
+            else -> chat(provider, system, user, schema)
         }
     }
 
-    private fun chat(provider: AIProvider, system: String, user: String, structured: Boolean) = LlmWireRequest(
+    private fun chat(
+        provider: AIProvider,
+        system: String,
+        user: String,
+        schema: LlmOutputFormat.JsonSchema?,
+    ) = LlmWireRequest(
         path = "/chat/completions",
         body = buildJsonObject {
             put("model", provider.model)
             put("messages", messages(system, user))
             if (!provider.reasoning) put("temperature", provider.temperature)
             if (provider.reasoning) put("reasoning_effort", provider.reasoningEffort.name.lowercase())
-            if (structured) {
+            if (schema != null) {
                 put(
                     "response_format",
                     buildJsonObject {
                         put("type", "json_schema")
-                        put("json_schema", jsonSchema())
+                        put("json_schema", schema.strictEnvelope())
                     },
                 )
             }
         },
     )
 
-    private fun responses(provider: AIProvider, system: String, user: String, structured: Boolean) = LlmWireRequest(
+    private fun responses(
+        provider: AIProvider,
+        system: String,
+        user: String,
+        schema: LlmOutputFormat.JsonSchema?,
+    ) = LlmWireRequest(
         path = "/responses",
         body = buildJsonObject {
             put("model", provider.model)
@@ -251,7 +273,7 @@ object LlmRequestFactory {
                     },
                 )
             }
-            if (structured) {
+            if (schema != null) {
                 put(
                     "text",
                     buildJsonObject {
@@ -259,7 +281,7 @@ object LlmRequestFactory {
                             "format",
                             buildJsonObject {
                                 put("type", "json_schema")
-                                jsonSchema().forEach { (key, value) -> put(key, value) }
+                                schema.strictEnvelope().forEach { (key, value) -> put(key, value) }
                             },
                         )
                     },
@@ -268,7 +290,12 @@ object LlmRequestFactory {
         },
     )
 
-    private fun gemini(provider: AIProvider, system: String, user: String, structured: Boolean) = LlmWireRequest(
+    private fun gemini(
+        provider: AIProvider,
+        system: String,
+        user: String,
+        schema: LlmOutputFormat.JsonSchema?,
+    ) = LlmWireRequest(
         path = "/v1beta/models/${provider.model}:generateContent",
         body = buildJsonObject {
             put("systemInstruction", buildJsonObject { put("parts", textParts(system)) })
@@ -295,14 +322,32 @@ object LlmRequestFactory {
                             },
                         )
                     }
-                    if (structured) {
+                    if (schema != null) {
                         put("responseMimeType", "application/json")
-                        put("responseSchema", schema(includeAdditionalProperties = false))
+                        put("responseSchema", schema.schema.withoutAdditionalProperties())
                     }
                 },
             )
         },
     )
+
+    /** OpenAI wants the schema wrapped and named; strict mode is what makes the shape binding. */
+    private fun LlmOutputFormat.JsonSchema.strictEnvelope() = buildJsonObject {
+        put("name", name)
+        put("strict", true)
+        put("schema", schema)
+    }
+
+    /** Gemini rejects `additionalProperties`, which OpenAI's strict mode requires. */
+    private fun JsonObject.withoutAdditionalProperties(): JsonObject = buildJsonObject {
+        forEach { (key, value) ->
+            when {
+                key == "additionalProperties" -> Unit
+                value is JsonObject -> put(key, value.withoutAdditionalProperties())
+                else -> put(key, value)
+            }
+        }
+    }
 
     private fun messages(system: String, user: String) = buildJsonArray {
         add(
@@ -321,12 +366,6 @@ object LlmRequestFactory {
 
     private fun textParts(text: String) = buildJsonArray { add(buildJsonObject { put("text", text) }) }
 
-    private fun jsonSchema() = buildJsonObject {
-        put("name", "translation")
-        put("strict", true)
-        put("schema", schema())
-    }
-
     private val ReasoningEffort.geminiLevel: String
         get() = when (this) {
             ReasoningEffort.NONE -> "THINKING_LEVEL_UNSPECIFIED"
@@ -337,14 +376,21 @@ object LlmRequestFactory {
         }
 }
 
-object TranslationRetryPolicy {
+/**
+ * Retries an AI request while the provider says the failure is transient.
+ *
+ * Generic over the result so translation and every later AI task share one backoff schedule; each
+ * caller supplies [failureCode] because only it knows the shape of its own result.
+ */
+object AiRetryPolicy {
     private val backoff = longArrayOf(1_000, 2_000, 3_000, 5_000, 8_000)
 
-    suspend fun execute(
+    suspend fun <T> execute(
         retries: Int,
+        failureCode: (T) -> AiErrorCode?,
         sleeper: suspend (Long) -> Unit = { delay(it) },
-        block: suspend () -> TranslationResult,
-    ): TranslationResult {
+        block: suspend () -> T,
+    ): T {
         val retryCount = retries.coerceIn(0, 5)
         repeat(retryCount + 1) { attempt ->
             val result = try {
@@ -352,17 +398,9 @@ object TranslationRetryPolicy {
             } catch (e: CancellationException) {
                 throw e
             }
-            if (result !is TranslationResult.Error || !result.isRetryable || attempt >= retryCount) return result
+            if (failureCode(result)?.retryable != true || attempt >= retryCount) return result
             sleeper(backoff[attempt])
         }
         error("unreachable")
     }
-
-    private val TranslationResult.Error.isRetryable: Boolean
-        get() = errorCode in setOf(
-            TranslationResult.ErrorCode.NETWORK_ERROR,
-            TranslationResult.ErrorCode.TIMEOUT,
-            TranslationResult.ErrorCode.RATE_LIMITED,
-            TranslationResult.ErrorCode.SERVICE_UNAVAILABLE,
-        )
 }

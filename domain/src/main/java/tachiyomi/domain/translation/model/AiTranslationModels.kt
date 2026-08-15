@@ -33,7 +33,12 @@ data class AiExecutionConfig(
     val provider: AIProvider? = null,
     val apiKey: String = "",
     val guidelines: String? = null,
-)
+) {
+    /** Whether a request can be built at all: a provider to call, a model to call it with, and a key if it needs one. */
+    val isComplete: Boolean
+        get() = provider != null && provider.endpoint.isNotBlank() && provider.model.isNotBlank() &&
+            (!provider.requiresApiKey || apiKey.isNotBlank())
+}
 
 data class TranslationRequest(
     val texts: List<String>,
