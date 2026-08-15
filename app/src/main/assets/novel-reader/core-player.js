@@ -3,7 +3,11 @@
 // core-player.js
 
 (function () {
-  const FULL_SEGMENT_HLS_METHODS = new Set(["AES-128", "AES-256", "AES-256-CTR"]);
+  const FULL_SEGMENT_HLS_METHODS = new Set([
+    "AES-128",
+    "AES-256",
+    "AES-256-CTR",
+  ]);
   const MIME_CONTAINERS = {
     "video/mp4": "mp4",
     "video/x-matroska": "mkv",
@@ -81,11 +85,11 @@
 
       this.isDebugMode = metaContent("lnreader-debug-mode") === "true";
       this.disableProgress = Boolean(
-        document.querySelector("meta#lnreader-video-disable-progress")
+        document.querySelector("meta#lnreader-video-disable-progress"),
       );
       this.downloadEndpoint = metaContent("lnreader-video-download").replace(
         /\/+$/,
-        ""
+        "",
       );
 
       this.container = document.createElement("div");
@@ -122,7 +126,9 @@
       // through `fail` themselves; this only catches what escapes that, instead of losing it to an
       // unhandled rejection.
       Promise.resolve(this[method](url)).catch((error) =>
-        this.fail(`Video playback failed: ${(error && error.message) || error}`)
+        this.fail(
+          `Video playback failed: ${(error && error.message) || error}`,
+        ),
       );
     }
 
@@ -145,7 +151,7 @@
         toggle.setAttribute("aria-expanded", String(visible));
         toggle.setAttribute(
           "aria-label",
-          visible ? "Hide player log" : "Show player log"
+          visible ? "Hide player log" : "Show player log",
         );
       });
       document.body.appendChild(toggle);
@@ -215,11 +221,14 @@
     async sinkRequest(route, init, label) {
       let response;
       try {
-        response = await this.sinkFetch(`${this.downloadEndpoint}${route}`, init);
+        response = await this.sinkFetch(
+          `${this.downloadEndpoint}${route}`,
+          init,
+        );
       } catch (error) {
         if (error && error.name === "AbortError") throw error;
         throw new Error(
-          `Download sink ${route} unreachable: ${(error && error.message) || error}`
+          `Download sink ${route} unreachable: ${(error && error.message) || error}`,
         );
       }
       if (label && !response.ok) {
@@ -236,7 +245,7 @@
       return this.sinkRequest(
         `/sink?container=${encodeURIComponent(container)}`,
         { method: "POST" },
-        "ready"
+        "ready",
       );
     }
 
@@ -268,11 +277,13 @@
 
     videoContainer(url, contentType) {
       const match = new URL(String(url), document.baseURI).pathname.match(
-        /\.([a-z0-9]{1,5})$/i
+        /\.([a-z0-9]{1,5})$/i,
       );
       const extension = match ? match[1].toLowerCase() : "";
       if (VIDEO_EXTENSIONS.includes(extension)) return extension;
-      const mime = String(contentType || "").split(";", 1)[0].toLowerCase();
+      const mime = String(contentType || "")
+        .split(";", 1)[0]
+        .toLowerCase();
       return MIME_CONTAINERS[mime] || "mp4";
     }
 
@@ -292,12 +303,12 @@
       // only ever report 0%.
       const totalBytes = Number(
         response.headers.get("content-length") ||
-          response.headers.get("x-tsundoku-upstream-length")
+          response.headers.get("x-tsundoku-upstream-length"),
       );
       const knownTotal =
         Number.isSafeInteger(totalBytes) && totalBytes > 0 ? totalBytes : 0;
       await this.readyDownload(
-        this.videoContainer(url, response.headers.get("content-type"))
+        this.videoContainer(url, response.headers.get("content-type")),
       );
 
       // Reported as a percentage rather than a byte count: the bridge marshals ints, and a large
@@ -308,7 +319,10 @@
       const advance = (byteLength) => {
         received += byteLength;
         if (knownTotal === 0) return;
-        const percent = Math.min(100, Math.floor((received * 100) / knownTotal));
+        const percent = Math.min(
+          100,
+          Math.floor((received * 100) / knownTotal),
+        );
         if (percent !== lastPercent) {
           lastPercent = percent;
           this.bridgeCall("onProgress", percent, 100);
@@ -348,7 +362,7 @@
           progressive: false,
           startFragPrefetch: false,
           tsundokuCaptureFragments: true,
-        })
+        }),
       );
       const media = document.createElement("video");
       media.hidden = true;
@@ -366,7 +380,8 @@
             loadedBytes = 0;
             if (fragment) this.bridgeCall("onActivity");
           }
-          const currentBytes = Number(fragment && fragment.stats && fragment.stats.loaded) || 0;
+          const currentBytes =
+            Number(fragment && fragment.stats && fragment.stats.loaded) || 0;
           if (currentBytes > loadedBytes) {
             loadedBytes = currentBytes;
             this.bridgeCall("onActivity");
@@ -389,7 +404,10 @@
           };
           const isSameFragment = (left, right) =>
             left === right ||
-            (left && right && left.level === right.level && left.sn === right.sn);
+            (left &&
+              right &&
+              left.level === right.level &&
+              left.sn === right.sn);
           const advance = (capture) => {
             if (
               settled ||
@@ -425,7 +443,9 @@
               const bytes = new Uint8Array(data.payload);
               if (fragment.sn === "initSegment") return;
               if ((fragment.initSegment || null) !== initSegment) {
-                fail(new Error("HLS init segment changes cannot be downloaded"));
+                fail(
+                  new Error("HLS init segment changes cannot be downloaded"),
+                );
                 return;
               }
 
@@ -444,7 +464,7 @@
                     throw new Error("HLS init segment is unavailable");
                   }
                   await this.putDownloadChunk(
-                    new Uint8Array(initSegment.data).slice()
+                    new Uint8Array(initSegment.data).slice(),
                   );
                 }
                 await this.putDownloadChunk(bytes);
@@ -458,14 +478,21 @@
           };
 
           hls.on(Hls.Events.ERROR, (event, data) => {
-            if (!data || (!data.fatal && data.details !== "fragDecryptError")) return;
+            if (!data || (!data.fatal && data.details !== "fragDecryptError"))
+              return;
             const detail = data.details || data.type || "unknown";
-            const status = data.response && data.response.code ? ` (${data.response.code})` : "";
+            const status =
+              data.response && data.response.code
+                ? ` (${data.response.code})`
+                : "";
             fail(new Error(`HLS load failed: ${detail}${status}`));
           });
-          hls.on(Hls.Events.FRAG_DECRYPTED, (event, data) => acceptPayload(data));
+          hls.on(Hls.Events.FRAG_DECRYPTED, (event, data) =>
+            acceptPayload(data),
+          );
           hls.on(Hls.Events.FRAG_BUFFERED, (event, data) => {
-            if (!active || !isSameFragment(data && data.frag, active.fragment)) return;
+            if (!active || !isSameFragment(data && data.frag, active.fragment))
+              return;
             active.buffered = true;
             advance(active);
           });
@@ -477,31 +504,44 @@
           hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
             const tracks = (data && data.audioTracks) || [];
             if (tracks.some((track) => track.url)) {
-              fail(new Error("HLS with separate audio tracks cannot be downloaded"));
+              fail(
+                new Error(
+                  "HLS with separate audio tracks cannot be downloaded",
+                ),
+              );
             }
           });
           hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
             if (settled || fragments) return;
             hls.stopLoad();
             if (data.details && data.details.live) {
-              fail(new Error("Live HLS cannot be downloaded as a complete video"));
+              fail(
+                new Error("Live HLS cannot be downloaded as a complete video"),
+              );
               return;
             }
             fragments = ((data.details && data.details.fragments) || []).filter(
-              (fragment) => !fragment.gap
+              (fragment) => !fragment.gap,
             );
             if (fragments.length === 0) {
               fail(new Error("HLS playlist has no segments"));
               return;
             }
             const unsupported = fragments.find((fragment) => {
-              const method = fragment.decryptdata && fragment.decryptdata.method;
-              return method && method !== "NONE" && !FULL_SEGMENT_HLS_METHODS.has(method);
+              const method =
+                fragment.decryptdata && fragment.decryptdata.method;
+              return (
+                method &&
+                method !== "NONE" &&
+                !FULL_SEGMENT_HLS_METHODS.has(method)
+              );
             });
             if (unsupported) {
               const method = unsupported.decryptdata.method;
               fail(
-                new Error(`HLS encryption method ${method} cannot be downloaded without transcoding`)
+                new Error(
+                  `HLS encryption method ${method} cannot be downloaded without transcoding`,
+                ),
               );
               return;
             }
@@ -519,7 +559,9 @@
             hls.startLoad();
           } catch (error) {
             fail(
-              new Error(`HLS loadSource failed: ${(error && error.message) || error}`)
+              new Error(
+                `HLS loadSource failed: ${(error && error.message) || error}`,
+              ),
             );
           }
         });
@@ -534,12 +576,17 @@
 
     attachEventListeners(video) {
       const saveProgress = (percent) => {
-        if (!this.disableProgress) readerCall("post", { type: "save", data: percent });
+        if (!this.disableProgress)
+          readerCall("post", { type: "save", data: percent });
       };
 
       video.addEventListener("loadedmetadata", () => {
         this.log("Video loadedmetadata");
-        if (this.hasSeekedInitial || this.disableProgress || !(video.duration > 0)) {
+        if (
+          this.hasSeekedInitial ||
+          this.disableProgress ||
+          !(video.duration > 0)
+        ) {
           return;
         }
         const chapter = readerProp("chapter");
@@ -547,7 +594,9 @@
         const initialProgress = chapter.progress || 0;
         this.log(`Initial progress: ${initialProgress}%`);
         if (initialProgress > 0 && initialProgress < 100) {
-          video.currentTime = Math.floor((initialProgress / 100) * video.duration);
+          video.currentTime = Math.floor(
+            (initialProgress / 100) * video.duration,
+          );
         }
         this.hasSeekedInitial = true;
       });
@@ -573,10 +622,13 @@
       video.addEventListener(
         "error",
         () => {
-          const detail = video.error && video.error.message ? video.error.message : "unknown error";
+          const detail =
+            video.error && video.error.message
+              ? video.error.message
+              : "unknown error";
           this.fail(`Video playback failed: ${detail}`);
         },
-        { once: true }
+        { once: true },
       );
     }
 
@@ -585,13 +637,18 @@
     // calls play*() as soon as it has a url would otherwise fail on an element that is merely late.
     // Bounded, because a CDN that never arrives has to surface as an error rather than a silent wait.
     async awaitElements(tags) {
-      const pending = tags.filter((tag) => tag !== "video" && !customElements.get(tag));
+      const pending = tags.filter(
+        (tag) => tag !== "video" && !customElements.get(tag),
+      );
       if (pending.length === 0) return;
       const expired = new Promise((_, reject) =>
         setTimeout(
-          () => reject(new Error(`custom element ${pending.join(", ")} is unavailable`)),
-          ELEMENT_DEFINE_TIMEOUT_MS
-        )
+          () =>
+            reject(
+              new Error(`custom element ${pending.join(", ")} is unavailable`),
+            ),
+          ELEMENT_DEFINE_TIMEOUT_MS,
+        ),
       );
       await Promise.race([
         Promise.all(pending.map((tag) => customElements.whenDefined(tag))),
@@ -603,7 +660,12 @@
     // runtime API, so swapping videojs.min.js for a CDN build of the same version needs no change here.
     async buildPlayer(mediaTag) {
       const tags = this.disableProgress ? PLAYER_TAGS.live : PLAYER_TAGS.vod;
-      await this.awaitElements([tags.player, tags.skin, "media-i18n", mediaTag]);
+      await this.awaitElements([
+        tags.player,
+        tags.skin,
+        "media-i18n",
+        mediaTag,
+      ]);
       const thumbnailsVtt = metaContent("lnreader-video-thumbnails");
       const poster = metaContent("lnreader-video-poster");
 
@@ -652,21 +714,24 @@
     // of them work in this WebView, so strip them here and one skin serves both builds.
     stripUnsupportedControls(skin) {
       const shadow = skin.shadowRoot;
-      if (!shadow) throw new Error(`${skin.localName} shadow root is unavailable`);
+      if (!shadow)
+        throw new Error(`${skin.localName} shadow root is unavailable`);
       shadow
         .querySelectorAll(
           "media-cast-button, media-airplay-button, media-pip-button, " +
             "#cast-tooltip, #airplay-tooltip, #pip-tooltip, " +
             'media-hotkey[action="togglePictureInPicture"], ' +
-            ".media-icon--pip-enter, .media-icon--pip-exit"
+            ".media-icon--pip-enter, .media-icon--pip-exit",
         )
         .forEach((element) => element.remove());
-      shadow.querySelectorAll("media-status-indicator[actions]").forEach((element) => {
-        const actions = (element.getAttribute("actions") || "")
-          .split(/\s+/)
-          .filter((action) => action && action !== "togglePictureInPicture");
-        element.setAttribute("actions", actions.join(" "));
-      });
+      shadow
+        .querySelectorAll("media-status-indicator[actions]")
+        .forEach((element) => {
+          const actions = (element.getAttribute("actions") || "")
+            .split(/\s+/)
+            .filter((action) => action && action !== "togglePictureInPicture");
+          element.setAttribute("actions", actions.join(" "));
+        });
       const container = shadow.querySelector("media-container");
       if (container) {
         container.style.setProperty("--media-border-radius", "0");
@@ -684,7 +749,9 @@
         this.videoElement = media;
         return media;
       } catch (error) {
-        this.fail(`Video player initialization failed: ${(error && error.message) || error}`);
+        this.fail(
+          `Video player initialization failed: ${(error && error.message) || error}`,
+        );
         return null;
       }
     }
@@ -697,9 +764,13 @@
       try {
         configure(video);
         video.src = String(url);
-        video.addEventListener("loadedmetadata", () => this.tryPlay(video), { once: true });
+        video.addEventListener("loadedmetadata", () => this.tryPlay(video), {
+          once: true,
+        });
       } catch (error) {
-        this.fail(`${kind} playback failed: ${(error && error.message) || error}`);
+        this.fail(
+          `${kind} playback failed: ${(error && error.message) || error}`,
+        );
       }
     }
 
@@ -727,7 +798,8 @@
       }
       return this.playAdaptive("HLS", "hlsjs-video", url, (video) => {
         // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
-        if (!window.Hls || !Hls.isSupported()) throw new Error("hls.js is unavailable");
+        if (!window.Hls || !Hls.isSupported())
+          throw new Error("hls.js is unavailable");
         video.config = {
           preferPlayback: "mse",
           contentType: "application/vnd.apple.mpegurl",
@@ -758,9 +830,12 @@
           // Widevine in a WebView needs the device DRM identifier even at L3, and Kotlin only honours
           // the grant right after this call. It refuses while incognito is on, because that identifier
           // is permanent and unresettable.
-          if (!hostCall(window.Android, "requestProtectedMediaPlayback")) {
+          if (
+            window.Android &&
+            !hostCall(window.Android, "requestProtectedMediaPlayback")
+          ) {
             throw new Error(
-              "DRM video needs the device media identifier, which is not shared while incognito is on"
+              "DRM video needs the device media identifier, which is not shared while incognito is on",
             );
           }
           // Not part of dash.js settings, and it must land before attachSource, which the `source`
@@ -770,15 +845,22 @@
         // Upstream's structured source is the supported way in: it resets and re-applies dash.js
         // settings on the live engine. Assigning no `src` here leaves the manifest to playAdaptive,
         // whose `video.src = url` re-derives the source and carries these settings over.
-        if (dashConfig.settings) video.source = { engine: { dashJs: dashConfig.settings } };
+        if (dashConfig.settings)
+          video.source = { engine: { dashJs: dashConfig.settings } };
         this.dashInstance = engine;
         if (typeof engine.on === "function") {
-          engine.on((engine.events && engine.events.ERROR) || "error", (event) => {
-            const detail =
-              (event && ((event.error && event.error.message) || (event.event && event.event.message) || event.message)) ||
-              "unknown error";
-            this.fail(`DASH playback failed: ${detail}`);
-          });
+          engine.on(
+            (engine.events && engine.events.ERROR) || "error",
+            (event) => {
+              const detail =
+                (event &&
+                  ((event.error && event.error.message) ||
+                    (event.event && event.event.message) ||
+                    event.message)) ||
+                "unknown error";
+              this.fail(`DASH playback failed: ${detail}`);
+            },
+          );
         }
       });
     }
@@ -824,7 +906,7 @@
   // Auto-init when DOM is ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () =>
-      window.LNReaderPlayer.init()
+      window.LNReaderPlayer.init(),
     );
   } else {
     window.LNReaderPlayer.init();
