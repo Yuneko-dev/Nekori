@@ -972,10 +972,18 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
             }
         }
 
+        // finalUrl is the path spelled the way the user pasted it; JsSource is not a ResolvableSource,
+        // so the canonical-resolve above never runs for JS plugins. Probe the other trailing-slash
+        // spelling when the exact one misses, or both branches below add a second row for a page
+        // already in the library. Only runs for a genuinely new URL.
         val existingManga = getMangaByUrlAndSourceId.await(finalUrl, source.id)
+            ?: MassImport.trailingSlashVariant(finalUrl)?.let { getMangaByUrlAndSourceId.await(it, source.id) }
         if (existingManga != null && existingManga.favorite) {
             return false
         }
+        // Adopt the stored spelling so the rest of this import updates that row rather than
+        // inserting a sibling that differs only by a trailing slash.
+        if (existingManga != null) finalUrl = existingManga.url
 
         if (!fetchDetails && !fetchChapters) {
             if (existingManga == null) {

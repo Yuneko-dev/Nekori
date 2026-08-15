@@ -111,20 +111,4 @@ class FindDuplicateNovelsTest {
 
             coVerify(exactly = 1) { mangaRepository.findDuplicatesExact(includeBlank = true) }
         }
-
-    @Test
-    fun `URL groups sharing the same url key across sources are not collapsed into one`() =
-        kotlinx.coroutines.test.runTest {
-            val groupA = DuplicateGroup(normalizedTitle = "", ids = listOf(1L, 2L), count = 2)
-            val groupB = DuplicateGroup(normalizedTitle = "", ids = listOf(3L, 4L), count = 2)
-            coEvery { mangaRepository.findDuplicatesByUrl(includeBlank = true) } returns listOf(groupA, groupB)
-            coEvery { mangaRepository.getMangaWithCountsLightWithGenre(any()) } answers {
-                val ids = firstArg<List<Long>>()
-                ids.map { mangaWithCount(it, "") }
-            }
-
-            val result = findDuplicateNovels.findDuplicatesGrouped(DuplicateMatchMode.URL, BlankTitleFilter.INCLUDE)
-
-            result.allGroupIds.values.flatten().toSet() shouldBe setOf(1L, 2L, 3L, 4L)
-        }
 }

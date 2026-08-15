@@ -340,17 +340,6 @@ class DuplicateDetectionScreen : Screen {
                             },
                         )
                         FilterChip(
-                            selected = state.matchMode == DuplicateMatchMode.URL,
-                            enabled = !state.listingMode,
-                            onClick = { screenModel.setMatchMode(DuplicateMatchMode.URL) },
-                            label = { Text(stringResource(MR.strings.duplicate_match_url)) },
-                            leadingIcon = if (state.matchMode == DuplicateMatchMode.URL) {
-                                { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                            } else {
-                                null
-                            },
-                        )
-                        FilterChip(
                             selected = state.listingMode,
                             onClick = { screenModel.setListingMode(!state.listingMode) },
                             label = { Text(stringResource(MR.strings.duplicate_listing_mode)) },

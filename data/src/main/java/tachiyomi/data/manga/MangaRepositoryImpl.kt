@@ -1422,16 +1422,6 @@ class MangaRepositoryImpl(
         }
     }
 
-    override suspend fun findDuplicatesByUrl(includeBlank: Boolean): List<DuplicateGroup> {
-        return database.mangasQueries.findDuplicatesByUrl(includeBlank) { url, source, ids, count ->
-            DuplicateGroup(
-                normalizedTitle = url, // Using URL as the group key
-                ids = ids.split(",").mapNotNull { id -> id.toLongOrNull() },
-                count = count.toInt(),
-            )
-        }.awaitAsList()
-    }
-
     override suspend fun getFavoriteGenres(): List<Pair<Long, List<String>?>> {
         logcat(LogPriority.INFO) { "MangaRepositoryImpl.getFavoriteGenres: Executing lightweight genres query" }
         val queryStart = System.currentTimeMillis()

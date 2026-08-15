@@ -33,6 +33,22 @@ class MassImport(
         private val GLUE_REGEX = Regex("(?<=[^\\s])(?=https?://)")
         private val SCHEME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9+\\-.]*://")
 
+        /**
+         * Trailing-slash-insensitive comparison key for a source path. A plugin-returned path is
+         * stored verbatim, so this is a **comparison key only** and never what gets written: mass
+         * import is the one place holding a second, user-typed spelling of a path the plugin
+         * already spelled its own way, and `https://site/novel/abc/` must still recognise the
+         * stored `/novel/abc`.
+         */
+        fun pathCompareKey(path: String): String = if (path.length > 1) path.trimEnd('/') else path
+
+        /** The other trailing-slash spelling of [path], or null when there is none worth probing. */
+        fun trailingSlashVariant(path: String): String? {
+            val key = pathCompareKey(path)
+            if (key.length <= 1) return null
+            return if (path == key) "$key/" else key
+        }
+
         // Shared tokenizer for every entry point so the "valid" count matches what the import
         // walks. Splits on comma/semicolon/space/tab and de-glues separator-less URLs.
         fun tokenizeLine(line: String): List<String> {
@@ -219,7 +235,10 @@ class MassImport(
     suspend fun analyzeUrls(text: String): UrlAnalysisResult = kotlinx.coroutines.withContext(Dispatchers.IO) {
         val novelSources = getAllSources()
         val libraryUrlIndex = try {
-            mangaRepository.getFavoriteSourceAndUrl().toSet()
+            // Keyed the same way the input dedup below is, so the two halves of this check can't
+            // disagree about whether a trailing slash makes two URLs different.
+            mangaRepository.getFavoriteSourceAndUrl()
+                .mapTo(HashSet()) { (sourceId, url) -> sourceId to pathCompareKey(url) }
         } catch (_: Exception) {
             emptySet()
         }
@@ -250,7 +269,7 @@ class MassImport(
                 continue
             }
             val path = extractPathFromUrl(line, getSourceBaseUrl(source))
-            if (libraryUrlIndex.contains(source.id to path)) {
+            if (libraryUrlIndex.contains(source.id to pathCompareKey(path))) {
                 alreadyInLibrary.add(line)
                 continue
             }

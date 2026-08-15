@@ -10,7 +10,11 @@ import tachiyomi.domain.manga.repository.MangaRepository
 enum class DuplicateMatchMode {
     EXACT, // Exact title match (case-insensitive, trimmed)
     CONTAINS, // One title contains another
-    URL, // Same URL within the same extension/source
+
+    // No URL mode: a plugin-returned path is stored verbatim (see AGENTS.md), so grouping on it
+    // exactly misses the only case that produces same-source URL duplicates here — a mass-imported
+    // path that differs from the plugin's canonical one by a trailing slash. Mass import dedupes
+    // those on its own normalized comparison key instead.
 }
 
 enum class BlankTitleFilter {
@@ -119,14 +123,6 @@ class FindDuplicateNovels(
     }
 
     /**
-     * Find duplicates by URL within the same extension.
-     * Returns groups where multiple manga have the same URL from the same source.
-     */
-    suspend fun findUrlDuplicates(includeBlank: Boolean = false): List<DuplicateGroup> {
-        return mangaRepository.findDuplicatesByUrl(includeBlank)
-    }
-
-    /**
      * Materialize the given manga ids and group them by normalized title, keeping single entries.
      * The caller resolves the id set (e.g. category-filtered) so only the needed rows are loaded.
      */
@@ -186,20 +182,8 @@ class FindDuplicateNovels(
     }
 
     /**
-     * Turns [DuplicateGroup]s into a key->ids map. URL-mode groups are keyed by URL alone (the
-     * SQL groups by url+source), so two different-source groups can share a normalizedTitle;
-     * disambiguate rather than letting `.associate` silently drop one group's ids.
+     * Groups pairs from CONTAINS matching into a key->ids map, keyed by the shorter (contained) title.
      */
-    private fun groupsToMap(groups: List<DuplicateGroup>): Map<String, List<Long>> {
-        val result = LinkedHashMap<String, List<Long>>()
-        groups.forEach { group ->
-            val baseKey = group.normalizedTitle
-            val key = if (result.containsKey(baseKey)) "$baseKey#${group.ids.first()}" else baseKey
-            result[key] = group.ids
-        }
-        return result
-    }
-
     private fun groupContainsPairs(pairs: List<DuplicatePair>): Map<String, List<Long>> {
         val groups = mutableMapOf<String, MutableSet<Long>>()
         pairs.forEach { pair ->
@@ -226,8 +210,8 @@ class FindDuplicateNovels(
         val includeBlank = blankTitleFilter != BlankTitleFilter.EXCLUDE
 
         val rawGroups = when (mode) {
-            DuplicateMatchMode.EXACT -> groupsToMap(findExact(includeBlank))
-            DuplicateMatchMode.URL -> groupsToMap(findUrlDuplicates(includeBlank))
+            // Keys are unique by construction: the query is GROUP BY lower(trim(title)).
+            DuplicateMatchMode.EXACT -> findExact(includeBlank).associate { it.normalizedTitle to it.ids }
             DuplicateMatchMode.CONTAINS -> groupContainsPairs(findContains())
         }.filterValues { it.size > 1 }
 

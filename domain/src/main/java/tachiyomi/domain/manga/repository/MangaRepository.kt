@@ -175,12 +175,6 @@ interface MangaRepository {
     ): List<Long>
 
     /**
-     * Find duplicates by URL within the same source.
-     * Returns groups where multiple manga have the same URL from the same source.
-     */
-    suspend fun findDuplicatesByUrl(includeBlank: Boolean = false): List<DuplicateGroup>
-
-    /**
      * Get lightweight favorite genres for tag counting.
      * Returns list of (mangaId, genreList) pairs - much faster than getLibraryManga().
      */

@@ -354,18 +354,6 @@ ORDER BY a.title
 ;
 
 -- Find duplicates by URL within the same source/extension
-findDuplicatesByUrl:
-SELECT
-    url,
-    source,
-    CAST(group_concat(_id) AS TEXT) AS ids,
-    count(*) AS duplicate_count
-FROM mangas
-WHERE favorite = 1 AND (:includeBlank OR trim(url) <> '')
-GROUP BY url, source
-HAVING count(*) > 1
-ORDER BY duplicate_count DESC;
-
 -- Get manga with chapter count for duplicate detection (optimized with JOIN)
 getMangaWithCounts:
 SELECT
