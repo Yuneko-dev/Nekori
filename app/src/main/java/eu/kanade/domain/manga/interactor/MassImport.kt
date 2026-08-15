@@ -2,6 +2,7 @@ package eu.kanade.domain.manga.interactor
 
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ class MassImport(
     private val sourcePreferences: SourcePreferences = Injekt.get(),
 ) {
     private val missingSourceHostLogCache = ConcurrentHashMap<String, Boolean>()
+    private val domainForwarding by lazy { Injekt.get<NetworkHelper>().domainForwarding }
 
     companion object {
         private val GLUE_REGEX = Regex("(?<=[^\\s])(?=https?://)")
@@ -116,29 +118,9 @@ class MassImport(
         } catch (_: Exception) {
             null
         }
+        if (urlHost.isNullOrEmpty()) return null
         val matchingSources = sources.filter { source ->
-            try {
-                val rawBase = getSourceBaseUrl(source)
-                val baseForUri = if (rawBase.startsWith("http")) rawBase else "https://$rawBase"
-                val baseUri = URI(baseForUri)
-                val baseHost = baseUri.host?.lowercase()?.removePrefix("www.")
-                val basePath = baseUri.path?.trimEnd('/')
-                if (baseHost.isNullOrEmpty() || urlHost.isNullOrEmpty()) return@filter false
-
-                val hostMatches = urlHost == baseHost ||
-                    urlHost.endsWith(".$baseHost") ||
-                    baseHost.endsWith(".$urlHost")
-                if (!hostMatches) return@filter false
-
-                if (!basePath.isNullOrBlank() && basePath != "/") {
-                    val urlPath = URI(url).path ?: ""
-                    urlPath.startsWith(basePath)
-                } else {
-                    true
-                }
-            } catch (_: Exception) {
-                false
-            }
+            baseUrlCandidates(source).any { base -> matchesBaseUrl(url, urlHost, base) }
         }
 
         if (matchingSources.isEmpty()) {
@@ -166,6 +148,43 @@ class MassImport(
 
     fun getSourceBaseUrl(source: CatalogueSource): String {
         return (source as? JsSource)?.baseUrl.orEmpty()
+    }
+
+    /**
+     * The base URLs a pasted link may legitimately carry for this source: the plugin's own site, plus
+     * its domain-forwarding target when one is configured. A forwarded source is *reached* at the
+     * target host, so that is the host the user copies out of a browser. The plugin's own baseUrl
+     * stays the identity - this only widens matching.
+     */
+    private fun baseUrlCandidates(source: CatalogueSource): List<String> {
+        val raw = getSourceBaseUrl(source).ifBlank { return emptyList() }
+        val absolute = if (raw.startsWith("http")) raw else "https://$raw"
+        // Mass import resolves through JsSource, whose traffic is tagged JsPluginOrigin, so
+        // plugin-scoped mappings apply here as well as global ones.
+        val forwarded = domainForwarding.rewrite(absolute, fromJsPlugin = true)
+        return if (forwarded == absolute) listOf(absolute) else listOf(absolute, forwarded)
+    }
+
+    private fun matchesBaseUrl(url: String, urlHost: String, base: String): Boolean {
+        return try {
+            val baseUri = URI(base)
+            val baseHost = baseUri.host?.lowercase()?.removePrefix("www.")
+            if (baseHost.isNullOrEmpty()) return false
+
+            val hostMatches = urlHost == baseHost ||
+                urlHost.endsWith(".$baseHost") ||
+                baseHost.endsWith(".$urlHost")
+            if (!hostMatches) return false
+
+            val basePath = baseUri.path?.trimEnd('/')
+            if (!basePath.isNullOrBlank() && basePath != "/") {
+                (URI(url).path ?: "").startsWith(basePath)
+            } else {
+                true
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun extractPathFromUrl(url: String, baseUrl: String): String {

@@ -359,6 +359,8 @@
     <string name="duplicate_deselect_group">Deselect group</string>
     <string name="duplicate_apply_library_filters">Library filters</string>
     <string name="duplicate_full_urls_short">Full URLs</string>
+    <string name="duplicate_match_label">Matching</string>
+    <string name="duplicate_options_label">Options</string>
     <string name="duplicate_checking_progress">Checking %1$d of %2$d candidates…</string>
     <string name="epub_create_dir_failed">Failed to create directory for: %s</string>
     <string name="epub_novels_export_count">%d novel(s) will be exported.</string>

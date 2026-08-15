@@ -352,6 +352,8 @@
     <string name="duplicate_category_include_and">VÀ</string>
     <string name="duplicate_dismiss_group">Bỏ nhóm</string>
     <string name="duplicate_deselect_group">Bỏ chọn nhóm</string>
+    <string name="duplicate_match_label">Kiểu so khớp</string>
+    <string name="duplicate_options_label">Tùy chọn</string>
     <string name="epub_create_dir_failed">Không thể tạo thư mục cho: %s</string>
     <string name="epub_novels_export_count">Sẽ xuất %d tiểu thuyết.</string>
     <string name="epub_and_more">… và %d mục khác</string>
