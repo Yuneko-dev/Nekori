@@ -23,9 +23,6 @@
         '[role="dialog"]', '[aria-modal="true"]',
         '#Image-Modal', '#TTS-Controller', '#next-chapter-btn-container',
         '#lnreader-player-container', '#lnreader-debug-overlay', '#lnreader-debug-toggle',
-        // The summary card's own buttons live in a shadow root, so `event.target` is retargeted to
-        // the host: matching the host is what keeps a tap on the card from toggling the chrome.
-        'tsundoku-chapter-summary',
     ].join(',');
 
     document.addEventListener(
@@ -33,8 +30,14 @@
         function (event) {
             if (!window.Android || !window.Android.claimReaderGesture) return;
             var target = event.target instanceof Element ? event.target : null;
+            // At the document boundary a shadow-DOM button is retargeted to its host. The composed
+            // path preserves the real button, so controls stay blocked while the card body remains
+            // reader surface and can toggle the chrome.
+            var pathOwnsGesture = event.composedPath().some(function (node) {
+                return node instanceof Element && node.matches(OWNED);
+            });
             var owner;
-            if (!target || !event.isPrimary || target.closest(OWNED)) {
+            if (!target || !event.isPrimary || target.closest(OWNED) || pathOwnsGesture) {
                 // A secondary pointer blocks the whole gesture: a pinch is never a tap or a swipe.
                 owner = 'blocked';
             } else if (target.closest('img')) {
