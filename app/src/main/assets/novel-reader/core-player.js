@@ -19,6 +19,11 @@
   const VIDEO_EXTENSIONS = ["mp4", "m4v", "mkv", "webm", "mov", "avi", "ts"];
   // Byte offset inside a `moof`: box header 8, `mfhd` header 8, version and flags 4.
   const MFHD_SEQUENCE_OFFSET = 20;
+  // Stored progress is a whole percent, which on a two-hour video quantises the resume point to
+  // about 72 seconds. The sub-percent remainder lives here instead. Reader storage is the source's
+  // own origin and is shared with the plugin, so this is one key holding a small map; an entry
+  // disappears as soon as its chapter is finished, which is what keeps it small.
+  const VIDEO_FRACTION_KEY = "__tsundoku_video_fraction";
   // Keys must stay in sync with VIDEO_TYPES in NovelWebViewChapterDirectives.kt; a type Kotlin lets
   // through but this map does not know becomes an "Unknown video type" failure at playback.
   const DIRECT_PLAYERS = {
@@ -51,6 +56,34 @@
     }
     return undefined;
   };
+  const readVideoFractions = () => {
+    try {
+      const parsed = JSON.parse(
+        localStorage.getItem(VIDEO_FRACTION_KEY) || "{}",
+      );
+      // Arrays are typeof "object" but serialise back without the keys written onto them, which
+      // would drop every remainder silently.
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {};
+    } catch (_) {
+      return {};
+    }
+  };
+  // Storage can be full, disabled, or wiped by the plugin. A missing remainder only costs the
+  // sub-percent precision, so every failure here is silent.
+  const writeVideoFraction = (path, fraction) => {
+    if (!path) return;
+    try {
+      const fractions = readVideoFractions();
+      if (fraction > 0) fractions[path] = Math.round(fraction * 1e4) / 1e4;
+      else delete fractions[path];
+      localStorage.setItem(VIDEO_FRACTION_KEY, JSON.stringify(fractions));
+    } catch (_) {
+      // Nothing to recover: the whole percent is already stored natively.
+    }
+  };
+
   const boxType = (bytes) =>
     String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
   const sameBytes = (left, right) =>
@@ -502,7 +535,10 @@
               fail(new Error("HLS init segment changes cannot be downloaded"));
               return;
             }
-            if (active || !isSameFragment(fragment, fragments && fragments[next])) {
+            if (
+              active ||
+              !isSameFragment(fragment, fragments && fragments[next])
+            ) {
               return;
             }
 
@@ -694,9 +730,11 @@
     }
 
     attachEventListeners(video) {
-      const saveProgress = (percent) => {
-        if (!this.disableProgress)
-          readerCall("post", { type: "save", data: percent });
+      const chapterPath = window.Tsundoku?.currentChapter?.path;
+      const saveProgress = (percent, fraction = 0) => {
+        if (this.disableProgress) return;
+        if (!chapterPath) writeVideoFraction(chapterPath, fraction);
+        readerCall("post", { type: "save", data: percent });
       };
 
       video.addEventListener("loadedmetadata", () => {
@@ -713,9 +751,13 @@
         const initialProgress = chapter.progress || 0;
         this.log(`Initial progress: ${initialProgress}%`);
         if (initialProgress > 0 && initialProgress < 95) {
-          video.currentTime = Math.floor(
-            (initialProgress / 100) * video.duration,
-          );
+          // The stored percent is the floor of the real position, so a remainder left behind by
+          // another device can only shift the resume point by under one percent - never worse
+          // than the percent on its own.
+          const fraction = readVideoFractions()[chapterPath];
+          const percent =
+            initialProgress + (fraction > 0 && fraction < 1 ? fraction : 0);
+          video.currentTime = (percent / 100) * video.duration;
         } else {
           this.log("Initial progress is 0% or >=95%, not seeking");
         }
@@ -727,7 +769,11 @@
         const currentTime = video.currentTime;
         if (Math.abs(currentTime - this.lastSaveTime) < 3) return;
         this.lastSaveTime = currentTime;
-        saveProgress(Math.floor((currentTime / video.duration) * 100));
+        // Floor, never round: the remainder is stored separately and has to stay non-negative for
+        // the two halves to add back up to the real position.
+        const exact = (currentTime / video.duration) * 100;
+        const percent = Math.floor(exact);
+        saveProgress(percent, exact - percent);
       });
 
       video.addEventListener("ended", () => {
@@ -735,7 +781,11 @@
         saveProgress(100);
         if (readerProp("nextChapter")) {
           this.log("Moving to next chapter");
-          readerCall("post", { type: "next" });
+          try {
+            window.Tsundoku.actions.nextChapter();
+          } catch {
+            readerCall("post", { type: "next" });
+          }
         }
       });
 
