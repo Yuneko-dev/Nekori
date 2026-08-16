@@ -84,6 +84,17 @@
     }
   };
 
+  // For everyday subtitle files SubRip differs from WebVTT only in the missing header and the
+  // decimal comma, so the cheap conversion covers the formats plugins actually hand over.
+  // The signature has to be the first thing in the file, so anything a server left in front of it
+  // goes too; a byte order mark counts as leading whitespace here.
+  const toWebVtt = (text) => {
+    const body = text.trimStart();
+    return body.startsWith("WEBVTT")
+      ? body
+      : `WEBVTT\n\n${body.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2")}`;
+  };
+
   const boxType = (bytes) =>
     String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
   const sameBytes = (left, right) =>
@@ -116,6 +127,9 @@
       this.isDebugMode = false;
 
       this.disableProgress = false;
+
+      // Subtitles a plugin has resolved, kept so a later mountVideo can re-attach them.
+      this.subtitles = [];
 
       this.downloadEndpoint = "";
       this.downloadPromise = null;
@@ -730,10 +744,12 @@
     }
 
     attachEventListeners(video) {
+      // Tsundoku.currentChapter is re-injected on every chapter change, so it stays correct where
+      // the compat config baked into the document at build time would go stale.
       const chapterPath = window.Tsundoku?.currentChapter?.path;
       const saveProgress = (percent, fraction = 0) => {
         if (this.disableProgress) return;
-        if (!chapterPath) writeVideoFraction(chapterPath, fraction);
+        if (chapterPath) writeVideoFraction(chapterPath, fraction);
         readerCall("post", { type: "save", data: percent });
       };
 
@@ -754,7 +770,7 @@
           // The stored percent is the floor of the real position, so a remainder left behind by
           // another device can only shift the resume point by under one percent - never worse
           // than the percent on its own.
-          const fraction = readVideoFractions()[chapterPath];
+          const fraction = chapterPath ? readVideoFractions()[chapterPath] : 0;
           const percent =
             initialProgress + (fraction > 0 && fraction < 1 ? fraction : 0);
           video.currentTime = (percent / 100) * video.duration;
@@ -910,6 +926,54 @@
       }
     }
 
+    // Plugins usually resolve subtitles separately from the video url, and often after playback has
+    // started, so each track is remembered and attached to whichever media element is mounted. A
+    // track that cannot be fetched or parsed is logged and skipped: losing subtitles must never take
+    // the video down with it.
+    async addSubtitles(tracks) {
+      for (const track of Array.isArray(tracks) ? tracks : [tracks]) {
+        const label = track?.label || "Subtitles";
+        try {
+          let text = track.content;
+          if (!text) {
+            // sourceFetch already carries the reader's Referer and goes through the native fetch,
+            // and the object url it ends up as is same-origin, so no CORS is involved either way.
+            const response = await this.sourceFetch(track.url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            text = await response.text();
+          }
+          const prepared = {
+            label,
+            lang: track.lang || "",
+            src: URL.createObjectURL(
+              new Blob([toWebVtt(text)], { type: "text/vtt" }),
+            ),
+            default: Boolean(track.default),
+          };
+          this.subtitles.push(prepared);
+          if (this.videoElement)
+            this.appendSubtitle(this.videoElement, prepared);
+          this.log(`Subtitle added: ${label}`);
+        } catch (error) {
+          this.log(
+            `Subtitle "${label}" failed: ${(error && error.message) || error}`,
+          );
+        }
+      }
+    }
+
+    appendSubtitle(media, subtitle) {
+      const element = document.createElement("track");
+      element.kind = "subtitles";
+      element.label = subtitle.label;
+      element.srclang = subtitle.lang;
+      element.src = subtitle.src;
+      media.append(element);
+      // The `default` attribute is only honoured while the media element loads, and a track added
+      // afterwards has missed that, so selection goes through the live TextTrack instead.
+      if (subtitle.default && element.track) element.track.mode = "showing";
+    }
+
     async mountVideo(mediaTag) {
       this.destroyCurrentMedia();
       try {
@@ -918,6 +982,9 @@
         this.container.prepend(root);
         this.playerElement = root;
         this.videoElement = media;
+        this.subtitles.forEach((subtitle) =>
+          this.appendSubtitle(media, subtitle),
+        );
         return media;
       } catch (error) {
         this.fail(
