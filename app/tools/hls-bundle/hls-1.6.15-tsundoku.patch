@@ -44,6 +44,35 @@ index 136a544..484ae52 100644
      if (discontinuity || trackSwitch || initSegmentChange || resetMuxers) {
        this.resetInitSegment(
          initSegmentData,
+diff --git a/src/remux/mp4-remuxer.ts b/src/remux/mp4-remuxer.ts
+index 0f1c2a3..7d4e5b6 100644
+--- a/src/remux/mp4-remuxer.ts
++++ b/src/remux/mp4-remuxer.ts
+@@ -453,6 +453,15 @@ export default class MP4Remuxer implements Remuxer {
+           height: videoTrack.height,
+         },
+       };
++      // A download writes one file, so it needs one moov covering both tracks; the segments above
++      // are the per-SourceBuffer init segments MSE wants. The field hangs off tracks.video rather
++      // than off tracks itself because BufferController and StreamController both iterate
++      // Object.keys(tracks) and would treat a sibling key as a SourceBuffer name. An 'audio/mpeg'
++      // container is mp3 passed through as raw MPEG with an empty moof, so it gets no combined init
++      // and the download falls back to the plaintext transport stream.
++      if (
++        (this.config as HlsConfig & { tsundokuCaptureFragments?: boolean })
++          .tsundokuCaptureFragments &&
++        tracks.audio &&
++        tracks.audio.container !== 'audio/mpeg'
++      ) {
++        (tracks.video as any).tsundokuInitSegment = MP4.initSegment([
++          videoTrack,
++          audioTrack,
++        ]);
++      }
+       if (computePTSDTS) {
+         trackId = videoTrack.id;
+         timescale = videoTrack.inputTimeScale;
+
 diff --git a/src/demux/transmuxer-worker.ts b/src/demux/transmuxer-worker.ts
 index 53a9d13..8634d81 100644
 --- a/src/demux/transmuxer-worker.ts

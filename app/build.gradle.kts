@@ -286,9 +286,6 @@ dependencies {
 
     implementation(libs.androidx.sqlite.bundled)
 
-    // Video download remuxing
-    implementation(libs.androidx.media3.transformer)
-
     implementation(libs.kotlin.reflect)
 
     implementation(libs.bundles.kotlinx.coroutines)

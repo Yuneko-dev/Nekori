@@ -21,7 +21,6 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -32,7 +31,6 @@ internal class VideoChapterDownloader(
     context: Context,
     private val client: OkHttpClient = Injekt.get<NetworkHelper>().client,
     private val userAgent: String = Injekt.get<NetworkHelper>().defaultUserAgentProvider(),
-    private val downloadPreferences: NovelDownloadPreferences = Injekt.get(),
 ) {
     private val context = context.applicationContext
 
@@ -83,8 +81,7 @@ internal class VideoChapterDownloader(
             }
             while (true) {
                 sink.committedFile?.let { videoFile ->
-                    val fileName = finalizeVideo(videoFile, directory)
-                    writeStub(directory, fileName, novelTitle, chapterTitle)
+                    writeStub(directory, requireNotNull(videoFile.name), novelTitle, chapterTitle)
                     return
                 }
 
@@ -166,22 +163,6 @@ internal class VideoChapterDownloader(
             </body>
             </html>
         """.trimIndent()
-    }
-
-    /** Best-effort TS-to-MP4 conversion; disabled or failed conversions keep the raw `.ts`. */
-    private suspend fun finalizeVideo(videoFile: UniFile, directory: UniFile): String {
-        val fileName = requireNotNull(videoFile.name)
-        if (!fileName.endsWith(".ts", ignoreCase = true) || !downloadPreferences.autoConvertDownloadedVideos().get()) {
-            return fileName
-        }
-
-        val targetName = fileName.substringBeforeLast('.') + ".mp4"
-        val remuxed = withContext(Dispatchers.IO) {
-            TsToMp4Remuxer.remux(context, videoFile, directory, targetName)
-        } ?: return fileName
-
-        videoFile.delete()
-        return requireNotNull(remuxed.name)
     }
 
     private fun writeStub(

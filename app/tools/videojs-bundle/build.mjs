@@ -175,6 +175,18 @@ const capturePatch = `      if (!keyData && this.config.tsundokuCaptureFragments
 if (!hlsSource.includes(captureAnchor)) throw new Error("hls.js capture patch anchor changed");
 hlsSource = hlsSource.replace(captureAnchor, capturePatch + captureAnchor);
 
+// A download writes one file, so it needs one moov covering both tracks; hls.js only builds the
+// per-SourceBuffer init segments MSE wants. The field hangs off tracks.video rather than off tracks
+// itself because BufferController and StreamController both iterate Object.keys(tracks) and would
+// treat a sibling key as a SourceBuffer name.
+const initAnchor = `            width: videoTrack.width,\n            height: videoTrack.height\n          }\n        };\n`;
+// The 'audio/mpeg' container is mp3 that hls.js passes through as raw MPEG frames with an empty
+// moof, so its output is not MP4 at all. Withholding the combined init keeps "this field exists" the
+// single test for "the remuxer output is a usable file".
+const initPatch = `        if (this.config.tsundokuCaptureFragments && tracks.audio && tracks.audio.container !== 'audio/mpeg') {\n          tracks.video.tsundokuInitSegment = MP4.initSegment([videoTrack, audioTrack]);\n        }\n`;
+if (!hlsSource.includes(initAnchor)) throw new Error("hls.js combined init patch anchor changed");
+hlsSource = hlsSource.replace(initAnchor, initAnchor + initPatch);
+
 const workerAnchor = `        var observer = new EventEmitter();\n        observer.on(Events.FRAG_DECRYPTED, forwardMessage);\n        observer.on(Events.ERROR, forwardMessage);\n`;
 const workerPatch = `        var observer = new EventEmitter();\n        var forwardObserverMessage = function forwardObserverMessage(event, data) {\n          return forwardMessage(event, data, instanceNo);\n        };\n        observer.on(Events.FRAG_DECRYPTED, forwardObserverMessage);\n        observer.on(Events.ERROR, forwardObserverMessage);\n`;
 if (!hlsSource.includes(workerAnchor)) throw new Error("hls.js worker patch anchor changed");
@@ -185,8 +197,15 @@ const hlsResult = await transform(hlsSource, {
   legalComments: "none",
   target: "es2020",
 });
-if (!hlsResult.code.includes("tsundokuCaptureFragments")) throw new Error("Missing hls.js download capture patch");
-if (playerOutput.includes("tsundokuCaptureFragments")) throw new Error("Download capture leaked into Video.js bundle");
+for (const requiredPatch of ["tsundokuCaptureFragments", "tsundokuInitSegment"]) {
+  if (!hlsResult.code.includes(requiredPatch)) throw new Error(`Missing hls.js download patch: ${requiredPatch}`);
+  if (playerOutput.includes(requiredPatch)) throw new Error(`Download patch leaked into Video.js bundle: ${requiredPatch}`);
+}
+// A sibling key on the TrackSet would make BufferController create a SourceBuffer named after it,
+// throw from addSourceBuffer and hang the download. Only a member of the video track is safe.
+if (!/\.video\.tsundokuInitSegment\s*=/.test(hlsResult.code)) {
+  throw new Error("Combined init segment must be assigned onto tracks.video, not onto the track set");
+}
 if (!checkOnly) await writeFile(path.join(assetDir, "hls.min.js"), hlsResult.code);
 
 async function sizeLine(name, bytes) {

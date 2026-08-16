@@ -174,11 +174,6 @@ class NovelDownloadPreferences(
         1, // Default to 1 for rate limiting
     )
 
-    fun autoConvertDownloadedVideos() = preferenceStore.getBoolean(
-        "novel_auto_convert_downloaded_videos",
-        true,
-    )
-
     /**
      * Download images from chapter HTML and embed them as base64
      */

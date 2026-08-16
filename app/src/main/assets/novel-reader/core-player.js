@@ -17,6 +17,8 @@
     "video/mp2t": "ts",
   };
   const VIDEO_EXTENSIONS = ["mp4", "m4v", "mkv", "webm", "mov", "avi", "ts"];
+  // Byte offset inside a `moof`: box header 8, `mfhd` header 8, version and flags 4.
+  const MFHD_SEQUENCE_OFFSET = 20;
   // Keys must stay in sync with VIDEO_TYPES in NovelWebViewChapterDirectives.kt; a type Kotlin lets
   // through but this map does not know becomes an "Unknown video type" failure at playback.
   const DIRECT_PLAYERS = {
@@ -49,6 +51,14 @@
     }
     return undefined;
   };
+  const boxType = (bytes) =>
+    String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+  const sameBytes = (left, right) =>
+    Boolean(left) &&
+    Boolean(right) &&
+    left.byteLength === right.byteLength &&
+    left.every((value, index) => value === right[index]);
+
   const readerCall = (name, ...args) => hostCall(window.reader, name, ...args);
   const readerProp = (name) => {
     try {
@@ -348,8 +358,10 @@
       await this.commitDownload();
     }
 
-    // The bundled hls.js emits FRAG_DECRYPTED for each complete plaintext segment before its normal
-    // demux/remux step. Android remuxes the resulting TS after the sink commits.
+    // hls.js already demuxes and remuxes every segment to fragmented MP4 to feed MSE. When that
+    // output can stand alone as a single file the download writes it straight to the sink, so
+    // nothing is left to do once the last segment arrives. Otherwise it falls back to concatenating
+    // the plaintext payloads the bundled capture patch emits at FRAG_DECRYPTED.
     async downloadHls(url, customHlsConfig) {
       if (!window.Hls) {
         throw new Error("hls.js is unavailable");
@@ -391,23 +403,46 @@
       try {
         await new Promise((resolve, reject) => {
           let fragments = null;
-          let initSegment = null;
+          let mapInitSegment = null;
           let mediaStarted = false;
           let active = null;
           let next = 0;
           let settled = false;
+          // "fmp4" writes the moof/mdat pairs hls.js remuxed; "plaintext" concatenates the payloads
+          // captured before the demuxer. Null until the container is known.
+          let mode = null;
+          let fmp4Init = null;
+          let pendingPayload = null;
+          let moofSequence = 0;
 
           const fail = (error) => {
             if (settled) return;
             settled = true;
             reject(error instanceof Error ? error : new Error(String(error)));
           };
+          // Every sink call goes through one queue, so `ready` always precedes the first chunk and a
+          // fragment only counts once its bytes have actually reached the sink.
+          let sinkQueue = Promise.resolve();
+          const enqueue = (task) => {
+            sinkQueue = sinkQueue
+              .then(() => (settled ? undefined : task()))
+              .catch(fail);
+          };
+          const ready = (container) =>
+            enqueue(() => this.readyDownload(container));
+          const write = (bytes) => enqueue(() => this.putDownloadChunk(bytes));
+
           const isSameFragment = (left, right) =>
             left === right ||
             (left &&
               right &&
               left.level === right.level &&
               left.sn === right.sn);
+          // The capture the event belongs to, or null when it is about some other fragment.
+          const activeFor = (data) =>
+            active && isSameFragment(data && data.frag, active.fragment)
+              ? active
+              : null;
           const advance = (capture) => {
             if (
               settled ||
@@ -420,6 +455,8 @@
             }
             capture.advancing = true;
             (async () => {
+              await sinkQueue;
+              if (settled) return;
               next += 1;
               this.bridgeCall("onProgress", next, fragments.length);
               if (next === fragments.length) {
@@ -433,51 +470,123 @@
               media.currentTime = fragments[next].start;
             })().catch(fail);
           };
-          const acceptPayload = (data) => {
-            try {
-              if (settled) return;
-              const fragment = data && data.frag;
-              if (!fragment || fragment.type !== "main") return;
-              if (!data.payload) return;
-
-              const bytes = new Uint8Array(data.payload);
-              if (fragment.sn === "initSegment") return;
-              if ((fragment.initSegment || null) !== initSegment) {
-                fail(
-                  new Error("HLS init segment changes cannot be downloaded"),
-                );
+          const writePlaintext = (payload) => {
+            if (next === 0 && mapInitSegment) {
+              if (!mapInitSegment.data) {
+                fail(new Error("HLS init segment is unavailable"));
                 return;
               }
-
-              const expected = fragments && fragments[next];
-              if (active || !isSameFragment(fragment, expected)) return;
-              const capture = (active = {
-                fragment,
-                buffered: false,
-                written: false,
-                advancing: false,
-              });
-              hls.pauseBuffering();
-              (async () => {
-                if (next === 0 && initSegment) {
-                  if (!initSegment.data) {
-                    throw new Error("HLS init segment is unavailable");
-                  }
-                  await this.putDownloadChunk(
-                    new Uint8Array(initSegment.data).slice(),
-                  );
-                }
-                await this.putDownloadChunk(bytes);
-                if (settled) return;
-                capture.written = true;
-                advance(capture);
-              })().catch(fail);
-            } catch (error) {
-              fail(error);
+              write(new Uint8Array(mapInitSegment.data).slice());
             }
+            write(payload);
+            active.written = true;
+            advance(active);
+          };
+          // A throw inside an hls.js listener escapes into hls.js's own dispatch, so every handler
+          // reports through `fail` instead, and none of them run once the download has settled.
+          const on = (event, handler) =>
+            hls.on(event, (name, data) => {
+              if (settled) return;
+              try {
+                handler(data);
+              } catch (error) {
+                fail(error);
+              }
+            });
+
+          const acceptPayload = (data) => {
+            const fragment = data && data.frag;
+            if (!fragment || fragment.type !== "main" || !data.payload) return;
+            if (fragment.sn === "initSegment") return;
+            if ((fragment.initSegment || null) !== mapInitSegment) {
+              fail(new Error("HLS init segment changes cannot be downloaded"));
+              return;
+            }
+            if (active || !isSameFragment(fragment, fragments && fragments[next])) {
+              return;
+            }
+
+            active = {
+              fragment,
+              buffered: false,
+              written: false,
+              advancing: false,
+              chunks: 0,
+            };
+            hls.pauseBuffering();
+            // The remuxer supplies the bytes in fMP4 mode; hold them while the container is still
+            // undecided, because the sink can only be opened once.
+            if (mode === "fmp4") return;
+            const payload = new Uint8Array(data.payload);
+            if (mode) writePlaintext(payload);
+            else pendingPayload = payload;
           };
 
-          hls.on(Hls.Events.ERROR, (event, data) => {
+          on(Hls.Events.FRAG_PARSING_INIT_SEGMENT, (data) => {
+            const video = data && data.tracks && data.tracks.video;
+            const combined = video && video.tsundokuInitSegment;
+            if (mode === "fmp4") {
+              // hls.js rebuilds the init segment when the track configuration changes, and one file
+              // cannot hold two moov boxes.
+              if (!sameBytes(combined, fmp4Init)) {
+                fail(new Error("HLS track configuration changed mid-stream"));
+              }
+              return;
+            }
+            if (mode) return;
+            if (combined) {
+              mode = "fmp4";
+              fmp4Init = combined.slice();
+              pendingPayload = null;
+              ready("mp4");
+              write(fmp4Init);
+              return;
+            }
+            // Audio-only, muxed audiovideo, or mp3 audio that hls.js passes through as raw MPEG
+            // rather than wrapping in MP4. None of those concatenate into a valid MP4 file.
+            this.log("HLS remuxer output is not usable as a file, keeping TS");
+            mode = "plaintext";
+            ready("ts");
+            const payload = pendingPayload;
+            pendingPayload = null;
+            if (payload) writePlaintext(payload);
+          });
+          on(Hls.Events.BUFFER_APPENDING, (data) => {
+            if (mode !== "fmp4") return;
+            const capture = activeFor(data);
+            if (!capture) return;
+            const bytes = data.data;
+            // The init segments are re-appended through this event too; only moof/mdat belongs in
+            // the file, and every init segment starts with ftyp instead.
+            if (
+              !bytes ||
+              bytes.byteLength < MFHD_SEQUENCE_OFFSET + 4 ||
+              boxType(bytes) !== "moof"
+            ) {
+              return;
+            }
+            // hls.js counts mfhd sequence numbers per SourceBuffer, so audio and video both start at
+            // one. A single file needs a single increasing sequence. Copy first: MSE still holds the
+            // original buffer.
+            const chunk = bytes.slice();
+            new DataView(chunk.buffer).setUint32(
+              MFHD_SEQUENCE_OFFSET,
+              (moofSequence += 1),
+            );
+            write(chunk);
+            capture.chunks += 1;
+          });
+          on(Hls.Events.FRAG_PARSED, (data) => {
+            if (mode !== "fmp4") return;
+            const capture = activeFor(data);
+            // A backtracked fragment is parsed twice and only the second pass emits data. Advancing
+            // on the empty one would drop it from the file.
+            if (!capture || !capture.chunks) return;
+            capture.written = true;
+            advance(capture);
+          });
+
+          on(Hls.Events.ERROR, (data) => {
             if (!data || (!data.fatal && data.details !== "fragDecryptError"))
               return;
             const detail = data.details || data.type || "unknown";
@@ -487,21 +596,19 @@
                 : "";
             fail(new Error(`HLS load failed: ${detail}${status}`));
           });
-          hls.on(Hls.Events.FRAG_DECRYPTED, (event, data) =>
-            acceptPayload(data),
-          );
-          hls.on(Hls.Events.FRAG_BUFFERED, (event, data) => {
-            if (!active || !isSameFragment(data && data.frag, active.fragment))
-              return;
-            active.buffered = true;
-            advance(active);
+          on(Hls.Events.FRAG_DECRYPTED, acceptPayload);
+          on(Hls.Events.FRAG_BUFFERED, (data) => {
+            const capture = activeFor(data);
+            if (!capture) return;
+            capture.buffered = true;
+            advance(capture);
           });
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-            if (settled || mediaStarted || !fragments) return;
+          on(Hls.Events.MEDIA_ATTACHED, () => {
+            if (mediaStarted || !fragments) return;
             mediaStarted = true;
             hls.startLoad(fragments[0].start);
           });
-          hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          on(Hls.Events.MANIFEST_PARSED, (data) => {
             const tracks = (data && data.audioTracks) || [];
             if (tracks.some((track) => track.url)) {
               fail(
@@ -511,8 +618,8 @@
               );
             }
           });
-          hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
-            if (settled || fragments) return;
+          on(Hls.Events.LEVEL_LOADED, (data) => {
+            if (fragments) return;
             hls.stopLoad();
             if (data.details && data.details.live) {
               fail(
@@ -545,13 +652,25 @@
               );
               return;
             }
-            initSegment = fragments[0].initSegment || null;
+            mapInitSegment = fragments[0].initSegment || null;
             if (Number.isInteger(data.level)) hls.loadLevel = data.level;
-            this.readyDownload(initSegment ? "mp4" : "ts")
-              .then(() => {
-                if (!settled) hls.attachMedia(media);
-              })
-              .catch(fail);
+            if (mapInitSegment) {
+              // Already fragmented MP4 upstream; the payloads concatenate as they arrive.
+              mode = "plaintext";
+              ready("mp4");
+            } else if (
+              fragments.some((fragment) => fragment.cc !== fragments[0].cc)
+            ) {
+              // Across a discontinuity hls.js rebuilds the moov and moves the timeline with the
+              // SourceBuffer timestampOffset, which a standalone file cannot carry, so its remuxed
+              // output would rewind at the join.
+              // ponytail: rewriting baseMediaDecodeTime in every moof would lift this; do it when a
+              // real source needs it.
+              this.log("HLS playlist has discontinuities, keeping TS");
+              mode = "plaintext";
+              ready("ts");
+            }
+            hls.attachMedia(media);
           });
 
           try {
@@ -593,10 +712,12 @@
         if (!chapter) return;
         const initialProgress = chapter.progress || 0;
         this.log(`Initial progress: ${initialProgress}%`);
-        if (initialProgress > 0 && initialProgress < 100) {
+        if (initialProgress > 0 && initialProgress < 95) {
           video.currentTime = Math.floor(
             (initialProgress / 100) * video.duration,
           );
+        } else {
+          this.log("Initial progress is 0% or >=95%, not seeking");
         }
         this.hasSeekedInitial = true;
       });

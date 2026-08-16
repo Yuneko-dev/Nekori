@@ -337,11 +337,6 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     onValueChanged = { prefs.parallelNovelDownloads().set(it) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.autoConvertDownloadedVideos(),
-                    title = stringResource(TDMR.strings.pref_novel_auto_convert_videos),
-                    subtitle = stringResource(TDMR.strings.pref_novel_auto_convert_videos_summary),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.resumeQueueOnNewChapters(),
                     title = stringResource(TDMR.strings.pref_novel_resume_queue_on_new),
                     subtitle = stringResource(TDMR.strings.pref_novel_resume_queue_on_new_summary),
