@@ -8,6 +8,9 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+internal const val DEFAULT_EPUB_COVER_URL =
+    "https://github.com/Yuneko-dev/lnreader-plugins/blob/master/public/static/coverNotAvailable.webp?raw=true"
+
 /**
  * Fills manga and chapter metadata using this epub file's metadata.
  */
@@ -85,7 +88,7 @@ fun EpubReader.fillMetadata(manga: SManga, chapter: SChapter) {
         }
     }
 
-    extractCoverUrl(manga, doc, ref)
+    extractCoverUrl(manga)
 }
 
 /**
@@ -93,40 +96,13 @@ fun EpubReader.fillMetadata(manga: SManga, chapter: SChapter) {
  * Skips extraction if thumbnail_url is already set to a valid external URI
  * (e.g., by LocalNovelCoverManager).
  */
-private fun EpubReader.extractCoverUrl(manga: SManga, doc: org.jsoup.nodes.Document, packageRef: String) {
+private fun EpubReader.extractCoverUrl(manga: SManga) {
     val existing = manga.thumbnail_url
     if (!existing.isNullOrBlank() && (existing.startsWith("content://") || existing.startsWith("file://"))) {
         return
     }
 
-    try {
-        val coverPath = getCoverImage()
-        if (!coverPath.isNullOrBlank()) {
-            manga.thumbnail_url = coverPath
-            return
-        }
-
-        var coverId = doc.select("meta[name=cover]").firstOrNull()?.attr("content")
-
-        if (coverId.isNullOrBlank()) {
-            coverId = doc.select("manifest > item[properties*=cover-image]").firstOrNull()?.attr("id")
-        }
-
-        if (!coverId.isNullOrBlank()) {
-            val coverHref = doc.select("manifest > item#$coverId").firstOrNull()?.attr("href")
-            if (!coverHref.isNullOrBlank()) {
-                manga.thumbnail_url = coverHref
-                return
-            }
-        }
-
-        val pages = getPagesFromDocument(doc)
-        if (pages.isNotEmpty()) {
-            val coverImages = getImagesFromPages()
-            if (coverImages.isNotEmpty()) {
-                manga.thumbnail_url = coverImages.first()
-            }
-        }
-    } catch (e: Exception) {
-    }
+    manga.thumbnail_url = runCatching { getCoverImage() }.getOrNull().orDefaultEpubCover()
 }
+
+internal fun String?.orDefaultEpubCover(): String = takeUnless { it.isNullOrBlank() } ?: DEFAULT_EPUB_COVER_URL
