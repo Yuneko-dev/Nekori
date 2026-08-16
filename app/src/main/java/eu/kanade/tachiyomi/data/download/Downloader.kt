@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.translation.TranslationJob
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.network.HttpException
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.BackgroundRateLimitGuard
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -97,6 +98,7 @@ class Downloader(
     private val getTracks: GetTracks = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
+    private val networkHelper: NetworkHelper = Injekt.get(),
 ) {
 
     private val videoChapterDownloader = VideoChapterDownloader(context)
@@ -815,7 +817,9 @@ class Downloader(
             chapterUrl = download.chapterUrl,
             novelUrl = getManga.await(download.mangaId)?.url,
             sourceBaseUrl = sourceBaseUrl,
-        ) ?: NovelWebViewChapterMeta.READER_DOCUMENT_BASE_URL
+        )?.let {
+            networkHelper.domainForwarding.rewrite(it, fromJsPlugin = download.source is JsSource)
+        } ?: NovelWebViewChapterMeta.READER_DOCUMENT_BASE_URL
     }
 
     private suspend fun fetchNovelPageText(page: Page, download: Download): Boolean {

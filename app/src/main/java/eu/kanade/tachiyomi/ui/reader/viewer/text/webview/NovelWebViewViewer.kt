@@ -1914,14 +1914,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         )
     }
 
-    private fun resolveWebViewBaseUrl(chapterUrl: String?): String? =
-        NovelWebViewChapterMeta.resolveWebViewBaseUrl(chapterUrl, resolvedMangaUrl(), sourceBaseUrl())
-
-    // Site url of the current source, so relative asset paths in chapter HTML resolve like a browser.
-    private fun sourceBaseUrl(): String? = when (val source = activity.viewModel.getSource()) {
-        is eu.kanade.tachiyomi.jsplugin.source.JsSource -> source.baseUrl.takeIf { it.isNotBlank() }
-        is eu.kanade.tachiyomi.source.online.HttpSource -> source.baseUrl.takeIf { it.isNotBlank() }
-        else -> null
+    private fun resolveWebViewBaseUrl(chapterUrl: String?): String? {
+        val source = activity.viewModel.getSource()
+        val sourceBaseUrl = when (source) {
+            is JsSource -> source.baseUrl.takeIf(String::isNotBlank)
+            is eu.kanade.tachiyomi.source.online.HttpSource -> source.baseUrl.takeIf(String::isNotBlank)
+            else -> null
+        }
+        return NovelWebViewChapterMeta.resolveWebViewBaseUrl(chapterUrl, resolvedMangaUrl(), sourceBaseUrl)
+            ?.let { networkHelper.domainForwarding.rewrite(it, fromJsPlugin = source is JsSource) }
     }
 
     private fun interceptNetworkRequest(request: WebResourceRequest): WebResourceResponse? {
