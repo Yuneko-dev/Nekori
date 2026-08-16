@@ -40,6 +40,14 @@
   };
   // Only ever spent when the player scripts load late or not at all, which the offline bundle cannot do.
   const ELEMENT_DEFINE_TIMEOUT_MS = 10000;
+  // An anime opening or ending runs about this long, so one press clears either.
+  const SKIP_SECONDS = 85;
+  // Upstream's own skip glyph with its baked-in digit dropped, so the number stays a text node and
+  // follows SKIP_SECONDS instead of having to be redrawn.
+  const SKIP_ARROW_PATH =
+    "M18.87 13c-.5 0-.91.37-.98.86-.48 3.37-3.77 5.84-7.42 4.96-2.25-.54-3.91-2.27-4.39-4.53C5.27 10.42 8.22 7 11.95 7v2.79c0 .45.54.67.85.35l3.79-3.79c.2-.2.2-.51 0-.71L12.8 1.85c-.31-.31-.85-.09-.85.35V5c-4.94 0-8.84 4.48-7.84 9.6.6 3.11 2.9 5.5 5.99 6.19 4.83 1.08 9.15-2.2 9.77-6.67.09-.59-.4-1.12-1-1.12z";
+  // How much of the tail end the next-episode prompt rides along for.
+  const NEXT_UP_WINDOW_SECONDS = 120;
 
   const metaContent = (name) => {
     const el = document.querySelector(`meta[name="${name}"]`);
@@ -95,6 +103,13 @@
       : `WEBVTT\n\n${body.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2")}`;
   };
 
+  const formatClock = (seconds) => {
+    const total = Math.max(0, Math.floor(seconds));
+    return [Math.floor(total / 3600), Math.floor(total / 60) % 60, total % 60]
+      .map((part) => String(part).padStart(2, "0"))
+      .join(":");
+  };
+
   const boxType = (bytes) =>
     String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
   const sameBytes = (left, right) =>
@@ -127,6 +142,13 @@
       this.isDebugMode = false;
 
       this.disableProgress = false;
+
+      // Reader-owned controls injected into the skin's shadow root, and the flag that holds autoplay
+      // back while the resume question is still on screen.
+      this.resumeOverlay = null;
+      this.nextUpPopup = null;
+      this.awaitingResume = false;
+      this.nextUpDismissed = false;
 
       // Subtitles a plugin has resolved, kept so a later mountVideo can re-attach them.
       this.subtitles = [];
@@ -251,6 +273,10 @@
       }
       this.hasSeekedInitial = false;
       this.lastSaveTime = 0;
+      this.resumeOverlay = null;
+      this.nextUpPopup = null;
+      this.awaitingResume = false;
+      this.nextUpDismissed = false;
     }
 
     isDownloadMode() {
@@ -766,19 +792,19 @@
         if (!chapter) return;
         const initialProgress = chapter.progress || 0;
         this.log(`Initial progress: ${initialProgress}%`);
-        if (initialProgress > 0 && initialProgress < 95) {
+        if (initialProgress > 0 && initialProgress < 100) {
           // The stored percent is the floor of the real position, so a remainder left behind by
           // another device can only shift the resume point by under one percent - never worse
           // than the percent on its own.
           const fraction = chapterPath ? readVideoFractions()[chapterPath] : 0;
           const percent =
             initialProgress + (fraction > 0 && fraction < 1 ? fraction : 0);
-          video.currentTime = (percent / 100) * video.duration;
-        } else {
-          this.log("Initial progress is 0% or >=95%, not seeking");
+          this.offerResume(video, (percent / 100) * video.duration);
         }
         this.hasSeekedInitial = true;
       });
+
+      video.addEventListener("timeupdate", () => this.updateNextUp(video));
 
       video.addEventListener("timeupdate", () => {
         if (this.disableProgress || !(video.duration > 0)) return;
@@ -877,6 +903,7 @@
 
       const skin = document.createElement(tags.skin);
       this.stripUnsupportedControls(skin);
+      this.decorateSkin(skin);
       skin.append(media);
       if (poster) {
         const image = document.createElement("img");
@@ -895,6 +922,159 @@
       const root = document.createElement("media-i18n");
       root.append(player);
       return { root, media };
+    }
+
+    // The reader's own controls live inside the skin's shadow root rather than in the page, because
+    // only what sits inside `media-container` survives the fullscreen handover. Upstream's own
+    // classes are reused for the surfaces and buttons, so this only has to place things.
+    decorateSkin(skin) {
+      const shadow = skin.shadowRoot;
+      const container = shadow.querySelector("media-container");
+      if (!container) {
+        // These controls are an addition, never a prerequisite: a skin laid out differently should
+        // still play, just without them.
+        this.log("Skin has no media-container, skipping reader controls");
+        return;
+      }
+      const strings = readerProp("strings") || {};
+
+      const style = document.createElement("style");
+      // `media-surface` carries the background but never a foreground, which is why upstream's own
+      // error dialog sets `color` itself. These sit outside `media-controls--root`, so they have to
+      // do the same or they inherit the document's dark reader text and vanish.
+      style.textContent = `
+        .lnreader-overlay, .lnreader-nextup { position: absolute; z-index: 20; color: oklch(1 0 0); }
+        .lnreader-overlay[hidden], .lnreader-nextup[hidden] { display: none; }
+        .lnreader-overlay {
+          inset: 0; display: grid; place-content: center;
+          padding: 1.5rem; background: oklch(0 0 0 / .6);
+        }
+        .lnreader-overlay__card {
+          display: grid; gap: .75rem; justify-items: center; text-align: center;
+          padding: 1.5rem; border-radius: 1rem; max-width: 32rem;
+        }
+        .lnreader-overlay__time { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+        .lnreader-overlay__actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+        /* Left, because the top-right corner already holds fullscreen and the skip button. */
+        .lnreader-nextup {
+          left: var(--inset, .75rem); bottom: 5rem;
+          display: grid; gap: .25rem; padding: .75rem 1rem; border-radius: .75rem;
+        }
+        .lnreader-nextup__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+        .lnreader-nextup__label { font-size: .8rem; opacity: .8; }
+        .lnreader-nextup__count { font-size: .8rem; opacity: .6; font-variant-numeric: tabular-nums; }
+        .lnreader-nextup__dismiss { padding: 0 .35rem; line-height: 1; font-size: 1.1rem; }
+        .lnreader-nextup__actions { display: flex; gap: .5rem; align-items: center; }
+      `;
+
+      const build = (markup) => {
+        const template = document.createElement("template");
+        template.innerHTML = markup;
+        return template.content.firstElementChild;
+      };
+
+      // Text nodes only, so nothing a source controls is ever parsed as markup.
+      this.resumeOverlay = build(`
+        <div class="lnreader-overlay" hidden>
+          <div class="lnreader-overlay__card media-surface">
+            <div class="lnreader-overlay__title"></div>
+            <div class="lnreader-overlay__question"></div>
+            <div class="lnreader-overlay__time"></div>
+            <div class="lnreader-overlay__actions">
+              <button type="button" class="media-button media-button--primary" data-action="continue"></button>
+              <button type="button" class="media-button media-button--subtle" data-action="restart"></button>
+            </div>
+          </div>
+        </div>
+      `);
+      // Only worth existing when there is something to move on to, which also keeps the countdown
+      // path free of a next-chapter check on every frame.
+      const next = readerProp("nextChapter");
+      this.nextUpPopup = !next
+        ? null
+        : build(`
+        <div class="lnreader-nextup media-surface" hidden>
+          <div class="lnreader-nextup__head">
+            <span class="lnreader-nextup__label"></span>
+            <span class="lnreader-nextup__count"></span>
+          </div>
+          <div class="lnreader-nextup__name"></div>
+          <div class="lnreader-nextup__actions">
+            <button type="button" class="media-button media-button--primary" data-action="next"></button>
+            <button type="button" class="media-button media-button--subtle lnreader-nextup__dismiss" data-action="dismiss">&times;</button>
+          </div>
+        </div>
+      `);
+
+      const text = (root, selector, value) => {
+        root.querySelector(selector).textContent = value || "";
+      };
+      text(
+        this.resumeOverlay,
+        ".lnreader-overlay__title",
+        strings.videoResumeTitle,
+      );
+      text(
+        this.resumeOverlay,
+        ".lnreader-overlay__question",
+        strings.videoResumeQuestion,
+      );
+      text(
+        this.resumeOverlay,
+        '[data-action="continue"]',
+        strings.videoResumeContinue,
+      );
+      text(
+        this.resumeOverlay,
+        '[data-action="restart"]',
+        strings.videoResumeRestart,
+      );
+      if (this.nextUpPopup) {
+        // All static: only the countdown is left for updateNextUp to touch.
+        text(this.nextUpPopup, '[data-action="next"]', strings.videoNextPlay);
+        text(this.nextUpPopup, ".lnreader-nextup__label", strings.videoNextUp);
+        text(this.nextUpPopup, ".lnreader-nextup__name", next.name);
+        const dismiss = this.nextUpPopup.querySelector(
+          '[data-action="dismiss"]',
+        );
+        if (strings.close) dismiss.setAttribute("aria-label", strings.close);
+        this.nextUpPopup
+          .querySelector('[data-action="next"]')
+          .addEventListener("click", () =>
+            readerCall("post", { type: "next" }),
+          );
+        dismiss.addEventListener("click", () => {
+          this.nextUpDismissed = true;
+          this.nextUpPopup.hidden = true;
+        });
+      }
+
+      const skip = document.createElement("media-seek-button");
+      skip.seconds = SKIP_SECONDS;
+      if (strings.videoSkipIntro) skip.label = strings.videoSkipIntro;
+      skip.className = "media-button media-button--subtle media-button--icon";
+      // Built as markup rather than createElementNS calls: an inline SVG is one shape either way,
+      // and this keeps the glyph readable next to the path it came from.
+      skip.append(
+        build(`
+          <svg viewBox="0 0 24 24" class="media-icon" aria-hidden="true" fill="currentColor">
+            <path d="${SKIP_ARROW_PATH}"></path>
+            <text x="12" y="16.6" text-anchor="middle" font-size="8" font-weight="600"
+                  fill="currentColor" stroke="none">${SKIP_SECONDS}</text>
+          </svg>
+        `),
+      );
+      // The secondary group is the floating cluster in the top corner. Stripping Cast/AirPlay/PiP
+      // left it holding only fullscreen, so the skip sits there without crowding the seek bar.
+      const cluster =
+        shadow.querySelector(
+          ".media-controls--secondary .media-button-group",
+        ) ||
+        shadow.querySelector(".media-controls--primary .media-button-group");
+      if (cluster) cluster.prepend(skip);
+
+      container.append(style, this.resumeOverlay);
+      if (this.nextUpPopup) container.append(this.nextUpPopup);
     }
 
     // A CDN build ships the Cast/AirPlay/PiP controls that the offline bundle tree-shakes away. None
@@ -1013,7 +1193,59 @@
     }
 
     tryPlay(video) {
+      // The resume question is the one thing allowed to hold playback: starting from zero behind
+      // the overlay would waste the answer the user is about to give.
+      if (this.awaitingResume) return;
       video.play().catch((e) => this.log(`Auto-play prevented: ${e.message}`));
+    }
+
+    // Asking beats seeking silently: stored progress can be stale, or from another device, and a
+    // viewer who wanted to rewatch has no way back once the seek has happened.
+    offerResume(video, seconds) {
+      const overlay = this.resumeOverlay;
+      if (!overlay) {
+        video.currentTime = seconds;
+        return;
+      }
+      overlay.querySelector(".lnreader-overlay__time").textContent =
+        formatClock(seconds);
+      overlay.hidden = false;
+      this.awaitingResume = true;
+
+      const answer = (resume) => {
+        overlay.hidden = true;
+        this.awaitingResume = false;
+        if (resume) video.currentTime = seconds;
+        this.tryPlay(video);
+      };
+      overlay
+        .querySelector('[data-action="continue"]')
+        .addEventListener("click", () => answer(true), { once: true });
+      overlay
+        .querySelector('[data-action="restart"]')
+        .addEventListener("click", () => answer(false), { once: true });
+    }
+
+    // Driven by timeupdate rather than a timer, so the countdown tracks the real remaining time and
+    // seeking backwards out of the window puts the prompt away again on its own.
+    updateNextUp(video) {
+      const popup = this.nextUpPopup;
+      // A video no longer than the window would carry the prompt from the first frame to the last.
+      if (
+        !popup ||
+        this.nextUpDismissed ||
+        !(video.duration > NEXT_UP_WINDOW_SECONDS)
+      ) {
+        return;
+      }
+      const remaining = video.duration - video.currentTime;
+      if (remaining > NEXT_UP_WINDOW_SECONDS || remaining <= 0) {
+        popup.hidden = true;
+        return;
+      }
+      popup.querySelector(".lnreader-nextup__count").textContent =
+        `${Math.ceil(remaining)}s`;
+      popup.hidden = false;
     }
 
     async playDirect(url) {

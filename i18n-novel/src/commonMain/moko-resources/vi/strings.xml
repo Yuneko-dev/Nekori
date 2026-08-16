@@ -558,6 +558,13 @@
     <string name="reader_image_close">Đóng ảnh</string>
     <string name="reader_chapter_finished">Đã xong: %1$s</string>
     <string name="reader_next_chapter">Tiếp theo: %1$s</string>
+    <string name="video_resume_title">Hệ thống ghi nhận bạn đã từng xem video này trước đó!</string>
+    <string name="video_resume_question">Bạn có muốn xem tiếp từ đoạn</string>
+    <string name="video_resume_continue">Xem tiếp</string>
+    <string name="video_resume_restart">Từ đầu</string>
+    <string name="video_next_up">Tập tiếp theo</string>
+    <string name="video_next_play">Xem ngay</string>
+    <string name="video_skip_intro">Bỏ qua 85 giây</string>
 
     <string name="pref_novel_infinite_scroll">Cuộn vô hạn (tự tải chương kế tiếp)</string>
     <string name="pref_novel_progress_slider">Hiện thanh trượt tiến độ</string>

@@ -15,6 +15,10 @@ import "@videojs/html/live-video/skin";
 import "@videojs/html/media/hlsjs-video";
 import "@videojs/html/media/dash-video";
 
+// The default video skin's template never uses this one, so importing the skin alone leaves it
+// undefined. core-player.js adds it to the controls for the anime intro/outro skip.
+import "@videojs/html/ui/seek-button";
+
 // All 50 locale packs, because the skin already drags their translation tables into the bundle whether
 // they are registered or not — this import only adds the registration loop, ~650 bytes. Registering the
 // exact app language instead would cost the same and add a Kotlin-to-Video.js locale mapping to maintain.

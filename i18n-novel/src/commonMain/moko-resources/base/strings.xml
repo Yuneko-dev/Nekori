@@ -566,6 +566,13 @@
     <string name="reader_image_close">Close image</string>
     <string name="reader_chapter_finished">Finished: %1$s</string>
     <string name="reader_next_chapter">Next: %1$s</string>
+    <string name="video_resume_title">You watched this video before</string>
+    <string name="video_resume_question">Continue from</string>
+    <string name="video_resume_continue">Continue</string>
+    <string name="video_resume_restart">From the start</string>
+    <string name="video_next_up">Up next</string>
+    <string name="video_next_play">Play now</string>
+    <string name="video_skip_intro">Skip 85 seconds</string>
     <!-- MR
     <string name="reader_no_next_chapter">There\'s no next chapter</string>
     -->

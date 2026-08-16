@@ -125,6 +125,8 @@ for (const requiredSymbol of [
   "media-poster",
   "media-slider-thumbnail",
   "media-hotkey",
+  // Not part of the default video skin; core-player.js needs it for the intro/outro skip button.
+  "media-seek-button",
   "media-quality-radio-group",
   "media-audio-track-radio-group",
   "media-captions-radio-group",
