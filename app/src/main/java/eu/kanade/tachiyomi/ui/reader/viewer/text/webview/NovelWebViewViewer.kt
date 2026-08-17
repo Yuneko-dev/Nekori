@@ -131,9 +131,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         private const val TTS_DOM_HELPERS_JS = """
             var ttsReadableNodeNames = ['#text', 'B', 'I', 'SPAN', 'EM', 'BR', 'STRONG', 'A'];
             var ttsInternalElementIds = ['LNReader-title-novel'];
+            // innerText falls back to textContent on elements that are not rendered, so a <style>
+            // or <script> whose only child is a text node otherwise reads out as CSS/JS source.
+            var ttsSkippedNodeNames = ['STYLE', 'SCRIPT', 'NOSCRIPT', 'TEMPLATE', 'IFRAME'];
             function ttsReadable(element) {
                 if (!element || ttsInternalElementIds.includes(element.id)) return false;
-                if (element.nodeName !== 'SPAN' && ttsReadableNodeNames.includes(element.nodeName)) return false;
+                if (ttsSkippedNodeNames.includes(element.nodeName)) return false;
+                // Inline wrappers never count as their own paragraph; they are read as part of the
+                // block that contains them, which is also the block the highlight lands on.
+                if (ttsReadableNodeNames.includes(element.nodeName)) return false;
                 if (!element.hasChildNodes()) return false;
                 for (var i = 0; i < element.childNodes.length; i++) {
                     if (!ttsReadableNodeNames.includes(element.childNodes.item(i).nodeName)) return false;
@@ -2734,6 +2740,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
 
         @JavascriptInterface
+        fun startTtsAtHoveredParagraph() {
+            activity.runOnUiThread {
+                if (!isTtsEnabled) return@runOnUiThread
+                this@NovelWebViewViewer.startTtsAtTaggedParagraph()
+            }
+        }
+
+        @JavascriptInterface
         fun loadNextChapter() {
             activity.runOnUiThread {
                 logcat(LogPriority.DEBUG) {
@@ -3509,6 +3523,39 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ) { rawIndex ->
             val firstVisibleParagraphIndex = rawIndex.trim('"').toIntOrNull() ?: 0
             startTtsAtParagraph(firstVisibleParagraphIndex)
+        }
+    }
+
+    /**
+     * Resolves the element the TTS icon was dropped on to an index in the list TTS actually reads,
+     * then starts there. The reader UI only tags the element: it has its own notion of a readable
+     * block, and resolving the index there produced one that did not line up with playback.
+     *
+     * A drop target the reader counts but TTS does not - a `<p>` holding an image, a `<pre>` - walks
+     * up to the nearest block that TTS does count, which is the one that will be spoken.
+     */
+    private fun startTtsAtTaggedParagraph() {
+        val chapterId = getTtsChapterContext().second
+        val js = """
+            (function() {
+                $TTS_DOM_HELPERS_JS
+                var marked = document.querySelector('[data-td-tts-target]');
+                if (marked) marked.removeAttribute('data-td-tts-target');
+                var root = ttsChapterRoot(${chapterId ?: "null"});
+                if (!marked || !root) return -1;
+                var elements = ttsReadableElements(root).filter(function(element) {
+                    return !!ttsNormalizeText(element.innerText);
+                });
+                for (var element = marked; element; element = element.parentElement) {
+                    var index = elements.indexOf(element);
+                    if (index >= 0) return index;
+                }
+                return -1;
+            })();
+        """.trimIndent()
+        evaluateJavascriptSafe(js) { result ->
+            val index = result?.trim()?.trim('"')?.toIntOrNull() ?: -1
+            if (index >= 0) startTtsAtParagraph(index)
         }
     }
 

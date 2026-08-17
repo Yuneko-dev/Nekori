@@ -192,9 +192,15 @@
             var top = event.clientY < 120 ? 120 : event.clientY;
             if (top + 120 > window.innerHeight) top = window.innerHeight - 120;
             controller.style.top = top + "px";
-            var index = readableElements().indexOf(hoverElement);
-            if (index >= 0 && window.Android && window.Android.startTtsAtParagraph) {
-                window.Android.startTtsAtParagraph(index);
+            // Tag the drop target and let the app resolve its index: the paragraph list TTS
+            // reads from is built there, and a second list built here would not agree with it.
+            if (
+                hoverElement &&
+                window.Android &&
+                window.Android.startTtsAtHoveredParagraph
+            ) {
+                hoverElement.setAttribute("data-td-tts-target", "1");
+                window.Android.startTtsAtHoveredParagraph();
             }
         } else if (window.Android && window.Android.toggleTts) {
             window.Android.toggleTts();

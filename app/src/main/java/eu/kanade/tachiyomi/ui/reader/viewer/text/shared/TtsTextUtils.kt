@@ -1,19 +1,10 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
-import org.jsoup.Jsoup
-
 object TtsTextUtils {
 
     private val edgeQuotes = Regex("^[\"'“”‘’]+|[\"'“”‘’]+$")
     private val whitespace = Regex("\\s+")
     private val punctuationSpacing = Regex("\\s*([.,!?;:])\\s*")
-
-    data class ParagraphInfo(
-        val index: Int,
-        val startChar: Int,
-        val endChar: Int,
-        val text: String,
-    )
 
     /** Matches the text normalization used by LNReader before each native TTS request. */
     fun normalizeText(text: String): String = text
@@ -59,49 +50,6 @@ object TtsTextUtils {
         }
 
         return chunks
-    }
-
-    fun findParagraphs(text: String): List<ParagraphInfo> {
-        val paragraphs = mutableListOf<ParagraphInfo>()
-
-        val doc = try {
-            Jsoup.parseBodyFragment(text)
-        } catch (_: Exception) {
-            null
-        }
-        val plainText = doc?.text() ?: text.replace(Regex("<[^>]+>"), " ")
-        val blocks = doc?.select("p, div, section, article, h1, h2, h3, h4, h5, h6, li")
-
-        if (blocks == null || blocks.isEmpty()) {
-            val lines = text.split(Regex("\\n\\s*\\n"))
-            var charOffset = 0
-            for (line in lines) {
-                val trimmed = line.trim()
-                if (trimmed.isEmpty()) {
-                    charOffset += line.length + 2
-                    continue
-                }
-                val startChar = plainText.indexOf(trimmed, charOffset)
-                if (startChar < 0) continue
-                val endChar = startChar + trimmed.length
-                paragraphs.add(ParagraphInfo(paragraphs.size, startChar, endChar, trimmed))
-                charOffset = endChar
-            }
-            return paragraphs
-        }
-
-        var charOffset = 0
-        for (elem in blocks) {
-            val trimmed = elem.text().trim()
-            if (trimmed.isEmpty()) continue
-            val startChar = plainText.indexOf(trimmed, charOffset)
-            if (startChar < 0) continue
-            val endChar = startChar + trimmed.length
-            paragraphs.add(ParagraphInfo(paragraphs.size, startChar, endChar, trimmed))
-            charOffset = endChar
-        }
-
-        return paragraphs
     }
 
     fun getChunkIndexFromOffset(charOffset: Int, ttsChunks: List<String>): Int {

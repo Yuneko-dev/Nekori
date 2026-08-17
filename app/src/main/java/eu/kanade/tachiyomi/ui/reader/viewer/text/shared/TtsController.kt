@@ -60,9 +60,6 @@ class TtsController(
         private set
     var ttsChunkStartOffsets: List<Int> = emptyList()
         private set
-    var ttsCurrentParagraphs: List<TtsTextUtils.ParagraphInfo> = emptyList()
-        private set
-
     var ttsPlaybackChapterIndex: Int = 0
         private set
     var ttsPlaybackChapterId: Long? = null
@@ -252,8 +249,6 @@ class TtsController(
             }
         }
         ttsChunkStartOffsets = offsets
-
-        ttsCurrentParagraphs = TtsTextUtils.findParagraphs(text)
 
         ttsCurrentChunkIndex = 0
         val startIndex = if (hasViewportStartOverride) {
