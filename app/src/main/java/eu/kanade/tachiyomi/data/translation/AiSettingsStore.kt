@@ -18,8 +18,6 @@ class AiSettingsStore(
 ) {
     fun providers(): List<AIProvider> = decode(preferences.aiProvidersJson().get(), emptyList())
 
-    fun activeProvider(): AIProvider? = providers().firstOrNull { it.id == preferences.activeAiProviderId().get() }
-
     fun saveProvider(provider: AIProvider, apiKey: String? = null) {
         val value = provider.normalized()
         require(
@@ -29,25 +27,15 @@ class AiSettingsStore(
         require(value.endpoint.toHttpUrlOrNull() != null) { "Invalid provider endpoint" }
         require(validateCustomHeaders(value.customHeaders).isValid)
         val providers = providers().toMutableList()
-        val isFirstProvider = providers.isEmpty()
         val index = providers.indexOfFirst { it.id == value.id }
         if (index >= 0) providers[index] = value else providers += value
         preferences.aiProvidersJson().set(json.encodeToString(providers))
-        if (isFirstProvider && preferences.activeAiProviderId().get().isBlank()) {
-            preferences.activeAiProviderId().set(value.id)
-        }
         apiKey?.let { preferences.aiProviderApiKey(value.id).set(it) }
     }
 
     fun deleteProvider(id: String) {
         preferences.aiProvidersJson().set(json.encodeToString(providers().filterNot { it.id == id }))
         preferences.aiProviderApiKey(id).delete()
-        if (preferences.activeAiProviderId().get() == id) preferences.activeAiProviderId().set("")
-    }
-
-    fun setActiveProvider(id: String) {
-        require(providers().any { it.id == id })
-        preferences.activeAiProviderId().set(id)
     }
 
     fun apiKey(providerId: String): String = preferences.aiProviderApiKey(providerId).get()
@@ -72,29 +60,20 @@ class AiSettingsStore(
     fun deleteGuidelines(id: String) {
         require(id != UserGuidelines.DEFAULT_ID)
         preferences.userGuidelinesJson().set(json.encodeToString(guidelines().filterNot { it.id == id }))
-        if (preferences.activeGuidelinesId().get() == id) {
-            preferences.activeGuidelinesId().set(UserGuidelines.DEFAULT_ID)
-        }
-    }
-
-    fun setActiveGuidelines(id: String) {
-        require(guidelines().any { it.id == id })
-        preferences.activeGuidelinesId().set(id)
     }
 
     /**
-     * Everything one LLM call needs, for a caller that named a provider and guidelines - or named
-     * neither, and gets the globally active ones.
+     * Everything one LLM call needs, for a task that named a provider and guidelines - or named
+     * neither, and gets the first provider with no guidelines.
      *
-     * The single place the "explicit-or-active" rule is applied against stored settings. The API key
-     * is read here from private preferences and never leaves in a loggable form.
+     * The API key is read here from private preferences and never leaves in a loggable form.
      */
     fun resolveConfig(providerId: String?, guidelinesId: String?): AiExecutionConfig {
-        val provider = providers().resolve(providerId, preferences.activeAiProviderId().get())
+        val provider = providers().resolve(providerId)
         return AiExecutionConfig(
             provider = provider,
             apiKey = provider?.let { apiKey(it.id) }.orEmpty(),
-            guidelines = guidelines().resolve(guidelinesId, preferences.activeGuidelinesId().get()).guidelines,
+            guidelines = guidelines().resolve(guidelinesId).guidelines,
         )
     }
 

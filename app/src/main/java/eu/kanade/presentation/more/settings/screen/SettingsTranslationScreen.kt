@@ -1,26 +1,18 @@
 package eu.kanade.presentation.more.settings.screen
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.translation.TranslationChunkMode
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
-import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfile
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
@@ -36,13 +28,10 @@ object SettingsTranslationScreen : SearchableSettings {
     @Composable
     override fun getAdditionalResetPreferences(): List<tachiyomi.core.common.preference.Preference<*>> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
-        return listOf(
+        return TranslationPurpose.entries.map(prefs::engineId) + listOf(
             prefs.rateLimitDelayMs(),
             prefs.translationTimeoutMs(),
             prefs.maxParallelTranslations(),
-            prefs.selectedEngineId(),
-            prefs.translationProfilesJson(),
-            prefs.translationTaskProfilesJson(),
         )
     }
 
@@ -54,7 +43,6 @@ object SettingsTranslationScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
         val engines = remember { Injekt.get<TranslationEngineManager>() }
-        val profileStore = remember { Injekt.get<TranslationProfileStore>() }
         val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
         val enabled by prefs.translationEnabled().collectAsState()
@@ -67,9 +55,7 @@ object SettingsTranslationScreen : SearchableSettings {
             )
         }
 
-        val profilesJson by prefs.translationProfilesJson().collectAsState()
-        val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
-        val profiles = remember(profilesJson) { profileStore.profiles() }
+        val chapterEngine by prefs.engineId(TranslationPurpose.CHAPTER).collectAsState()
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
         val progress by translationService.progressState.collectAsState()
@@ -90,105 +76,105 @@ object SettingsTranslationScreen : SearchableSettings {
             )
             else -> stringResource(MR.strings.pref_translation_status_idle)
         }
-        // The language list follows the chapter profile's engine: it is the one the reader uses.
+        // The language list follows the chapter engine: it is the one the reader uses.
         val languageEntries = engines.getSupportedLanguages(TranslationPurpose.CHAPTER).toMap()
-        val groups = mutableListOf<Preference>()
-        groups += Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_general),
-            preferenceItems = listOf(masterPreference(prefs)),
-        )
-        groups += profilesGroup(profileStore, profiles, assignmentsJson, navigator)
-        groups += Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_languages),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.BasicListPreference(
-                    value = sourceLanguage,
-                    entries = languageEntries,
-                    title = stringResource(TDMR.strings.pref_translation_source_language),
-                    onValueChanged = prefs.sourceLanguage()::set,
-                ),
-                Preference.PreferenceItem.BasicListPreference(
-                    value = targetLanguage,
-                    entries = languageEntries.filterKeys { it != "auto" },
-                    title = stringResource(TDMR.strings.pref_translation_target_language),
-                    onValueChanged = prefs.targetLanguage()::set,
+
+        return listOf(
+            Preference.PreferenceGroup(
+                title = stringResource(TDMR.strings.pref_translation_general),
+                preferenceItems = listOf(masterPreference(prefs)),
+            ),
+            engineGroup(prefs, engines),
+            Preference.PreferenceGroup(
+                title = stringResource(TDMR.strings.pref_translation_languages),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.BasicListPreference(
+                        value = sourceLanguage,
+                        entries = languageEntries,
+                        title = stringResource(TDMR.strings.pref_translation_source_language),
+                        onValueChanged = prefs.sourceLanguage()::set,
+                    ),
+                    Preference.PreferenceItem.BasicListPreference(
+                        value = targetLanguage,
+                        entries = languageEntries.filterKeys { it != "auto" },
+                        title = stringResource(TDMR.strings.pref_translation_target_language),
+                        onValueChanged = prefs.targetLanguage()::set,
+                    ),
                 ),
             ),
-        )
-        // Driven by the engines profiles actually use, not one global id: an API key field reachable
-        // only through this group would otherwise be unreachable for an engine no profile "selected".
-        profiles.map { it.engineId }.distinct().forEach { engine ->
-            apiKeyGroup(engine, prefs)?.let(groups::add)
-        }
-        groups += behaviorGroup(
-            prefs = prefs,
-            isLlmChapterEngine = profileStore.profileFor(
-                TranslationPurpose.CHAPTER,
-            ).engineId == TranslationEngineId.LLM,
-        )
-        groups += Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_translation_queue),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_translation_queue),
-                    subtitle = queueStatus,
-                    onClick = { navigator.push(DownloadQueueScreen(initialTab = 1)) },
+            Preference.PreferenceGroup(
+                title = "LibreTranslate",
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.EditTextPreference(
+                        preference = prefs.libreTranslateUrl(),
+                        title = stringResource(TDMR.strings.pref_translation_libretranslate_url),
+                    ),
+                    Preference.PreferenceItem.EditTextPreference(
+                        preference = prefs.libreTranslateApiKey(),
+                        title = stringResource(MR.strings.pref_translation_api_key),
+                    ),
                 ),
             ),
+            Preference.PreferenceGroup(
+                title = "DeepL",
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.EditTextPreference(
+                        preference = prefs.deepLApiKey(),
+                        title = stringResource(MR.strings.pref_translation_api_key),
+                    ),
+                ),
+            ),
+            Preference.PreferenceGroup(
+                title = "Google Cloud Translation",
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.EditTextPreference(
+                        preference = prefs.googleApiKey(),
+                        title = stringResource(MR.strings.pref_translation_api_key),
+                    ),
+                ),
+            ),
+            behaviorGroup(prefs, isLlmChapterEngine = chapterEngine == TranslationEngineId.LLM.key),
+            Preference.PreferenceGroup(
+                title = stringResource(MR.strings.pref_translation_queue),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_translation_queue),
+                        subtitle = queueStatus,
+                        onClick = { navigator.push(DownloadQueueScreen(initialTab = 1)) },
+                    ),
+                ),
+            ),
+            rateLimitGroup(prefs),
         )
-        groups += rateLimitGroup(prefs)
-        return groups
     }
 
-    /**
-     * Profile management plus one assignment row per [TranslationPurpose]. Adding a purpose adds a
-     * row here and nothing else.
-     */
+    /** One engine picker per [TranslationPurpose]. Adding a purpose adds a row here and nothing else. */
     @Composable
-    private fun profilesGroup(
-        profileStore: TranslationProfileStore,
-        profiles: List<TranslationProfile>,
-        assignmentsJson: String,
-        navigator: Navigator,
+    private fun engineGroup(
+        prefs: TranslationPreferences,
+        engines: TranslationEngineManager,
     ): Preference.PreferenceGroup {
-        val defaultName = stringResource(TDMR.strings.pref_profile_default)
-        val purposeLabels = mapOf(
+        val entries = engines.engines.associate { it.id.key to it.name }
+        val labels = mapOf(
             TranslationPurpose.CHAPTER to stringResource(TDMR.strings.pref_translation_purpose_chapter),
             TranslationPurpose.METADATA to stringResource(TDMR.strings.pref_translation_purpose_metadata),
             TranslationPurpose.BROWSE_TITLE to stringResource(TDMR.strings.pref_translation_purpose_browse_title),
         )
-
         return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_profiles),
-            preferenceItems = buildList {
-                add(
-                    Preference.PreferenceItem.TextPreference(
-                        title = stringResource(TDMR.strings.pref_profiles_manage),
-                        subtitle = stringResource(
-                            TDMR.strings.pref_profiles_count,
-                            profiles.size,
-                        ),
-                        onClick = { navigator.push(SettingsTranslationProfilesScreen) },
-                    ),
+            title = stringResource(TDMR.strings.pref_translation_engine),
+            preferenceItems = TranslationPurpose.entries.map { purpose ->
+                val preference = prefs.engineId(purpose)
+                val current by preference.collectAsState()
+                Preference.PreferenceItem.BasicListPreference(
+                    value = current,
+                    entries = entries,
+                    title = labels.getValue(purpose),
+                    subtitle = entries[current].orEmpty(),
+                    onValueChanged = {
+                        preference.set(it)
+                        true
+                    },
                 )
-                TranslationPurpose.entries.forEach { purpose ->
-                    val current = remember(profiles, assignmentsJson) { profileStore.profileFor(purpose) }
-                    add(
-                        Preference.PreferenceItem.CustomPreference(
-                            title = purposeLabels.getValue(purpose),
-                            content = {
-                                SettingsDropdownField(
-                                    label = purposeLabels.getValue(purpose),
-                                    value = current,
-                                    values = profiles,
-                                    valueLabel = { it.name.ifBlank { defaultName } },
-                                    onSelected = { profileStore.assign(purpose, it.id) },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                )
-                            },
-                        ),
-                    )
-                }
             },
         )
     }
@@ -199,49 +185,6 @@ object SettingsTranslationScreen : SearchableSettings {
         title = stringResource(TDMR.strings.pref_translation_enabled),
         subtitle = stringResource(TDMR.strings.pref_translation_enabled_summary),
     )
-
-    /**
-     * The service-wide API key an engine needs, if any.
-     *
-     * The LLM engine has none: its provider, key and guidelines are per-profile, resolved through
-     * Settings > AI, so it contributes no group here.
-     */
-    @Composable
-    private fun apiKeyGroup(
-        engine: TranslationEngineId,
-        prefs: TranslationPreferences,
-    ): Preference.PreferenceGroup? {
-        val items = when (engine) {
-            TranslationEngineId.LIBRE -> listOf(
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = prefs.libreTranslateUrl(),
-                    title = stringResource(TDMR.strings.pref_translation_libretranslate_url),
-                ),
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = prefs.libreTranslateApiKey(),
-                    title = stringResource(MR.strings.pref_translation_api_key),
-                ),
-            )
-            TranslationEngineId.DEEPL -> listOf(
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = prefs.deepLApiKey(),
-                    title = stringResource(MR.strings.pref_translation_api_key),
-                ),
-            )
-            TranslationEngineId.GOOGLE_CLOUD -> listOf(
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = prefs.googleApiKey(),
-                    title = stringResource(MR.strings.pref_translation_api_key),
-                ),
-            )
-            TranslationEngineId.LLM, TranslationEngineId.GOOGLE_FREE -> emptyList()
-        }
-        if (items.isEmpty()) return null
-        return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_api_keys),
-            preferenceItems = items,
-        )
-    }
 
     @Composable
     private fun behaviorGroup(
@@ -258,19 +201,9 @@ object SettingsTranslationScreen : SearchableSettings {
         val wordLimitRange = 300..10_000 step 100
         val chunkPreferences: List<Preference.PreferenceItem<out Any, out Any>> = when {
             !isLlmChapterEngine -> listOf(paragraphChunkPreference(prefs, chunkSize))
-            !splitLargeChapters -> listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.splitLargeChapters(),
-                    title = stringResource(MR.strings.pref_translation_split_large_chapters),
-                    subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
-                ),
-            )
+            !splitLargeChapters -> listOf(splitSwitch(prefs))
             else -> listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.splitLargeChapters(),
-                    title = stringResource(MR.strings.pref_translation_split_large_chapters),
-                    subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
-                ),
+                splitSwitch(prefs),
                 Preference.PreferenceItem.ListPreference(
                     preference = prefs.translationChunkMode(),
                     entries = mapOf(
@@ -353,6 +286,13 @@ object SettingsTranslationScreen : SearchableSettings {
             ) + chunkPreferences + anchoringPreferences,
         )
     }
+
+    @Composable
+    private fun splitSwitch(prefs: TranslationPreferences) = Preference.PreferenceItem.SwitchPreference(
+        preference = prefs.splitLargeChapters(),
+        title = stringResource(MR.strings.pref_translation_split_large_chapters),
+        subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
+    )
 
     @Composable
     private fun paragraphChunkPreference(

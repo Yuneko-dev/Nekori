@@ -613,9 +613,9 @@
     <string name="pref_translation_enabled_summary">Cho phép dịch chương tiểu thuyết</string>
     <string name="pref_category_ai">Cài đặt AI</string>
     <string name="pref_ai_summary">Nhà cung cấp và chỉ dẫn dùng chung cho mọi tác vụ AI</string>
-    <string name="pref_ai_tasks">Tác vụ AI</string>
-    <string name="pref_ai_task_profiles">Hồ sơ tác vụ</string>
     <string name="pref_ai_purpose_chapter_summary">Tóm tắt chương</string>
+    <string name="pref_ai_purpose_translation">Dịch AI</string>
+    <string name="pref_ai_provider">Nhà cung cấp</string>
     <string name="action_summarize_chapter">Tóm tắt chương</string>
     <string name="chapter_summary_title">Tóm tắt chương</string>
     <string name="chapter_summary_loading">Đang tóm tắt chương này…</string>
@@ -624,7 +624,6 @@
     <string name="chapter_summary_unavailable">Không thể tóm tắt ở trang hiện tại</string>
     <string name="action_regenerate">Tạo lại</string>
     <string name="chapter_summary_unconfigured">Hãy cấu hình nhà cung cấp AI trong Cài đặt > AI trước</string>
-    <string name="pref_ai_defaults">Mặc định</string>
     <string name="pref_ai_resources">Tài nguyên</string>
     <string name="pref_ai_providers">Nhà cung cấp</string>
     <string name="pref_ai_user_guidelines">Chỉ dẫn người dùng</string>
@@ -634,8 +633,6 @@
     <string name="pref_ai_edit_provider">Sửa nhà cung cấp</string>
     <string name="pref_ai_add_guidelines">Thêm chỉ dẫn</string>
     <string name="pref_ai_edit_guidelines">Sửa chỉ dẫn</string>
-    <string name="pref_ai_active_provider">Nhà cung cấp đang dùng</string>
-    <string name="pref_ai_active_guidelines">Chỉ dẫn đang dùng</string>
     <string name="pref_ai_no_active_provider">Chưa chọn nhà cung cấp</string>
     <string name="pref_ai_provider_alias">Bí danh</string>
     <string name="pref_ai_provider_type">Loại nhà cung cấp</string>
@@ -664,14 +661,6 @@
     <string name="pref_translation_retry_count">Số lần thử lại sau lỗi</string>
     <string name="action_translation_settings">Cài đặt dịch</string>
     <string name="pref_translation_engine">Công cụ dịch</string>
-    <string name="pref_translation_profiles">Hồ sơ dịch</string>
-    <string name="pref_profiles_manage">Quản lý hồ sơ</string>
-    <string name="pref_profiles_count">%d hồ sơ</string>
-    <string name="pref_profile_default">Mặc định</string>
-    <string name="pref_profile_new">Hồ sơ mới</string>
-    <string name="pref_profile_name">Tên</string>
-    <string name="pref_profile_add">Thêm hồ sơ</string>
-    <string name="pref_profile_use_active">Dùng thiết lập đang chọn</string>
     <string name="pref_translation_purpose_chapter">Nội dung chương</string>
     <string name="pref_translation_purpose_metadata">Thông tin truyện</string>
     <string name="pref_translation_purpose_browse_title">Tiêu đề khi duyệt nguồn</string>

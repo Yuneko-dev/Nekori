@@ -27,6 +27,7 @@ import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.ReasoningEffort
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
@@ -150,7 +151,10 @@ class LNReaderSettingsRestorer(
                 "google-free" -> TranslationEngineId.GOOGLE_FREE
                 "llm" -> TranslationEngineId.LLM
                 else -> null
-            }?.let { translationPreferences.selectedEngineId().set(it.key) }
+            }?.let {
+                // LNReader only translates chapter text, so its engine choice applies to that purpose.
+                translationPreferences.engineId(TranslationPurpose.CHAPTER).set(it.key)
+            }
         }
         value.booleanValue("llmDisableStructuredOutput")?.let {
             translationPreferences.structuredOutput().set(!it)
@@ -177,9 +181,13 @@ class LNReaderSettingsRestorer(
         val restoredIds = guidelines.mapNotNullTo(mutableSetOf()) { entry ->
             runCatching { aiSettingsStore.saveGuidelines(entry) }.map { entry.id }.getOrNull()
         }
+        // LNReader has one active prompt where this app has one per AI task, so it seeds both.
         value.stringValue("activeSystemPromptId")
             ?.takeIf { it == UserGuidelines.DEFAULT_ID || it in restoredIds }
-            ?.let(aiSettingsStore::setActiveGuidelines)
+            ?.let { id ->
+                translationPreferences.translationGuidelinesId().set(id)
+                translationPreferences.chapterSummaryGuidelinesId().set(id)
+            }
     }
 
     private fun restoreAi(settings: JsonObject): Set<String> {
@@ -193,7 +201,10 @@ class LNReaderSettingsRestorer(
         }
         settings.stringValue("ACTIVE_AI_PROVIDER")
             ?.takeIf(restoredIds::contains)
-            ?.let(aiSettingsStore::setActiveProvider)
+            ?.let { id ->
+                translationPreferences.translationProviderId().set(id)
+                translationPreferences.chapterSummaryProviderId().set(id)
+            }
         return providers.mapTo(mutableSetOf()) { it.id }
     }
 

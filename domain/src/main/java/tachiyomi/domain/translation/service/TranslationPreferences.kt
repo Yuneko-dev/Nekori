@@ -3,6 +3,7 @@ package tachiyomi.domain.translation.service
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.translation.model.TranslationEngineId
+import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.UserGuidelines
 
 /**
@@ -19,30 +20,25 @@ class TranslationPreferences(
         false,
     )
 
-    /**
-     * Selected translation engine ID.
-     */
-    fun selectedEngineId() = preferenceStore.getString(
-        "translation_engine_id",
+    /** The engine [purpose] translates with. */
+    fun engineId(purpose: TranslationPurpose) = preferenceStore.getString(
+        "translation_engine_${purpose.key}",
         TranslationEngineId.GOOGLE_FREE.key,
     )
 
-    /** Serialized [tachiyomi.domain.translation.model.TranslationProfile] list. Empty until the user
-     *  creates one; the store then synthesizes a default from [selectedEngineId] and the active
-     *  provider/prompt, so an upgrade needs no migration. */
-    fun translationProfilesJson() = preferenceStore.getString("translation_profiles", "[]")
+    /**
+     * Which provider and guidelines each AI task runs with. Blank means "the first provider" and
+     * "no guidelines", so a fresh install with one provider works before the user picks anything.
+     */
+    fun translationProviderId() = preferenceStore.getString("translation_ai_provider", "")
 
-    /** Serialized purpose key -> profile id map. A missing purpose falls back to the default profile. */
-    fun translationTaskProfilesJson() = preferenceStore.getString("translation_task_profiles", "{}")
+    fun translationGuidelinesId() = preferenceStore.getString("translation_ai_guidelines", "")
 
-    /** Serialized [tachiyomi.domain.translation.model.AiTaskProfile] list, for AI tasks other than translation. */
-    fun aiTaskProfilesJson() = preferenceStore.getString("ai_task_profiles", "[]")
+    fun chapterSummaryProviderId() = preferenceStore.getString("chapter_summary_ai_provider", "")
 
-    fun aiTaskAssignmentsJson() = preferenceStore.getString("ai_task_assignments", "{}")
+    fun chapterSummaryGuidelinesId() = preferenceStore.getString("chapter_summary_ai_guidelines", "")
 
     fun aiProvidersJson() = preferenceStore.getString("translation_ai_providers", "[]")
-
-    fun activeAiProviderId() = preferenceStore.getString("translation_active_ai_provider", "")
 
     fun aiProviderApiKey(providerId: String) = preferenceStore.getString(
         Preference.privateKey("translation_ai_provider_key_$providerId"),
@@ -54,11 +50,6 @@ class TranslationPreferences(
     fun userGuidelinesJson() = preferenceStore.getString(
         "translation_system_prompts",
         """[{"id":"${UserGuidelines.DEFAULT_ID}","name":"Default","guidelines":""}]""",
-    )
-
-    fun activeGuidelinesId() = preferenceStore.getString(
-        "translation_active_system_prompt",
-        UserGuidelines.DEFAULT_ID,
     )
 
     fun structuredOutput() = preferenceStore.getBoolean("translation_structured_output", true)

@@ -16,6 +16,23 @@ enum class TranslationEngineId(val key: String) {
     }
 }
 
+/**
+ * A translation entry point. Each one picks its own engine, so browsing a source can stay on a fast
+ * free engine while chapter text goes through an LLM.
+ *
+ * [key] names the preference the choice is stored in, so it must stay stable.
+ */
+enum class TranslationPurpose(val key: String) {
+    /** Chapter text: chunked, cached, resumable. */
+    CHAPTER("chapter"),
+
+    /** Entry title, description and tags, both on library update and from the entry screen. */
+    METADATA("metadata"),
+
+    /** Entry titles rendered while browsing a source. */
+    BROWSE_TITLE("browse_title"),
+}
+
 data class TranslationContext(
     val previousSourceParagraphs: List<String> = emptyList(),
     val previousTranslatedParagraphs: List<String> = emptyList(),
@@ -146,22 +163,20 @@ data class UserGuidelines(
     }
 }
 
-/** A named id, or the globally active one when the caller named none. */
-private fun effectiveId(id: String?, activeId: String) = id?.takeIf(String::isNotBlank) ?: activeId
-
 /**
- * The provider a profile named, or the globally active one.
+ * The provider a task named, or the first one when it named none - so a fresh install with a single
+ * provider works before the user picks anything.
  *
- * A named provider that has since been deleted resolves to null rather than silently borrowing the
- * active one: the profile is unconfigured, and saying so beats translating with a provider the user
- * did not pick. Defined here so the store and the settings UI share one rule instead of two copies.
+ * A named provider that has since been deleted resolves to null rather than silently borrowing
+ * another: the task is unconfigured, and saying so beats running against a provider the user did not
+ * pick. Defined here so the store and the settings UI share one rule instead of two copies.
  */
-fun List<AIProvider>.resolve(id: String?, activeId: String): AIProvider? =
-    firstOrNull { it.id == effectiveId(id, activeId) }
+fun List<AIProvider>.resolve(id: String?): AIProvider? =
+    if (id.isNullOrBlank()) firstOrNull() else firstOrNull { it.id == id }
 
 /** As [resolve], but deleted guidelines fall back to the empty default - no instructions, not a failure. */
-fun List<UserGuidelines>.resolve(id: String?, activeId: String): UserGuidelines =
-    firstOrNull { it.id == effectiveId(id, activeId) } ?: UserGuidelines.DEFAULT
+fun List<UserGuidelines>.resolve(id: String?): UserGuidelines =
+    id?.takeIf(String::isNotBlank)?.let { named -> firstOrNull { it.id == named } } ?: UserGuidelines.DEFAULT
 
 data class HeaderValidationResult(val errors: List<String>) {
     val isValid: Boolean get() = errors.isEmpty()

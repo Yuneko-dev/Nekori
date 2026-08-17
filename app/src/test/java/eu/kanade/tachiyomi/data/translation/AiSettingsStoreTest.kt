@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.translation
 
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
@@ -15,27 +16,25 @@ class AiSettingsStoreTest {
     private val store = AiSettingsStore(preferences, Json { ignoreUnknownKeys = true })
 
     @Test
-    fun `first provider becomes active and deleting it leaves active empty`() {
+    fun `a saved provider keeps its key and deleting it takes the key with it`() {
         val provider = provider("one")
         store.saveProvider(provider, "secret")
 
-        store.activeProvider() shouldBe provider
+        store.providers().single() shouldBe provider
         store.apiKey(provider.id) shouldBe "secret"
 
         store.deleteProvider(provider.id)
-        store.activeProvider() shouldBe null
-        preferences.activeAiProviderId().get() shouldBe ""
+        store.providers().shouldBeEmpty()
+        store.apiKey(provider.id) shouldBe ""
     }
 
     @Test
-    fun `deleting active custom guidelines returns to default`() {
+    fun `deleted guidelines leave the task with no instructions`() {
         store.saveGuidelines(names)
-        store.setActiveGuidelines(names.id)
 
         store.deleteGuidelines(names.id)
 
-        preferences.activeGuidelinesId().get() shouldBe UserGuidelines.DEFAULT_ID
-        store.resolveConfig(null, null).guidelines shouldBe ""
+        store.resolveConfig(null, names.id).guidelines shouldBe ""
     }
 
     @Test
@@ -48,20 +47,20 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `naming nothing resolves to the active provider and guidelines`() {
+    fun `naming nothing resolves to the first provider and no guidelines`() {
         store.saveProvider(provider("one"), "secret")
+        store.saveProvider(provider("two"), "other")
         store.saveGuidelines(names)
-        store.setActiveGuidelines(names.id)
 
         val config = store.resolveConfig(null, null)
 
         config.provider shouldBe provider("one")
         config.apiKey shouldBe "secret"
-        config.guidelines shouldBe "Keep names"
+        config.guidelines shouldBe ""
     }
 
     @Test
-    fun `naming a provider and guidelines overrides the active ones`() {
+    fun `naming a provider and guidelines picks exactly those`() {
         store.saveProvider(provider("one"), "active-key")
         store.saveProvider(provider("two"), "named-key")
         store.saveGuidelines(names)
@@ -74,7 +73,7 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `a deleted provider leaves the caller unconfigured instead of borrowing the active one`() {
+    fun `a deleted provider leaves the caller unconfigured instead of borrowing another`() {
         store.saveProvider(provider("one"), "secret")
 
         val config = store.resolveConfig("gone", null)
@@ -84,9 +83,8 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `deleted guidelines fall back to no instructions, not to the active ones`() {
+    fun `deleted guidelines fall back to no instructions`() {
         store.saveGuidelines(names)
-        store.setActiveGuidelines(names.id)
 
         store.resolveConfig(null, "gone").guidelines shouldBe ""
     }
@@ -104,17 +102,6 @@ class AiSettingsStoreTest {
         store.saveProvider(provider("one").copy(alias = "Updated"))
 
         store.providers().single().alias shouldBe "Updated"
-    }
-
-    @Test
-    fun `saving another provider does not replace an intentionally empty active provider`() {
-        store.saveProvider(provider("one"))
-        store.saveProvider(provider("two"))
-        store.deleteProvider("one")
-
-        store.saveProvider(provider("two").copy(alias = "Updated"))
-
-        store.activeProvider() shouldBe null
     }
 
     @Test

@@ -4,7 +4,6 @@ import android.app.Application
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.AiExecutionConfig
-import tachiyomi.domain.translation.model.AiTaskPurpose
 import tachiyomi.domain.translation.model.LanguageCodes
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
@@ -17,12 +16,11 @@ import uy.kohesive.injekt.api.get
  * Summarizes the chapter the reader is showing.
  *
  * The system prompt and the output contract belong to this task and are not user-editable; what the
- * user configures is the profile - which provider runs it, and which guidelines it carries.
+ * user configures is which provider runs it and which guidelines it carries.
  */
 class ChapterSummaryService(
     private val generator: LlmGenerator = Injekt.get(),
     private val aiSettings: AiSettingsStore = Injekt.get(),
-    private val profiles: AiTaskProfileStore = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
     private val noContentMessage: () -> String = {
         Injekt.get<Application>().stringResource(TDMR.strings.chapter_summary_no_content)
@@ -57,10 +55,10 @@ class ChapterSummaryService(
         ) { generator.generate(config, request) }
     }
 
-    private fun resolveConfig(): AiExecutionConfig {
-        val profile = profiles.profileFor(AiTaskPurpose.CHAPTER_SUMMARY)
-        return aiSettings.resolveConfig(profile.providerId, profile.guidelinesId)
-    }
+    private fun resolveConfig(): AiExecutionConfig = aiSettings.resolveConfig(
+        preferences.chapterSummaryProviderId().get(),
+        preferences.chapterSummaryGuidelinesId().get(),
+    )
 }
 
 object ChapterSummaryPromptBuilder {

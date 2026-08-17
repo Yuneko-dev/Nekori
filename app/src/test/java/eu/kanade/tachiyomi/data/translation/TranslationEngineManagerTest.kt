@@ -10,7 +10,6 @@ import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
-import tachiyomi.domain.translation.model.TranslationProfile
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
@@ -18,79 +17,80 @@ import tachiyomi.domain.translation.service.TranslationPreferences
 
 class TranslationEngineManagerTest {
     private val preferences = TranslationPreferences(InMemoryPreferenceStore())
-    private val profileStore = TranslationProfileStore(preferences, Json)
     private val aiSettings = AiSettingsStore(preferences, Json)
     private val llm = FakeEngine(
         id = TranslationEngineId.LLM,
         configured = { it?.provider != null },
     )
-    private val manager = TranslationEngineManager(preferences, profileStore, aiSettings, listOf(llm))
+    private val free = FakeEngine(TranslationEngineId.GOOGLE_FREE)
+    private val manager = TranslationEngineManager(preferences, aiSettings, listOf(llm, free))
 
     @Test
-    fun `purposes resolve different providers`() {
-        val chapterProvider = provider("chapter")
-        val browseProvider = provider("browse")
-        aiSettings.saveProvider(chapterProvider)
-        aiSettings.saveProvider(browseProvider)
-        assign(TranslationPurpose.CHAPTER, "chapter-profile", chapterProvider.id)
-        assign(TranslationPurpose.BROWSE_TITLE, "browse-profile", browseProvider.id)
+    fun `each purpose resolves its own engine`() {
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
+        useEngine(TranslationPurpose.BROWSE_TITLE, TranslationEngineId.GOOGLE_FREE)
 
-        manager.resolve(TranslationPurpose.CHAPTER).config?.provider shouldBe chapterProvider
-        manager.resolve(TranslationPurpose.BROWSE_TITLE).config?.provider shouldBe browseProvider
+        manager.resolve(TranslationPurpose.CHAPTER).engine shouldBe llm
+        manager.resolve(TranslationPurpose.BROWSE_TITLE).engine shouldBe free
     }
 
     @Test
-    fun `profile without provider uses the active provider`() {
-        val active = provider("active")
-        aiSettings.saveProvider(active)
-        assign(TranslationPurpose.CHAPTER, "chapter-profile", null)
-
-        manager.resolve(TranslationPurpose.CHAPTER).config?.provider shouldBe active
+    fun `an unset purpose falls back to the free engine`() {
+        manager.resolve(TranslationPurpose.METADATA).engine shouldBe free
     }
 
     @Test
-    fun `profile pointing at a deleted provider is unconfigured`() {
-        aiSettings.saveProvider(provider("active"))
-        assign(TranslationPurpose.CHAPTER, "chapter-profile", "deleted")
+    fun `the llm engine receives the translation provider`() {
+        val provider = provider("chosen")
+        aiSettings.saveProvider(provider)
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
+        preferences.translationProviderId().set(provider.id)
+
+        manager.resolve(TranslationPurpose.CHAPTER).config?.provider shouldBe provider
+    }
+
+    @Test
+    fun `an unnamed provider resolves to the only one configured`() {
+        val only = provider("only")
+        aiSettings.saveProvider(only)
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
+
+        manager.resolve(TranslationPurpose.CHAPTER).config?.provider shouldBe only
+    }
+
+    @Test
+    fun `a deleted provider leaves the engine unconfigured`() {
+        aiSettings.saveProvider(provider("kept"))
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
+        preferences.translationProviderId().set("deleted")
 
         manager.getEngine(TranslationPurpose.CHAPTER) shouldBe null
     }
 
     @Test
-    fun `non LLM engines receive no profile config`() {
-        val free = FakeEngine(TranslationEngineId.GOOGLE_FREE)
-        val freeManager = TranslationEngineManager(preferences, profileStore, aiSettings, listOf(free))
-
-        freeManager.getEngine(TranslationPurpose.CHAPTER) shouldBe free
+    fun `non LLM engines receive no config`() {
+        manager.getEngine(TranslationPurpose.CHAPTER) shouldBe free
         free.configurationChecks shouldBe 1
         free.configChecked shouldBe null
-        freeManager.resolve(TranslationPurpose.CHAPTER).config shouldBe null
+        manager.resolve(TranslationPurpose.CHAPTER).config shouldBe null
     }
 
     @Test
-    fun `translate injects the purpose profile config`() = runTest {
-        val active = provider("active")
-        aiSettings.saveProvider(active)
-        assign(TranslationPurpose.CHAPTER, "chapter-profile", active.id)
+    fun `translate injects the resolved config`() = runTest {
+        val provider = provider("active")
+        aiSettings.saveProvider(provider)
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
 
         manager.translate(
             TranslationPurpose.CHAPTER,
             TranslationRequest(listOf("text"), "en", "vi"),
         )
 
-        llm.lastRequest?.config?.provider shouldBe active
+        llm.lastRequest?.config?.provider shouldBe provider
     }
 
-    private fun assign(purpose: TranslationPurpose, profileId: String, providerId: String?) {
-        profileStore.save(
-            TranslationProfile(
-                id = profileId,
-                name = profileId,
-                engineId = TranslationEngineId.LLM,
-                aiProviderId = providerId,
-            ),
-        )
-        profileStore.assign(purpose, profileId)
+    private fun useEngine(purpose: TranslationPurpose, engineId: TranslationEngineId) {
+        preferences.engineId(purpose).set(engineId.key)
     }
 
     private fun provider(id: String) = AIProvider(

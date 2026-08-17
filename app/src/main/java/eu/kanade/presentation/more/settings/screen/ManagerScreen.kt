@@ -145,22 +145,3 @@ internal fun ManagerSwitchRow(title: String, checked: Boolean, onChange: (Boolea
         Switch(checked, onChange)
     }
 }
-
-/** Describes the provider and optional guidelines after applying the shared explicit-or-active rule. */
-internal fun describeAiConfig(
-    providerId: String?,
-    guidelinesId: String?,
-    providers: List<AIProvider>,
-    guidelines: List<UserGuidelines>,
-    activeProviderId: String,
-    activeGuidelinesId: String,
-    noProviderLabel: String? = null,
-): String {
-    val resolvedGuidelines = guidelines.resolve(guidelinesId, activeGuidelinesId)
-    return listOfNotNull(
-        providers.resolve(providerId, activeProviderId)?.alias ?: noProviderLabel,
-        resolvedGuidelines.name.takeIf {
-            it.isNotBlank() && resolvedGuidelines.id != UserGuidelines.DEFAULT_ID
-        },
-    ).joinToString(" · ")
-}

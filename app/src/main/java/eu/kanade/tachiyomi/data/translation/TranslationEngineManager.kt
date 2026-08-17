@@ -23,7 +23,6 @@ import uy.kohesive.injekt.api.get
  */
 class TranslationEngineManager(
     private val preferences: TranslationPreferences = Injekt.get(),
-    private val profileStore: TranslationProfileStore = Injekt.get(),
     private val aiSettings: AiSettingsStore = Injekt.get(),
     private val providedEngines: List<TranslationEngine>? = null,
 ) {
@@ -45,12 +44,14 @@ class TranslationEngineManager(
 
     /** The engine and overrides [purpose] should use. */
     fun resolve(purpose: TranslationPurpose): Resolved {
-        val profile = profileStore.profileFor(purpose)
-        val engine = getEngineById(profile.engineId)
+        val engine = getEngineById(TranslationEngineId.fromKey(preferences.engineId(purpose).get()))
         // Only the LLM engine reads the config, and building it decodes the provider and guidelines
         // stores; skip that work entirely for the others.
         val config = if (engine.id == TranslationEngineId.LLM) {
-            aiSettings.resolveConfig(profile.aiProviderId, profile.guidelinesId)
+            aiSettings.resolveConfig(
+                preferences.translationProviderId().get(),
+                preferences.translationGuidelinesId().get(),
+            )
         } else {
             null
         }
@@ -58,19 +59,9 @@ class TranslationEngineManager(
     }
 
     /**
-     * Get the legacy globally selected engine, used as the initial value in the profile editor.
-     */
-    fun getSelectedEngine(): TranslationEngine {
-        return getEngineById(TranslationEngineId.fromKey(preferences.selectedEngineId().get()))
-    }
-
-    /**
      * Get an engine by its ID.
      */
     private fun getEngineById(id: TranslationEngineId): TranslationEngine = engines.first { it.id == id }
-
-    // setSelectedEngine() was removed with the global engine dropdown: the engine is now a property
-    // of a profile, and selectedEngineId survives only to seed the default and newly created profiles.
 
     /**
      * The engine [purpose] should use, or null when its profile is not fully configured.

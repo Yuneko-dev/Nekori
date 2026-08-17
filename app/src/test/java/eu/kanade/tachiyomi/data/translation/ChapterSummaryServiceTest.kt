@@ -12,8 +12,6 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.AiErrorCode
-import tachiyomi.domain.translation.model.AiTaskProfile
-import tachiyomi.domain.translation.model.AiTaskPurpose
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmOutputFormat
 import tachiyomi.domain.translation.model.LlmResult
@@ -24,10 +22,9 @@ class ChapterSummaryServiceTest {
     private val preferences = TranslationPreferences(InMemoryPreferenceStore())
     private val json = Json { ignoreUnknownKeys = true }
     private val aiSettings = AiSettingsStore(preferences, json)
-    private val profiles = AiTaskProfileStore(preferences, json)
     private val generator = mockk<LlmGenerator>()
     private val noContentMessage = "Localized empty chapter"
-    private val service = ChapterSummaryService(generator, aiSettings, profiles, preferences) { noContentMessage }
+    private val service = ChapterSummaryService(generator, aiSettings, preferences) { noContentMessage }
 
     @Test
     fun `an unconfigured provider means no summary can be requested`() {
@@ -67,11 +64,10 @@ class ChapterSummaryServiceTest {
     }
 
     @Test
-    fun `the target language and the profile guidelines reach the system prompt`() = runTest {
+    fun `the target language and the task guidelines reach the system prompt`() = runTest {
         aiSettings.saveProvider(provider, "secret")
         aiSettings.saveGuidelines(UserGuidelines("terse", "Terse", "Keep it short"))
-        profiles.save(AiTaskProfile("summary", "Summary", guidelinesId = "terse"))
-        profiles.assign(AiTaskPurpose.CHAPTER_SUMMARY, "summary")
+        preferences.chapterSummaryGuidelinesId().set("terse")
         preferences.targetLanguage().set("vi")
         val sent = captureRequest()
 
