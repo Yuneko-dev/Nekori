@@ -46,7 +46,6 @@ class LibreTranslateEngine(
     override val name: String = "LibreTranslate"
     override val requiresApiKey: Boolean = false
     override val isRateLimited: Boolean = true // Public instances have rate limits
-    override val isOffline: Boolean = false
 
     override val supportedLanguages: List<Pair<String, String>> = listOf(
         "auto" to "Auto-detect",

@@ -44,7 +44,6 @@ class GoogleTranslateEngine(
     override val name: String = "Google Cloud Translation"
     override val requiresApiKey: Boolean = true
     override val isRateLimited: Boolean = true
-    override val isOffline: Boolean = false
 
     override val supportedLanguages: List<Pair<String, String>> = listOf(
         "auto" to "Auto-detect",

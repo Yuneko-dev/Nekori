@@ -33,7 +33,6 @@ class LlmTranslationEngine(
     override val name = "API LLM"
     override val requiresApiKey = true
     override val isRateLimited = true
-    override val isOffline = false
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
     override fun isConfigured(config: AiExecutionConfig?): Boolean = config?.isComplete == true

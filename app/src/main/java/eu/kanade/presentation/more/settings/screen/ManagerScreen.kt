@@ -35,8 +35,8 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * The list-and-add screen every named-entry manager uses: AI providers, user guidelines, and
- * translation profiles. They differ only in what a row shows and where the add button leads.
+ * The list-and-add screen every named-entry manager uses: AI providers and user guidelines. They
+ * differ only in what a row shows and where the add button leads.
  */
 @Composable
 internal fun <T> ManagerScreen(

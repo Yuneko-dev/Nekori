@@ -108,7 +108,6 @@ class TranslationEngineManagerTest {
         override val name = id.key
         override val requiresApiKey = false
         override val isRateLimited = false
-        override val isOffline = false
         override val supportedLanguages = emptyList<Pair<String, String>>()
         var configChecked: AiExecutionConfig? = null
         var lastRequest: TranslationRequest? = null

@@ -31,7 +31,6 @@ class GoogleTranslateScraperEngine : TranslationEngine {
     override val name = "Google Translate (Free)"
     override val requiresApiKey = false
     override val isRateLimited = true
-    override val isOffline = false
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
     private val network: NetworkHelper by injectLazy()

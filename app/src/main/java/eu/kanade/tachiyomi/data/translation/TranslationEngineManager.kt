@@ -64,7 +64,7 @@ class TranslationEngineManager(
     private fun getEngineById(id: TranslationEngineId): TranslationEngine = engines.first { it.id == id }
 
     /**
-     * The engine [purpose] should use, or null when its profile is not fully configured.
+     * The engine [purpose] should use, or null when it is not fully configured.
      */
     fun getEngine(purpose: TranslationPurpose): TranslationEngine? {
         val (engine, config) = resolve(purpose)

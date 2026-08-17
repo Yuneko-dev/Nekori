@@ -54,6 +54,16 @@ object SettingsAiScreen : SearchableSettings {
                         subtitle = stringResource(TDMR.strings.pref_ai_guidelines_summary),
                         onClick = { navigator.push(UserGuidelinesManagerScreen) },
                     ),
+                    // Every AI task retries on the same transient failures, so it belongs with the
+                    // shared resources rather than inside one task's section.
+                    Preference.PreferenceItem.SliderPreference(
+                        value = retries,
+                        title = stringResource(TDMR.strings.pref_translation_retry_count),
+                        valueString = "$retries",
+                        valueRange = 0..5,
+                        onValueChanged = prefs.requestRetryCount()::set,
+                        preference = prefs.requestRetryCount(),
+                    ),
                 ),
             ),
             taskGroup(
@@ -69,21 +79,13 @@ object SettingsAiScreen : SearchableSettings {
                 guidelinesPreference = prefs.translationGuidelinesId(),
                 providers = providers,
                 guidelines = guidelines,
-                // Only the LLM translation path reads these, but they describe how the app talks to a
-                // provider, so they belong with the provider settings rather than with translation.
+                // Describes how the app asks this provider for a translation, so it sits with the
+                // task that asks rather than in the translation screen's engine settings.
                 extraItems = listOf(
                     Preference.PreferenceItem.SwitchPreference(
                         preference = prefs.structuredOutput(),
                         title = stringResource(TDMR.strings.pref_translation_structured_output),
                         subtitle = stringResource(TDMR.strings.pref_translation_structured_output_summary),
-                    ),
-                    Preference.PreferenceItem.SliderPreference(
-                        value = retries,
-                        title = stringResource(TDMR.strings.pref_translation_retry_count),
-                        valueString = "$retries",
-                        valueRange = 0..5,
-                        onValueChanged = prefs.requestRetryCount()::set,
-                        preference = prefs.requestRetryCount(),
                     ),
                 ),
             ),

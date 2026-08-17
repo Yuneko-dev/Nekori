@@ -65,13 +65,35 @@ class AiTranslationModelsTest {
         AIProviderType.OPENAI.defaultEndpoint shouldBe "https://api.openai.com/v1"
         AIProviderType.OPENAI.endpointEditable shouldBe false
         AIProviderType.OPENAI.supportsApiMode shouldBe true
+        AIProviderType.OPENAI.supportsTemperature shouldBe true
 
         AIProviderType.GEMINI.apiFamily shouldBe AIApiFamily.GEMINI
         AIProviderType.GEMINI.defaultEndpoint shouldBe "https://generativelanguage.googleapis.com"
         AIProviderType.GEMINI.endpointEditable shouldBe true
         AIProviderType.GEMINI.supportsApiMode shouldBe false
+        // Gemini requests carry no temperature, so the slider must not be offered for it.
+        AIProviderType.GEMINI.supportsTemperature shouldBe false
 
         AIProviderType.CUSTOM_OPENAI.endpointEditable shouldBe true
         AIProviderType.CUSTOM_OPENAI.supportsApiMode shouldBe true
     }
+
+    @Test
+    fun `naming nothing resolves to the first provider, a deleted name to none`() {
+        val providers = listOf(provider("one"), provider("two"))
+
+        providers.resolve(null)?.id shouldBe "one"
+        providers.resolve("")?.id shouldBe "one"
+        providers.resolve("two")?.id shouldBe "two"
+        providers.resolve("gone") shouldBe null
+        emptyList<AIProvider>().resolve(null) shouldBe null
+    }
+
+    private fun provider(id: String) = AIProvider(
+        id = id,
+        alias = id,
+        type = AIProviderType.CUSTOM_OPENAI,
+        endpoint = "http://localhost:1234/v1",
+        model = "model",
+    )
 }

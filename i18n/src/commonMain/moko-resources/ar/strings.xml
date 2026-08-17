@@ -1089,7 +1089,6 @@
     <string name="pref_translation_contextual_anchoring_desc">إرسال الفقرات المترجمة السابقة كسياق لمحركات LLM لتحقيق تناسق أفضل</string>
     <string name="pref_translation_contextual_anchoring_paragraphs">فقرات السياق</string>
     <string name="pref_translation_contextual_anchoring_paragraphs_desc">عدد الفقرات من الجزء السابق لتضمينها كسياق</string>
-    <string name="pref_translation_offline_suffix"> (غير متصل)</string>
     <string name="pref_translation_queue">قائمة انتظار الترجمة</string>
     <string name="pref_translation_status">الحالة</string>
     <string name="pref_translation_status_cancelling">جاري الإلغاء…</string>

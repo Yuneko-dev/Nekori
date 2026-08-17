@@ -26,11 +26,6 @@ interface TranslationEngine {
     val isRateLimited: Boolean
 
     /**
-     * Whether this engine works offline.
-     */
-    val isOffline: Boolean
-
-    /**
      * List of supported languages as (code, displayName) pairs.
      */
     val supportedLanguages: List<Pair<String, String>>
