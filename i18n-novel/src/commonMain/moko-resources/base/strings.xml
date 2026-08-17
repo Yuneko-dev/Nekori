@@ -697,7 +697,6 @@
     <string name="pref_translation_bypass_warning_summary">Don\'t show warning for large batch translations</string>
     <string name="pref_translation_max_parallel">Max parallel translations</string>
     <string name="pref_translation_max_parallel_summary">Concurrent chunk requests for every engine; contextual anchoring keeps LLM chunks sequential</string>
-    <string name="pref_translation_api_keys">API Configuration</string>
     <string name="pref_translation_openai_key">OpenAI API key</string>
     <string name="pref_translation_deepseek_key">DeepSeek API key</string>
     <string name="pref_translation_libretranslate_url">LibreTranslate server URL</string>

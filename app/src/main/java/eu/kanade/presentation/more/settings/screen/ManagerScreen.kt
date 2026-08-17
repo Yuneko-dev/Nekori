@@ -27,9 +27,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
-import tachiyomi.domain.translation.model.AIProvider
-import tachiyomi.domain.translation.model.UserGuidelines
-import tachiyomi.domain.translation.model.resolve
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource

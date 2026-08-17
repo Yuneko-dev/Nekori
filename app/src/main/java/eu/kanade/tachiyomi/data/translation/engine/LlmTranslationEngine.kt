@@ -39,7 +39,7 @@ class LlmTranslationEngine(
 
     override suspend fun translate(request: TranslationRequest): TranslationResult {
         val config = request.config
-            ?: return TranslationResult.Error("No translation profile configuration", AiErrorCode.REQUEST_INVALID)
+            ?: return TranslationResult.Error("No AI provider configured", AiErrorCode.REQUEST_INVALID)
         val structured = preferences.structuredOutput().get()
         val prompt = LlmPromptBuilder.build(
             texts = request.texts,

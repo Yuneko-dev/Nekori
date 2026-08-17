@@ -38,11 +38,11 @@ class LlmTranslationEngineTest {
     }
 
     @Test
-    fun `translation without profile config is rejected before generating`() = runTest {
+    fun `translation without an execution config is rejected before generating`() = runTest {
         val result = engine.translate(TranslationRequest(listOf("text"), "en", "vi"))
 
         result shouldBe TranslationResult.Error(
-            "No translation profile configuration",
+            "No AI provider configured",
             AiErrorCode.REQUEST_INVALID,
         )
     }
