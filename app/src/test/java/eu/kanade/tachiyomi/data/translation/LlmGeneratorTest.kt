@@ -27,18 +27,13 @@ class LlmGeneratorTest {
     }
 
     @Test
-    fun `gemini endpoint encodes api key`() {
-        val url = resolveProviderUrl(provider(AIProviderType.GEMINI), "/v1beta/models", "a+b&c")
+    fun `no provider family puts the api key in the query`() {
+        listOf(AIProviderType.GEMINI, AIProviderType.OPENAI).forEach { type ->
+            val url = resolveProviderUrl(provider(type), "/models")
 
-        url.queryParameter("key") shouldBe "a+b&c"
-    }
-
-    @Test
-    fun `openai endpoint does not put api key in query`() {
-        val url = resolveProviderUrl(provider(AIProviderType.OPENAI), "/models", "secret")
-
-        url.toString() shouldBe "https://example.com/v1/models"
-        url.queryParameter("key") shouldBe null
+            url.toString() shouldBe "https://example.com/v1/models"
+            url.queryParameter("key") shouldBe null
+        }
     }
 
     @Test

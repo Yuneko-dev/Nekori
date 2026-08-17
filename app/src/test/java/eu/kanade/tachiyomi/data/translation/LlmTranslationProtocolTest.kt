@@ -31,7 +31,8 @@ class LlmTranslationProtocolTest {
 
         prompt.system shouldContain "Expert Transcreator"
         prompt.system shouldContain "Keep honorifics."
-        prompt.user shouldBe """[{"i":0,"t":"One"},{"i":1,"t":"Two"}]"""
+        prompt.system shouldContain "text array"
+        prompt.user shouldBe """["One","Two"]"""
     }
 
     @Test
@@ -64,18 +65,40 @@ class LlmTranslationProtocolTest {
         prompt.system shouldContain "Previous Context"
         prompt.system shouldContain "Before"
         prompt.system shouldContain "Trước đó"
-        prompt.user shouldBe """[{"i":0,"t":"Current"}]"""
+        prompt.user shouldBe """["Current"]"""
     }
 
     @Test
-    fun `structured response keeps the source of a dropped paragraph`() {
+    fun `structured response pads a short answer with the source text`() {
         val translated = LlmResponseParser.parse(
-            """{"paragraphs":[{"i":0,"t":"Một"},{"i":2,"t":"Ba"}]}""",
+            """{"paragraphs":["Một","Hai"]}""",
             texts = listOf("One", "Two", "Three"),
             structuredOutput = true,
         )
 
-        translated shouldContainExactly listOf("Một", "Two", "Ba")
+        translated shouldContainExactly listOf("Một", "Hai", "Three")
+    }
+
+    @Test
+    fun `structured response truncates an answer longer than the input`() {
+        val translated = LlmResponseParser.parse(
+            """["Một","Hai","Ba"]""",
+            texts = listOf("One", "Two"),
+            structuredOutput = true,
+        )
+
+        translated shouldContainExactly listOf("Một", "Hai")
+    }
+
+    @Test
+    fun `structured response still reads the older indexed object shape`() {
+        val translated = LlmResponseParser.parse(
+            """{"paragraphs":[{"i":0,"t":"Một"},{"i":1,"t":"Hai"}]}""",
+            texts = listOf("One", "Two"),
+            structuredOutput = true,
+        )
+
+        translated shouldContainExactly listOf("Một", "Hai")
     }
 
     @Test
@@ -98,17 +121,6 @@ class LlmTranslationProtocolTest {
         )
 
         translated shouldContainExactly listOf("Một", "Hai")
-    }
-
-    @Test
-    fun `structured response rejects a short plain string array instead of shifting it`() {
-        shouldThrow<InvalidStructuredOutputException> {
-            LlmResponseParser.parse(
-                """{"paragraphs":["Một","Ba"]}""",
-                texts = listOf("One", "Two", "Three"),
-                structuredOutput = true,
-            )
-        }
     }
 
     @Test
@@ -167,7 +179,7 @@ class LlmTranslationProtocolTest {
     }
 
     @Test
-    fun `reasoning chat request omits temperature`() {
+    fun `chat request matches LNReader temperature behavior`() {
         val body = LlmRequestFactory.create(
             AIProvider(
                 id = "id",
@@ -182,12 +194,13 @@ class LlmTranslationProtocolTest {
             generation(structured = false),
         ).body.toString()
 
-        body.contains("temperature") shouldBe false
-        body shouldContain "reasoning_effort"
+        body shouldContain "temperature"
+        body.contains("reasoning_effort") shouldBe false
+        body shouldContain "\"store\":false"
     }
 
     @Test
-    fun `gemini structured request uses json mime and schema`() {
+    fun `gemini structured request uses json schema and default temperature`() {
         val body = LlmRequestFactory.create(
             AIProvider(
                 id = "id",
@@ -200,9 +213,33 @@ class LlmTranslationProtocolTest {
         ).body.toString()
 
         body shouldContain "application/json"
-        body shouldContain "responseSchema"
-        body shouldContain "temperature"
+        body shouldContain "responseJsonSchema"
+        body shouldContain "\"items\":{\"type\":\"string\"}"
+        body.contains("\"responseSchema\"") shouldBe false
+        body.contains("temperature") shouldBe false
         body.contains("additionalProperties") shouldBe false
+        body shouldContain "safetySettings"
+        body shouldContain "HARM_CATEGORY_CIVIC_INTEGRITY"
+    }
+
+    @Test
+    fun `gemini asks for minimal thinking when reasoning is off`() {
+        val body = LlmRequestFactory.create(
+            AIProvider(
+                id = "id",
+                alias = "Gemini",
+                type = AIProviderType.GEMINI,
+                endpoint = "https://generativelanguage.googleapis.com",
+                model = "gemini-3-flash-preview",
+                reasoning = false,
+                reasoningEffort = ReasoningEffort.HIGH,
+            ),
+            generation(structured = true),
+        ).body.toString()
+
+        // Omitting thinkingConfig would hand the model its default budget instead of turning
+        // thinking off, which is what billed thinking tokens on a reasoning=false request.
+        body shouldContain "\"thinkingLevel\":\"MINIMAL\""
     }
 
     @Test
@@ -222,6 +259,24 @@ class LlmTranslationProtocolTest {
 
         body shouldContain "thinkingConfig"
         body shouldContain "HIGH"
+    }
+
+    @Test
+    fun `gemini reasoning sends the selected medium thinking level`() {
+        val body = LlmRequestFactory.create(
+            AIProvider(
+                id = "id",
+                alias = "Gemini",
+                type = AIProviderType.GEMINI,
+                endpoint = "https://generativelanguage.googleapis.com",
+                model = "gemini-3-flash-preview",
+                reasoning = true,
+                reasoningEffort = ReasoningEffort.MEDIUM,
+            ),
+            generation(structured = true),
+        ).body.toString()
+
+        body shouldContain "\"thinkingLevel\":\"MEDIUM\""
     }
 
     @Test

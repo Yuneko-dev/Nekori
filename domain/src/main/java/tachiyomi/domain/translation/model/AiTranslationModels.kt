@@ -77,6 +77,9 @@ enum class AIProviderType {
 
     val endpointEditable: Boolean get() = this == GEMINI || this == CUSTOM_OPENAI
     val supportsApiMode: Boolean get() = apiFamily == AIApiFamily.OPENAI_COMPATIBLE
+
+    /** Gemini requests carry no temperature, so offering the slider would be a knob wired to nothing. */
+    val supportsTemperature: Boolean get() = apiFamily == AIApiFamily.OPENAI_COMPATIBLE
 }
 
 enum class AIApiFamily {

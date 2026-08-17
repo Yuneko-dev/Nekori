@@ -269,17 +269,20 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                         )
                     }
                 }
-                item {
-                    Text(
-                        "${stringResource(TDMR.strings.pref_ai_provider_temperature)}: ${"%.1f".format(temperature)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Slider(
-                        value = temperature,
-                        onValueChange = { temperature = (it * 10).toInt() / 10f },
-                        valueRange = 0f..2f,
-                        steps = 19,
-                    )
+                if (type.supportsTemperature) {
+                    item {
+                        val label = stringResource(TDMR.strings.pref_ai_provider_temperature)
+                        Text(
+                            "$label: ${"%.1f".format(temperature)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Slider(
+                            value = temperature,
+                            onValueChange = { temperature = (it * 10).toInt() / 10f },
+                            valueRange = 0f..2f,
+                            steps = 19,
+                        )
+                    }
                 }
                 item {
                     ManagerSwitchRow(stringResource(TDMR.strings.pref_ai_provider_reasoning), reasoning) {

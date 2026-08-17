@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
@@ -40,12 +39,12 @@ object LlmPromptBuilder {
     ): LlmPrompt {
         val custom = guidelines.trim().ifEmpty { "No specific guidelines." }
         val formattingConstraint = if (structuredOutput) {
-            """You MUST output ONLY a valid JSON object shaped as {"paragraphs":[{"i":0,"t":"translation"}]}, """ +
-                """where "i" is copied verbatim from the input entry being translated."""
+            "You MUST output ONLY a valid JSON object."
         } else {
             "You MUST repeat every index marker (${paragraphMarker(0)}, ${paragraphMarker(1)}, …) exactly as " +
                 "it appears, alone on the line above the paragraph it labels."
         }
+        val taskSubject = if (structuredOutput) "text array" else "text"
         return LlmPrompt(
             system = """
                 You are an Expert Transcreator. Your task is to translate the source text accurately while dynamically adapting the style, tone, and localization based on any provided custom guidelines.
@@ -56,9 +55,7 @@ object LlmPromptBuilder {
 
                 Strict Technical Constraints (CRITICAL):
                 - Formatting: $formattingConstraint
-                - Return exactly one entry per input paragraph, in the input order. NEVER merge, split, reorder or omit paragraphs.
-                - A paragraph that needs no translation MUST be repeated unchanged instead of being dropped.
-                - Preserve image placeholders and internal markers verbatim.
+                - Ensure that the number of translated paragraphs is exactly equal to the number of input paragraphs.
                 - Clean Output: Output ONLY the final processed text. Do NOT include any explanations, formatting tags (unless present in the source), intro/outro conversational filler, or internal thinking.
 
                 ---
@@ -68,21 +65,15 @@ object LlmPromptBuilder {
                 ${context.asPromptSection()}
 
                 ---
-                Task: Translate the following paragraphs from $sourceLanguage to $targetLanguage.
+                Task: Translate the following $taskSubject from $sourceLanguage to $targetLanguage.
             """.trimIndent(),
-            user = if (structuredOutput) indexedJson(texts) else indexedMarkers(texts),
+            user = if (structuredOutput) plainJsonArray(texts) else indexedMarkers(texts),
         )
     }
 
-    private fun indexedJson(texts: List<String>) = buildJsonArray {
-        texts.forEachIndexed { index, text ->
-            add(
-                buildJsonObject {
-                    put("i", index)
-                    put("t", text)
-                },
-            )
-        }
+    /** LNReader's payload: `JSON.stringify(texts)`. A paragraph costs one pair of quotes, nothing else. */
+    private fun plainJsonArray(texts: List<String>) = buildJsonArray {
+        texts.forEach { add(JsonPrimitive(it)) }
     }.toString()
 
     private fun indexedMarkers(texts: List<String>) = texts
@@ -109,53 +100,64 @@ object LlmResponseParser {
     private val markerRegex = Regex("⟦(\\d+)⟧")
 
     /**
-     * Realign a model response onto [texts] by paragraph index.
+     * Read a model response back onto [texts], LNReader's `adjustCount` contract: paragraphs are
+     * matched by position, and a response that is short or long is padded/truncated rather than
+     * rejected. A padded slot keeps its source text instead of LNReader's empty string, which drops
+     * the paragraph from the chapter.
      *
-     * Paragraphs the model dropped or returned blank keep their source text, so a single
-     * missing paragraph no longer discards the whole chunk. Only a response without any
-     * usable paragraph is an error.
+     * Position is only as good as the model's paragraph count. The letters-only prefilter in
+     * [TranslationHtmlUtils.prepareTranslation] is what keeps that count stable — it stops sending
+     * the scene breaks and bare numbers models like to merge.
      */
     fun parse(content: String, texts: List<String>, structuredOutput: Boolean): List<String> {
         val body = stripCodeFence(content)
-        val byIndex = if (structuredOutput) parseStructured(body, texts.size) else parseMarker(body)
-        if (byIndex.isEmpty()) {
-            // A single-paragraph request (chapter titles) is unambiguous without any marker, but an
-            // envelope we merely failed to read must not be pasted into the chapter as a translation.
-            if (texts.size == 1 && !body.startsWith('{') && !body.startsWith('[')) return listOf(body.trim())
+        // An envelope we could not read leaves no paragraphs, and must never be pasted into the
+        // chapter as if it were a translation.
+        val paragraphs = if (structuredOutput) parseStructured(body) else parseMarker(body, texts.size)
+        if (paragraphs.none(String::isNotBlank)) {
             throw InvalidStructuredOutputException("No translated paragraphs in response")
         }
-
-        fun translationAt(index: Int) = byIndex[index]?.takeIf(String::isNotBlank)
-
-        val dropped = texts.indices.count { translationAt(it) == null }
-        if (dropped > 0) {
-            logcat(LogPriority.WARN) { "Translation dropped $dropped/${texts.size} paragraphs, kept source text" }
+        if (paragraphs.size != texts.size) {
+            logcat(LogPriority.WARN) {
+                "The number of output paragraphs does not match the input " +
+                    "(input = ${texts.size} | output = ${paragraphs.size})"
+            }
         }
-        return texts.mapIndexed { index, source -> translationAt(index) ?: source }
+        return texts.mapIndexed { index, source ->
+            paragraphs.getOrNull(index)?.takeIf(String::isNotBlank) ?: source
+        }
     }
 
-    /** Accepts `{"paragraphs":[…]}` or a bare array, of either indexed objects or plain strings. */
-    private fun parseStructured(content: String, expectedCount: Int): Map<Int, String> {
-        val root = runCatching { json.parseToJsonElement(content) }.getOrNull() ?: return emptyMap()
+    /**
+     * Accepts `{"paragraphs":[…]}` or a bare array. Entries are plain strings, and objects are
+     * tolerated so a response in the older `{"i","t"}` shape still reads.
+     */
+    private fun parseStructured(content: String): List<String> {
+        val root = runCatching { json.parseToJsonElement(content) }.getOrNull() ?: return emptyList()
         val array = root as? JsonArray
             ?: (root as? JsonObject)?.get("paragraphs") as? JsonArray
-            ?: return emptyMap()
-        val indexed = array.filterIsInstance<JsonObject>()
-        // A provider that ignored the schema answers with plain strings, whose position is only
-        // trustworthy when it returned every paragraph — a short array would shift the rest.
-        if (indexed.isEmpty()) {
-            if (array.size != expectedCount) return emptyMap()
-            return array.mapIndexed { position, element ->
-                position to (element as? JsonPrimitive)?.contentOrNull.orEmpty()
-            }.toMap()
+            ?: return emptyList()
+        return array.map { element ->
+            when (element) {
+                is JsonObject -> element["t"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                else -> (element as? JsonPrimitive)?.contentOrNull.orEmpty()
+            }
         }
-        return indexed.mapIndexed { position, element ->
-            (element["i"]?.jsonPrimitive?.intOrNull ?: position) to
-                element["t"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        }.toMap()
     }
 
-    private fun parseMarker(content: String): Map<Int, String> {
+    /**
+     * Index markers are kept for this path instead of LNReader's `<br>` separator: a paragraph is
+     * inner HTML here, and novel paragraphs contain `<br>` often enough that splitting on it would
+     * silently shred them.
+     */
+    private fun parseMarker(content: String, expectedCount: Int): List<String> {
+        val byIndex = markerIndex(content)
+        // A single-paragraph request (chapter titles) is unambiguous without any marker.
+        if (byIndex.isEmpty()) return if (expectedCount == 1) listOf(content.trim()) else emptyList()
+        return (0 until expectedCount).map { byIndex[it].orEmpty() }
+    }
+
+    private fun markerIndex(content: String): Map<Int, String> {
         val markers = markerRegex.findAll(content).toList()
         return markers.mapIndexedNotNull { position, match ->
             val index = match.groupValues[1].toIntOrNull() ?: return@mapIndexedNotNull null
@@ -174,28 +176,13 @@ object LlmResponseParser {
 
 data class LlmWireRequest(val path: String, val body: JsonObject)
 
-/** The structured shape translation asks for: `{"paragraphs":[{"i":0,"t":"…"}]}`. */
+/**
+ * The structured shape translation asks for: `{"paragraphs":["…"]}` — LNReader's schema.
+ *
+ * A per-paragraph index was tried here and reverted: it costs roughly ten extra output tokens on
+ * every paragraph, and output tokens are what the request waits on.
+ */
 object TranslationOutputSchema {
-    /** `i` is the input paragraph index, `t` its translation — see [LlmResponseParser.parse]. */
-    private val paragraph = buildJsonObject {
-        put("type", "object")
-        put("additionalProperties", false)
-        put(
-            "properties",
-            buildJsonObject {
-                put("i", buildJsonObject { put("type", "integer") })
-                put("t", buildJsonObject { put("type", "string") })
-            },
-        )
-        put(
-            "required",
-            buildJsonArray {
-                add(JsonPrimitive("i"))
-                add(JsonPrimitive("t"))
-            },
-        )
-    }
-
     val format = LlmOutputFormat.JsonSchema(
         name = "translation",
         schema = buildJsonObject {
@@ -208,7 +195,11 @@ object TranslationOutputSchema {
                         "paragraphs",
                         buildJsonObject {
                             put("type", "array")
-                            put("items", paragraph)
+                            put(
+                                "description",
+                                "Array of translated paragraphs, must match the order and count of the input array",
+                            )
+                            put("items", buildJsonObject { put("type", "string") })
                         },
                     )
                 },
@@ -240,8 +231,8 @@ object LlmRequestFactory {
         body = buildJsonObject {
             put("model", provider.model)
             put("messages", messages(system, user))
-            if (!provider.reasoning) put("temperature", provider.temperature)
-            if (provider.reasoning) put("reasoning_effort", provider.reasoningEffort.name.lowercase())
+            put("temperature", provider.temperature)
+            put("store", false)
             if (schema != null) {
                 put(
                     "response_format",
@@ -265,6 +256,7 @@ object LlmRequestFactory {
             put("model", provider.model)
             put("instructions", system)
             put("input", user)
+            put("store", false)
             if (provider.reasoning) {
                 put(
                     "reasoning",
@@ -313,18 +305,40 @@ object LlmRequestFactory {
             put(
                 "generationConfig",
                 buildJsonObject {
-                    put("temperature", provider.temperature)
-                    if (provider.reasoning) {
-                        put(
-                            "thinkingConfig",
-                            buildJsonObject {
-                                put("thinkingLevel", provider.reasoningEffort.geminiLevel)
-                            },
-                        )
-                    }
+                    put(
+                        "thinkingConfig",
+                        buildJsonObject {
+                            // Always sent. Leaving thinkingConfig out asks for the model's own
+                            // default budget, so reasoning=false still billed thinking tokens -
+                            // the toggle read as "off" and behaved as "whatever you like".
+                            put(
+                                "thinkingLevel",
+                                if (provider.reasoning) provider.reasoningEffort.geminiLevel else "MINIMAL",
+                            )
+                        },
+                    )
                     if (schema != null) {
                         put("responseMimeType", "application/json")
-                        put("responseSchema", schema.schema.withoutAdditionalProperties())
+                        put("responseJsonSchema", schema.schema.withoutAdditionalProperties())
+                    }
+                },
+            )
+            put(
+                "safetySettings",
+                buildJsonArray {
+                    listOf(
+                        "HARM_CATEGORY_HARASSMENT",
+                        "HARM_CATEGORY_HATE_SPEECH",
+                        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "HARM_CATEGORY_CIVIC_INTEGRITY",
+                    ).forEach { category ->
+                        add(
+                            buildJsonObject {
+                                put("category", category)
+                                put("threshold", "OFF")
+                            },
+                        )
                     }
                 },
             )
@@ -368,7 +382,9 @@ object LlmRequestFactory {
 
     private val ReasoningEffort.geminiLevel: String
         get() = when (this) {
-            ReasoningEffort.NONE -> "THINKING_LEVEL_UNSPECIFIED"
+            // Not THINKING_LEVEL_UNSPECIFIED: that asks the model for its default budget, which on
+            // a thinking model is the opposite of what picking "none" means. MINIMAL is the floor.
+            ReasoningEffort.NONE -> "MINIMAL"
             ReasoningEffort.MINIMAL -> "MINIMAL"
             ReasoningEffort.LOW -> "LOW"
             ReasoningEffort.MEDIUM -> "MEDIUM"

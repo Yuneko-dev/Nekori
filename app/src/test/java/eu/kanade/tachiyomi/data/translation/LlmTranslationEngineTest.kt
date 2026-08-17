@@ -65,6 +65,7 @@ class LlmTranslationEngineTest {
         engine.translate(request())
 
         sent().outputFormat shouldBe TranslationOutputSchema.format
+        sent().input shouldBe """["text"]"""
     }
 
     @Test
@@ -92,7 +93,7 @@ class LlmTranslationEngineTest {
         var captured: LlmGenerationRequest? = null
         coEvery { generator.generate(any(), any()) } answers {
             captured = secondArg()
-            LlmResult.Success("""{"paragraphs":[{"i":0,"t":"ok"}]}""")
+            LlmResult.Success("""{"paragraphs":["ok"]}""")
         }
         return { requireNotNull(captured) }
     }

@@ -90,7 +90,7 @@ class LlmGenerator(
     suspend fun loadModels(provider: AIProvider, apiKey: String): List<String> = withContext(Dispatchers.IO) {
         val path = if (provider.type.apiFamily == AIApiFamily.GEMINI) "/v1beta/models" else "/models"
         val request = requestBuilder(provider, apiKey)
-            .url(resolveProviderUrl(provider, path, apiKey))
+            .url(resolveProviderUrl(provider, path))
             .get()
             .build()
         parseProviderModels(json, call(request))
@@ -103,7 +103,7 @@ class LlmGenerator(
     private suspend fun execute(provider: AIProvider, apiKey: String, request: LlmGenerationRequest): String {
         val wire = LlmRequestFactory.create(provider, request)
         val httpRequest = requestBuilder(provider, apiKey)
-            .url(resolveProviderUrl(provider, wire.path, apiKey))
+            .url(resolveProviderUrl(provider, wire.path))
             .post(wire.body.toString().toRequestBody("application/json".toMediaType()))
             .build()
         return extractContent(provider, json.parseToJsonElement(call(httpRequest)))
@@ -119,10 +119,14 @@ class LlmGenerator(
     }
 
     private fun requestBuilder(provider: AIProvider, apiKey: String): Request.Builder {
-        val authHeaders = if (provider.type.apiFamily == AIApiFamily.GEMINI || apiKey.isBlank()) {
-            mapOf("Content-Type" to "application/json")
-        } else {
-            mapOf("Content-Type" to "application/json", "Authorization" to "Bearer $apiKey")
+        val authHeaders = buildMap {
+            put("Content-Type", "application/json")
+            when {
+                apiKey.isBlank() -> Unit
+                // Gemini takes the key as a query parameter too; the header keeps it out of URLs.
+                provider.type.apiFamily == AIApiFamily.GEMINI -> put("x-goog-api-key", apiKey)
+                else -> put("Authorization", "Bearer $apiKey")
+            }
         }
         val customHeaders = provider.customHeaders.takeIf {
             provider.type.apiFamily == AIApiFamily.OPENAI_COMPATIBLE
@@ -150,14 +154,9 @@ class LlmGenerator(
     private class LlmHttpException(message: String, val errorCode: AiErrorCode) : IOException(message)
 }
 
-internal fun resolveProviderUrl(provider: AIProvider, path: String, apiKey: String): HttpUrl {
-    val url = "${provider.endpoint.trimEnd('/')}$path".toHttpUrl()
-    return if (provider.type.apiFamily == AIApiFamily.GEMINI) {
-        url.newBuilder().addQueryParameter("key", apiKey).build()
-    } else {
-        url
-    }
-}
+/** The key rides in the `x-goog-api-key`/`Authorization` header, so no family needs it in the URL. */
+internal fun resolveProviderUrl(provider: AIProvider, path: String): HttpUrl =
+    "${provider.endpoint.trimEnd('/')}$path".toHttpUrl()
 
 internal fun parseProviderModels(json: Json, body: String): List<String> {
     val root = json.parseToJsonElement(body).jsonObject
