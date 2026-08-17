@@ -934,4 +934,16 @@
     <string name="downloading_with_progress">Đang tải xuống… (%d%%)</string>
     <string name="pref_filter_update_categories_details">Các cập nhật trong các danh mục bị loại trừ sẽ không được hiển thị ngay cả khi chúng cũng nằm trong bất kỳ danh mục nào được bao gồm.</string>
     <string name="pref_filter_upcoming_categories_details">Các tựa sách thuộc các danh mục bị loại trừ sẽ không được hiển thị, ngay cả khi chúng cũng nằm trong bất kỳ danh mục nào được bao gồm.</string>
+    <string name="pref_translation_split_large_chapters">Chia nhỏ chương lớn</string>
+    <string name="pref_translation_split_large_chapters_summary">Chia yêu cầu dịch chương bằng LLM thành các phần nhỏ hơn</string>
+    <string name="pref_translation_chunk_mode">Chế độ chia nhỏ</string>
+    <string name="pref_translation_chunk_paragraphs">Đoạn</string>
+    <string name="pref_translation_chunk_words">Từ</string>
+    <string name="pref_translation_chunk_size">Kích thước mỗi phần</string>
+    <string name="pref_translation_chunk_paragraphs_rec">Số đoạn mỗi phần (khuyến nghị: 20–100)</string>
+    <string name="pref_translation_chunk_words_rec">Số từ mỗi phần (khuyến nghị: 2000)</string>
+    <string name="pref_translation_contextual_anchoring">Neo ngữ cảnh</string>
+    <string name="pref_translation_contextual_anchoring_desc">Gửi các đoạn đã dịch trước đó làm ngữ cảnh cho engine LLM để nhất quán hơn</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs">Số đoạn ngữ cảnh</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs_desc">Số đoạn lấy từ phần trước để gửi kèm làm ngữ cảnh</string>
 </resources>

@@ -458,11 +458,9 @@ class TranslationService(
 
         logcat(LogPriority.DEBUG) { "Translating ${paragraphs.size} paragraphs for chapter ${chapter.name}" }
 
-        // Group paragraphs into chunks to improve translation quality
-        val chunkSize = translationPreferences.translationChunkSize().get()
-        val chunks = paragraphs.chunked(chunkSize.coerceAtLeast(1))
+        val chunks = chunkForTranslation(paragraphs, engine.id)
 
-        logcat(LogPriority.DEBUG) { "Grouped into ${chunks.size} chunks (size=$chunkSize)" }
+        logcat(LogPriority.DEBUG) { "Grouped into ${chunks.size} chunks for ${engine.name}" }
 
         // Update progress with chunk info
         _progressState.update { current ->
@@ -918,7 +916,9 @@ class TranslationService(
         }
         if (translationPlan.texts.isEmpty()) return content
 
-        val chunks = translationPlan.texts.chunked(translationPreferences.translationChunkSize().get().coerceAtLeast(1))
+        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
+            ?: throw IllegalStateException("No translation engine available")
+        val chunks = chunkForTranslation(translationPlan.texts, engine.id)
         val translatedSegments = mutableListOf<String>()
         onProgress(0f)
         coroutineScope {
@@ -955,12 +955,11 @@ class TranslationService(
         val translatedHtml = translationPlan.apply(translatedSegments)
         return translatedHtml.also {
             if (locator != null) {
-                val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
                 val translatedChapter = TranslatedChapter(
                     chapterId = 0,
                     mangaId = 0,
                     targetLanguage = tgtLang,
-                    engineId = engine?.id?.key ?: "unknown",
+                    engineId = engine.id.key,
                     translatedContent = translatedHtml,
                     dateTranslated = System.currentTimeMillis(),
                 )
@@ -994,6 +993,18 @@ class TranslationService(
     fun getLastTargetLanguage(): String {
         return translationPreferences.targetLanguage().get()
     }
+
+    private fun chunkForTranslation(
+        texts: List<String>,
+        engineId: TranslationEngineId,
+    ): List<List<String>> = TranslationChunker.chunk(
+        texts = texts,
+        engineId = engineId,
+        splitLargeChapters = translationPreferences.splitLargeChapters().get(),
+        mode = TranslationChunkMode.fromKey(translationPreferences.translationChunkMode().get()),
+        paragraphLimit = translationPreferences.translationChunkSize().get(),
+        wordLimit = translationPreferences.translationChunkWordLimit().get(),
+    )
 
     /**
      * Set target language (for language picker).

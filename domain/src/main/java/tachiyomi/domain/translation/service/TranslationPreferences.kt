@@ -212,9 +212,24 @@ class TranslationPreferences(
         true,
     )
 
-    /**
-     * Maximum chunk size per translation batch (in paragraphs).
-     */
+    /** Whether LLM chapter translation is split into multiple requests. */
+    fun splitLargeChapters() = preferenceStore.getBoolean(
+        "translation_split_large_chapters",
+        true,
+    )
+
+    /** `words` or `paragraphs`; only used when LLM chapter splitting is enabled. */
+    fun translationChunkMode() = preferenceStore.getString(
+        "translation_chunk_mode",
+        "words",
+    )
+
+    fun translationChunkWordLimit() = preferenceStore.getInt(
+        "translation_chunk_word_limit",
+        2_000,
+    )
+
+    /** Maximum paragraphs per batch for paragraph mode and non-LLM engines. */
     fun translationChunkSize() = preferenceStore.getInt(
         "translation_chunk_size",
         50,

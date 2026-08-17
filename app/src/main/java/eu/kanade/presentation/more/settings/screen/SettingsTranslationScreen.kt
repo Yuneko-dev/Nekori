@@ -14,6 +14,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.data.translation.TranslationChunkMode
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationProfileStore
 import eu.kanade.tachiyomi.data.translation.TranslationService
@@ -67,6 +68,7 @@ object SettingsTranslationScreen : SearchableSettings {
         }
 
         val profilesJson by prefs.translationProfilesJson().collectAsState()
+        val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
         val profiles = remember(profilesJson) { profileStore.profiles() }
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
@@ -95,7 +97,7 @@ object SettingsTranslationScreen : SearchableSettings {
             title = stringResource(TDMR.strings.pref_translation_general),
             preferenceItems = listOf(masterPreference(prefs)),
         )
-        groups += profilesGroup(prefs, profileStore, profiles, navigator)
+        groups += profilesGroup(profileStore, profiles, assignmentsJson, navigator)
         groups += Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_languages),
             preferenceItems = listOf(
@@ -118,7 +120,12 @@ object SettingsTranslationScreen : SearchableSettings {
         profiles.map { it.engineId }.distinct().forEach { engine ->
             apiKeyGroup(engine, prefs)?.let(groups::add)
         }
-        groups += behaviorGroup(prefs)
+        groups += behaviorGroup(
+            prefs = prefs,
+            isLlmChapterEngine = profileStore.profileFor(
+                TranslationPurpose.CHAPTER,
+            ).engineId == TranslationEngineId.LLM,
+        )
         groups += Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_translation_queue),
             preferenceItems = listOf(
@@ -139,12 +146,11 @@ object SettingsTranslationScreen : SearchableSettings {
      */
     @Composable
     private fun profilesGroup(
-        prefs: TranslationPreferences,
         profileStore: TranslationProfileStore,
         profiles: List<TranslationProfile>,
+        assignmentsJson: String,
         navigator: Navigator,
     ): Preference.PreferenceGroup {
-        val assignmentsJson by prefs.translationTaskProfilesJson().collectAsState()
         val defaultName = stringResource(TDMR.strings.pref_profile_default)
         val purposeLabels = mapOf(
             TranslationPurpose.CHAPTER to stringResource(TDMR.strings.pref_translation_purpose_chapter),
@@ -238,10 +244,79 @@ object SettingsTranslationScreen : SearchableSettings {
     }
 
     @Composable
-    private fun behaviorGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
+    private fun behaviorGroup(
+        prefs: TranslationPreferences,
+        isLlmChapterEngine: Boolean,
+    ): Preference.PreferenceGroup {
+        val splitLargeChapters by prefs.splitLargeChapters().collectAsState()
+        val chunkModeKey by prefs.translationChunkMode().collectAsState()
+        val chunkMode = TranslationChunkMode.fromKey(chunkModeKey)
         val chunkSize by prefs.translationChunkSize().collectAsState()
+        val chunkWordLimit by prefs.translationChunkWordLimit().collectAsState()
         val anchoringEnabled by prefs.contextualAnchoringEnabled().collectAsState()
         val anchoringParagraphs by prefs.contextualAnchoringParagraphs().collectAsState()
+        val wordLimitRange = 300..10_000 step 100
+        val chunkPreferences: List<Preference.PreferenceItem<out Any, out Any>> = when {
+            !isLlmChapterEngine -> listOf(paragraphChunkPreference(prefs, chunkSize))
+            !splitLargeChapters -> listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.splitLargeChapters(),
+                    title = stringResource(MR.strings.pref_translation_split_large_chapters),
+                    subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
+                ),
+            )
+            else -> listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.splitLargeChapters(),
+                    title = stringResource(MR.strings.pref_translation_split_large_chapters),
+                    subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = prefs.translationChunkMode(),
+                    entries = mapOf(
+                        TranslationChunkMode.WORDS.key to stringResource(MR.strings.pref_translation_chunk_words),
+                        TranslationChunkMode.PARAGRAPHS.key to
+                            stringResource(MR.strings.pref_translation_chunk_paragraphs),
+                    ),
+                    title = stringResource(MR.strings.pref_translation_chunk_mode),
+                ),
+                when (chunkMode) {
+                    TranslationChunkMode.WORDS -> Preference.PreferenceItem.SliderPreference(
+                        value = chunkWordLimit,
+                        title = stringResource(MR.strings.pref_translation_chunk_size),
+                        subtitle = stringResource(MR.strings.pref_translation_chunk_words_rec),
+                        valueString = "$chunkWordLimit ${stringResource(MR.strings.pref_translation_chunk_words)}",
+                        valueRange = wordLimitRange,
+                        steps = wordLimitRange.count() - 2,
+                        onValueChanged = prefs.translationChunkWordLimit()::set,
+                        preference = prefs.translationChunkWordLimit(),
+                    )
+                    TranslationChunkMode.PARAGRAPHS -> paragraphChunkPreference(prefs, chunkSize)
+                },
+            )
+        }
+        // Anchoring feeds the previous chunk back to an LLM; the other engines never read it.
+        val anchoringPreferences: List<Preference.PreferenceItem<out Any, out Any>> = if (!isLlmChapterEngine) {
+            emptyList()
+        } else {
+            listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.contextualAnchoringEnabled(),
+                    title = stringResource(MR.strings.pref_translation_contextual_anchoring),
+                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_desc),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = anchoringParagraphs,
+                    title = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs),
+                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs_desc),
+                    valueString = "$anchoringParagraphs",
+                    valueRange = 1..10,
+                    onValueChanged = prefs.contextualAnchoringParagraphs()::set,
+                    preference = prefs.contextualAnchoringParagraphs(),
+                    enabled = anchoringEnabled,
+                ),
+            )
+        }
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_behavior),
             preferenceItems = listOf(
@@ -275,33 +350,23 @@ object SettingsTranslationScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_translation_smart_auto),
                     subtitle = stringResource(MR.strings.pref_translation_smart_auto_desc),
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = chunkSize,
-                    title = stringResource(MR.strings.pref_translation_chunk_size),
-                    subtitle = stringResource(MR.strings.pref_translation_chunk_paragraphs_rec),
-                    valueString = "$chunkSize ${stringResource(MR.strings.pref_translation_chunk_paragraphs)}",
-                    valueRange = 1..500,
-                    onValueChanged = prefs.translationChunkSize()::set,
-                    preference = prefs.translationChunkSize(),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = prefs.contextualAnchoringEnabled(),
-                    title = stringResource(MR.strings.pref_translation_contextual_anchoring),
-                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_desc),
-                ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = anchoringParagraphs,
-                    title = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs),
-                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs_desc),
-                    valueString = "$anchoringParagraphs",
-                    valueRange = 1..10,
-                    onValueChanged = prefs.contextualAnchoringParagraphs()::set,
-                    preference = prefs.contextualAnchoringParagraphs(),
-                    enabled = anchoringEnabled,
-                ),
-            ),
+            ) + chunkPreferences + anchoringPreferences,
         )
     }
+
+    @Composable
+    private fun paragraphChunkPreference(
+        prefs: TranslationPreferences,
+        chunkSize: Int,
+    ) = Preference.PreferenceItem.SliderPreference(
+        value = chunkSize,
+        title = stringResource(MR.strings.pref_translation_chunk_size),
+        subtitle = stringResource(MR.strings.pref_translation_chunk_paragraphs_rec),
+        valueString = "$chunkSize ${stringResource(MR.strings.pref_translation_chunk_paragraphs)}",
+        valueRange = 1..500,
+        onValueChanged = prefs.translationChunkSize()::set,
+        preference = prefs.translationChunkSize(),
+    )
 
     @Composable
     private fun rateLimitGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {

@@ -1080,17 +1080,11 @@
     <string name="pref_translation_smart_auto">ترجمة تلقائية ذكية</string>
     <string name="pref_translation_smart_auto_desc">اكتشاف لغة المصدر وتخطي الترجمة إذا تطابقت مع اللغة الهدف</string>
     <string name="pref_translation_chunk_mode">نمط تجزئة الترجمة</string>
-    <string name="pref_translation_chunk_mode_paragraphs">تجميع حسب الفقرات (%d لكل جزء)</string>
-    <string name="pref_translation_chunk_mode_characters">تجميع حسب الأحرف (%d لكل جزء)</string>
-    <string name="pref_translation_chunk_mode_words">تجميع حسب الكلمات (%d لكل جزء)</string>
     <string name="pref_translation_chunk_paragraphs">فقرات</string>
-    <string name="pref_translation_chunk_characters">أحرف</string>
     <string name="pref_translation_chunk_words">كلمات</string>
     <string name="pref_translation_chunk_size">حجم تجزئة الترجمة</string>
     <string name="pref_translation_chunk_paragraphs_rec">فقرات لكل جزء (موصى به: 20–100)</string>
-    <string name="pref_translation_chunk_characters_rec">أحرف لكل جزء (موصى به: 1000–5000)</string>
     <string name="pref_translation_chunk_words_rec">كلمات لكل جزء (موصى به: 200–2000)</string>
-    <string name="pref_translation_chunk_units">وحدات لكل جزء</string>
     <string name="pref_translation_contextual_anchoring">تثبيت سياقي</string>
     <string name="pref_translation_contextual_anchoring_desc">إرسال الفقرات المترجمة السابقة كسياق لمحركات LLM لتحقيق تناسق أفضل</string>
     <string name="pref_translation_contextual_anchoring_paragraphs">فقرات السياق</string>

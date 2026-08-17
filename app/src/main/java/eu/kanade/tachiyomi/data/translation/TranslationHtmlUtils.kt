@@ -209,20 +209,6 @@ object TranslationHtmlUtils {
         }
     }
 
-    // ── Chunking ────────────────────────────────────────────────────
-
-    /**
-     * Split a list of paragraphs into translation-friendly chunks.
-     *
-     * Each chunk is a single string with paragraphs separated by `\n\n`.
-     */
-    fun buildChunks(paragraphs: List<String>, chunkSize: Int): List<String> {
-        if (paragraphs.isEmpty()) return emptyList()
-        return paragraphs.chunked(chunkSize.coerceAtLeast(1)).map { group ->
-            group.joinToString("\n\n")
-        }
-    }
-
     // ── LLM helpers ─────────────────────────────────────────────────
 
     /**
