@@ -315,7 +315,6 @@ object SettingsTranslationScreen : SearchableSettings {
                         subtitle = stringResource(MR.strings.pref_translation_chunk_words_rec),
                         valueString = "$chunkWordLimit ${stringResource(MR.strings.pref_translation_chunk_words)}",
                         valueRange = wordLimitRange,
-                        steps = wordLimitRange.count() - 2,
                         onValueChanged = prefs.translationChunkWordLimit()::set,
                         preference = prefs.translationChunkWordLimit(),
                     )
@@ -408,6 +407,9 @@ object SettingsTranslationScreen : SearchableSettings {
         val delay by prefs.rateLimitDelayMs().collectAsState()
         val timeout by prefs.translationTimeoutMs().collectAsState()
         val maxParallel by prefs.maxParallelTranslations().collectAsState()
+        val delayRange = 0..10_000 step 100
+        val timeoutRange = 30..300 step 5
+        val delayString = if (delay > 0) "${delay}ms" else stringResource(TDMR.strings.pref_translation_no_delay)
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_translation_rate_limit),
             preferenceItems = listOf(
@@ -415,8 +417,8 @@ object SettingsTranslationScreen : SearchableSettings {
                     value = delay,
                     title = stringResource(TDMR.strings.pref_translation_rate_limit_delay),
                     subtitle = stringResource(TDMR.strings.pref_translation_rate_limit_delay_summary),
-                    valueString = "${delay}ms",
-                    valueRange = 500..10_000,
+                    valueString = delayString,
+                    valueRange = delayRange,
                     onValueChanged = prefs.rateLimitDelayMs()::set,
                     preference = prefs.rateLimitDelayMs(),
                 ),
@@ -425,7 +427,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     title = stringResource(TDMR.strings.pref_translation_timeout),
                     subtitle = stringResource(TDMR.strings.pref_translation_timeout_summary),
                     valueString = "${timeout / 1_000}s",
-                    valueRange = 30..300,
+                    valueRange = timeoutRange,
                     onValueChanged = { prefs.translationTimeoutMs().set(it * 1_000L) },
                     preference = prefs.translationTimeoutMs(),
                 ),
@@ -434,7 +436,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     title = stringResource(TDMR.strings.pref_translation_max_parallel),
                     subtitle = stringResource(TDMR.strings.pref_translation_max_parallel_summary),
                     valueString = "$maxParallel",
-                    valueRange = 1..10,
+                    valueRange = 1..TranslationService.MAX_PARALLEL_TRANSLATIONS,
                     onValueChanged = prefs.maxParallelTranslations()::set,
                     preference = prefs.maxParallelTranslations(),
                 ),

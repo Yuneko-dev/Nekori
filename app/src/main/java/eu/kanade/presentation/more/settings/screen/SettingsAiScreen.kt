@@ -38,6 +38,7 @@ object SettingsAiScreen : SearchableSettings {
         val providers = remember(providersJson) { store.providers() }
         val guidelines = remember(guidelinesJson) { store.guidelines() }
         val retries by prefs.requestRetryCount().collectAsState()
+        val rpm by prefs.aiRpmLimit().collectAsState()
         val noProviders = stringResource(TDMR.strings.pref_ai_no_providers)
 
         return listOf(
@@ -54,7 +55,7 @@ object SettingsAiScreen : SearchableSettings {
                         subtitle = stringResource(TDMR.strings.pref_ai_guidelines_summary),
                         onClick = { navigator.push(UserGuidelinesManagerScreen) },
                     ),
-                    // Every AI task retries on the same transient failures, so it belongs with the
+                    // Retries and the request ceiling apply to every AI task, so they belong with the
                     // shared resources rather than inside one task's section.
                     Preference.PreferenceItem.SliderPreference(
                         value = retries,
@@ -63,6 +64,15 @@ object SettingsAiScreen : SearchableSettings {
                         valueRange = 0..5,
                         onValueChanged = prefs.requestRetryCount()::set,
                         preference = prefs.requestRetryCount(),
+                    ),
+                    Preference.PreferenceItem.SliderPreference(
+                        value = rpm,
+                        title = stringResource(TDMR.strings.pref_ai_rpm_limit),
+                        subtitle = stringResource(TDMR.strings.pref_ai_rpm_limit_summary),
+                        valueString = if (rpm > 0) "$rpm" else stringResource(TDMR.strings.pref_ai_rpm_unlimited),
+                        valueRange = 0..120,
+                        onValueChanged = prefs.aiRpmLimit()::set,
+                        preference = prefs.aiRpmLimit(),
                     ),
                 ),
             ),

@@ -38,4 +38,12 @@ class TranslationHtmlUtilsTest {
 
         plan.apply(listOf("Xin chào")) shouldBe "<p>* * *</p><p>Xin chào</p><p>123</p>"
     }
+
+    @Test
+    fun `partial translation resume ignores title and preserves paragraph breaks`() {
+        val html = TranslationHtmlUtils.buildTranslatedHtml("Chapter", listOf("One\nTwo", "Three"))
+
+        TranslationHtmlUtils.extractTranslatedParagraphs(html) shouldContainExactly
+            listOf("One\nTwo", "Three")
+    }
 }

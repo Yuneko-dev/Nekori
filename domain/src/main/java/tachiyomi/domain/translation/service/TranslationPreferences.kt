@@ -57,6 +57,12 @@ class TranslationPreferences(
     fun requestRetryCount() = preferenceStore.getInt("translation_request_retry_count", 2)
 
     /**
+     * Requests per minute allowed to an AI provider, enforced on the HTTP client so it covers every
+     * AI task rather than one of them. 0 means the provider imposes the only limit.
+     */
+    fun aiRpmLimit() = preferenceStore.getInt("ai_rpm_limit", 0)
+
+    /**
      * Source language code for translation.
      */
     fun sourceLanguage() = preferenceStore.getString(
@@ -121,6 +127,7 @@ class TranslationPreferences(
         false,
     )
 
+    /** Maximum chapter chunks translated concurrently. */
     fun maxParallelTranslations() = preferenceStore.getInt(
         "translation_max_parallel",
         3,

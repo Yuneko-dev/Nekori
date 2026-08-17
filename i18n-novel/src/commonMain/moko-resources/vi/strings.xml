@@ -659,6 +659,9 @@
     <string name="pref_translation_structured_output">Đầu ra có cấu trúc</string>
     <string name="pref_translation_structured_output_summary">Yêu cầu phản hồi JSON chứa danh sách đoạn văn hợp lệ</string>
     <string name="pref_translation_retry_count">Số lần thử lại sau lỗi</string>
+    <string name="pref_ai_rpm_limit">Số yêu cầu mỗi phút</string>
+    <string name="pref_ai_rpm_limit_summary">Trần dùng chung cho mọi tác vụ AI, cả dịch lẫn tóm tắt</string>
+    <string name="pref_ai_rpm_unlimited">Chỉ theo giới hạn của nhà cung cấp</string>
     <string name="action_translation_settings">Cài đặt dịch</string>
     <string name="pref_translation_engine">Công cụ dịch</string>
     <string name="pref_translation_purpose_chapter">Nội dung chương</string>
@@ -673,8 +676,9 @@
     <string name="pref_translation_auto_translate">Tự dịch nội dung tải xuống</string>
     <string name="pref_translation_auto_translate_summary">Tự động dịch chương khi tải xong</string>
     <string name="pref_translation_rate_limit">Giới hạn tần suất</string>
-    <string name="pref_translation_rate_limit_delay">Khoảng chờ giữa các yêu cầu</string>
-    <string name="pref_translation_rate_limit_delay_summary">Thời gian chờ giữa các yêu cầu dịch (ms)</string>
+    <string name="pref_translation_rate_limit_delay">Khoảng nghỉ giữa các lượt</string>
+    <string name="pref_translation_rate_limit_delay_summary">Chờ sau mỗi chương trong hàng đợi, và sau mỗi lô tiêu đề khi duyệt nguồn</string>
+    <string name="pref_translation_no_delay">Không nghỉ</string>
     <string name="pref_translation_timeout">Thời gian chờ yêu cầu</string>
     <string name="pref_translation_timeout_summary">Thời gian tối đa chờ phản hồi dịch (giây)</string>
     <string name="pref_translation_warning_threshold">Ngưỡng cảnh báo</string>
@@ -682,7 +686,7 @@
     <string name="pref_translation_bypass_warning">Bỏ qua cảnh báo giới hạn tần suất</string>
     <string name="pref_translation_bypass_warning_summary">Không hiện cảnh báo khi dịch hàng loạt với số lượng lớn</string>
     <string name="pref_translation_max_parallel">Số bản dịch song song tối đa</string>
-    <string name="pref_translation_max_parallel_summary">Chỉ dành cho công cụ ngoại tuyến</string>
+    <string name="pref_translation_max_parallel_summary">Số request chunk chạy đồng thời cho mọi engine; khi neo ngữ cảnh, các chunk LLM vẫn chạy tuần tự</string>
     <string name="pref_translation_api_keys">Cấu hình API</string>
     <string name="pref_translation_openai_key">Khóa API OpenAI</string>
     <string name="pref_translation_deepseek_key">Khóa API DeepSeek</string>

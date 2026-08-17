@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.translation
 
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.domain.translation.model.AIApiFamily
@@ -30,6 +32,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.IOException
 import java.io.InterruptedIOException
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Talks to an OpenAI-compatible or Gemini provider, with no idea what the text is for.
@@ -42,10 +45,31 @@ class LlmGenerator(
     private val json: Json = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
 ) {
-    private val client
-        get() = networkHelper.client
-            .withTranslationTimeout(preferences.translationTimeoutMs().get())
-            .rateLimitExempt()
+    private data class ClientSettings(val timeoutMs: Long, val rpmLimit: Int)
+
+    private var cachedClient: Pair<ClientSettings, OkHttpClient>? = null
+
+    /**
+     * The client is cached rather than rebuilt per call because the rate limiter keeps its window
+     * inside the interceptor instance: a fresh client every request would start from an empty
+     * window and pace nothing.
+     */
+    @Synchronized
+    private fun client(): OkHttpClient {
+        val settings = ClientSettings(
+            timeoutMs = preferences.translationTimeoutMs().get(),
+            rpmLimit = preferences.aiRpmLimit().get(),
+        )
+        cachedClient?.takeIf { it.first == settings }?.let { return it.second }
+        val base = networkHelper.client.withTranslationTimeout(settings.timeoutMs).rateLimitExempt()
+        val built = if (settings.rpmLimit > 0) {
+            base.newBuilder().rateLimit(settings.rpmLimit, 1.minutes).build()
+        } else {
+            base
+        }
+        cachedClient = settings to built
+        return built
+    }
 
     suspend fun generate(config: AiExecutionConfig, request: LlmGenerationRequest): LlmResult =
         withContext(Dispatchers.IO) {
@@ -110,7 +134,7 @@ class LlmGenerator(
     }
 
     private suspend fun call(request: Request): String {
-        val response = client.newCall(request).await()
+        val response = client().newCall(request).await()
         val body = response.use { it.body.string() }
         if (!response.isSuccessful) {
             throw LlmHttpException("HTTP ${response.code}: $body", AiErrorCode.fromHttpStatus(response.code))

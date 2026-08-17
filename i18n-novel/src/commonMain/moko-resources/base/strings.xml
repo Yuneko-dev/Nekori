@@ -669,6 +669,9 @@
     <string name="pref_translation_structured_output">Structured output</string>
     <string name="pref_translation_structured_output_summary">Require a validated paragraph JSON response</string>
     <string name="pref_translation_retry_count">Retries after an error</string>
+    <string name="pref_ai_rpm_limit">Requests per minute</string>
+    <string name="pref_ai_rpm_limit_summary">Ceiling shared by every AI task, translation and summaries alike</string>
+    <string name="pref_ai_rpm_unlimited">Provider limit only</string>
     <string name="action_translation_settings">Translation settings</string>
     <string name="pref_translation_engine">Translation engine</string>
     <string name="pref_translation_purpose_chapter">Chapter text</string>
@@ -683,8 +686,9 @@
     <string name="pref_translation_auto_translate">Auto-translate downloads</string>
     <string name="pref_translation_auto_translate_summary">Automatically translate chapters when downloaded</string>
     <string name="pref_translation_rate_limit">Rate Limiting</string>
-    <string name="pref_translation_rate_limit_delay">Delay between requests</string>
-    <string name="pref_translation_rate_limit_delay_summary">Wait time between translation requests (ms)</string>
+    <string name="pref_translation_rate_limit_delay">Pause between batches</string>
+    <string name="pref_translation_rate_limit_delay_summary">Wait after each queued chapter, and after each batch of browsed titles</string>
+    <string name="pref_translation_no_delay">No pause</string>
     <string name="pref_translation_timeout">Request timeout</string>
     <string name="pref_translation_timeout_summary">Maximum time to wait for translation response (seconds)</string>
     <string name="pref_translation_warning_threshold">Warning threshold</string>
@@ -692,7 +696,7 @@
     <string name="pref_translation_bypass_warning">Bypass rate limit warning</string>
     <string name="pref_translation_bypass_warning_summary">Don\'t show warning for large batch translations</string>
     <string name="pref_translation_max_parallel">Max parallel translations</string>
-    <string name="pref_translation_max_parallel_summary">For offline engines only</string>
+    <string name="pref_translation_max_parallel_summary">Concurrent chunk requests for every engine; contextual anchoring keeps LLM chunks sequential</string>
     <string name="pref_translation_api_keys">API Configuration</string>
     <string name="pref_translation_openai_key">OpenAI API key</string>
     <string name="pref_translation_deepseek_key">DeepSeek API key</string>

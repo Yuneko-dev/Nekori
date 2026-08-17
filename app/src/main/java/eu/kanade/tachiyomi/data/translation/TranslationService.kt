@@ -52,6 +52,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.exp
 
@@ -480,9 +481,7 @@ class TranslationService(
         val existingTmpParagraphs = run {
             val tmp = translatedChapterRepository.getTmpTranslation(locator, task.targetLanguage)
             if (tmp != null) {
-                TranslationHtmlUtils.splitParagraphsPreserving(
-                    TranslationHtmlUtils.extractTextFromHtml(tmp.translatedContent),
-                )
+                TranslationHtmlUtils.extractTranslatedParagraphs(tmp.translatedContent)
             } else {
                 emptyList()
             }
@@ -490,12 +489,11 @@ class TranslationService(
 
         // Resume only where the saved paragraphs land exactly on a chunk boundary. Partial data written
         // against a different split (older build, changed source) would land on the wrong paragraphs.
+        val chunkOffsets = chunks.runningFold(0) { covered, chunk -> covered + chunk.size }
         val resumeFromChunk = if (task.forceRetranslate) {
             0
         } else {
-            chunks.runningFold(0) { covered, chunk -> covered + chunk.size }
-                .indexOf(existingTmpParagraphs.size)
-                .coerceAtLeast(0)
+            chunkOffsets.indexOf(existingTmpParagraphs.size).coerceAtLeast(0)
         }
         if (resumeFromChunk > 0) {
             logcat(LogPriority.INFO) { "Resuming from chunk $resumeFromChunk/${chunks.size}" }
@@ -522,151 +520,83 @@ class TranslationService(
             logcat(LogPriority.WARN, e) { "Failed to translate chapter title: ${chapter.name}" }
         }
 
-        // Translate chunks and split responses back into paragraphs
-        val allTranslated = mutableListOf<String>()
-        // Add previously translated paragraphs
-        if (resumeFromChunk > 0) {
-            allTranslated.addAll(existingTmpParagraphs)
+        val translatedChunks = MutableList<List<String>?>(chunks.size) { null }
+        repeat(resumeFromChunk) { chunkIndex ->
+            translatedChunks[chunkIndex] = existingTmpParagraphs.subList(
+                chunkOffsets[chunkIndex],
+                chunkOffsets[chunkIndex + 1],
+            )
         }
 
-        var failedChunkIndex = -1
-        // Contextual anchoring: send previous raw + translated paragraphs as context for LLM engines
-        val isLlmEngine = engine.id == TranslationEngineId.LLM
-        val anchoringEnabled = translationPreferences.contextualAnchoringEnabled().get()
-        val anchoringParagraphs = translationPreferences.contextualAnchoringParagraphs().get()
-        val useAnchoring = isLlmEngine && anchoringEnabled && anchoringParagraphs > 0
-
-        // Build per-chunk paragraph lists for context tracking
-        val chunkParagraphsList = chunks
-        // Track the raw paragraphs of the previously translated chunk
-        var previousRawParagraphs = emptyList<String>()
-        // Track the translated paragraphs of the previous chunk
-        var previousTranslatedParagraphs = emptyList<String>()
-
-        for ((chunkIndex, chunk) in chunks.withIndex()) {
-            // Skip already-translated chunks
-            if (chunkIndex < resumeFromChunk) {
-                logcat(LogPriority.DEBUG) { "Skipping chunk ${chunkIndex + 1}/${chunks.size} (already translated)" }
-                // Track the last skipped chunk's paragraphs for contextual anchoring
-                if (useAnchoring) {
-                    previousRawParagraphs = chunkParagraphsList[chunkIndex]
-                    // Estimate translated paragraphs from existing tmp data
-                    val startIdx = chunkParagraphsList.take(chunkIndex).sumOf { it.size }
-                    val endIdx = startIdx + chunkParagraphsList[chunkIndex].size
-                    previousTranslatedParagraphs = existingTmpParagraphs.drop(startIdx).take(endIdx - startIdx)
-                }
-                _progressState.update { current ->
-                    current.copy(
-                        currentChapterProgress =
-                        PROGRESS_TRANSLATE_START + PROGRESS_TRANSLATE_RANGE * (chunkIndex + 1f) / chunks.size,
-                        currentChunkIndex = chunkIndex + 1,
-                    )
-                }
-                continue
-            }
-
-            // Check for cancellation
-            if (_progressState.value.isCancelling) {
-                savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
-                throw CancellationException("Translation cancelled by user")
-            }
-
-            logcat(LogPriority.DEBUG) {
-                "Sending chunk ${chunkIndex + 1}/${chunks.size} for translation " +
-                    "(${chunk.sumOf(String::length)} chars)"
-            }
-
-            var chunkSuccess = false
-            for (attempt in 1..MAX_CHUNK_RETRIES) {
-                try {
-                    val result = translationEngineManager.translate(
-                        TranslationPurpose.CHAPTER,
-                        TranslationRequest(
-                            texts = chunkParagraphsList[chunkIndex],
-                            sourceLanguage = task.sourceLanguage,
-                            targetLanguage = task.targetLanguage,
-                            context = if (useAnchoring && chunkIndex > 0) {
-                                TranslationContext(
-                                    previousSourceParagraphs = previousRawParagraphs.takeLast(anchoringParagraphs),
-                                    previousTranslatedParagraphs = previousTranslatedParagraphs
-                                        .takeLast(anchoringParagraphs),
-                                )
-                            } else {
-                                null
-                            },
-                        ),
-                    )
-                    when (result) {
-                        is TranslationResult.Success -> {
-                            // Update previous chunk tracking for next iteration
-                            previousRawParagraphs = chunkParagraphsList[chunkIndex]
-                            previousTranslatedParagraphs = result.translatedTexts
-                            allTranslated.addAll(previousTranslatedParagraphs)
-                            chunkSuccess = true
-                        }
-                        is TranslationResult.Error -> {
-                            logcat(LogPriority.ERROR) {
-                                "Translation error chunk ${chunkIndex + 1}/${chunks.size} (attempt $attempt): ${result.message}"
-                            }
-                            if (attempt < MAX_CHUNK_RETRIES) {
-                                delay(RETRY_DELAY_MS)
-                                continue
-                            }
-                        }
-                    }
-                    break
-                } catch (e: CancellationException) {
-                    savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
-                    throw e
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) {
-                        "Translation exception chunk ${chunkIndex + 1}/${chunks.size} (attempt $attempt)"
-                    }
-                    if (attempt < MAX_CHUNK_RETRIES) {
-                        delay(RETRY_DELAY_MS)
-                        continue
-                    }
-                    break
-                }
-            }
-
-            if (!chunkSuccess) {
-                failedChunkIndex = chunkIndex
-                logcat(LogPriority.ERROR) { "Chunk ${chunkIndex + 1}/${chunks.size} failed after retries, stopping" }
-                break
-            }
-
-            // Update sub-progress
+        val dispatch = chunkDispatchFor(engine.id)
+        val completedChunks = AtomicInteger(resumeFromChunk)
+        if (resumeFromChunk > 0) {
             _progressState.update { current ->
                 current.copy(
                     currentChapterProgress =
-                    PROGRESS_TRANSLATE_START + PROGRESS_TRANSLATE_RANGE * (chunkIndex + 1f) / chunks.size,
-                    currentChunkIndex = chunkIndex + 1,
+                    PROGRESS_TRANSLATE_START + PROGRESS_TRANSLATE_RANGE * resumeFromChunk / chunks.size,
+                    currentChunkIndex = resumeFromChunk,
                 )
-            }
-            // Rate limiting between chunks
-            val delayMs = translationPreferences.rateLimitDelayMs().get()
-            if (delayMs > 0 && chunkIndex < chunks.size - 1) {
-                delay(delayMs.toLong())
             }
         }
 
-        // Check if all chunks were translated successfully
-        if (failedChunkIndex >= 0) {
-            // Save partial translation as .tmp for resume
-            if (allTranslated.isNotEmpty()) {
-                savePartialTranslation(locator, task, engine.id.key, allTranslated, translatedTitle)
+        val pendingChunks = chunks.drop(resumeFromChunk)
+        val failure = try {
+            parallelCatchingFirstFailure(
+                values = pendingChunks,
+                maxParallel = dispatch.maxParallel,
+            ) { pendingIndex, chunk ->
+                val chunkIndex = resumeFromChunk + pendingIndex
+                if (_progressState.value.isCancelling) {
+                    throw CancellationException("Translation cancelled by user")
+                }
+                logcat(LogPriority.DEBUG) {
+                    "Sending chunk ${chunkIndex + 1}/${chunks.size} for translation " +
+                        "(${chunk.sumOf(String::length)} chars)"
+                }
+                translatedChunks[chunkIndex] = translateChunk(
+                    texts = chunk,
+                    sourceLanguage = task.sourceLanguage,
+                    targetLanguage = task.targetLanguage,
+                    context = dispatch.contextFrom(chunkIndex, chunks, translatedChunks),
+                )
+                val completed = completedChunks.incrementAndGet()
+                _progressState.update { current ->
+                    current.copy(
+                        currentChapterProgress =
+                        PROGRESS_TRANSLATE_START + PROGRESS_TRANSLATE_RANGE * completed / chunks.size,
+                        currentChunkIndex = completed,
+                    )
+                }
+            }
+        } catch (e: CancellationException) {
+            savePartialTranslation(
+                locator,
+                task,
+                engine.id.key,
+                contiguousTranslationPrefix(translatedChunks),
+                translatedTitle,
+            )
+            throw e
+        }
+
+        if (failure != null) {
+            val failedChunkIndex = resumeFromChunk + failure.index
+            val partial = contiguousTranslationPrefix(translatedChunks)
+            if (partial.isNotEmpty()) {
+                savePartialTranslation(locator, task, engine.id.key, partial, translatedTitle)
                 logcat(LogPriority.WARN) {
-                    "Saved partial translation (${allTranslated.size} paragraphs) for chapter ${chapter.name}"
+                    "Saved partial translation (${partial.size} paragraphs) for chapter ${chapter.name}"
                 }
             }
             throw Exception(
                 "Translation incomplete: failed at chunk ${failedChunkIndex + 1}/${chunks.size}. " +
-                    "${allTranslated.size} paragraphs translated, will resume on next attempt.",
+                    "${partial.size} paragraphs translated, will resume on next attempt.",
+                failure.cause,
             )
         }
 
-        if (allTranslated.isEmpty()) throw IllegalStateException("No translation returned")
+        val allTranslated = contiguousTranslationPrefix(translatedChunks)
 
         // Build final HTML (single source of truth — fix DRY 2.1, HTML escaping — fix 6.5)
         val translatedBody = translationPlan.apply(allTranslated)
@@ -691,6 +621,64 @@ class TranslationService(
 
         _progressState.update { current ->
             current.copy(currentChapterProgress = 1f)
+        }
+    }
+
+    /**
+     * How a chapter's chunks are dispatched. Anchoring feeds each chunk the previous one's
+     * translation, so it rules out parallelism rather than silently dropping the context.
+     */
+    private data class ChunkDispatch(val maxParallel: Int, val anchoringParagraphs: Int) {
+        fun contextFrom(
+            chunkIndex: Int,
+            chunks: List<List<String>>,
+            translated: List<List<String>?>,
+        ): TranslationContext? {
+            if (anchoringParagraphs == 0 || chunkIndex == 0) return null
+            return TranslationContext(
+                previousSourceParagraphs = chunks[chunkIndex - 1].takeLast(anchoringParagraphs),
+                previousTranslatedParagraphs = translated[chunkIndex - 1].orEmpty().takeLast(anchoringParagraphs),
+            )
+        }
+    }
+
+    private fun chunkDispatchFor(engineId: TranslationEngineId): ChunkDispatch {
+        val paragraphs = translationPreferences.contextualAnchoringParagraphs().get()
+        val anchored = engineId == TranslationEngineId.LLM &&
+            translationPreferences.contextualAnchoringEnabled().get() &&
+            paragraphs > 0
+        return if (anchored) {
+            ChunkDispatch(maxParallel = 1, anchoringParagraphs = paragraphs)
+        } else {
+            ChunkDispatch(
+                maxParallel = translationPreferences.maxParallelTranslations().get()
+                    .coerceIn(1, MAX_PARALLEL_TRANSLATIONS),
+                anchoringParagraphs = 0,
+            )
+        }
+    }
+
+    /**
+     * One chunk, one result. Retrying belongs to [AiRetryPolicy], which knows which provider errors
+     * are worth another request; a second loop here only multiplied the requests a failure costs.
+     */
+    private suspend fun translateChunk(
+        texts: List<String>,
+        sourceLanguage: String,
+        targetLanguage: String,
+        context: TranslationContext? = null,
+    ): List<String> {
+        val result = translationEngineManager.translate(
+            TranslationPurpose.CHAPTER,
+            TranslationRequest(texts, sourceLanguage, targetLanguage, context = context),
+        )
+        // Which chunk this was belongs to the caller's error, which already names it.
+        return when (result) {
+            is TranslationResult.Error -> throw IllegalStateException(result.message)
+            is TranslationResult.Success -> result.translatedTexts.takeIf { it.size == texts.size }
+                ?: throw IllegalStateException(
+                    "Expected ${texts.size} translations, received ${result.translatedTexts.size}",
+                )
         }
     }
 
@@ -928,40 +916,58 @@ class TranslationService(
         val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
             ?: throw IllegalStateException("No translation engine available")
         val chunks = chunkForTranslation(translationPlan.texts, engine.id)
-        val translatedSegments = mutableListOf<String>()
+        val translatedChunks = MutableList<List<String>?>(chunks.size) { null }
+        val dispatch = chunkDispatchFor(engine.id)
+        val chunkProgress = FloatArray(chunks.size)
+        val progressLock = Any()
+        var lastProgress = 0f
+        fun reportChunkProgress(index: Int, progress: Float) {
+            synchronized(progressLock) {
+                chunkProgress[index] = maxOf(chunkProgress[index], progress)
+                val combined = chunkProgress.sum() / chunks.size
+                if (combined > lastProgress) {
+                    lastProgress = combined
+                    onProgress(combined)
+                }
+            }
+        }
+
         onProgress(0f)
-        coroutineScope {
-            chunks.forEachIndexed { index, texts ->
+        val failure = parallelCatchingFirstFailure(
+            values = chunks,
+            maxParallel = dispatch.maxParallel,
+        ) { index, texts ->
+            coroutineScope {
                 val startedAt = System.nanoTime()
                 val progressJob = launch {
                     while (isActive) {
                         delay(100)
                         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000.0
                         val estimated = 0.99 * (1 - exp(-elapsedMs / 30_000.0))
-                        onProgress(((index + estimated) / chunks.size).toFloat())
+                        reportChunkProgress(index, estimated.toFloat())
                     }
                 }
                 try {
-                    when (
-                        val result = translationEngineManager.translate(
-                            TranslationPurpose.CHAPTER,
-                            TranslationRequest(texts, srcLang, tgtLang),
-                        )
-                    ) {
-                        is TranslationResult.Success -> translatedSegments += result.translatedTexts
-                        is TranslationResult.Error -> {
-                            logcat(LogPriority.WARN) { "Translation failed: ${result.message}" }
-                            throw IllegalStateException(result.message)
-                        }
-                    }
+                    translatedChunks[index] = translateChunk(
+                        texts = texts,
+                        sourceLanguage = srcLang,
+                        targetLanguage = tgtLang,
+                        context = dispatch.contextFrom(index, chunks, translatedChunks),
+                    )
                 } finally {
                     progressJob.cancelAndJoin()
                 }
-                onProgress((index + 1f) / chunks.size)
+                reportChunkProgress(index, 1f)
             }
         }
+        if (failure != null) {
+            throw IllegalStateException(
+                "Translation failed at chunk ${failure.index + 1}/${chunks.size}",
+                failure.cause,
+            )
+        }
 
-        val translatedHtml = translationPlan.apply(translatedSegments)
+        val translatedHtml = translationPlan.apply(contiguousTranslationPrefix(translatedChunks))
         return translatedHtml.also {
             if (locator != null) {
                 val translatedChapter = TranslatedChapter(
@@ -1066,14 +1072,11 @@ class TranslationService(
         const val PRIORITY_HIGH = 100
         const val PRIORITY_MANUAL_READ = 200
 
-        /** Max retries per chunk before giving up. */
-        private const val MAX_CHUNK_RETRIES = 2
+        /** Upper bound for [TranslationPreferences.maxParallelTranslations], and the slider's range. */
+        const val MAX_PARALLEL_TRANSLATIONS = 10
 
         /** Max retries per task at the queue level before dropping. */
         private const val MAX_TASK_RETRIES = 2
-
-        /** Delay between chunk retries in milliseconds. */
-        private const val RETRY_DELAY_MS = 2000L
 
         /** Delay between pause polling iterations. */
         private const val PAUSE_POLL_DELAY_MS = 500L

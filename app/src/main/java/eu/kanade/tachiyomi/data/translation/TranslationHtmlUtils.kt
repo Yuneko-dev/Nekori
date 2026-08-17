@@ -13,12 +13,6 @@ import org.jsoup.parser.Parser
  */
 object TranslationHtmlUtils {
 
-    private const val SOURCE_HASH_COMMENT_PREFIX = "<!-- tsundoku-source-hash:"
-
-    // ── Image / media preservation ──────────────────────────────────
-
-    /** CSS selector for elements that must survive the translate round-trip. */
-    private const val MEDIA_SELECTOR = "img, figure, picture, video, source, svg"
     private const val TRANSLATABLE_SELECTOR = "p, div, span, h1, h2, h3, h4, h5, h6, li, td, th"
     private const val BLOCK_SELECTOR = "p, div, h1, h2, h3, h4, h5, h6, li, td, th, ul, ol, blockquote, pre, table"
 
@@ -103,37 +97,6 @@ object TranslationHtmlUtils {
     }
 
     /**
-     * Replace media elements with unique placeholders so they are not mangled
-     * by the translation engine.
-     *
-     * @return the modified HTML **and** a map of placeholder → original outer-HTML.
-     */
-    fun extractImages(html: String): Pair<String, Map<String, String>> {
-        val doc = Jsoup.parse(html)
-        doc.outputSettings().prettyPrint(false)
-        val images = mutableMapOf<String, String>()
-        var index = 0
-        doc.select(MEDIA_SELECTOR).forEach { element: Element ->
-            val placeholder = "[IMG_PLACEHOLDER_$index]"
-            images[placeholder] = element.outerHtml()
-            element.replaceWith(org.jsoup.nodes.TextNode("\n$placeholder\n"))
-            index++
-        }
-        return doc.body().html() to images
-    }
-
-    /**
-     * Put the original media elements back in place of their placeholders.
-     */
-    fun reinsertImages(translatedHtml: String, images: Map<String, String>): String {
-        var result = translatedHtml
-        for ((placeholder, originalTag) in images) {
-            result = result.replace(placeholder, originalTag)
-        }
-        return result
-    }
-
-    /**
      * Normalize line-break variants so paragraph handling is stable.
      */
     fun normalizeLineBreaks(text: String): String {
@@ -177,20 +140,6 @@ object TranslationHtmlUtils {
     }
 
     /**
-     * Wrap plain text (paragraphs separated by `\n\n`) back into `<p>` elements.
-     */
-    fun wrapTextInHtml(text: String): String {
-        return splitParagraphsPreserving(text)
-            .joinToString("") { paragraph ->
-                "<p>${escapeHtml(normalizeLineBreaks(paragraph).trim()).replace("\n", "<br/>")}</p>"
-            }
-    }
-
-    fun hasSourceHashTag(content: String): Boolean {
-        return content.startsWith(SOURCE_HASH_COMMENT_PREFIX)
-    }
-
-    /**
      * Build a complete translated-chapter HTML string from an optional title
      * and a list of already-translated paragraph strings.
      *
@@ -209,22 +158,12 @@ object TranslationHtmlUtils {
         }
     }
 
-    // ── LLM helpers ─────────────────────────────────────────────────
-
-    /**
-     * Strip contextual-anchoring markers that the LLM might echo back.
-     *
-     * If the response still contains the `=== TEXT TO TRANSLATE` header,
-     * only the text after that header is kept.
-     */
-    fun stripContextLeakage(translated: String): String {
-        val marker = "=== TEXT TO TRANSLATE"
-        val markerIndex = translated.indexOf(marker)
-        if (markerIndex < 0) return translated
-        val afterMarker = translated.indexOf("\n", markerIndex)
-        if (afterMarker < 0) return translated
-        return translated.substring(afterMarker + 1).trim()
-    }
+    /** Reads only saved paragraph entries; the optional translated title is not resume data. */
+    fun extractTranslatedParagraphs(html: String): List<String> = Jsoup.parse(html)
+        .body()
+        .children()
+        .filter { it.tagName() == "p" }
+        .map { normalizeLineBreaks(it.wholeText()).trim() }
 
     // ── Language code normalisation (fixes 6.4) ─────────────────────
 
@@ -257,20 +196,5 @@ object TranslationHtmlUtils {
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
-    }
-
-    /**
-     * Split translated text into paragraphs while being robust to model output.
-     * Prefer splitting on two-or-more newlines; if none are present, fall back
-     * to single-line breaks so models that preserve only single newlines still
-     * return sensible paragraphs.
-     */
-    fun splitParagraphsPreserving(text: String): List<String> {
-        if (text.isBlank()) return emptyList()
-        val normalized = normalizeLineBreaks(text)
-        val byDouble = normalized.split(Regex("\n{2,}")).map { it.trim() }.filter { it.isNotBlank() }
-        if (byDouble.size > 1) return byDouble
-        // Fallback to single-line breaks
-        return normalized.split(Regex("\n")).map { it.trim() }.filter { it.isNotBlank() }
     }
 }

@@ -54,7 +54,12 @@ sealed class Preference {
             override val subtitle: String? = null,
             val valueString: String? = null,
             val valueRange: IntProgression = 0..1,
-            @IntRange(from = 0) val steps: Int = with(valueRange) { (last - first) - 1 },
+            /**
+             * Compose counts the stops *between* the endpoints, so N selectable values need N - 2.
+             * Derived from the progression's length rather than `last - first`, which silently
+             * ignores a step other than 1 and turns, say, `30..300 step 5` into 271 stops.
+             */
+            @IntRange(from = 0) val steps: Int = valueRange.count() - 2,
             override val enabled: Boolean = true,
             override val onValueChanged: suspend (value: Int) -> Unit = {},
             val preference: PreferenceData<*>? = null,

@@ -1165,7 +1165,7 @@
     <string name="pref_translation_chunk_paragraphs_rec">Paragraphs per chunk (recommended: 20–100)</string>
     <string name="pref_translation_chunk_words_rec">Words per chunk (recommended: 2000)</string>
     <string name="pref_translation_contextual_anchoring">Contextual anchoring</string>
-    <string name="pref_translation_contextual_anchoring_desc">Send previous translated paragraphs as context to LLM engines for better consistency</string>
+    <string name="pref_translation_contextual_anchoring_desc">Send previous translated paragraphs to LLM engines for consistency; chunks run sequentially while enabled</string>
     <string name="pref_translation_contextual_anchoring_paragraphs">Context paragraphs</string>
     <string name="pref_translation_contextual_anchoring_paragraphs_desc">Number of paragraphs from the previous chunk to include as context</string>
     <string name="pref_translation_queue">Translation Queue</string>
