@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
@@ -14,6 +15,16 @@ import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
 
 class LlmGeneratorTest {
+
+    @Test
+    fun `translation timeout applies to the whole LLM request`() {
+        val client = OkHttpClient().withTranslationTimeout(12_345)
+
+        client.connectTimeoutMillis shouldBe 12_345
+        client.readTimeoutMillis shouldBe 12_345
+        client.writeTimeoutMillis shouldBe 12_345
+        client.callTimeoutMillis shouldBe 12_345
+    }
 
     @Test
     fun `gemini endpoint encodes api key`() {
@@ -76,9 +87,8 @@ class LlmGeneratorTest {
         )
     }
 
-    // Never touched on these paths: the client is created lazily, so an unstubbed mock proves the
-    // guards run before any request is built.
-    private fun generator() = LlmGenerator(networkHelper = mockk(), json = Json)
+    // Never touched on these paths: unstubbed mocks prove the guards run before any client is built.
+    private fun generator() = LlmGenerator(networkHelper = mockk(), json = Json, preferences = mockk())
 
     private val request = LlmGenerationRequest(systemPrompt = "system", input = "input")
 

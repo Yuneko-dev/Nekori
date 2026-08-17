@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.translation.engine
 
+import eu.kanade.tachiyomi.data.translation.withTranslationTimeout
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
@@ -22,7 +23,7 @@ import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.IOException
-import java.net.SocketTimeoutException
+import java.io.InterruptedIOException
 
 /**
  * Google Translate engine using the Cloud Translation API v2.
@@ -34,7 +35,10 @@ class GoogleTranslateEngine(
     private val preferences: TranslationPreferences = Injekt.get(),
 ) : TranslationEngine {
 
-    private val client: OkHttpClient get() = networkHelper.client.rateLimitExempt()
+    private val client: OkHttpClient
+        get() = networkHelper.client
+            .withTranslationTimeout(preferences.translationTimeoutMs().get())
+            .rateLimitExempt()
 
     override val id = TranslationEngineId.GOOGLE_CLOUD
     override val name: String = "Google Cloud Translation"
@@ -161,7 +165,7 @@ class GoogleTranslateEngine(
             TranslationResult.Error(e.message ?: "Translation failed", e.errorCode)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SocketTimeoutException) {
+        } catch (e: InterruptedIOException) {
             TranslationResult.Error(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
         } catch (e: IOException) {
             TranslationResult.Error(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)

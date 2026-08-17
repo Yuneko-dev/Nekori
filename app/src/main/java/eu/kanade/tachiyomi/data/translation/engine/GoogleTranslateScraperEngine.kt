@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.translation.engine
 
+import eu.kanade.tachiyomi.data.translation.withTranslationTimeout
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
@@ -20,9 +21,10 @@ import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
+import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.injectLazy
 import java.io.IOException
-import java.net.SocketTimeoutException
+import java.io.InterruptedIOException
 
 class GoogleTranslateScraperEngine : TranslationEngine {
     override val id = TranslationEngineId.GOOGLE_FREE
@@ -33,7 +35,11 @@ class GoogleTranslateScraperEngine : TranslationEngine {
     override val supportedLanguages = LanguageCodes.GOOGLE_TRANSLATE_LANGUAGES
 
     private val network: NetworkHelper by injectLazy()
-    private val client = network.client.rateLimitExempt()
+    private val preferences: TranslationPreferences by injectLazy()
+    private val client
+        get() = network.client
+            .withTranslationTimeout(preferences.translationTimeoutMs().get())
+            .rateLimitExempt()
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun translate(request: TranslationRequest): TranslationResult = withContext(Dispatchers.IO) {
@@ -51,7 +57,7 @@ class GoogleTranslateScraperEngine : TranslationEngine {
             TranslationResult.Error(e.message.orEmpty(), e.errorCode)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SocketTimeoutException) {
+        } catch (e: InterruptedIOException) {
             TranslationResult.Error(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
         } catch (e: IOException) {
             TranslationResult.Error(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)

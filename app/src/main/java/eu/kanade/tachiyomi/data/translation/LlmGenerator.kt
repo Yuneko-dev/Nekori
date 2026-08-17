@@ -25,10 +25,11 @@ import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
 import tachiyomi.domain.translation.model.mergeHeaders
+import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.IOException
-import java.net.SocketTimeoutException
+import java.io.InterruptedIOException
 
 /**
  * Talks to an OpenAI-compatible or Gemini provider, with no idea what the text is for.
@@ -37,10 +38,14 @@ import java.net.SocketTimeoutException
  * failure classification - so a new AI task only has to write a prompt and read [LlmResult].
  */
 class LlmGenerator(
-    networkHelper: NetworkHelper = Injekt.get(),
+    private val networkHelper: NetworkHelper = Injekt.get(),
     private val json: Json = Injekt.get(),
+    private val preferences: TranslationPreferences = Injekt.get(),
 ) {
-    private val client by lazy { networkHelper.client.rateLimitExempt() }
+    private val client
+        get() = networkHelper.client
+            .withTranslationTimeout(preferences.translationTimeoutMs().get())
+            .rateLimitExempt()
 
     suspend fun generate(config: AiExecutionConfig, request: LlmGenerationRequest): LlmResult =
         withContext(Dispatchers.IO) {
@@ -73,7 +78,7 @@ class LlmGenerator(
                 LlmResult.Failure(e.message.orEmpty(), e.errorCode)
             } catch (e: IllegalArgumentException) {
                 LlmResult.Failure(e.message ?: "Invalid provider request", AiErrorCode.REQUEST_INVALID)
-            } catch (e: SocketTimeoutException) {
+            } catch (e: InterruptedIOException) {
                 LlmResult.Failure(e.message ?: "Request timed out", AiErrorCode.TIMEOUT)
             } catch (e: IOException) {
                 LlmResult.Failure(e.message ?: "Network request failed", AiErrorCode.NETWORK_ERROR)
