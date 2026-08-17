@@ -1,10 +1,25 @@
 package eu.kanade.presentation.more.settings.screen
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
@@ -12,8 +27,13 @@ import eu.kanade.tachiyomi.data.translation.TranslationChunkMode
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
+import tachiyomi.domain.translation.model.TranslationRequest
+import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -58,8 +78,56 @@ object SettingsTranslationScreen : SearchableSettings {
         val chapterEngine by prefs.engineId(TranslationPurpose.CHAPTER).collectAsState()
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
+        val libreApiKey by prefs.libreTranslateApiKey().collectAsState()
+        val deepLApiKey by prefs.deepLApiKey().collectAsState()
+        val googleApiKey by prefs.googleApiKey().collectAsState()
         val progress by translationService.progressState.collectAsState()
         val isPaused by translationService.isPaused.collectAsState()
+        val scope = rememberCoroutineScope()
+        val testResults = remember { mutableStateMapOf<TranslationEngineId, String>() }
+        var testingEngineId by remember { mutableStateOf<TranslationEngineId?>(null) }
+        val notSet = stringResource(TDMR.strings.not_set)
+        val testEngine = stringResource(MR.strings.pref_translation_test_engine)
+        val testing = stringResource(MR.strings.pref_translation_testing)
+        val testSend = stringResource(MR.strings.pref_translation_test_send)
+        val testText = stringResource(MR.strings.pref_translation_test_text)
+        fun apiKeySubtitle(value: String) = if (value.isBlank()) notSet else "••••••••"
+        fun testButton(engine: TranslationEngine): Preference.PreferenceItem.TextPreference {
+            val configured = engine.isConfigured()
+            return Preference.PreferenceItem.TextPreference(
+                title = testEngine.format(engine.name),
+                subtitle = when {
+                    testingEngineId == engine.id -> testing
+                    testResults[engine.id] != null -> testResults.getValue(engine.id)
+                    !configured -> notSet
+                    else -> testSend
+                },
+                onClick = {
+                    if (testingEngineId == null && configured) {
+                        testingEngineId = engine.id
+                        testResults.remove(engine.id)
+                        scope.launch {
+                            try {
+                                testResults[engine.id] = when (
+                                    val result = engine.translate(
+                                        TranslationRequest(listOf(testText), sourceLanguage, targetLanguage),
+                                    )
+                                ) {
+                                    is TranslationResult.Success -> "✓ ${result.translatedTexts.joinToString(" | ")}"
+                                    is TranslationResult.Error -> "✗ ${result.message}"
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                testResults[engine.id] = "✗ ${e.message ?: e.javaClass.simpleName}"
+                            } finally {
+                                testingEngineId = null
+                            }
+                        }
+                    }
+                },
+            )
+        }
         val queueStatus = when {
             progress.isCancelling -> stringResource(MR.strings.pref_translation_status_cancelling)
             progress.isRunning && isPaused -> stringResource(
@@ -84,7 +152,11 @@ object SettingsTranslationScreen : SearchableSettings {
                 title = stringResource(TDMR.strings.pref_translation_general),
                 preferenceItems = listOf(masterPreference(prefs)),
             ),
-            engineGroup(prefs, engines),
+            engineGroup(
+                prefs = prefs,
+                engines = engines,
+                openAiSettings = { navigator.push(SettingsAiScreen) },
+            ),
             Preference.PreferenceGroup(
                 title = stringResource(TDMR.strings.pref_translation_languages),
                 preferenceItems = listOf(
@@ -112,7 +184,10 @@ object SettingsTranslationScreen : SearchableSettings {
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.libreTranslateApiKey(),
                         title = stringResource(MR.strings.pref_translation_api_key),
+                        subtitle = apiKeySubtitle(libreApiKey),
+                        isPassword = true,
                     ),
+                    testButton(engines.engines.first { it.id == TranslationEngineId.LIBRE }),
                 ),
             ),
             Preference.PreferenceGroup(
@@ -121,7 +196,10 @@ object SettingsTranslationScreen : SearchableSettings {
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.deepLApiKey(),
                         title = stringResource(MR.strings.pref_translation_api_key),
+                        subtitle = apiKeySubtitle(deepLApiKey),
+                        isPassword = true,
                     ),
+                    testButton(engines.engines.first { it.id == TranslationEngineId.DEEPL }),
                 ),
             ),
             Preference.PreferenceGroup(
@@ -130,7 +208,10 @@ object SettingsTranslationScreen : SearchableSettings {
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.googleApiKey(),
                         title = stringResource(MR.strings.pref_translation_api_key),
+                        subtitle = apiKeySubtitle(googleApiKey),
+                        isPassword = true,
                     ),
+                    testButton(engines.engines.first { it.id == TranslationEngineId.GOOGLE_CLOUD }),
                 ),
             ),
             behaviorGroup(prefs, isLlmChapterEngine = chapterEngine == TranslationEngineId.LLM.key),
@@ -153,6 +234,7 @@ object SettingsTranslationScreen : SearchableSettings {
     private fun engineGroup(
         prefs: TranslationPreferences,
         engines: TranslationEngineManager,
+        openAiSettings: () -> Unit,
     ): Preference.PreferenceGroup {
         val entries = engines.engines.associate { it.id.key to it.name }
         val labels = mapOf(
@@ -172,10 +254,23 @@ object SettingsTranslationScreen : SearchableSettings {
                     subtitle = entries[current].orEmpty(),
                     onValueChanged = {
                         preference.set(it)
-                        true
                     },
                 )
-            },
+            } + Preference.PreferenceItem.CustomPreference(
+                title = stringResource(TDMR.strings.pref_category_ai),
+                content = {
+                    OutlinedButton(
+                        onClick = openAiSettings,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Icon(Icons.Outlined.Settings, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(TDMR.strings.pref_category_ai))
+                    }
+                },
+            ),
         )
     }
 
