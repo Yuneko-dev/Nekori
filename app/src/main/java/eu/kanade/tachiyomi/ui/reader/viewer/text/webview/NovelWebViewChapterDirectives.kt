@@ -9,6 +9,7 @@ internal const val LOCAL_VIDEO_BUTTON_ID = "tsundoku-play-local-video"
 
 internal data class NovelWebViewChapterDirectives(
     val noCache: Boolean = false,
+    val noPrefetch: Boolean = false,
     val video: VideoChapter? = null,
     val localVideo: String? = null,
     val metadataHtml: String = "",
@@ -19,6 +20,7 @@ internal data class NovelWebViewChapterDirectives(
         fun parse(html: String): NovelWebViewChapterDirectives {
             val document = Jsoup.parse(html)
             val noCache = document.selectFirst("meta#no-cache-marker") != null
+            val noPrefetch = document.selectFirst("meta#no-prefetch-marker") != null
             val isVideo = document
                 .selectFirst("meta[name=lnreader-chapter-type]")
                 ?.attr("content")
@@ -57,6 +59,7 @@ internal data class NovelWebViewChapterDirectives(
 
             return NovelWebViewChapterDirectives(
                 noCache = noCache,
+                noPrefetch = noPrefetch,
                 video = video,
                 localVideo = localVideo,
                 metadataHtml = metadataHtml,

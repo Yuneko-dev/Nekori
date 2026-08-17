@@ -18,7 +18,10 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -101,7 +104,13 @@ class TranslationService(
     val currentTranslatingChapterId = _currentTranslatingChapterId.asStateFlow()
 
     private val _queueState = MutableStateFlow<List<TranslationTask>>(emptyList())
-    val queueState = _queueState.asStateFlow()
+    val queueState = combine(
+        _queueState,
+        translationPreferences.sourceLanguage().changes(),
+        translationPreferences.targetLanguage().changes(),
+    ) { queue, sourceLanguage, targetLanguage ->
+        queue.map { it.copy(sourceLanguage = sourceLanguage, targetLanguage = targetLanguage) }
+    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     private var translationJob: Job? = null
 

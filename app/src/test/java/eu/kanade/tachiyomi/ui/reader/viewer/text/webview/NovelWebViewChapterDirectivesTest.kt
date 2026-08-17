@@ -27,6 +27,7 @@ class NovelWebViewChapterDirectivesTest {
         )
 
         assertTrue(directives.noCache)
+        assertTrue(directives.noPrefetch)
         assertFalse(directives.video?.directIframe == true)
         assertTrue(directives.video?.disableProgress == true)
         assertTrue(directives.metadataHtml.contains("no-prefetch-marker"))
@@ -54,6 +55,7 @@ class NovelWebViewChapterDirectivesTest {
         val directives = NovelWebViewChapterDirectives.parse("<p>Chapter text</p>")
 
         assertFalse(directives.noCache)
+        assertFalse(directives.noPrefetch)
         assertNull(directives.video)
         assertNull(directives.localVideo)
         assertEquals("", directives.metadataHtml)

@@ -250,6 +250,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var currentPage: ReaderPage? = null
     private var currentChapters: ViewerChapters? = null
     private var currentDocumentIsVideo = false
+    private var currentDocumentNoPrefetch = false
     private var currentLocalVideo: Pair<Long, UniFile>? = null
 
     @Volatile
@@ -382,7 +383,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val webChapterIsError get() = docState == DocState.ERROR
 
     internal fun isInfiniteScrollEnabled(): Boolean =
-        preferences.novelInfiniteScroll.get() && pluginAllowsInfiniteScroll
+        preferences.novelInfiniteScroll.get() && pluginAllowsInfiniteScroll && !currentDocumentNoPrefetch
 
     private fun isVideoChapter(): Boolean = currentDocumentIsVideo
 
@@ -1807,6 +1808,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         chapterQueue.clear()
         currentChapterIndex = 0
         currentDocumentIsVideo = directives.isVideo
+        currentDocumentNoPrefetch = directives.noPrefetch
         currentLocalVideo = directives.localVideo?.let { fileName ->
             val loader = chapter?.pageLoader as? DownloadPageLoader
             loader?.findDownloadedFile(fileName)?.let { chapterId to it }
