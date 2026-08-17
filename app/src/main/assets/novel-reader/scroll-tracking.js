@@ -34,7 +34,14 @@
     var SETTLE_MS = 400;
 
     runtime.loadingNext = runtime.loadingNext || false;
-    runtime.setLoadingNext = function (v) { runtime.loadingNext = !!v; };
+    runtime.shortChapterLoadPending = runtime.shortChapterLoadPending || false;
+    runtime.setLoadingNext = function (v) {
+        runtime.loadingNext = !!v;
+        if (!runtime.loadingNext && runtime.shortChapterLoadPending) {
+            runtime.shortChapterLoadPending = false;
+            loadNextChapterIfIdle();
+        }
+    };
     runtime.noMoreChapters = runtime.noMoreChapters || false;
     runtime.setNoMoreChapters = function (v) { runtime.noMoreChapters = !!v; };
     runtime.lastChapterIdxSeen = (typeof runtime.lastChapterIdxSeen === 'number') ? runtime.lastChapterIdxSeen : -1;
@@ -72,16 +79,13 @@
             var boundary = window.chapterBoundaries[idx];
             chapterId = boundary.chapterId;
             var chapterScrollY = Math.max(scrollTop - boundary.startOffset, 0);
-            // Only the last loaded chapter has an unreachable trailing viewport, middle chapters
-            // end at the next divider, so subtract innerHeight only for the last one.
             isLast = idx === window.chapterBoundaries.length - 1;
-            if (isLast && boundary.height <= viewport) {
-                // A last chapter shorter than the viewport has no scroll room of its own, so
-                // chapterScrollY stays 0 and it would never reach the load threshold or 100%.
-                // Fall back to whole-document progress (the doc bottom is reachable).
-                chapterProgress = progress;
+            if (boundary.height <= viewport) {
+                chapterProgress = 1.0;
             } else {
-                var effectiveHeight = Math.max(boundary.height - (isLast ? viewport : 0), 1);
+                // Keep the denominator stable when an append turns the current last chapter into a
+                // middle chapter; otherwise an unchanged 95% position jumps backwards.
+                var effectiveHeight = boundary.height - viewport;
                 chapterProgress = Math.min(chapterScrollY / effectiveHeight, 1.0);
                 if (chapterProgress >= __DONE_THRESHOLD__) chapterProgress = 1.0;
             }
@@ -114,6 +118,16 @@
 
     var framePending = false;
 
+    function loadNextChapterIfIdle() {
+        if (runtime.loadingNext || !infiniteScrollEnabled || runtime.noMoreChapters) return;
+        runtime.loadingNext = true;
+        try {
+            Android.loadNextChapter();
+        } catch (e) {
+            runtime.loadingNext = false;
+        }
+    }
+
     function onFrame() {
         framePending = false;
         var s = computeState();
@@ -144,19 +158,10 @@
             dispatchProgress(s);
         }
 
-        if (!runtime.loadingNext && infiniteScrollEnabled && !runtime.noMoreChapters) {
-            var shouldLoadNext = window.chapterBoundaries.length > 1
-                ? (s.idx === window.chapterBoundaries.length - 1) && (s.chapterProgress >= loadThreshold)
-                : s.progress >= loadThreshold;
-            if (shouldLoadNext) {
-                runtime.loadingNext = true;
-                try {
-                    Android.loadNextChapter();
-                } catch (e) {
-                    runtime.loadingNext = false;
-                }
-            }
-        }
+        var shouldLoadNext = window.chapterBoundaries.length > 1
+            ? s.idx === window.chapterBoundaries.length - 1 && s.chapterProgress >= loadThreshold
+            : s.progress >= loadThreshold;
+        if (shouldLoadNext) loadNextChapterIfIdle();
     }
 
     function onScroll() {
@@ -201,6 +206,36 @@
         });
     };
 
+    var shortChapterObserver = null;
+    var observedShortChapter = null;
+    if (infiniteScrollEnabled && typeof IntersectionObserver === 'function') {
+        shortChapterObserver = new IntersectionObserver(function (entries) {
+            if (entries.some(function (entry) {
+                return entry.target === observedShortChapter &&
+                    entry.isIntersecting &&
+                    entry.intersectionRatio >= loadThreshold;
+            })) {
+                if (runtime.loadingNext && !runtime.noMoreChapters) {
+                    runtime.shortChapterLoadPending = true;
+                } else {
+                    loadNextChapterIfIdle();
+                }
+            }
+        }, { threshold: loadThreshold });
+    }
+
+    function observeLastShortChapter(dividers) {
+        if (!shortChapterObserver) return;
+        var lastDivider = dividers[dividers.length - 1];
+        var chapter = lastDivider ? lastDivider.nextElementSibling : null;
+        var viewport = window.innerHeight || document.documentElement.clientHeight;
+        var shortChapter = chapter && chapter.getBoundingClientRect().height <= viewport ? chapter : null;
+        if (shortChapter === observedShortChapter) return;
+        shortChapterObserver.disconnect();
+        observedShortChapter = shortChapter;
+        if (observedShortChapter) shortChapterObserver.observe(observedShortChapter);
+    }
+
     // getBoundingClientRect() + scrollY (not offsetTop) so offsets are correct inside a positioned
     // container.
     window.updateChapterBoundaries = function () {
@@ -223,6 +258,7 @@
         });
         window.chapterBoundaries = boundaries;
         runtime.knownDividerCount = dividers.length;
+        observeLastShortChapter(dividers);
     };
 
     // Rebuild boundaries on DOM change (append/prepend/trim) or reflow (image/font load), coalesced
