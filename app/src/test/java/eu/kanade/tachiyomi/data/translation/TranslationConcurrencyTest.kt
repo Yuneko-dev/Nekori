@@ -3,6 +3,9 @@ package eu.kanade.tachiyomi.data.translation
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import java.util.concurrent.atomic.AtomicInteger
@@ -77,6 +80,55 @@ class TranslationConcurrencyTest {
 
         failure?.index shouldBe 0
         failure?.cause?.message shouldBe "value 0 failed"
+    }
+
+    @Test
+    fun `pacing lets the window fill, then holds the rest back a window at a time`() = runTest {
+        val clock = testScheduler
+        val pacer = RequestPacer()
+        val order = mutableListOf<Int>()
+
+        repeat(5) { index ->
+            launch {
+                pacer.acquire(perMinute = 2) { clock.currentTime }
+                order += index
+            }
+        }
+        runCurrent()
+        // Two fit immediately; the window has to roll over before anything else is let through.
+        order shouldContainExactly listOf(0, 1)
+
+        advanceTimeBy(60_000)
+        runCurrent()
+        order shouldContainExactly listOf(0, 1, 2, 3)
+
+        advanceTimeBy(60_000)
+        runCurrent()
+        order shouldContainExactly listOf(0, 1, 2, 3, 4)
+    }
+
+    @Test
+    fun `a limit of zero is no pacing at all`() = runTest {
+        val clock = testScheduler
+        val pacer = RequestPacer()
+
+        repeat(100) { pacer.acquire(perMinute = 0) { clock.currentTime } }
+
+        clock.currentTime shouldBe 0L
+    }
+
+    @Test
+    fun `waiting happens before the request, so the wait is not charged to it`() = runTest {
+        val clock = testScheduler
+        val pacer = RequestPacer()
+
+        pacer.acquire(perMinute = 1) { clock.currentTime }
+        val beforeSecond = clock.currentTime
+        pacer.acquire(perMinute = 1) { clock.currentTime }
+
+        // The caller was suspended for the whole window; nothing was in flight while it waited,
+        // which is the point - inside an OkHttp interceptor this time counted against callTimeout.
+        (clock.currentTime - beforeSecond) shouldBe 60_000L
     }
 
     @Test
