@@ -89,6 +89,22 @@ class AiTranslationModelsTest {
         emptyList<AIProvider>().resolve(null) shouldBe null
     }
 
+    @Test
+    fun `anchoring applies only to the LLM engine, and only while switched on`() {
+        contextualAnchoringParagraphs(TranslationEngineId.LLM, enabled = true, paragraphs = 2) shouldBe 2
+        contextualAnchoringParagraphs(TranslationEngineId.LLM, enabled = false, paragraphs = 2) shouldBe 0
+        // A count of zero is "no context to carry", so it must not pin chunks to one at a time.
+        contextualAnchoringParagraphs(TranslationEngineId.LLM, enabled = true, paragraphs = 0) shouldBe 0
+        contextualAnchoringParagraphs(TranslationEngineId.LLM, enabled = true, paragraphs = -1) shouldBe 0
+    }
+
+    @Test
+    fun `engines that ignore context keep their parallelism`() {
+        TranslationEngineId.entries.filter { it != TranslationEngineId.LLM }.forEach { engineId ->
+            contextualAnchoringParagraphs(engineId, enabled = true, paragraphs = 5) shouldBe 0
+        }
+    }
+
     private fun provider(id: String) = AIProvider(
         id = id,
         alias = id,

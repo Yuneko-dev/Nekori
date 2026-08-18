@@ -33,6 +33,23 @@ enum class TranslationPurpose(val key: String) {
     BROWSE_TITLE("browse_title"),
 }
 
+/**
+ * Paragraphs of the previous chunk to carry into the next one, or 0 when anchoring does not apply.
+ *
+ * Anchoring needs the previous chunk's *translation*, which rules out translating chunks at once.
+ * Two places depend on that: the dispatcher pins an anchored chapter to one chunk at a time, and the
+ * settings screen greys out the parallelism slider it would otherwise silently override. Defined
+ * here so both read one rule instead of two copies that drift apart.
+ *
+ * Only the LLM engine reads context; the others discard it, so anchoring never costs them their
+ * parallelism.
+ */
+fun contextualAnchoringParagraphs(
+    engineId: TranslationEngineId,
+    enabled: Boolean,
+    paragraphs: Int,
+): Int = if (engineId == TranslationEngineId.LLM && enabled) paragraphs.coerceAtLeast(0) else 0
+
 data class TranslationContext(
     val previousSourceParagraphs: List<String> = emptyList(),
     val previousTranslatedParagraphs: List<String> = emptyList(),

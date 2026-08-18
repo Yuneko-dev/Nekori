@@ -27,6 +27,22 @@ class LlmGeneratorTest {
     }
 
     @Test
+    fun `translation gets its own concurrency budget but keeps the app's dns and sockets`() {
+        val appClient = OkHttpClient()
+        val client = appClient.withTranslationTimeout(12_345)
+
+        // OkHttp's default per-host cap is 5; chunks all target one provider host, so leaving the
+        // app's dispatcher in place held the parallelism slider at 5 no matter what it read.
+        client.dispatcher.maxRequestsPerHost shouldBe TranslationService.MAX_PARALLEL_TRANSLATIONS
+        (client.dispatcher === appClient.dispatcher) shouldBe false
+
+        // DoH resolver and the DPI-bypass socket factory are user network settings and must still
+        // come from the app client. newBuilder() carries them; a bare OkHttpClient() would not.
+        (client.dns === appClient.dns) shouldBe true
+        (client.socketFactory === appClient.socketFactory) shouldBe true
+    }
+
+    @Test
     fun `no provider family puts the api key in the query`() {
         listOf(AIProviderType.GEMINI, AIProviderType.OPENAI).forEach { type ->
             val url = resolveProviderUrl(provider(type), "/models")

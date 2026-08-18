@@ -686,7 +686,7 @@
     <string name="pref_translation_bypass_warning">Bỏ qua cảnh báo giới hạn tần suất</string>
     <string name="pref_translation_bypass_warning_summary">Không hiện cảnh báo khi dịch hàng loạt với số lượng lớn</string>
     <string name="pref_translation_max_parallel">Số bản dịch song song tối đa</string>
-    <string name="pref_translation_max_parallel_summary">Số request chunk chạy đồng thời cho mọi engine; khi neo ngữ cảnh, các chunk LLM vẫn chạy tuần tự</string>
+    <string name="pref_translation_max_parallel_summary">Số request chunk chạy đồng thời cho mọi engine</string>
     <string name="pref_translation_openai_key">Khóa API OpenAI</string>
     <string name="pref_translation_deepseek_key">Khóa API DeepSeek</string>
     <string name="pref_translation_libretranslate_url">URL máy chủ LibreTranslate</string>

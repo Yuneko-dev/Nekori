@@ -34,6 +34,7 @@ import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
+import tachiyomi.domain.translation.model.contextualAnchoringParagraphs
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -76,6 +77,7 @@ object SettingsTranslationScreen : SearchableSettings {
         }
 
         val chapterEngine by prefs.engineId(TranslationPurpose.CHAPTER).collectAsState()
+        val chapterEngineId = TranslationEngineId.fromKey(chapterEngine)
         val sourceLanguage by prefs.sourceLanguage().collectAsState()
         val targetLanguage by prefs.targetLanguage().collectAsState()
         val libreApiKey by prefs.libreTranslateApiKey().collectAsState()
@@ -214,7 +216,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     testButton(engines.engines.first { it.id == TranslationEngineId.GOOGLE_CLOUD }),
                 ),
             ),
-            behaviorGroup(prefs, isLlmChapterEngine = chapterEngine == TranslationEngineId.LLM.key),
+            behaviorGroup(prefs, isLlmChapterEngine = chapterEngineId == TranslationEngineId.LLM),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.pref_translation_queue),
                 preferenceItems = listOf(
@@ -225,7 +227,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     ),
                 ),
             ),
-            rateLimitGroup(prefs),
+            rateLimitGroup(prefs, chapterEngineId),
         )
     }
 
@@ -403,10 +405,19 @@ object SettingsTranslationScreen : SearchableSettings {
     )
 
     @Composable
-    private fun rateLimitGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
+    private fun rateLimitGroup(
+        prefs: TranslationPreferences,
+        chapterEngineId: TranslationEngineId,
+    ): Preference.PreferenceGroup {
         val delay by prefs.rateLimitDelayMs().collectAsState()
         val timeout by prefs.translationTimeoutMs().collectAsState()
         val maxParallel by prefs.maxParallelTranslations().collectAsState()
+        val anchoringEnabled by prefs.contextualAnchoringEnabled().collectAsState()
+        val anchoringParagraphs by prefs.contextualAnchoringParagraphs().collectAsState()
+        // Anchoring pins the chapter to one chunk at a time, so the slider below would be a control
+        // wired to nothing. Read through the shared rule rather than re-deriving it here.
+        val pinnedByAnchoring =
+            contextualAnchoringParagraphs(chapterEngineId, anchoringEnabled, anchoringParagraphs) > 0
         val delayRange = 0..10_000 step 100
         val timeoutRange = 30..300 step 5
         val delayString = if (delay > 0) "${delay}ms" else stringResource(TDMR.strings.pref_translation_no_delay)
@@ -439,6 +450,10 @@ object SettingsTranslationScreen : SearchableSettings {
                     valueRange = 1..TranslationService.MAX_PARALLEL_TRANSLATIONS,
                     onValueChanged = prefs.maxParallelTranslations()::set,
                     preference = prefs.maxParallelTranslations(),
+                    // `enabled` hides the row here (StatusWrapper wraps it in AnimatedVisibility),
+                    // which is what an anchored chapter needs: the slider would set a value the
+                    // dispatcher overrides to 1.
+                    enabled = !pinnedByAnchoring,
                 ),
             ),
         )

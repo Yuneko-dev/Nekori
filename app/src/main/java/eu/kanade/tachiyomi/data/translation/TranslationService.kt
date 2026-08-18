@@ -46,6 +46,7 @@ import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.TranslationStatus
 import tachiyomi.domain.translation.model.TranslationTask
+import tachiyomi.domain.translation.model.contextualAnchoringParagraphs
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
@@ -293,9 +294,14 @@ class TranslationService(
                         delay(delayMs.toLong())
                     }
                 } catch (e: CancellationException) {
-                    // Translation was cancelled (e.g., user navigated away), don't log as error
-                    logcat(LogPriority.DEBUG) { "Translation cancelled for chapter ${task.chapterId}" }
-                    throw e // Re-throw to stop processing
+                    // Two different things land here. A user cancel ([cancel]) asks to drop *this*
+                    // chapter - its partial progress is already saved as .tmp - so the queue keeps
+                    // going, matching what the button offers ("Cancel current translation"). A
+                    // cancellation raised while the flag is clear came from the job itself (scope
+                    // teardown) and has to keep propagating; swallowing it would spin this loop
+                    // against a dead coroutine.
+                    if (!_progressState.value.isCancelling) throw e
+                    logcat(LogPriority.DEBUG) { "Translation cancelled by user for chapter ${task.chapterId}" }
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) { "Translation failed for chapter ${task.chapterId}" }
                     // Re-queue failed task with lower priority if retry count is low
@@ -312,6 +318,11 @@ class TranslationService(
                 } finally {
                     currentTask = null
                     _currentTranslatingChapterId.value = null
+                    // The cancel request is scoped to one chapter, so it is consumed here on every
+                    // exit path - including the chapter that finished before any chunk read it.
+                    // Nothing else clears it in practice ([stop] does, but has no caller), and a
+                    // flag left set made every later chapter die on its first chunk.
+                    _progressState.update { it.copy(isCancelling = false) }
                     publishQueueState()
                 }
             }
@@ -643,12 +654,13 @@ class TranslationService(
     }
 
     private fun chunkDispatchFor(engineId: TranslationEngineId): ChunkDispatch {
-        val paragraphs = translationPreferences.contextualAnchoringParagraphs().get()
-        val anchored = engineId == TranslationEngineId.LLM &&
-            translationPreferences.contextualAnchoringEnabled().get() &&
-            paragraphs > 0
-        return if (anchored) {
-            ChunkDispatch(maxParallel = 1, anchoringParagraphs = paragraphs)
+        val anchoringParagraphs = contextualAnchoringParagraphs(
+            engineId = engineId,
+            enabled = translationPreferences.contextualAnchoringEnabled().get(),
+            paragraphs = translationPreferences.contextualAnchoringParagraphs().get(),
+        )
+        return if (anchoringParagraphs > 0) {
+            ChunkDispatch(maxParallel = 1, anchoringParagraphs = anchoringParagraphs)
         } else {
             ChunkDispatch(
                 maxParallel = translationPreferences.maxParallelTranslations().get()
