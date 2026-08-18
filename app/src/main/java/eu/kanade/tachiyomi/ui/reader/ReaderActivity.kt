@@ -1564,7 +1564,12 @@ class ReaderActivity : BaseActivity() {
         val prevViewer = viewModel.state.value.viewer
 
         // Manga metadata updates must not rebuild the WebView or reset scroll/TTS.
-        if (prevViewer is NovelWebViewViewer) {
+        //
+        // The destroyed check is what makes this safe across an activity recreate. The viewer lives
+        // in the ViewModel, which outlives the activity, but onDestroy() has already torn its
+        // WebView down - so a surviving viewer of the right type can still be a spent one. Reusing
+        // it leaves viewerContainer empty and the reader black. Test the object, not just its type.
+        if (prevViewer is NovelWebViewViewer && !prevViewer.isDestroyed) {
             setOrientation(viewModel.getMangaOrientation())
             return
         }

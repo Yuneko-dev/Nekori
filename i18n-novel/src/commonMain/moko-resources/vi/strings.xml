@@ -1028,6 +1028,7 @@
     <string name="novel_chapter_translating_from_cache">Đang tải bản dịch từ mục tải xuống…</string>
     <string name="novel_chapter_next">Chương tiếp theo →</string>
     <string name="novel_chapter_error">Lỗi tải chương: %s</string>
+    <string name="novel_reader_renderer_gone">Trình đọc đã hết bộ nhớ. Hãy mở lại chương để tiếp tục.</string>
     <string name="novel_error_copy_details">Sao chép chi tiết lỗi</string>
     <string name="novel_error_technical_details">Chi tiết kỹ thuật</string>
     <string name="novel_error_copied">Đã sao chép</string>

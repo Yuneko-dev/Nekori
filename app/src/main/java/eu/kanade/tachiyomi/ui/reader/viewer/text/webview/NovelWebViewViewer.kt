@@ -25,6 +25,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -325,7 +326,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         set(value) {
             chapterQueue.isLoadingNext = value
         }
-    private var isDestroyed = false
+
+    /**
+     * Whether [destroy] has run. Readable because the viewer outlives the activity that built it:
+     * it is held by [eu.kanade.tachiyomi.ui.reader.ReaderViewModel], which survives configuration
+     * changes, so the next activity has to be able to tell a live viewer from a spent one.
+     */
+    var isDestroyed = false
+        private set
     private var isEditingMode = false
     private var activeFindQuery = ""
 
@@ -862,6 +870,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
 
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                    // Returning false hands the dead renderer back to Android, which kills the whole
+                    // app - the same reason HeadlessChapterWebView claims this callback. The renderer
+                    // is unrecoverable either way, so retire the viewer and say so; updateViewer()
+                    // builds a fresh one once its destroyed state is seen.
+                    logcat(LogPriority.ERROR) { "Reader WebView renderer gone (didCrash=${detail?.didCrash()})" }
+                    destroy()
+                    activity.toast(activity.stringResource(TDMR.strings.novel_reader_renderer_gone))
+                    return true
+                }
+
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val targetUrl = NovelWebViewChapterMeta.resolveEpubChapterUrl(
                         currentPage?.chapter?.chapter?.url,

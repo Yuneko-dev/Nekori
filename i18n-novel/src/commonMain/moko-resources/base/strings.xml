@@ -1045,6 +1045,7 @@
     <string name="novel_chapter_translating_from_cache">Loading translation from downloads…</string>
     <string name="novel_chapter_next">Next Chapter →</string>
     <string name="novel_chapter_error">Error loading chapter: %s</string>
+    <string name="novel_reader_renderer_gone">The reader ran out of memory. Reopen the chapter to continue.</string>
     <string name="novel_error_copy_details">Copy error details</string>
     <string name="novel_error_technical_details">Technical details</string>
     <string name="novel_error_copied">Copied</string>
