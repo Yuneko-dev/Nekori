@@ -550,6 +550,7 @@
     <string name="pref_novel_swipe_navigation">Vuốt để đổi chương</string>
     <string name="pref_novel_rendering_mode">Chế độ hiển thị</string>
     <string name="pref_novel_auto_load_next_at">Ngưỡng tự tải chương tiếp theo (%)</string>
+    <string name="pref_novel_auto_load_next_always">Luôn tải trước 1 chương</string>
     <string name="pref_novel_tts">Chuyển văn bản thành giọng nói</string>
     <string name="pref_novel_tts_enabled">Bật chuyển văn bản thành giọng nói</string>
     <string name="tts_prev_paragraph">Đoạn trước</string>
@@ -675,6 +676,8 @@
     <string name="pref_translation_auto_download_summary">Tải nội dung chương nếu chưa có</string>
     <string name="pref_translation_auto_translate">Tự dịch nội dung tải xuống</string>
     <string name="pref_translation_auto_translate_summary">Tự động dịch chương khi tải xong</string>
+    <string name="pref_translation_auto_next_chapter">Dịch trước chương kế</string>
+    <string name="pref_translation_auto_next_chapter_summary">Dịch nền chương kế tiếp trong lúc bạn đọc, để mở là có ngay. Tốn quota cho cả chương bạn có thể không đọc tới.</string>
     <string name="pref_translation_rate_limit">Giới hạn tần suất</string>
     <string name="pref_translation_rate_limit_delay">Khoảng nghỉ giữa các lượt</string>
     <string name="pref_translation_rate_limit_delay_summary">Chờ sau mỗi chương trong hàng đợi, và sau mỗi lô tiêu đề khi duyệt nguồn</string>

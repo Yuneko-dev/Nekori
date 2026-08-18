@@ -321,8 +321,9 @@ internal class NovelWebViewStyler(
     }
 
     fun injectScrollTracking(infiniteScrollEnabled: Boolean) {
-        val autoLoadThreshold = preferences.novelAutoLoadNextChapterAt.get()
-        val effectiveThreshold = if (autoLoadThreshold > 0) autoLoadThreshold / 100.0 else 0.95
+        // 0 is a real setting, not "unset": it appends the next chapter the moment the current one
+        // becomes the last loaded, keeping exactly one chapter ready ahead of the reader.
+        val effectiveThreshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0
         val js = NovelWebViewJsAssets.loadWith(
             context,
             "scroll-tracking.js",

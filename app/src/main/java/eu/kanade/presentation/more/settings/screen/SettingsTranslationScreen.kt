@@ -360,6 +360,11 @@ object SettingsTranslationScreen : SearchableSettings {
                     subtitle = stringResource(TDMR.strings.pref_translation_auto_translate_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.autoTranslateNextChapter(),
+                    title = stringResource(TDMR.strings.pref_translation_auto_next_chapter),
+                    subtitle = stringResource(TDMR.strings.pref_translation_auto_next_chapter_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.replaceTitle(),
                     title = stringResource(MR.strings.pref_translation_replace_title),
                     subtitle = stringResource(MR.strings.pref_translation_replace_title_desc),

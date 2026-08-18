@@ -558,6 +558,7 @@
     <string name="pref_novel_swipe_navigation">Swipe to change chapters</string>
     <string name="pref_novel_rendering_mode">Rendering mode</string>
     <string name="pref_novel_auto_load_next_at">Auto-load next chapter at %</string>
+    <string name="pref_novel_auto_load_next_always">Always one ahead</string>
     <string name="pref_novel_tts">Text to speech</string>
     <string name="pref_novel_tts_enabled">Enable text to speech</string>
     <string name="tts_prev_paragraph">Previous paragraph</string>
@@ -685,6 +686,8 @@
     <string name="pref_translation_auto_download_summary">Download chapter content if not already available</string>
     <string name="pref_translation_auto_translate">Auto-translate downloads</string>
     <string name="pref_translation_auto_translate_summary">Automatically translate chapters when downloaded</string>
+    <string name="pref_translation_auto_next_chapter">Translate the next chapter ahead</string>
+    <string name="pref_translation_auto_next_chapter_summary">Translate the following chapter in the background while you read, so it opens without waiting. Spends quota on chapters you may not reach.</string>
     <string name="pref_translation_rate_limit">Rate Limiting</string>
     <string name="pref_translation_rate_limit_delay">Pause between batches</string>
     <string name="pref_translation_rate_limit_delay_summary">Wait after each queued chapter, and after each batch of browsed titles</string>

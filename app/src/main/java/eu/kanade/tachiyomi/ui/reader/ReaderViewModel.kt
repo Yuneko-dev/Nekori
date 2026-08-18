@@ -51,6 +51,11 @@ import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelPageLoader
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
@@ -160,6 +165,11 @@ class ReaderViewModel @JvmOverloads constructor(
     private val quoteManager: QuoteManager by lazy {
         QuoteManager(Injekt.get<Application>())
     }
+
+    /** Background translation of the chapter after the current one. Dies with [viewModelScope]. */
+    private val nextChapterPrefetch = ChapterPrefetch(viewModelScope)
+
+    private val contentPipeline = ContentPipeline(readerPreferences)
 
     private val mutableState = MutableStateFlow(
         State(
@@ -567,6 +577,7 @@ class ReaderViewModel @JvmOverloads constructor(
             }
             published = true
         }
+        if (published) prefetchNextChapterTranslation()
         published
     }
 
@@ -726,7 +737,7 @@ class ReaderViewModel @JvmOverloads constructor(
             chapterPages,
             pageDelta = 1,
         ) ?: return null
-        prepareChapterForInfiniteScroll(nextChapter)
+        preloadChapterPages(nextChapter)
         return nextChapter
     }
 
@@ -760,11 +771,15 @@ class ReaderViewModel @JvmOverloads constructor(
             chapterPages,
             pageDelta = -1,
         ) ?: return null
-        prepareChapterForInfiniteScroll(prevChapter)
+        preloadChapterPages(prevChapter)
         return prevChapter
     }
 
-    private suspend fun prepareChapterForInfiniteScroll(chapter: ReaderChapter) {
+    /**
+     * Fill [chapter]'s page list without publishing it. Unlike [preload] this emits no
+     * [Event.ReloadViewerChapters], so it can run for a chapter the reader is not showing.
+     */
+    private suspend fun preloadChapterPages(chapter: ReaderChapter) {
         val loader = loader ?: return
         if (chapter.state is ReaderChapter.State.Loaded || chapter.state == ReaderChapter.State.Loading) {
             logcat(LogPriority.DEBUG) {
@@ -791,8 +806,7 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     private fun shouldSetActiveWithoutReload(chapter: ReaderChapter): Boolean {
-        val novelViewer = state.value.viewer as? NovelWebViewViewer ?: return false
-        if (!novelViewer.isInfiniteScrollEnabled()) return false
+        if (!isInfiniteScrollActive()) return false
 
         val pages = chapter.pages ?: return false
         return pages.isNotEmpty() && chapter.state !is ReaderChapter.State.Error
@@ -938,6 +952,65 @@ class ReaderViewModel @JvmOverloads constructor(
             return
         }
         eventChannel.trySend(Event.ReloadViewerChapters)
+    }
+
+    /**
+     * Translate the chapter after this one while the current one is still being read.
+     *
+     * The result goes to the translation cache the reader already consults before translating, so
+     * nothing downstream has to know this ran - opening the next chapter simply finds it there.
+     *
+     * This exists for the reader *without* infinite scroll, which had no pre-translation of any kind:
+     * every chapter opened on a cold provider request. With infinite scroll the append path already
+     * translates the next chapter, so this stands down rather than duplicate it.
+     */
+    private fun prefetchNextChapterTranslation() {
+        val next = state.value.viewerChapters?.nextChapter
+        val nextId = next?.chapter?.id
+        if (next == null || nextId == null ||
+            !translationPreferences.translationEnabled().get() ||
+            !translationPreferences.autoTranslateNextChapter().get() ||
+            // Infinite scroll already translates the next chapter on the way to appending it, and
+            // it appends without moving viewerChapters - so this would target the same chapter and
+            // pay the provider twice for it. There is nothing here for that mode to gain.
+            isInfiniteScrollActive()
+        ) {
+            nextChapterPrefetch.cancel()
+            return
+        }
+        nextChapterPrefetch.start(nextId) { translateChapterAhead(next, nextId) }
+    }
+
+    private fun isInfiniteScrollActive(): Boolean =
+        (state.value.viewer as? NovelWebViewViewer)?.isInfiniteScrollEnabled() == true
+
+    private suspend fun translateChapterAhead(chapter: ReaderChapter, chapterId: Long) {
+        // The marker is a plugin saying its chapters must be fetched as they are read; honouring it
+        // for infinite scroll but spending a translation on the next chapter anyway would be odd.
+        // Read off the current chapter's text, which is already in memory, and parsed here rather
+        // than at the call site so the Jsoup pass stays off the thread that commits chapters.
+        val currentText = getCurrentChapter()?.pages?.firstOrNull()?.text
+        if (currentText != null && NovelWebViewChapterDirectives.parse(currentText).noPrefetch) return
+        if (hasCachedTranslation(chapterId)) return
+
+        preloadChapterPages(chapter)
+        val page = chapter.pages?.firstOrNull() ?: return
+        val loader = page.chapter.pageLoader ?: return
+        if (page.text.isNullOrBlank()) {
+            NovelPageLoader.awaitPageText("ReaderViewModel", page, loader, PREFETCH_TEXT_TIMEOUT_MS, viewModelScope)
+        }
+        val raw = page.text?.takeUnless { it.isBlank() } ?: return
+
+        // Translate what the reader would have sent, not the raw file: the cache is keyed by chapter,
+        // so a translation of un-preprocessed text would be served in place of one that had the
+        // chapter title stripped and the user's regex replacements applied.
+        val config = ContentConfig.from(
+            readerPreferences,
+            RenderTarget.WEB_VIEW,
+            chapter.chapter.url,
+            chapter.chapter.name,
+        )
+        translateContent(contentPipeline.preTranslate(raw, config).text, chapterId)
     }
 
     fun onViewerLoaded(viewer: Viewer?) {
@@ -2143,6 +2216,9 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private companion object {
         const val NO_NAVIGATION_REQUEST = -1L
+
+        /** Same budget the viewer gives a chapter it is about to show; nobody is waiting on this one. */
+        const val PREFETCH_TEXT_TIMEOUT_MS = 30_000L
     }
 }
 

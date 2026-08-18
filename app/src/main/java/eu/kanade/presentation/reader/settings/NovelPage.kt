@@ -687,18 +687,17 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
 
     // Auto-load next chapter at percentage (only relevant when infinite scroll is enabled)
     val autoLoadAt by screenModel.preferences.novelAutoLoadNextChapterAt.collectAsState()
-    val effectiveAutoLoadAt = if (autoLoadAt <= 0) 95 else autoLoadAt.coerceIn(1, 100)
-    LaunchedEffect(autoLoadAt) {
-        if (autoLoadAt != effectiveAutoLoadAt) {
-            screenModel.preferences.novelAutoLoadNextChapterAt.set(effectiveAutoLoadAt)
-        }
-    }
     if (infiniteScrollEnabled) {
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_auto_load_next_at),
-            value = effectiveAutoLoadAt,
-            valueRange = 1..100,
-            valueString = "$effectiveAutoLoadAt%",
+            value = autoLoadAt,
+            // 0 keeps one chapter ready ahead at all times instead of waiting for a scroll position.
+            valueRange = 0..100 step 5,
+            valueString = if (autoLoadAt > 0) {
+                "$autoLoadAt%"
+            } else {
+                stringResource(TDMR.strings.pref_novel_auto_load_next_always)
+            },
             onChange = { screenModel.preferences.novelAutoLoadNextChapterAt.set(it) },
         )
     }

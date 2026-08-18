@@ -403,9 +403,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = autoLoadNextAt,
-                    valueRange = 1..100,
+                    // 0 keeps one chapter ready ahead at all times instead of waiting for a scroll
+                    // position, which is what makes a run of short chapters append without stalling.
+                    valueRange = 0..100 step 5,
                     title = "Auto-load next chapter at",
-                    valueString = "$autoLoadNextAt%",
+                    valueString = if (autoLoadNextAt > 0) {
+                        "$autoLoadNextAt%"
+                    } else {
+                        stringResource(TDMR.strings.pref_novel_auto_load_next_always)
+                    },
                     onValueChanged = { readerPreferences.novelAutoLoadNextChapterAt.set(it) },
                 ),
                 Preference.PreferenceItem.SliderPreference(

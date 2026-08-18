@@ -103,6 +103,16 @@ class TranslationPreferences(
     )
 
     /**
+     * Whether the chapter after the one being read is translated in the background.
+     *
+     * Off by default: it spends provider quota on a chapter the reader may never open.
+     */
+    fun autoTranslateNextChapter() = preferenceStore.getBoolean(
+        "translation_auto_translate_next_chapter",
+        false,
+    )
+
+    /**
      * Smart auto-translate: skip translation if detected language matches target.
      * Consolidated from ReaderPreferences.autoTranslate (pref_auto_translate).
      */

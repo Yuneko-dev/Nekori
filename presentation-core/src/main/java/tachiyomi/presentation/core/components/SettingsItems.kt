@@ -432,7 +432,7 @@ fun SliderItem(
     valueRange: IntProgression,
     label: String,
     onChange: (Int) -> Unit,
-    steps: Int = with(valueRange) { (last - first) - 1 },
+    steps: Int = valueRange.count() - 2,
     valueString: String = value.toString(),
     labelStyle: TextStyle = MaterialTheme.typography.bodyMedium,
     pillColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -461,7 +461,12 @@ fun BaseSliderItem(
     onChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    steps: Int = with(valueRange) { (last - first) - 1 },
+    /**
+     * Compose counts the stops *between* the endpoints, so N selectable values need N - 2. Derived
+     * from the progression's length rather than `last - first`, which silently ignores a step other
+     * than 1 and would turn `0..100 step 5` into 99 stops. Mirrors `Preference.PreferenceItem.SliderPreference`.
+     */
+    steps: Int = valueRange.count() - 2,
     valueString: String = value.toString(),
     titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
     subtitleStyle: TextStyle = MaterialTheme.typography.bodySmall,
