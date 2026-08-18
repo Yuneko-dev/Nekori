@@ -992,7 +992,7 @@
     <string name="pref_show_manga_source_name">Hiện tên nguồn trong chi tiết tiểu thuyết</string>
     <string name="pref_show_manga_source_name_summary">Hiển thị tên nguồn dưới trạng thái trên màn hình chi tiết tiểu thuyết</string>
     <string name="onboarding_permission_install_updates">Cài đặt bản cập nhật ứng dụng</string>
-    <string name="onboarding_permission_install_updates_description">Cho phép Tsundoku cài đặt bản cập nhật APK do trình cập nhật trong ứng dụng tải về</string>
+    <string name="onboarding_permission_install_updates_description">Cho phép Nekori cài đặt bản cập nhật APK do trình cập nhật trong ứng dụng tải về</string>
     <string name="pref_experimental_library_pagination">Thử nghiệm: phân trang thư viện (giảm bộ nhớ)</string>
     <string name="pref_experimental_library_pagination_summary">Tải mỗi danh mục từng trang một (mặc định 300, mới nhất trước) và tải thêm khi cuộn, thay vì giữ toàn bộ thư viện trong bộ nhớ. Sắp xếp, lọc và tìm kiếm áp dụng cho các mục đã tải. Khởi động lại sau khi thay đổi.</string>
     <string name="pref_experimental_library_page_size">Thử nghiệm: kích thước trang thư viện</string>
@@ -1085,7 +1085,7 @@
     <string name="discord_enable_rpc">Bật Discord Rich Presence</string>
     <string name="discord_enable_rpc_summary">Kết nối với Discord và chia sẻ những hoạt động đã bật</string>
     <string name="discord_show_app">Hiện hoạt động ứng dụng và thư viện</string>
-    <string name="discord_show_app_summary">Hiện khi Tsundoku hoặc thư viện đang mở</string>
+    <string name="discord_show_app_summary">Hiện khi Nekori hoặc thư viện đang mở</string>
     <string name="discord_show_browsing">Hiện hoạt động duyệt</string>
     <string name="discord_show_browsing_summary">Hiện các nguồn đang được duyệt</string>
     <string name="discord_show_reading">Hiện hoạt động đọc</string>
@@ -1162,7 +1162,7 @@
     <string name="stats_storage_plugins_fonts">Plugin và phông chữ</string>
     <string name="stats_storage_other">Sao lưu và dữ liệu khác</string>
     <string name="stats_storage_available">Khả dụng</string>
-    <string name="stats_storage_note">Dung lượng khả dụng thuộc cùng thiết bị lưu trữ với thư mục Tsundoku.</string>
+    <string name="stats_storage_note">Dung lượng khả dụng thuộc cùng thiết bị lưu trữ với thư mục Nekori.</string>
     <string name="stats_storage_available_unavailable">Nhà cung cấp lưu trữ không báo dung lượng khả dụng.</string>
     <string name="stats_publication_status">Trạng thái phát hành</string>
     <string name="stats_titles_count">%1$s truyện</string>

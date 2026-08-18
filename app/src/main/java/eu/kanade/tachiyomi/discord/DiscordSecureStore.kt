@@ -63,7 +63,7 @@ internal class DiscordSecureStore(context: Context) {
 
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "tsundoku_discord_oauth"
+        const val KEY_ALIAS = "nekori_discord_oauth"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_SIZE = 12
         const val TAG_SIZE_BITS = 128

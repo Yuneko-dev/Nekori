@@ -2,6 +2,7 @@
   "name": "tsundoku-js-runtime",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@10.33.0",
   "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
   "scripts": {
     "lint": "eslint src specs --ext .js,.ts",

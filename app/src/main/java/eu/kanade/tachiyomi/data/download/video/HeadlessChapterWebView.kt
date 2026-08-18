@@ -90,6 +90,6 @@ internal class HeadlessChapterWebView(
     }
 
     companion object {
-        const val BRIDGE_NAME = "TsundokuVideoDownload"
+        const val BRIDGE_NAME = "NekoriVideoDownload"
     }
 }

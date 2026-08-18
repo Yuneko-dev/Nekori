@@ -9,6 +9,10 @@ on:
 
 jobs:
   update_website:
+    # Upstream only. This posts to tsundoku-otaku/website, which this fork neither owns nor has a
+    # counterpart for, and the job has no gate of its own - without this it would fire on every
+    # release here and go knocking on someone else's repository.
+    if: github.repository == 'tsundoku-otaku/tsundoku'
     runs-on: 'ubuntu-24.04'
 
     steps:

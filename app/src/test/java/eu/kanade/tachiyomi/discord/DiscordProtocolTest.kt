@@ -28,9 +28,9 @@ class DiscordProtocolTest {
             largeImage = "external/cover",
             largeText = "Chapter 1",
             smallImage = DiscordProtocol.APP_LOGO_ASSET_ID,
-            smallText = "Tsundoku",
+            smallText = "Nekori",
             buttons = listOf(
-                "Read on Tsundoku" to "https://github.com/tsundoku-otaku",
+                "Read on Nekori" to "https://github.com/Yuneko-dev/Nekori",
                 "Read chapter" to "https://example.com/novel/chapter-1",
             ),
             startedAt = 1234,
@@ -44,7 +44,7 @@ class DiscordProtocolTest {
         assertEquals(2, activity.getValue("buttons").jsonArray.size)
         assertEquals(
             listOf(
-                "https://github.com/tsundoku-otaku",
+                "https://github.com/Yuneko-dev/Nekori",
                 "https://example.com/novel/chapter-1",
             ),
             activity.getValue("metadata").jsonObject

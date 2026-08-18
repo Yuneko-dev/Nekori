@@ -1,82 +1,136 @@
 <div align="center">
 
-<a href="https://tsundoku-otaku.github.io">
-    <img src="./.github/assets/logo.png" alt="Tsundoku logo" title="Tsundoku logo" width="80"/>
-</a>
+<img src="./.github/assets/logo.png" alt="Nekori logo" title="Nekori logo" width="80"/>
 
-# Tsundoku [App](#)
+# Nekori [App](#)
 
-### Full-featured reader
-Discover and read novels and more – easier than ever on your Android device.
+### Novel reader for LNReader plugins
+A personal fork of [Tsundoku](https://github.com/tsundoku-otaku/tsundoku), built around the LNReader plugin ecosystem.
 
-[![Discord server](https://img.shields.io/discord/1475219284551536653.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.gg/RycBkEgrPE)
-[![GitHub downloads](https://img.shields.io/github/downloads/tsundoku-otaku/tsundoku/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://tsundoku-otaku.github.io/download)
+[![GitHub downloads](https://img.shields.io/github/downloads/Yuneko-dev/Nekori/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://github.com/Yuneko-dev/Nekori/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/Yuneko-dev/Nekori/build.yml?labelColor=27303D)](https://github.com/Yuneko-dev/Nekori/actions/workflows/build.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/Yuneko-dev/Nekori?labelColor=27303D&color=0877d2)](/LICENSE)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/tsundoku-otaku/tsundoku/build.yml?labelColor=27303D)](https://github.com/tsundoku-otaku/tsundoku/actions/workflows/build_push.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/tsundoku-otaku/tsundoku?labelColor=27303D&color=0877d2)](/LICENSE)
-[![Translation status](https://img.shields.io/weblate/progress/tsundoku?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/tsundoku/)
+</div>
 
-Upstream Weblate:  
-[![Translation status](https://img.shields.io/weblate/progress/mihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/mihon/)
+> [!IMPORTANT]
+> **Nekori does not support Kotlin extensions.** Nothing built against `tachiyomix` will load — not
+> Tachiyomi's, not Mihon's, not Tsundoku's. The only content sources are **LNReader plugins**.
+>
+> So yes: this is a fork of a fork of Tachiyomi that cannot run a single Tachiyomi extension. Funny, isn't it.
+
+> [!WARNING]
+> This is a personal fork, made for my own use. It is not a community project and is not recommended for production
+> use. Expect breaking changes without notice.
+
+> [!NOTE]  
+> This fork uses AI slop.
 
 ## Download
 
-[![Tsundoku Stable](https://img.shields.io/github/release/tsundoku-otaku/tsundoku.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://tsundoku-otaku.github.io/download)
-[![Tsundoku Beta](https://img.shields.io/github/v/release/tsundoku-otaku/tsundoku-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://tsundoku-otaku.github.io/download)
+[![Nekori Stable](https://img.shields.io/github/release/Yuneko-dev/Nekori.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/Yuneko-dev/Nekori/releases/latest)
 
 *Requires Android 8.0 or higher.*
 
+Nekori installs alongside Tsundoku rather than upgrading it — the application id is `app.yuneko.nekori`. Moving your
+library across is a backup and a restore.
+
 ## Features
+
+Most of this comes from Tsundoku and, before it, Mihon. Nekori keeps it rather than rebuilds it — the list below is
+what the app does, not what this fork added. For the fork's own changes, see
+[NEKORI_CHANGELOG.md](./NEKORI_CHANGELOG.md).
 
 <div align="left">
 
-* Local reading of content, including: EPUBs, TXT, HTML.
-* A configurable reader with multiple viewers, font colors and themes, among other settings.
-* Tracker support: [NovelUpdates](https://www.novelupdates.com/) and [NovelList](https://www.novellist.co/), plus the classics: [MangaBaka](https://mangabaka.org), [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/) support.
-* Categories to organize your library.
-* Light and dark themes.
-* Schedule updating your library for new chapters.
-* Add delays to ease demand on sources.
-* Create backups locally to read offline or to your desired cloud service.
-* Import lnreader backups.
-* Use lnreader extensions.
-* Read-ahead chapter downloads
-* TTS
-* In-app translation of text
-* Plus much more...
+**Sources**
+
+* LNReader plugins, run by a headless React Native + Hermes runtime, against standard `fetch`.
+* Plugins share the app's user agent and cookie jar, so logins and Cloudflare clearances carry over.
+* Install, update and remove plugins from repositories, with plugin details and install state.
+* Local reading of content, including EPUB, TXT and HTML.
+
+**Reader**
+
+* Paged and volume novel navigation, a chapter drawer, native find in page, and a font preview in settings.
+* Configurable reading margins, volume-key scroll distance and WebView network handling.
+
+**Translation and AI**
+
+* Multiple AI providers, per-provider models, custom headers and user guidelines.
+* A separate engine per purpose — chapter text, entry metadata and browse titles can each use a different one.
+* Chapter chunking by word or paragraph count, with optional contextual anchoring across a chunk seam.
+* Parallel chunk translation under a shared requests-per-minute ceiling.
+* Background pre-translation of the next chapter, and chapter summaries.
+
+**Network**
+
+* DNS over HTTPS and DPI bypass, applied locally.
+* Domain forwarding rules, and request throttling scoped to plugin traffic so covers, trackers and translation are
+  not paced by source settings.
+
+**Library**
+
+* Tracker support: [NovelUpdates](https://www.novelupdates.com/), [NovelList](https://www.novellist.co/) and
+  [RanobeDB](https://ranobedb.org/), plus the classics — [MangaBaka](https://mangabaka.org),
+  [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/),
+  [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/) and
+  [Hikka](https://hikka.io/).
+* Categories, light and dark themes, and scheduled library updates.
+* Read-ahead chapter downloads for offline reading.
+* Novel-only backup and restore, plus LNReader backup import.
+* Reading statistics: session tracking, publication status and storage breakdowns, and a reading heatmap.
+* Discord Rich Presence.
 
 </div>
+
+## Differences from Tsundoku
+
+Tsundoku is a Mihon fork that added novel support while keeping the manga side intact. Nekori drops that side entirely:
+
+* The manga page viewer, the native image decoder and the Fresco stack are gone.
+* Kotlin extension discovery and the Shizuku extension installer are gone.
+* Firebase configuration is gone, and release telemetry is disabled.
+* React Native is the plugin runtime only — the reader itself is a native WebView plus Compose.
+
+Everything else stays. The library, categories, trackers, themes, backups, downloads, statistics and the whole
+settings surface are Tsundoku's, and Nekori follows upstream rather than diverging from it — this fork is a narrowing,
+not a rewrite.
+
+The full list lives in [NEKORI_CHANGELOG.md](./NEKORI_CHANGELOG.md). [CHANGELOG.md](./CHANGELOG.md) is Tsundoku's own
+release record and is kept identical to upstream so it merges cleanly.
 
 ## Contributing
 
 [Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+This is a personal fork, so issues and pull requests may sit unanswered — I build it for myself first. Bugs that also
+affect upstream are better reported to [Tsundoku](https://github.com/tsundoku-otaku/tsundoku) or
+[Mihon](https://github.com/mihonapp/mihon), where far more people will see them.
 
-Before reporting a new issue, take a look at the [FAQ](https://tsundoku-otaku.github.io/docs/faq/general), the [changelog](https://tsundoku-otaku.github.io/changelogs/) and the already opened [issues](https://github.com/tsundoku-otaku/tsundoku/issues); if you got any questions, join our [Discord server](https://discord.gg/RycBkEgrPE).
-
-
-### Repositories
-
-[![tsundoku-otaku/website - GitHub](https://github-readme-stats.vercel.app/api/pin/?username=tsundoku-otaku&repo=website&bg_color=161B22&text_color=c9d1d9&title_color=0877d2&icon_color=0877d2&border_radius=8&hide_border=true&description_lines_count=2)](https://github.com/tsundoku-otaku/website/)
+There is no Discord server, and there will not be one.
 
 ### Credits
 
-Thank you to all the people who have contributed!
+Nekori exists because of work done elsewhere:
 
-<a href="https://github.com/tsundoku-otaku/tsundoku/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=tsundoku-otaku/tsundoku" alt="Tsundoku app contributors" title="Tsundoku app contributors" width="800"/>
-</a>
+* [Mihon](https://github.com/mihonapp/mihon) and [Tachiyomi](https://github.com/tachiyomiorg/tachiyomi) — the app this
+  is descended from.
+* [Tsundoku](https://github.com/tsundoku-otaku/tsundoku) — the novel support this fork is built on.
+* [LNReader](https://github.com/LNReader/lnreader) — the plugin ecosystem that makes this app worth using, and the
+  backup format it imports.
 
 ### Disclaimer
 
-The developer(s) of this application does not have any affiliation with the content providers available, and this application hosts zero content.
+The developer(s) of this application does not have any affiliation with the content providers available, and this
+application hosts zero content.
 
 ### License
 
 <pre>
 Copyright © 2015 Javier Tomás
 Copyright © 2024 Mihon Open Source Project
+Copyright © 2026 Nekori
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,5 +144,3 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 </pre>
-
-</div>

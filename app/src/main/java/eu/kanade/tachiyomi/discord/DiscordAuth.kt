@@ -91,7 +91,7 @@ class DiscordAuth internal constructor(
     }
 
     fun handleRedirect(uri: Uri?): Boolean {
-        if (uri?.scheme != "lnreader" || uri.path != "/authorize/callback") return false
+        if (uri?.scheme != "nekori" || uri.host != "discord-auth") return false
         mutableState.value = DiscordAuthState.Authorizing
         scope.launch { exchangeRedirect(uri) }
         return true

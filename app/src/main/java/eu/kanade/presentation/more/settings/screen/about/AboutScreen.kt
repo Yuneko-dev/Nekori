@@ -174,11 +174,11 @@ object AboutScreen : Screen() {
                             icon = Icons.Outlined.Public,
                             url = "https://tsundoku-otaku.github.io",
                         )
-                        LinkIcon(
-                            label = "Discord",
-                            icon = CustomIcons.Discord,
-                            url = "https://discord.gg/RycBkEgrPE",
-                        )
+                        // LinkIcon(
+                        //     label = "Discord",
+                        //     icon = CustomIcons.Discord,
+                        //     url = "https://discord.gg/RycBkEgrPE",
+                        // )
                         // LinkIcon(
                         //     label = "X",
                         //     icon = CustomIcons.X,
@@ -197,7 +197,7 @@ object AboutScreen : Screen() {
                         LinkIcon(
                             label = "GitHub",
                             icon = CustomIcons.Github,
-                            url = "https://github.com/tsundoku-otaku",
+                            url = "https://github.com/Yuneko-dev/Nekori",
                         )
                     }
                 }

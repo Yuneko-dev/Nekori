@@ -60,6 +60,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- lnreader://repo/add?url=<repo json url> adds a JS plugin repository. The scheme is
+                 LNReader's, not this app's branding: repository links are shared between LNReader
+                 and this fork, so renaming it would orphan every link already in circulation.
+                 Handled in MainActivity, which reads the "url" query parameter. -->
             <intent-filter android:label="@string/action_add_repo">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -71,13 +75,16 @@
                 <data android:pathPrefix="/add" />
             </intent-filter>
 
+            <!-- Discord OAuth callback. Narrow by host on purpose: this replaced a filter that
+                 claimed every lnreader:// URL just to catch one callback. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="lnreader" />
+                <data android:scheme="nekori" />
+                <data android:host="discord-auth" />
             </intent-filter>
 
             <!-- Open backup files -->
@@ -247,7 +254,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
+                <!-- Every scheme an OAuth client is registered under has to be listed, and the
+                     list only ever grows. AniList, MyAnimeList and MangaBaka run on this fork's own
+                     client ids and redirect to tsundoku://; Bangumi and Shikimori still run on
+                     mihon's client ids, so their registered redirect is mihon:// and stays that way.
+                     Replacing a scheme here instead of adding one silently kills the trackers left
+                     on it - that is exactly how bangumi-auth and shikimori-auth stopped arriving. -->
                 <data android:scheme="tsundoku" />
+                <data android:scheme="mihon" />
 
                 <data android:host="anilist-auth" />
                 <data android:host="bangumi-auth" />

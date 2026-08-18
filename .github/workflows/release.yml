@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   get_tag:
-    if: github.repository == 'tsundoku-otaku/tsundoku'
+    if: github.repository == 'Yuneko-dev/Nekori'
     name: Extract tag name
     runs-on: 'ubuntu-24.04'
     outputs:
@@ -22,7 +22,7 @@ jobs:
         run: echo "tag=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
 
   build:
-    if: github.repository == 'tsundoku-otaku/tsundoku'
+    if: github.repository == 'Yuneko-dev/Nekori'
     name: Build
     runs-on: 'ubuntu-24.04'
     needs: get_tag
@@ -39,6 +39,23 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # The React Native Gradle plugin lives in js-runtime/node_modules, and settings.gradle.kts
+      # resolves it by shelling out to `node` during settings evaluation. Without these three steps
+      # the build dies before Gradle configures a single project.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: js-runtime/.nvmrc
+          cache: pnpm
+          cache-dependency-path: js-runtime/pnpm-lock.yaml
+
+      - name: Install JS runtime dependencies
+        working-directory: js-runtime
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: ./gradlew assembleRelease -Penable-updater
@@ -58,25 +75,25 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/release/app-universal-release-signed.apk tsundoku-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-arm64-v8a-release-signed.apk tsundoku-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-armeabi-v7a-release-signed.apk tsundoku-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-signed.apk tsundoku-x86-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86_64-release-signed.apk tsundoku-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-universal-release-signed.apk nekori-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-arm64-v8a-release-signed.apk nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-armeabi-v7a-release-signed.apk nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-x86-release-signed.apk nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-x86_64-release-signed.apk nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: tsundoku
+          name: nekori
           path: |
-            tsundoku-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-x86-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
   build_foss:
-    if: github.repository == 'tsundoku-otaku/tsundoku'
+    if: github.repository == 'Yuneko-dev/Nekori'
     name: Build (FOSS)
     runs-on: ubuntu-24.04
     needs: get_tag
@@ -93,6 +110,23 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # The React Native Gradle plugin lives in js-runtime/node_modules, and settings.gradle.kts
+      # resolves it by shelling out to `node` during settings evaluation. Without these three steps
+      # the build dies before Gradle configures a single project.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: js-runtime/.nvmrc
+          cache: pnpm
+          cache-dependency-path: js-runtime/pnpm-lock.yaml
+
+      - name: Install JS runtime dependencies
+        working-directory: js-runtime
+        run: pnpm install --frozen-lockfile
         with:
           cache-disabled: true
 
@@ -114,16 +148,16 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/foss/app-universal-foss-signed.apk tsundoku-${{ needs.get_tag.outputs.tag }}-foss.apk
+          mv app/build/outputs/apk/foss/app-universal-foss-signed.apk nekori-${{ needs.get_tag.outputs.tag }}-foss.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: tsundoku-foss
-          path: tsundoku-${{ needs.get_tag.outputs.tag }}-foss.apk
+          name: nekori-foss
+          path: nekori-${{ needs.get_tag.outputs.tag }}-foss.apk
 
   release:
-    if: github.repository == 'tsundoku-otaku/tsundoku'
+    if: github.repository == 'Yuneko-dev/Nekori'
     name: Create GitHub Release
     runs-on: ubuntu-24.04
     needs: [get_tag, build, build_foss]
@@ -139,16 +173,16 @@ jobs:
         with:
           failOnError: false
           name: |
-            tsundoku
-            tsundoku-foss
+            nekori
+            nekori-foss
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ needs.get_tag.outputs.tag }}
-          name: Tsundoku ${{ needs.get_tag.outputs.tag }}
+          name: Nekori ${{ needs.get_tag.outputs.tag }}
           body: |
-            Check out the [past release notes](https://github.com/tsundoku-otaku/tsundoku/releases) if you’re upgrading from an earlier version.
+            Check out the [past release notes](https://github.com/Yuneko-dev/Nekori/releases) if you’re upgrading from an earlier version.
 
             <!-->
 
@@ -158,14 +192,14 @@ jobs:
 
             > [!TIP]
             >
-            > ### If you are unsure which version to download then go with `tsundoku-${{ needs.get_tag.outputs.tag }}.apk`
+            > ### If you are unsure which version to download then go with `nekori-${{ needs.get_tag.outputs.tag }}.apk`
           files: |
-            tsundoku-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-${{ needs.get_tag.outputs.tag }}-foss.apk
-            tsundoku-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-x86-${{ needs.get_tag.outputs.tag }}.apk
-            tsundoku-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-${{ needs.get_tag.outputs.tag }}-foss.apk
+            nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
+            nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
           draft: true
           prerelease: false
-          token: ${{ secrets.TSUNDOKU_BOT_TOKEN }}
+          token: ${{ secrets.NEKORI_BOT_TOKEN }}

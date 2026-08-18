@@ -15,12 +15,12 @@ import java.util.Base64
 
 internal object DiscordProtocol {
     const val CLIENT_ID = "1510134118048858142"
-    const val REDIRECT_URI = "lnreader:/authorize/callback"
+    const val REDIRECT_URI = "nekori://discord-auth"
     const val SCOPE = "openid sdk.social_layer sdk.social_layer_presence"
     const val API_BASE = "https://gaming-sdk.com/api"
     const val GATEWAY_URL = "wss://gateway.gaming-sdk.com/?v=9&encoding=json"
     const val USER_AGENT = "Discord Embedded/1.9.15780"
-    const val APP_LOGO_ASSET_ID = "1512169205879934986"
+    const val APP_LOGO_ASSET_ID = "1539333482780565514"
 
     const val OP_DISPATCH = 0
     const val OP_HEARTBEAT = 1
@@ -152,7 +152,7 @@ internal data class DiscordPresence(
     val startedAt: Long,
 ) {
     fun toJson(): JsonObject = buildJsonObject {
-        put("name", "Tsundoku")
+        put("name", "Nekori")
         put("type", 3)
         put("application_id", DiscordProtocol.CLIENT_ID)
         formatRpcString(state)?.let { put("state", it) }

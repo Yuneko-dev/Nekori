@@ -52,10 +52,10 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "app.tsundoku"
+        applicationId = "app.yuneko.nekori"
 
-        versionCode = 24
-        versionName = "0.3.1"
+        versionCode = 1
+        versionName = "0.0.1"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")
@@ -66,10 +66,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    if (System.getenv("TSUNDOKU_GITHUB_RELEASE").toBoolean() &&
-        System.getenv("GITHUB_REPOSITORY_OWNER") == "tsundoku-otaku"
+    if (System.getenv("NEKORI_GITHUB_RELEASE").toBoolean() &&
+        System.getenv("GITHUB_REPOSITORY_OWNER") == "Yuneko-dev"
     ) {
-        val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("tsundoku.keystore")
+        val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("nekori.keystore")
 
         val storeFileBytes = System.getenv("storeFileBase64").filter {
             !it.isWhitespace() && it != '"'
@@ -368,7 +368,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
 
     // For detecting memory leaks; see https://square.github.io/leakcanary/
-    // debugImplementation(libs.leakCanary.android)
+    debugImplementation(libs.leakCanary.core)
     implementation(libs.leakCanary.plumber)
 
     testImplementation(libs.kotlinx.coroutines.test)

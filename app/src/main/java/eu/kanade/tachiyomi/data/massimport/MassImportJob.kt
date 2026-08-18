@@ -1155,7 +1155,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
         try {
             // Per-batch filename so a batch finishing first can't overwrite another's linked results.
             val safeId = batchId.ifEmpty { "unknown" }
-            val file = context.createFileInCacheDir("tsundoku_mass_import_results_$safeId.txt")
+            val file = context.createFileInCacheDir("nekori_mass_import_results_$safeId.txt")
             file.bufferedWriter().use { out ->
                 out.write("=== Mass Import Results ===\n")
                 out.write(
@@ -2111,7 +2111,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
         private fun deleteBatchFiles(context: Context, batchId: String) {
             runCatching { File(context.cacheDir, "mass_import_$batchId.txt").delete() }
             // Result file (createFileInCacheDir prefers externalCacheDir) would otherwise leak.
-            val resultName = "tsundoku_mass_import_results_${batchId.ifEmpty { "unknown" }}.txt"
+            val resultName = "nekori_mass_import_results_${batchId.ifEmpty { "unknown" }}.txt"
             runCatching { File(context.cacheDir, resultName).delete() }
             context.externalCacheDir?.let { runCatching { File(it, resultName).delete() } }
             MassImportStore.delete(context, batchId)

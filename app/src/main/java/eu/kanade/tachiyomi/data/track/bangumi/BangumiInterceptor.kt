@@ -35,7 +35,7 @@ class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
         return originalRequest.newBuilder()
             .header(
                 "User-Agent",
-                "antsylich/Tsundoku/v${BuildConfig.VERSION_NAME} (Android) (http://github.com/tsundoku-otaku/tsundoku)",
+                "Yuneko-dev/Nekori/v${BuildConfig.VERSION_NAME} (Android) (https://github.com/Yuneko-dev/Nekori)",
             )
             .apply {
                 addHeader("Authorization", "Bearer ${currAuth.accessToken}")

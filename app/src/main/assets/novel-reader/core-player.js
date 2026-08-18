@@ -54,7 +54,7 @@
     return el ? el.content.trim() : "";
   };
 
-  // Native bridges (window.reader, window.Android, TsundokuVideoDownload) can vanish mid-playback or
+  // Native bridges (window.reader, window.Android, NekoriVideoDownload) can vanish mid-playback or
   // mid-teardown, so every call through one is guarded the same way.
   const hostCall = (host, name, ...args) => {
     try {
@@ -284,7 +284,7 @@
     }
 
     bridgeCall(name, ...args) {
-      return hostCall(window.TsundokuVideoDownload, name, ...args);
+      return hostCall(window.NekoriVideoDownload, name, ...args);
     }
 
     startDownload(task) {

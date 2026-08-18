@@ -37,11 +37,11 @@ class AppUpdateChecker {
 
 val GITHUB_REPO: String by lazy {
     if (isNightlyBuildType) {
-        "tsundoku-otaku/tsundoku-nightly"
+        "Yuneko-dev/Nekori-nightly"
     } else if (isPreviewBuildType) {
-        "tsundoku-otaku/tsundoku-preview"
+        "Yuneko-dev/Nekori-preview"
     } else {
-        "tsundoku-otaku/tsundoku"
+        "Yuneko-dev/Nekori"
     }
 }
 

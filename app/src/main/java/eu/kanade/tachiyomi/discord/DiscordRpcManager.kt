@@ -146,7 +146,7 @@ class DiscordRpcManager internal constructor(
                 details = "Browsing Source",
                 state = sourceName,
                 largeImage = DiscordProtocol.APP_LOGO_ASSET_ID,
-                largeText = "Tsundoku",
+                largeText = "Nekori",
                 smallImage = icon,
                 smallText = sourceName,
                 action = sourceUrl?.let { "View source" to it },
@@ -169,7 +169,7 @@ class DiscordRpcManager internal constructor(
                 largeImage = resolvedCover,
                 largeText = novelName,
                 smallImage = DiscordProtocol.APP_LOGO_ASSET_ID,
-                smallText = "Tsundoku",
+                smallText = "Nekori",
                 action = novelUrl?.let { "View novel" to it },
             )
         }
@@ -192,7 +192,7 @@ class DiscordRpcManager internal constructor(
                 largeImage = resolvedCover,
                 largeText = chapterPage?.let { "[$it]: $chapterName" } ?: chapterName,
                 smallImage = DiscordProtocol.APP_LOGO_ASSET_ID,
-                smallText = "Tsundoku",
+                smallText = "Nekori",
                 action = chapterUrl?.let { "Read chapter" to it },
             )
         }
@@ -218,7 +218,7 @@ class DiscordRpcManager internal constructor(
             basePresence(
                 state = state,
                 largeImage = DiscordProtocol.APP_LOGO_ASSET_ID,
-                largeText = "Tsundoku",
+                largeText = "Nekori",
             ),
         )
     }
@@ -254,7 +254,7 @@ class DiscordRpcManager internal constructor(
         action: Pair<String, String>? = null,
     ): JsonObject {
         val buttons = buildList {
-            add("Read on Tsundoku" to "https://github.com/tsundoku-otaku")
+            add("Read on Nekori" to "https://github.com/Yuneko-dev/Nekori")
             action?.takeIf { isHttpUrl(it.second) }?.let(::add)
         }
         return DiscordPresence(
@@ -354,7 +354,7 @@ class DiscordRpcManager internal constructor(
         val response = client.newCall(
             Request.Builder()
                 .url("https://litterbox.catbox.moe/resources/internals/api.php")
-                .header("User-Agent", "Tsundoku (https://github.com/tsundoku-otaku)")
+                .header("User-Agent", "Nekori (https://github.com/Yuneko-dev/Nekori)")
                 .post(body)
                 .build(),
         ).execute()
