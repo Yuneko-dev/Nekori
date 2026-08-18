@@ -57,8 +57,8 @@ class TranslationPreferences(
     fun requestRetryCount() = preferenceStore.getInt("translation_request_retry_count", 2)
 
     /**
-     * Requests per minute allowed to an AI provider, enforced on the HTTP client so it covers every
-     * AI task rather than one of them. 0 means the provider imposes the only limit.
+     * Requests per minute allowed to an AI provider, applied before a request is issued so it covers
+     * every AI task rather than one of them. 0 means the provider imposes the only limit.
      */
     fun aiRpmLimit() = preferenceStore.getInt("ai_rpm_limit", 0)
 
@@ -247,10 +247,15 @@ class TranslationPreferences(
      * Whether to send previous translated paragraphs as context to LLM engines.
      * This improves translation consistency across chunks by giving the LLM
      * context from the end of the previous chunk.
+     *
+     * Off by default: it only has an effect once a chapter is split, and it costs the whole
+     * chapter its parallelism, because a chunk cannot start until the one before it has been
+     * translated. Consistency across a chunk seam is worth turning on for, not worth paying for
+     * by default.
      */
     fun contextualAnchoringEnabled() = preferenceStore.getBoolean(
         "translation_contextual_anchoring_enabled",
-        true,
+        false,
     )
 
     /**
