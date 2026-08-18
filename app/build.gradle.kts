@@ -118,13 +118,6 @@ android {
 
         val commonMatchingFallbacks = listOf(release.name)
 
-        create("foss") {
-            initWith(release)
-
-            applicationIdSuffix = ".foss"
-
-            matchingFallbacks.addAll(commonMatchingFallbacks)
-        }
         create("preview") {
             initWith(release)
 

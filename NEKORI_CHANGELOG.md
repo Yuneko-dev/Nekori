@@ -78,6 +78,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Legacy Kotlin extension discovery, and the Shizuku extension installer.
 - Obsolete manga download preferences.
 - Firebase configuration, with release telemetry disabled.
+- The FOSS build. Upstream needs it because the regular build ships Firebase and F-Droid will not take
+  that; this fork dropped Firebase, so the two builds were the same app under two package names, built
+  twice on every release.
 
 ### Fixed
 

@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.data.updater
 
 import eu.kanade.tachiyomi.BuildConfig
-import eu.kanade.tachiyomi.util.system.isFossBuildType
 import eu.kanade.tachiyomi.util.system.isNightlyBuildType
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
 import tachiyomi.core.common.util.lang.withIOContext
@@ -21,7 +20,6 @@ class AppUpdateChecker {
         return withIOContext {
             val result = getApplicationRelease.await(
                 GetApplicationRelease.Arguments(
-                    isFossBuildType,
                     isPreviewBuildType,
                     BuildConfig.COMMIT_COUNT.toInt(),
                     BuildConfig.VERSION_NAME,

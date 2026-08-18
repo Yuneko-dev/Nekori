@@ -53,7 +53,6 @@ class GetApplicationRelease(
     }
 
     data class Arguments(
-        val isFoss: Boolean,
         val isPreview: Boolean,
         val commitCount: Int,
         val versionName: String,
