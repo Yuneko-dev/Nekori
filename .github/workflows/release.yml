@@ -45,6 +45,10 @@ jobs:
       # the build dies before Gradle configures a single project.
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+        with:
+          # The npm root is js-runtime/, not the repo root, so the action cannot find the
+          # packageManager pin on its own.
+          package_json_file: js-runtime/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -116,6 +120,10 @@ jobs:
       # the build dies before Gradle configures a single project.
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+        with:
+          # The npm root is js-runtime/, not the repo root, so the action cannot find the
+          # packageManager pin on its own.
+          package_json_file: js-runtime/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v6
