@@ -1136,6 +1136,8 @@
     <string name="lnreader_import_downloads">Downloaded chapters</string>
     <string name="lnreader_import_covers">Cached covers</string>
     <string name="lnreader_import_plugins">JavaScript plugins and repositories</string>
+    <string name="lnreader_import_missing_plugins">Novels with missing plugins</string>
+    <string name="lnreader_import_missing_plugins_warning">Novels whose plugin is not installed and not described in the backup are imported onto a placeholder source. Installing the real plugin later will not reconnect them: you have to migrate those novels manually.</string>
     <string name="lnreader_import_compatible_settings">Compatible settings</string>
     <string name="lnreader_import_ai_keys">AI API keys</string>
     <string name="lnreader_import_action">Import</string>

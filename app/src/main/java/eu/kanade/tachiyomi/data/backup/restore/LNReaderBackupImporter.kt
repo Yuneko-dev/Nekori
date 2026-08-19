@@ -181,6 +181,8 @@ class LNReaderBackupImporter(
         val errorCount: Int,
         val logFile: File,
         val missingPlugins: List<String> = emptyList(),
+        /** Missing plugins that were imported onto a synthetic source ID, so they need a manual migration. */
+        val placeholderPlugins: List<String> = emptyList(),
         val skippedCount: Int = 0,
         val installedPluginCount: Int = 0,
         val restoredDownloadCount: Int = 0,
@@ -209,6 +211,7 @@ class LNReaderBackupImporter(
         val restoreCategories: Boolean = true,
         val restoreHistory: Boolean = true,
         val restorePlugins: Boolean = true,
+        val restoreMissingPlugins: Boolean = false,
         val restoreDownloadedChapters: Boolean = true,
         val restoreCovers: Boolean = true,
         val restoreCompatibleSettings: Boolean = true,
@@ -248,6 +251,7 @@ class LNReaderBackupImporter(
         var restoredCoverCount = 0
         var restoredCompatibleSettings = false
         val missingPlugins = mutableSetOf<String>()
+        val placeholderPlugins = mutableSetOf<String>()
 
         // Preflight must finish before any database or filesystem mutation.
         logcat(LogPriority.INFO) { "LNReaderImport: Extracting and validating backup" }
@@ -320,7 +324,9 @@ class LNReaderBackupImporter(
             // Step 4: Build plugin mapping
             val pluginIdToSourceId = buildPluginMapping().toMutableMap()
 
-            // Missing plugins get a stub only when the real source ID can be derived exactly.
+            // Missing plugins get a stub. Backup metadata yields the real source ID, so installing the
+            // plugin later picks those novels up; without it the ID is synthetic and never matches, which
+            // is why [ImportOptions.restoreMissingPlugins] has to opt in to a manual migration afterwards.
             val requiredPlugins = if (options.restoreNovels) remoteNovels.map { it.pluginId }.toSet() else emptySet()
             val actualMissingPlugins = requiredPlugins.filter { resolveSourceId(pluginIdToSourceId, it) == null }
             missingPlugins.addAll(actualMissingPlugins)
@@ -328,20 +334,28 @@ class LNReaderBackupImporter(
             if (actualMissingPlugins.isNotEmpty()) {
                 actualMissingPlugins.forEach { pluginId ->
                     val metadata = backupPluginMetadata[normalizePluginId(pluginId)]
-                    if (metadata == null) {
+                    if (metadata == null && !options.restoreMissingPlugins) {
                         errors.add(Date() to "Missing plugin '$pluginId': exact source ID cannot be derived")
                         return@forEach
                     }
-                    val stubSourceId = metadata.sourceId()
+                    val stubSourceId = metadata?.sourceId() ?: generateStubSourceId(pluginId)
                     try {
                         stubSourceRepository.upsertStubSource(
                             id = stubSourceId,
-                            lang = metadata.lang,
-                            name = metadata.name,
+                            lang = metadata?.lang ?: "unknown",
+                            name = metadata?.name ?: "$pluginId (Missing)",
                             isNovel = true,
                             isJs = true,
                         )
                         pluginIdToSourceId[normalizePluginId(pluginId)] = stubSourceId
+                        if (metadata == null) {
+                            placeholderPlugins.add(pluginId)
+                            errors.add(
+                                Date() to
+                                    "Missing plugin '$pluginId': imported onto placeholder source $stubSourceId; " +
+                                    "migrate these novels manually after installing the plugin",
+                            )
+                        }
                         logcat(LogPriority.INFO) {
                             "LNReaderImport: Created stub source for missing plugin '$pluginId' with ID $stubSourceId"
                         }
@@ -465,6 +479,7 @@ class LNReaderBackupImporter(
             errorCount = errors.size,
             logFile = logFile,
             missingPlugins = missingPlugins.toList(),
+            placeholderPlugins = placeholderPlugins.toList(),
             skippedCount = skippedCount,
             installedPluginCount = installedPluginCount,
             restoredDownloadCount = restoredDownloadCount,
@@ -963,6 +978,14 @@ class LNReaderBackupImporter(
     private fun resolveSourceId(pluginIdToSourceId: Map<String, Long>, pluginId: String): Long? {
         val normalized = normalizePluginId(pluginId)
         return pluginIdToSourceId[normalized] ?: pluginIdToSourceId[normalized.replace('_', '-')]
+    }
+
+    /**
+     * Placeholder source ID for a plugin the backup carries no metadata for. The 5e9 band is free:
+     * [JsPlugin.sourceId] is a masked Int hash, so it lands either below 2^31 or near [Long.MAX_VALUE].
+     */
+    private fun generateStubSourceId(pluginId: String): Long {
+        return 5_000_000_000L + (pluginId.hashCode().toLong() and 0x7FFFFFFF)
     }
 
     private fun writeErrorLog(): File {

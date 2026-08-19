@@ -93,6 +93,7 @@ class LNReaderImportScreen(private val uriString: String) : Screen() {
                             restoreCategories = options.novels && options.categories,
                             restoreHistory = options.novels && options.history,
                             restorePlugins = options.plugins,
+                            restoreMissingPlugins = options.novels && options.missingPlugins,
                             restoreDownloadedChapters = options.novels && options.chapters && options.downloads,
                             restoreCovers = options.novels && options.covers,
                             restoreCompatibleSettings = options.compatibleSettings,
@@ -121,6 +122,7 @@ private fun ImportOptions(
                 categories = summary.novelCount > 0,
                 history = summary.novelCount > 0,
                 plugins = summary.hasPlugins,
+                missingPlugins = false,
                 downloads = summary.hasDownloadedFiles,
                 covers = summary.hasDownloadedFiles,
                 compatibleSettings = summary.hasSettings,
@@ -203,6 +205,18 @@ private fun ImportOptions(
             }
             item {
                 ImportOption(
+                    stringResource(TDMR.strings.lnreader_import_missing_plugins),
+                    selection.missingPlugins,
+                    selection.novels,
+                ) { selection = selection.copy(missingPlugins = it) }
+            }
+            if (selection.novels && selection.missingPlugins) {
+                item {
+                    InfoWidget(stringResource(TDMR.strings.lnreader_import_missing_plugins_warning))
+                }
+            }
+            item {
+                ImportOption(
                     stringResource(TDMR.strings.lnreader_import_compatible_settings),
                     selection.compatibleSettings,
                     summary.hasSettings,
@@ -245,6 +259,7 @@ private data class ImportSelection(
     val categories: Boolean,
     val history: Boolean,
     val plugins: Boolean,
+    val missingPlugins: Boolean,
     val downloads: Boolean,
     val covers: Boolean,
     val compatibleSettings: Boolean,

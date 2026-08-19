@@ -1119,6 +1119,8 @@
     <string name="lnreader_import_downloads">Chương đã tải xuống</string>
     <string name="lnreader_import_covers">Bìa được lưu đệm</string>
     <string name="lnreader_import_plugins">Plugin JavaScript và kho plugin</string>
+    <string name="lnreader_import_missing_plugins">Truyện thiếu plugin</string>
+    <string name="lnreader_import_missing_plugins_warning">Truyện có plugin chưa cài và cũng không được mô tả trong bản sao lưu sẽ được nhập vào một nguồn tạm. Cài plugin thật sau đó cũng không nối lại được: bạn phải chuyển (migrate) những truyện này thủ công.</string>
     <string name="lnreader_import_compatible_settings">Cài đặt tương thích</string>
     <string name="lnreader_import_ai_keys">Khóa API AI</string>
     <string name="lnreader_import_action">Nhập</string>
