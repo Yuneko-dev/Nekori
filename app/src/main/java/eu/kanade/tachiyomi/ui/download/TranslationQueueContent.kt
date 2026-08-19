@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import tachiyomi.domain.translation.model.TranslationProgress
 import tachiyomi.domain.translation.model.TranslationTask
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
@@ -54,9 +55,9 @@ fun TranslationQueueContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     val statusText = when {
-                        progress.isCancelling -> stringResource(MR.strings.pref_translation_status_cancelling)
+                        progress.isCancelling -> stringResource(TDMR.strings.pref_translation_status_cancelling)
                         isPaused -> stringResource(
-                            MR.strings.pref_translation_status_paused,
+                            TDMR.strings.pref_translation_status_paused,
                             progress.completedChapters,
                             progress.totalChapters,
                         )
@@ -64,7 +65,7 @@ fun TranslationQueueContent(
                             val current = progress.currentChapterName ?: "..."
                             val chunkInfo = if (progress.totalChunks > 1) {
                                 stringResource(
-                                    MR.strings.pref_translation_status_chunk_info,
+                                    TDMR.strings.pref_translation_status_chunk_info,
                                     progress.currentChunkIndex,
                                     progress.totalChunks,
                                 )
@@ -72,7 +73,7 @@ fun TranslationQueueContent(
                                 ""
                             }
                             stringResource(
-                                MR.strings.pref_translation_status_translating,
+                                TDMR.strings.pref_translation_status_translating,
                                 current,
                                 chunkInfo,
                                 progress.completedChapters,

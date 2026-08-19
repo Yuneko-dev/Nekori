@@ -72,6 +72,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -630,7 +631,7 @@ class Downloader(
                 } else {
                     val failed = download.pages?.count { it.status !is Page.State.Ready } ?: 0
                     download.error = context.stringResource(
-                        MR.strings.download_incomplete_error,
+                        TDMR.strings.download_incomplete_error,
                         failed,
                         download.pages?.size ?: 0,
                     )

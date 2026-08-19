@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
@@ -25,6 +26,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.ConcurrentHashMap
@@ -164,7 +166,13 @@ class SourceTrackerDispatcher(
         runCatching {
             withUIContext {
                 val app = Injekt.get<Application>()
-                app.toast("${source.name} tracker failed: ${e.message ?: e::class.simpleName}")
+                app.toast(
+                    app.stringResource(
+                        TDMR.strings.tracker_dispatch_failure_toast,
+                        source.name,
+                        e.message ?: e::class.simpleName.orEmpty(),
+                    ),
+                )
             }
         }
     }

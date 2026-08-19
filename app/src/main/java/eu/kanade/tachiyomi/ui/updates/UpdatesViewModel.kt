@@ -38,6 +38,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -56,6 +57,7 @@ import tachiyomi.domain.updates.interactor.ClearUpdatesCache
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.domain.updates.service.UpdatesPreferences
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
@@ -532,7 +534,8 @@ class UpdatesViewModel(
     fun clearUpdatesCacheAll() {
         viewModelScope.launchIO {
             clearUpdatesCache.clearAll()
-            snackbarHostState.showSnackbar("Updates cache cleared")
+            val context = Injekt.get<Application>()
+            snackbarHostState.showSnackbar(context.stringResource(TDMR.strings.updates_cache_cleared))
         }
     }
 

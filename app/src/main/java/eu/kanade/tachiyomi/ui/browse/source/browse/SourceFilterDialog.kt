@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.CollapsibleBox
 import tachiyomi.presentation.core.components.HeadingItem
@@ -83,7 +84,7 @@ fun SourceFilterDialog(
                     IconButton(onClick = { showSaveDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Save,
-                            contentDescription = "Save preset",
+                            contentDescription = stringResource(TDMR.strings.browse_filter_save_preset_cd),
                         )
                     }
 
@@ -91,7 +92,7 @@ fun SourceFilterDialog(
                     IconButton(onClick = onOpenPresets) {
                         Icon(
                             imageVector = Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Presets",
+                            contentDescription = stringResource(TDMR.strings.browse_filter_presets_cd),
                         )
                     }
 
@@ -239,13 +240,13 @@ private fun SavePresetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save Filter Preset") },
+        title = { Text(stringResource(TDMR.strings.browse_filter_preset_save_dialog_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    label = { Text("Preset Name") },
+                    label = { Text(stringResource(TDMR.strings.browse_filter_preset_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -261,7 +262,7 @@ private fun SavePresetDialog(
                         onCheckedChange = { setAsDefault = it },
                     )
                     Text(
-                        text = "Set as default preset",
+                        text = stringResource(TDMR.strings.browse_filter_preset_set_default_label),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }

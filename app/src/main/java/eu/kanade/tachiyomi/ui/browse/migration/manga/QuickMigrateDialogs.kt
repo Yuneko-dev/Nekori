@@ -47,13 +47,11 @@ fun QuickMigrateSourcePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.quick_migrate_select_source)) },
+        title = { Text(text = stringResource(TDMR.strings.quick_migrate_select_source)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    text = "This option is for migrating between the same URL/extension, " +
-                        "or when moving from JS to KT extensions. " +
-                        "Cannot be used to migrate to completely different extensions.",
+                    text = stringResource(TDMR.strings.quick_migrate_source_picker_description),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
@@ -62,19 +60,19 @@ fun QuickMigrateSourcePickerDialog(
                     FilterChip(
                         selected = !showNovel,
                         onClick = { showNovel = false },
-                        label = { Text("Manga") },
+                        label = { Text(stringResource(TDMR.strings.label_manga)) },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     FilterChip(
                         selected = showNovel,
                         onClick = { showNovel = true },
-                        label = { Text("Novel") },
+                        label = { Text(stringResource(TDMR.strings.pref_category_novel)) },
                     )
                 }
 
                 if (sources.isEmpty()) {
                     Text(
-                        text = "No sources available",
+                        text = stringResource(TDMR.strings.quick_migrate_no_sources_available),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 16.dp),
@@ -130,12 +128,12 @@ fun QuickMigrateConfirmDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.action_quick_migrate)) },
+        title = { Text(text = stringResource(TDMR.strings.action_quick_migrate)) },
         text = {
             Column {
                 Text(
                     text = stringResource(
-                        MR.strings.quick_migrate_confirm_message,
+                        TDMR.strings.quick_migrate_confirm_message,
                         targetSourceName,
                         totalCount,
                     ),
@@ -143,7 +141,7 @@ fun QuickMigrateConfirmDialog(
 
                 if (skipCount > 0) {
                     Text(
-                        text = stringResource(MR.strings.quick_migrate_skip_message, skipCount),
+                        text = stringResource(TDMR.strings.quick_migrate_skip_message, skipCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp),
@@ -184,14 +182,14 @@ fun QuickMigrateConfirmDialog(
                         onCheckedChange = { createCategory = it },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Add to new category")
+                    Text(text = stringResource(TDMR.strings.quick_migrate_add_to_new_category))
                 }
 
                 if (createCategory) {
                     OutlinedTextField(
                         value = categoryName,
                         onValueChange = { categoryName = it },
-                        label = { Text("Category name") },
+                        label = { Text(stringResource(TDMR.strings.quick_migrate_category_name_label)) },
                         modifier = Modifier
                             .padding(top = 8.dp)
                             .fillMaxWidth(),

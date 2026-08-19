@@ -222,7 +222,7 @@ data class BrowseSourceScreen(
                 // Range loading complete
                 viewModel.clearTargetEndPage()
                 snackbarHostState.showSnackbar(
-                    message = "Finished loading pages up to $endPage",
+                    message = context.stringResource(TDMR.strings.browse_source_page_load_finished, endPage),
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -232,7 +232,12 @@ data class BrowseSourceScreen(
         LaunchedEffect(lastImportResult) {
             lastImportResult?.let { (added, skipped, errored) ->
                 snackbarHostState.showSnackbar(
-                    message = "Imported: $added added, $skipped skipped, $errored errors",
+                    message = context.stringResource(
+                        TDMR.strings.browse_source_import_result,
+                        added,
+                        skipped,
+                        errored,
+                    ),
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -310,7 +315,10 @@ data class BrowseSourceScreen(
                             viewModel.jumpToPage(targetPage)
                             scope.launchIO {
                                 snackbarHostState.showSnackbar(
-                                    message = "Jumping to page $targetPage...",
+                                    message = context.stringResource(
+                                        TDMR.strings.browse_source_jumping_to_page,
+                                        targetPage,
+                                    ),
                                     duration = SnackbarDuration.Short,
                                 )
                             }
@@ -319,7 +327,11 @@ data class BrowseSourceScreen(
                             viewModel.loadPageRange(startPage, endPage)
                             scope.launchIO {
                                 snackbarHostState.showSnackbar(
-                                    message = "Loading pages $startPage to $endPage...",
+                                    message = context.stringResource(
+                                        TDMR.strings.browse_source_loading_page_range,
+                                        startPage,
+                                        endPage,
+                                    ),
                                     duration = SnackbarDuration.Short,
                                 )
                             }
@@ -443,9 +455,12 @@ data class BrowseSourceScreen(
                             label = {
                                 Text(
                                     text = if (state.selectionMode && state.selection.isNotEmpty()) {
-                                        "${state.selection.size} selected"
+                                        stringResource(
+                                            TDMR.strings.browse_source_selection_count,
+                                            state.selection.size,
+                                        )
                                     } else {
-                                        "Select"
+                                        stringResource(TDMR.strings.browse_source_select_label)
                                     },
                                 )
                             },
@@ -742,8 +757,15 @@ data class BrowseSourceScreen(
         if (showBackConfirmDialog) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showBackConfirmDialog = false },
-                title = { Text(text = "Leave browse?") },
-                text = { Text(text = "You have loaded $currentPage pages. Are you sure you want to go back?") },
+                title = { Text(text = stringResource(TDMR.strings.browse_source_leave_confirm_title)) },
+                text = {
+                    Text(
+                        text = stringResource(
+                            TDMR.strings.browse_source_leave_confirm_message,
+                            currentPage,
+                        ),
+                    )
+                },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
                         onClick = {

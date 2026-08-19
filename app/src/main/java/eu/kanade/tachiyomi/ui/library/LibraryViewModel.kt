@@ -94,6 +94,7 @@ import tachiyomi.domain.track.model.Track
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.isLocalNovel
 import uy.kohesive.injekt.Injekt
@@ -1460,7 +1461,7 @@ class LibraryViewModel(
         viewModelScope.launchNonCancellable {
             if (started) {
                 snackbarHostState.showSnackbar(
-                    message = context.stringResource(MR.strings.batch_updating_entries, mangaList.size),
+                    message = context.stringResource(TDMR.strings.batch_updating_entries, mangaList.size),
                     duration = SnackbarDuration.Short,
                 )
             } else {
@@ -1533,8 +1534,11 @@ class LibraryViewModel(
         }
         if (selectedNovels.isEmpty()) {
             viewModelScope.launchIO {
+                val context = Injekt.get<android.app.Application>()
                 withUIContext {
-                    snackbarHostState.showSnackbar("No novels selected for export")
+                    snackbarHostState.showSnackbar(
+                        context.stringResource(TDMR.strings.library_export_epub_no_selection),
+                    )
                 }
             }
             return
@@ -1569,7 +1573,7 @@ class LibraryViewModel(
         viewModelScope.launchIO {
             withUIContext {
                 snackbarHostState.showSnackbar(
-                    "EPUB export started for ${mangaList.size} novels",
+                    context.stringResource(TDMR.strings.library_export_epub_started, mangaList.size),
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -1885,15 +1889,31 @@ class LibraryViewModel(
 
                 withUIContext {
                     val message = buildString {
-                        append("Exported $successCount/${mangaList.size} novels")
-                        if (skippedCount > 0) append(" ($skippedCount skipped)")
+                        append(
+                            context.stringResource(
+                                TDMR.strings.library_export_epub_success_count,
+                                successCount,
+                                mangaList.size,
+                            ),
+                        )
+                        if (skippedCount > 0) {
+                            append(
+                                context.stringResource(
+                                    TDMR.strings.library_export_epub_skipped_suffix,
+                                    skippedCount,
+                                ),
+                            )
+                        }
                     }
                     snackbarHostState.showSnackbar(message)
                 }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Batch EPUB export failed" }
                 withUIContext {
-                    snackbarHostState.showSnackbar("Export failed: ${e.message}")
+                    val context = Injekt.get<android.app.Application>()
+                    snackbarHostState.showSnackbar(
+                        context.stringResource(TDMR.strings.library_export_epub_failed, e.message.orEmpty()),
+                    )
                 }
             }
         }

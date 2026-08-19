@@ -192,7 +192,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val lineHeight = readerPreferences.novelLineHeight.collectAsState().value
 
         return Preference.PreferenceGroup(
-            title = "Text",
+            title = stringResource(TDMR.strings.settings_reader_text_group),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SliderPreference(
                     value = fontSize,
@@ -231,8 +231,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     }
                 },
                 Preference.PreferenceItem.TextPreference(
-                    title = "Font Manager",
-                    subtitle = "Download or import custom fonts",
+                    title = stringResource(TDMR.strings.settings_font_manager_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_font_manager_summary),
                     onClick = { navigator.push(FontManagerScreen()) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
@@ -256,13 +256,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelForceTextLowercase,
-                    title = "Force lowercase",
-                    subtitle = "Convert all text to lowercase",
+                    title = stringResource(TDMR.strings.settings_reader_force_lowercase),
+                    subtitle = stringResource(TDMR.strings.settings_reader_force_lowercase_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelUseOriginalFonts,
-                    title = "Use original fonts (WebView only)",
-                    subtitle = "Preserve fonts from the source website",
+                    title = stringResource(TDMR.strings.settings_reader_use_original_fonts_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_use_original_fonts_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelBionicReading,
@@ -302,8 +302,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 add(
                     Preference.PreferenceItem.SwitchPreference(
                         preference = readerPreferences.novelSwipeNavigation,
-                        title = "Swipe navigation",
-                        subtitle = "Swipe left/right to change chapters",
+                        title = stringResource(TDMR.strings.settings_reader_swipe_navigation_title),
+                        subtitle = stringResource(TDMR.strings.settings_reader_swipe_navigation_summary),
                     ),
                 )
             },
@@ -340,7 +340,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val marginBottom = readerPreferences.novelMarginBottom.collectAsState().value
 
         return Preference.PreferenceGroup(
-            title = "Formatting",
+            title = stringResource(TDMR.strings.settings_reader_formatting_group),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SliderPreference(
                     value = (paragraphIndent * 10).toInt(),
@@ -394,19 +394,19 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val markAsReadThreshold = readerPreferences.novelMarkAsReadThreshold.collectAsState().value
 
         return Preference.PreferenceGroup(
-            title = "Content",
+            title = stringResource(TDMR.strings.settings_reader_content_group),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelInfiniteScroll,
-                    title = "Infinite scroll",
-                    subtitle = "Load next chapter automatically while scrolling",
+                    title = stringResource(TDMR.strings.settings_reader_infinite_scroll_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_infinite_scroll_summary),
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = autoLoadNextAt,
                     // 0 keeps one chapter ready ahead at all times instead of waiting for a scroll
                     // position, which is what makes a run of short chapters append without stalling.
                     valueRange = 0..100 step 5,
-                    title = "Auto-load next chapter at",
+                    title = stringResource(TDMR.strings.settings_reader_auto_load_next_at_title),
                     valueString = if (autoLoadNextAt > 0) {
                         "$autoLoadNextAt%"
                     } else {
@@ -417,39 +417,39 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SliderPreference(
                     value = markAsReadThreshold,
                     valueRange = 50..100,
-                    title = "Mark chapter as read at",
+                    title = stringResource(TDMR.strings.settings_reader_mark_as_read_at_title),
                     valueString = "$markAsReadThreshold%",
                     onValueChanged = { readerPreferences.novelMarkAsReadThreshold.set(it) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelMarkShortChapterAsRead,
-                    title = "Auto-mark short chapters as read",
-                    subtitle = "If a chapter fits the screen without scrolling, mark it read immediately",
+                    title = stringResource(TDMR.strings.settings_reader_auto_mark_short_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_auto_mark_short_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelHideChapterTitle,
-                    title = "Hide chapter title",
-                    subtitle = "Strip chapter title from content",
+                    title = stringResource(TDMR.strings.settings_reader_hide_chapter_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_hide_chapter_title_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelBlockMedia,
-                    title = "Block media",
-                    subtitle = "Block images and media loading in both readers",
+                    title = stringResource(TDMR.strings.settings_reader_block_media_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_block_media_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelTextSelectable,
-                    title = "Text selectable (WebView)",
-                    subtitle = "Allow selecting and copying text in the WebView reader",
+                    title = stringResource(TDMR.strings.settings_reader_text_selectable_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_text_selectable_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelShowRawHtml,
-                    title = "Show raw HTML",
-                    subtitle = "Display HTML source instead of rendered content",
+                    title = stringResource(TDMR.strings.pref_novel_show_raw_html),
+                    subtitle = stringResource(TDMR.strings.settings_reader_show_raw_html_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelSourceCssPriority,
-                    title = "Source CSS priority",
-                    subtitle = "Allow embedded/source CSS to override reader theme colors",
+                    title = stringResource(TDMR.strings.settings_reader_source_css_priority_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_source_css_priority_summary),
                 ),
             ),
         )
@@ -474,21 +474,21 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SliderPreference(
                     value = (ttsSpeed * 10).toInt(),
                     valueRange = 1..30,
-                    title = "TTS speed",
+                    title = stringResource(TDMR.strings.settings_reader_tts_speed_title),
                     valueString = "${ttsSpeed}x",
                     onValueChanged = { readerPreferences.novelTtsSpeed.set(it / 10f) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = (ttsPitch * 10).toInt(),
                     valueRange = 1..30,
-                    title = "TTS pitch",
+                    title = stringResource(TDMR.strings.settings_reader_tts_pitch_title),
                     valueString = "${ttsPitch}x",
                     onValueChanged = { readerPreferences.novelTtsPitch.set(it / 10f) },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelTtsAutoNextChapter,
-                    title = "TTS auto-next chapter",
-                    subtitle = "Automatically continue to next chapter when TTS finishes",
+                    title = stringResource(TDMR.strings.settings_reader_tts_auto_next_title),
+                    subtitle = stringResource(TDMR.strings.settings_reader_tts_auto_next_summary),
                 ),
             ),
         )

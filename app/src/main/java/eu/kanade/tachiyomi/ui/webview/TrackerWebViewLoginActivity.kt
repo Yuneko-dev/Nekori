@@ -59,6 +59,8 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -190,12 +192,12 @@ private fun TrackerWebViewLoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Login to $trackerName") },
+                title = { Text(stringResource(TDMR.strings.settings_tracking_login_to, trackerName)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(MR.strings.action_webview_back),
                         )
                     }
                 },
@@ -203,7 +205,7 @@ private fun TrackerWebViewLoginScreen(
                     IconButton(onClick = { webView?.reload() }) {
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
-                            contentDescription = "Refresh",
+                            contentDescription = stringResource(MR.strings.action_webview_refresh),
                         )
                     }
                     if (trackerId == TrackerManager.NOVELLIST ||
@@ -212,14 +214,14 @@ private fun TrackerWebViewLoginScreen(
                         IconButton(onClick = { showManualTokenDialog = true }) {
                             Icon(
                                 imageVector = Icons.Outlined.Edit,
-                                contentDescription = "Enter token/cookie",
+                                contentDescription = stringResource(TDMR.strings.tracker_webview_enter_token_cd),
                             )
                         }
                     }
                     IconButton(onClick = extractToken) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
-                            contentDescription = "Complete Login",
+                            contentDescription = stringResource(TDMR.strings.tracker_webview_complete_login_cd),
                         )
                     }
                 },
@@ -288,10 +290,12 @@ private fun TrackerWebViewLoginScreen(
                 val instructions =
                     @Suppress("ktlint:standard:max-line-length")
                     when (trackerId) {
-                        TrackerManager.NOVELUPDATES -> "Login to NovelUpdates, then tap the ✓ button to complete login."
-                        TrackerManager.NOVELLIST -> "Login to NovelList, then tap the ✓ button to complete login. Use the edit icon to paste token/cookie manually."
-                        TrackerManager.RANOBEDB -> "Login to RanobeDB, then tap the ✓ button to complete login. Use the edit icon to paste the auth_session cookie manually."
-                        else -> "Login, then tap the ✓ button to complete."
+                        TrackerManager.NOVELUPDATES -> stringResource(
+                            TDMR.strings.tracker_webview_instructions_novelupdates,
+                        )
+                        TrackerManager.NOVELLIST -> stringResource(TDMR.strings.tracker_webview_instructions_novellist)
+                        TrackerManager.RANOBEDB -> stringResource(TDMR.strings.tracker_webview_instructions_ranobedb)
+                        else -> stringResource(TDMR.strings.tracker_webview_instructions_default)
                     }
                 Text(
                     text = instructions,
@@ -312,9 +316,13 @@ private fun TrackerWebViewLoginScreen(
                     title = {
                         Text(
                             when (trackerId) {
-                                TrackerManager.NOVELLIST -> "NovelList token/cookie"
-                                TrackerManager.RANOBEDB -> "RanobeDB cookie"
-                                else -> "Token"
+                                TrackerManager.NOVELLIST -> stringResource(
+                                    TDMR.strings.tracker_webview_dialog_title_novellist,
+                                )
+                                TrackerManager.RANOBEDB -> stringResource(
+                                    TDMR.strings.tracker_webview_dialog_title_ranobedb,
+                                )
+                                else -> stringResource(TDMR.strings.tracker_webview_dialog_title_default)
                             },
                         )
                     },
@@ -323,12 +331,16 @@ private fun TrackerWebViewLoginScreen(
                             value = manualTokenInput,
                             onValueChange = { manualTokenInput = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Token or cookie") },
+                            label = { Text(stringResource(TDMR.strings.tracker_webview_token_or_cookie_label)) },
                             placeholder = {
                                 val hint = when (trackerId) {
-                                    TrackerManager.NOVELLIST -> "Paste JWT, novellist cookie, or full cookie header"
-                                    TrackerManager.RANOBEDB -> "Paste auth_session value or full cookie header"
-                                    else -> "Paste your token"
+                                    TrackerManager.NOVELLIST -> stringResource(
+                                        TDMR.strings.tracker_webview_placeholder_novellist,
+                                    )
+                                    TrackerManager.RANOBEDB -> stringResource(
+                                        TDMR.strings.tracker_webview_placeholder_ranobedb,
+                                    )
+                                    else -> stringResource(TDMR.strings.tracker_webview_placeholder_default)
                                 }
                                 Text(hint)
                             },
@@ -348,16 +360,16 @@ private fun TrackerWebViewLoginScreen(
                                     showManualTokenDialog = false
                                     onLoginSuccess(token)
                                 } else {
-                                    context.toast("Could not extract auth value from input")
+                                    context.toast(TDMR.strings.tracker_webview_extract_failed_toast)
                                 }
                             },
                         ) {
-                            Text("Use")
+                            Text(stringResource(TDMR.strings.tracker_webview_use_button))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showManualTokenDialog = false }) {
-                            Text("Cancel")
+                            Text(stringResource(MR.strings.action_cancel))
                         }
                     },
                 )

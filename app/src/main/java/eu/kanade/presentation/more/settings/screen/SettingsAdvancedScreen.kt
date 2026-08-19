@@ -292,16 +292,16 @@ object SettingsAdvancedScreen : SearchableSettings {
         if (showDeleteTranslationsDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteTranslationsDialog = false },
-                title = { Text(text = stringResource(MR.strings.pref_delete_all_translations)) },
+                title = { Text(text = stringResource(TDMR.strings.pref_delete_all_translations)) },
                 text = {
-                    Text(text = stringResource(MR.strings.pref_delete_all_translations_confirm))
+                    Text(text = stringResource(TDMR.strings.pref_delete_all_translations_confirm))
                 },
                 confirmButton = {
                     TextButton(
                         onClick = {
                             scope.launch {
                                 Injekt.get<TranslatedChapterRepository>().deleteAll()
-                                context.toast(MR.strings.pref_all_translations_deleted)
+                                context.toast(TDMR.strings.pref_all_translations_deleted)
                                 showDeleteTranslationsDialog = false
                             }
                         },
@@ -320,9 +320,9 @@ object SettingsAdvancedScreen : SearchableSettings {
         if (showResetSettingsDialog) {
             AlertDialog(
                 onDismissRequest = { showResetSettingsDialog = false },
-                title = { Text(text = stringResource(MR.strings.pref_reset_settings)) },
+                title = { Text(text = stringResource(TDMR.strings.pref_reset_settings)) },
                 text = {
-                    Text(text = stringResource(MR.strings.pref_reset_settings_confirm))
+                    Text(text = stringResource(TDMR.strings.pref_reset_settings_confirm))
                 },
                 confirmButton = {
                     TextButton(
@@ -348,7 +348,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                             }
                         },
                     ) {
-                        Text(text = stringResource(MR.strings.pref_reset_settings_action))
+                        Text(text = stringResource(TDMR.strings.pref_reset_settings_action))
                     }
                 },
                 dismissButton = {
@@ -376,8 +376,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                     onClick = { navigator.push(ClearDatabaseScreen()) },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_db_statistics),
-                    subtitle = stringResource(MR.strings.pref_db_statistics_subtitle),
+                    title = stringResource(TDMR.strings.pref_db_statistics),
+                    subtitle = stringResource(TDMR.strings.pref_db_statistics_subtitle),
                     onClick = {
                         scope.launch {
                             try {
@@ -460,21 +460,26 @@ object SettingsAdvancedScreen : SearchableSettings {
 
                                 withUIContext {
                                     context.copyToClipboard("Database Stats", report)
-                                    context.toast("Statistics copied to clipboard")
+                                    context.toast(TDMR.strings.settings_advanced_stats_copied)
                                 }
                                 logcat(LogPriority.INFO) { report }
                             } catch (e: Exception) {
                                 logcat(LogPriority.ERROR, e) { "Failed to get database stats" }
                                 withUIContext {
-                                    context.toast("Error: ${e.message}")
+                                    context.toast(
+                                        context.contextStringResource(
+                                            TDMR.strings.custom_source_error_format,
+                                            e.message.orEmpty(),
+                                        ),
+                                    )
                                 }
                             }
                         }
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_db_maintenance),
-                    subtitle = stringResource(MR.strings.pref_db_maintenance_subtitle),
+                    title = stringResource(TDMR.strings.pref_db_maintenance),
+                    subtitle = stringResource(TDMR.strings.pref_db_maintenance_subtitle),
                     onClick = {
                         if (DatabaseMaintenanceJob.isRunning(context)) {
                             context.toast(context.contextStringResource(TDMR.strings.db_maintenance_already_running))
@@ -485,13 +490,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_delete_all_translations),
-                    subtitle = stringResource(MR.strings.pref_delete_all_translations_subtitle),
+                    title = stringResource(TDMR.strings.pref_delete_all_translations),
+                    subtitle = stringResource(TDMR.strings.pref_delete_all_translations_subtitle),
                     onClick = { showDeleteTranslationsDialog = true },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_migrate_quotes_portable),
-                    subtitle = stringResource(MR.strings.pref_migrate_quotes_portable_subtitle),
+                    title = stringResource(TDMR.strings.pref_migrate_quotes_portable),
+                    subtitle = stringResource(TDMR.strings.pref_migrate_quotes_portable_subtitle),
                     onClick = {
                         if (!portableMigrationRunning) {
                             portableMigrationRunning = true
@@ -500,14 +505,14 @@ object SettingsAdvancedScreen : SearchableSettings {
                                     QuotesPortableMigrator.run()
                                 } catch (e: Exception) {
                                     logcat(LogPriority.ERROR, e)
-                                    withUIContext { context.toast(MR.strings.pref_portable_migration_error) }
+                                    withUIContext { context.toast(TDMR.strings.pref_portable_migration_error) }
                                     return@launch
                                 } finally {
                                     portableMigrationRunning = false
                                 }
                                 withUIContext {
                                     context.toast(
-                                        context.contextStringResource(MR.strings.pref_portable_migration_done, count),
+                                        context.contextStringResource(TDMR.strings.pref_portable_migration_done, count),
                                     )
                                 }
                             }
@@ -515,8 +520,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_migrate_translations_portable),
-                    subtitle = stringResource(MR.strings.pref_migrate_translations_portable_subtitle),
+                    title = stringResource(TDMR.strings.pref_migrate_translations_portable),
+                    subtitle = stringResource(TDMR.strings.pref_migrate_translations_portable_subtitle),
                     onClick = {
                         if (!portableMigrationRunning) {
                             portableMigrationRunning = true
@@ -525,14 +530,14 @@ object SettingsAdvancedScreen : SearchableSettings {
                                     TranslationsPortableMigrator.run()
                                 } catch (e: Exception) {
                                     logcat(LogPriority.ERROR, e)
-                                    withUIContext { context.toast(MR.strings.pref_portable_migration_error) }
+                                    withUIContext { context.toast(TDMR.strings.pref_portable_migration_error) }
                                     return@launch
                                 } finally {
                                     portableMigrationRunning = false
                                 }
                                 withUIContext {
                                     context.toast(
-                                        context.contextStringResource(MR.strings.pref_portable_migration_done, count),
+                                        context.contextStringResource(TDMR.strings.pref_portable_migration_done, count),
                                     )
                                 }
                             }
@@ -540,8 +545,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_clear_temp_files),
-                    subtitle = stringResource(MR.strings.pref_clear_temp_files_subtitle),
+                    title = stringResource(TDMR.strings.pref_clear_temp_files),
+                    subtitle = stringResource(TDMR.strings.pref_clear_temp_files_subtitle),
                     onClick = {
                         scope.launch {
                             var clearedSize = 0L
@@ -594,39 +599,43 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 }
                                 withUIContext {
                                     context.toast(
-                                        context.contextStringResource(MR.strings.pref_temp_files_cleared, sizeString),
+                                        context.contextStringResource(TDMR.strings.pref_temp_files_cleared, sizeString),
                                     )
                                 }
                             } catch (e: Exception) {
                                 logcat(LogPriority.ERROR, e)
                                 withUIContext {
-                                    context.toast(MR.strings.pref_temp_files_error)
+                                    context.toast(TDMR.strings.pref_temp_files_error)
                                 }
                             }
                         }
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = "Normalize tags",
-                    subtitle = "Trims whitespace and removes duplicate tags (case-insensitive)",
+                    title = stringResource(TDMR.strings.settings_advanced_normalize_tags),
+                    subtitle = stringResource(TDMR.strings.settings_advanced_normalize_tags_summary),
                     onClick = {
                         scope.launch {
                             val count = Injekt.get<MangaRepository>().normalizeAllTags()
                             withUIContext {
-                                context.toast("Normalized tags for $count novels")
+                                context.toast(
+                                    context.contextStringResource(
+                                        TDMR.strings.settings_advanced_normalized_tags_result,
+                                        count,
+                                    ),
+                                )
                             }
                         }
                     },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.normalizeTagsOnUpdate,
-                    title = "Normalize tags when updating entry",
-                    subtitle = "Apply the same normalization automatically when entry details are " +
-                        "fetched/updated or tags are edited",
+                    title = stringResource(TDMR.strings.settings_advanced_normalize_on_update),
+                    subtitle = stringResource(TDMR.strings.settings_advanced_normalize_on_update_summary),
                 ),
                 Preference.PreferenceItem.TextPreference(
-                    title = "Reset settings to default",
-                    subtitle = "Resets all app settings to their default values (library data is preserved)",
+                    title = stringResource(TDMR.strings.pref_reset_settings),
+                    subtitle = stringResource(TDMR.strings.settings_advanced_reset_to_default_summary),
                     onClick = { showResetSettingsDialog = true },
                 ),
             ),

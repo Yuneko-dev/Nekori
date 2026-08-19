@@ -416,7 +416,7 @@ fun LibraryBottomActionMenu(
                         ) {
                             if (onUpdateClicked != null) {
                                 DropdownMenuItem(
-                                    text = { Text("Update selected") },
+                                    text = { Text(stringResource(TDMR.strings.update_selected_title)) },
                                     onClick = {
                                         overflowMenuOpen = false
                                         onUpdateClicked()

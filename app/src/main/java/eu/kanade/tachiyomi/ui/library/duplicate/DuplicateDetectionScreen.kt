@@ -53,7 +53,6 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.toCommonCheckboxState
-import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -101,13 +100,13 @@ class DuplicateDetectionScreen : Screen {
                                             val urls = screenModel.getSelectedUrls()
                                             clipboard.setClipEntry(
                                                 ClipData.newPlainText(
-                                                    context.ctxStringResource(MR.strings.duplicate_copy_links),
+                                                    context.ctxStringResource(TDMR.strings.duplicate_copy_links),
                                                     urls.joinToString("\n"),
                                                 ).toClipEntry(),
                                             )
                                             snackbarHostState.showSnackbar(
                                                 context.ctxStringResource(
-                                                    MR.strings.duplicate_urls_copied,
+                                                    TDMR.strings.duplicate_urls_copied,
                                                     urls.size,
                                                 ),
                                             )
@@ -122,7 +121,7 @@ class DuplicateDetectionScreen : Screen {
                     SearchToolbar(
                         titleContent = {
                             AppBarTitle(
-                                title = stringResource(MR.strings.duplicate_find_duplicates),
+                                title = stringResource(TDMR.strings.duplicate_find_duplicates),
                                 subtitle = state.resultsSubtitle(),
                             )
                         },
@@ -138,7 +137,7 @@ class DuplicateDetectionScreen : Screen {
                                 actions = buildList {
                                     add(
                                         AppBar.Action(
-                                            title = stringResource(MR.strings.duplicate_filters_sort),
+                                            title = stringResource(TDMR.strings.duplicate_filters_sort),
                                             icon = Icons.Outlined.FilterList,
                                             onClick = { showFilterSheet = true },
                                         ),
@@ -146,7 +145,7 @@ class DuplicateDetectionScreen : Screen {
                                     if (state.hasStartedAnalysis) {
                                         add(
                                             AppBar.OverflowAction(
-                                                title = stringResource(MR.strings.duplicate_reanalyze),
+                                                title = stringResource(TDMR.strings.duplicate_reanalyze),
                                                 onClick = screenModel::loadDuplicates,
                                             ),
                                         )
@@ -166,10 +165,10 @@ class DuplicateDetectionScreen : Screen {
         ) { contentPadding ->
             when {
                 !state.hasStartedAnalysis -> EmptyScreen(
-                    message = stringResource(MR.strings.duplicate_initial_description),
+                    message = stringResource(TDMR.strings.duplicate_initial_description),
                     actions = listOf(
                         EmptyScreenAction(
-                            stringRes = MR.strings.duplicate_start_analysis,
+                            stringRes = TDMR.strings.duplicate_start_analysis,
                             icon = Icons.Filled.PlayArrow,
                             onClick = screenModel::loadDuplicates,
                         ),
@@ -185,14 +184,14 @@ class DuplicateDetectionScreen : Screen {
                 state.filteredDuplicateGroups.isEmpty() -> EmptyScreen(
                     message = stringResource(
                         if (state.duplicateGroups.isEmpty()) {
-                            MR.strings.duplicate_no_duplicates
+                            TDMR.strings.duplicate_no_duplicates
                         } else {
-                            MR.strings.duplicate_no_matches_filter
+                            TDMR.strings.duplicate_no_matches_filter
                         },
                     ),
                     actions = listOf(
                         EmptyScreenAction(
-                            stringRes = MR.strings.duplicate_reanalyze,
+                            stringRes = TDMR.strings.duplicate_reanalyze,
                             icon = Icons.Filled.PlayArrow,
                             onClick = screenModel::loadDuplicates,
                         ),
@@ -284,7 +283,7 @@ class DuplicateDetectionScreen : Screen {
                             clearTags = clearTags,
                         )
                         snackbarHostState.showSnackbar(
-                            context.ctxStringResource(MR.strings.duplicate_deleted_count, count),
+                            context.ctxStringResource(TDMR.strings.duplicate_deleted_count, count),
                         )
                     }
                 },
@@ -308,9 +307,9 @@ class DuplicateDetectionScreen : Screen {
                             val success = screenModel.moveSelectedToCategories(addCategories, removeCategories)
                             snackbarHostState.showSnackbar(
                                 if (success) {
-                                    context.ctxStringResource(MR.strings.duplicate_moved_count, count)
+                                    context.ctxStringResource(TDMR.strings.duplicate_moved_count, count)
                                 } else {
-                                    context.ctxStringResource(MR.strings.duplicate_move_failed)
+                                    context.ctxStringResource(TDMR.strings.duplicate_move_failed)
                                 },
                             )
                         }
@@ -352,21 +351,21 @@ private fun selectionActions(
 ): List<AppBar.AppBarAction> = buildList {
     add(
         AppBar.Action(
-            title = stringResource(MR.strings.duplicate_copy_links),
+            title = stringResource(TDMR.strings.duplicate_copy_links),
             icon = Icons.Filled.ContentCopy,
             onClick = onCopyLinks,
         ),
     )
     add(
         AppBar.Action(
-            title = stringResource(MR.strings.duplicate_move_to_category),
+            title = stringResource(TDMR.strings.duplicate_move_to_category),
             icon = Icons.AutoMirrored.Filled.DriveFileMove,
             onClick = screenModel::openMoveToCategoryDialog,
         ),
     )
     add(
         AppBar.Action(
-            title = stringResource(MR.strings.duplicate_delete_selected),
+            title = stringResource(TDMR.strings.duplicate_delete_selected),
             icon = Icons.Filled.Delete,
             onClick = screenModel::openDeleteDialog,
         ),
@@ -383,19 +382,19 @@ private fun selectionActions(
 private fun selectionStrategyActions(
     screenModel: DuplicateDetectionViewModel,
 ): List<AppBar.OverflowAction> = listOf(
-    MR.strings.duplicate_select_all to screenModel::selectAllDuplicates,
-    MR.strings.duplicate_select_all_except_first to screenModel::selectAllExceptFirst,
-    MR.strings.duplicate_select_lowest_ch to screenModel::selectLowestChapterCount,
-    MR.strings.duplicate_select_highest_ch to screenModel::selectHighestChapterCount,
-    MR.strings.duplicate_select_lowest_dl to screenModel::selectLowestDownloadCount,
-    MR.strings.duplicate_select_highest_dl to screenModel::selectHighestDownloadCount,
-    MR.strings.duplicate_select_lowest_read to screenModel::selectLowestReadCount,
-    MR.strings.duplicate_select_highest_read to screenModel::selectHighestReadCount,
-    MR.strings.duplicate_select_lowest_priority to screenModel::selectLowestSourcePriority,
-    MR.strings.duplicate_select_highest_priority to screenModel::selectHighestSourcePriority,
-    MR.strings.duplicate_select_pinned to screenModel::selectPinnedInGroups,
-    MR.strings.duplicate_select_non_pinned to screenModel::selectNonPinnedInGroups,
-    MR.strings.duplicate_invert_selection to screenModel::invertSelection,
+    TDMR.strings.duplicate_select_all to screenModel::selectAllDuplicates,
+    TDMR.strings.duplicate_select_all_except_first to screenModel::selectAllExceptFirst,
+    TDMR.strings.duplicate_select_lowest_ch to screenModel::selectLowestChapterCount,
+    TDMR.strings.duplicate_select_highest_ch to screenModel::selectHighestChapterCount,
+    TDMR.strings.duplicate_select_lowest_dl to screenModel::selectLowestDownloadCount,
+    TDMR.strings.duplicate_select_highest_dl to screenModel::selectHighestDownloadCount,
+    TDMR.strings.duplicate_select_lowest_read to screenModel::selectLowestReadCount,
+    TDMR.strings.duplicate_select_highest_read to screenModel::selectHighestReadCount,
+    TDMR.strings.duplicate_select_lowest_priority to screenModel::selectLowestSourcePriority,
+    TDMR.strings.duplicate_select_highest_priority to screenModel::selectHighestSourcePriority,
+    TDMR.strings.duplicate_select_pinned to screenModel::selectPinnedInGroups,
+    TDMR.strings.duplicate_select_non_pinned to screenModel::selectNonPinnedInGroups,
+    TDMR.strings.duplicate_invert_selection to screenModel::invertSelection,
 ).map { (labelRes, action) ->
     AppBar.OverflowAction(title = stringResource(labelRes), onClick = action)
 }
@@ -404,21 +403,21 @@ private fun selectionStrategyActions(
 private fun DuplicateDetectionViewModel.State.resultsSubtitle(): String? {
     if (!hasStartedAnalysis || filteredDuplicateGroups.isEmpty()) return null
     val summary = stringResource(
-        MR.strings.duplicate_results_summary,
+        TDMR.strings.duplicate_results_summary,
         filteredDuplicateGroups.size,
         filteredDuplicateGroups.values.sumOf { it.size },
     )
     val filtered = selectedCategoryFilters.isNotEmpty() || excludedCategoryFilters.isNotEmpty()
-    return summary + if (filtered) stringResource(MR.strings.duplicate_results_filtered) else ""
+    return summary + if (filtered) stringResource(TDMR.strings.duplicate_results_filtered) else ""
 }
 
 /** The one truncation notice that applies, or null. Listing and scan modes can never both truncate. */
 @Composable
 private fun DuplicateDetectionViewModel.State.truncationWarning(): String? = when {
     listingMode && listingTruncated ->
-        stringResource(MR.strings.duplicate_listing_truncated, listingTotalMatches)
+        stringResource(TDMR.strings.duplicate_listing_truncated, listingTotalMatches)
     !listingMode && scanGroupsTruncated ->
-        stringResource(MR.strings.duplicate_scan_groups_truncated, duplicateGroups.size, scanTotalGroups)
+        stringResource(TDMR.strings.duplicate_scan_groups_truncated, duplicateGroups.size, scanTotalGroups)
     else -> null
 }
 

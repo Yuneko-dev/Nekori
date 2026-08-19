@@ -761,18 +761,18 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel) 
 
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
     ReaderSwitchItem(
-        label = "Enable embedded CSS",
+        label = stringResource(TDMR.strings.novel_reader_enable_embedded_css),
         pref = screenModel.preferences.enableEpubStyles,
     )
 
     ReaderSwitchItem(
-        label = "Enable embedded JS",
+        label = stringResource(TDMR.strings.novel_reader_enable_embedded_js),
         pref = screenModel.preferences.enableEpubJs,
     )
 
     // Allow user to choose whether source CSS has priority over reader theme
     ReaderSwitchItem(
-        label = "Source CSS priority",
+        label = stringResource(TDMR.strings.settings_reader_source_css_priority_title),
         pref = screenModel.preferences.novelSourceCssPriority,
     )
 
@@ -1470,7 +1470,7 @@ private fun RegexEditDialog(
                             },
                         )
                         Text(
-                            stringResource(TDMR.strings.novel_case_sensitive_matching),
+                            stringResource(TDMR.strings.label_case_sensitive_matching),
                             modifier = Modifier.padding(start = 4.dp),
                         )
                     }
@@ -1608,7 +1608,7 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
     if (showHighlightBgColorPicker) {
         ColorPickerDialog(
-            title = "TTS Highlight Background",
+            title = stringResource(TDMR.strings.novel_tts_highlight_bg_title),
             initialColor = ttsHighlightColor,
             onDismiss = { showHighlightBgColorPicker = false },
             onConfirm = { color ->
@@ -1620,7 +1620,7 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
     if (showHighlightTextColorPicker) {
         ColorPickerDialog(
-            title = "TTS Highlight Text",
+            title = stringResource(TDMR.strings.novel_tts_highlight_text_title),
             initialColor = ttsHighlightTextColor,
             onDismiss = { showHighlightTextColorPicker = false },
             onConfirm = { color ->
@@ -1759,17 +1759,17 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
     // Enable TTS highlighting
     ReaderSwitchItem(
-        label = "Enable paragraph highlighting during TTS",
+        label = stringResource(TDMR.strings.novel_tts_enable_highlight),
         pref = screenModel.preferences.novelTtsEnableHighlight,
     )
 
     // Highlight style selector (pill chips)
     if (ttsEnableHighlight) {
-        SettingsChipRow("Highlight style") {
+        SettingsChipRow(stringResource(TDMR.strings.novel_tts_highlight_style)) {
             listOf(
-                "background" to "Background",
-                "underline" to "Underline",
-                "outline" to "Outline",
+                "background" to stringResource(TDMR.strings.novel_tts_highlight_style_background),
+                "underline" to stringResource(TDMR.strings.novel_tts_highlight_style_underline),
+                "outline" to stringResource(TDMR.strings.novel_tts_highlight_style_outline),
             ).forEach { (value, label) ->
                 FilterChip(
                     selected = ttsHighlightStyle == value,
@@ -1781,11 +1781,11 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
         SettingsChipRow(TDMR.strings.pref_novel_background_color) {
             listOf(
-                0xFFFFD54F.toInt() to "Amber",
-                0xFF90CAF9.toInt() to "Blue",
-                0xFFA5D6A7.toInt() to "Green",
-                0xFFF48FB1.toInt() to "Pink",
-                Int.MIN_VALUE to "Custom",
+                0xFFFFD54F.toInt() to stringResource(TDMR.strings.novel_tts_color_amber),
+                0xFF90CAF9.toInt() to stringResource(TDMR.strings.novel_tts_color_blue),
+                0xFFA5D6A7.toInt() to stringResource(TDMR.strings.novel_tts_color_green),
+                0xFFF48FB1.toInt() to stringResource(TDMR.strings.novel_tts_color_pink),
+                Int.MIN_VALUE to stringResource(TDMR.strings.novel_color_custom),
             ).forEach { (colorValue, label) ->
                 val selected = if (colorValue == Int.MIN_VALUE) {
                     listOf(0xFFFFD54F.toInt(), 0xFF90CAF9.toInt(), 0xFFA5D6A7.toInt(), 0xFFF48FB1.toInt()).none {
@@ -1811,11 +1811,11 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
         SettingsChipRow(TDMR.strings.pref_novel_font_color) {
             listOf(
-                0xFF111111.toInt() to "Dark",
-                0xFFFFFFFF.toInt() to "White",
-                0xFF1E3A8A.toInt() to "Navy",
-                0xFF7F1D1D.toInt() to "Maroon",
-                Int.MIN_VALUE to "Custom",
+                0xFF111111.toInt() to stringResource(TDMR.strings.novel_tts_color_dark),
+                0xFFFFFFFF.toInt() to stringResource(TDMR.strings.novel_color_white),
+                0xFF1E3A8A.toInt() to stringResource(TDMR.strings.novel_tts_color_navy),
+                0xFF7F1D1D.toInt() to stringResource(TDMR.strings.novel_tts_color_maroon),
+                Int.MIN_VALUE to stringResource(TDMR.strings.novel_color_custom),
             ).forEach { (colorValue, label) ->
                 val selected = if (colorValue == Int.MIN_VALUE) {
                     listOf(0xFF111111.toInt(), 0xFFFFFFFF.toInt(), 0xFF1E3A8A.toInt(), 0xFF7F1D1D.toInt()).none {
@@ -1840,18 +1840,18 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
         }
 
         ReaderSwitchItem(
-            label = "Keep highlighted paragraph in view",
+            label = stringResource(TDMR.strings.novel_tts_keep_highlight_in_view),
             pref = screenModel.preferences.novelTtsKeepHighlightInView,
         )
     }
 
     ReaderSwitchItem(
-        label = "Auto-start TTS when opening controls panel",
+        label = stringResource(TDMR.strings.novel_tts_auto_start_on_panel_open),
         pref = screenModel.preferences.novelTtsAutoStartOnPanelOpen,
     )
 
     ReaderSwitchItem(
-        label = "Keep TTS running in background",
+        label = stringResource(TDMR.strings.novel_tts_background_playback),
         pref = screenModel.preferences.novelTtsBackgroundPlayback,
     )
 }
@@ -1905,7 +1905,7 @@ private fun ColorPickerDialog(
                             } catch (_: Exception) {}
                         }
                     },
-                    label = { Text("Hex Color") },
+                    label = { Text(stringResource(TDMR.strings.novel_hex_color)) },
                     prefix = { Text("#") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1914,7 +1914,10 @@ private fun ColorPickerDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Red slider
-                Text("Red: $red", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(TDMR.strings.novel_tts_color_red_value, red),
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Slider(
                     value = red.toFloat(),
                     onValueChange = {
@@ -1931,7 +1934,10 @@ private fun ColorPickerDialog(
                 )
 
                 // Green slider
-                Text("Green: $green", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(TDMR.strings.novel_tts_color_green_value, green),
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Slider(
                     value = green.toFloat(),
                     onValueChange = {
@@ -1948,7 +1954,10 @@ private fun ColorPickerDialog(
                 )
 
                 // Blue slider
-                Text("Blue: $blue", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(TDMR.strings.novel_tts_color_blue_value, blue),
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Slider(
                     value = blue.toFloat(),
                     onValueChange = {

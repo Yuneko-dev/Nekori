@@ -33,6 +33,7 @@ import eu.kanade.domain.source.model.FilterPreset
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.tachiyomi.source.model.FilterList
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -56,7 +57,7 @@ fun FilterPresetsDialog(
         ) {
             item {
                 Text(
-                    text = "Filter Presets",
+                    text = stringResource(TDMR.strings.browse_filter_presets_title),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
@@ -74,7 +75,7 @@ fun FilterPresetsDialog(
                         onCheckedChange = onToggleAutoApply,
                     )
                     Text(
-                        text = "Auto-apply default preset when opening source",
+                        text = stringResource(TDMR.strings.browse_filter_preset_auto_apply),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
@@ -91,7 +92,7 @@ fun FilterPresetsDialog(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
                 ) {
-                    Text("Save Current Filters as Preset")
+                    Text(stringResource(TDMR.strings.browse_filter_preset_save_current))
                 }
             }
 
@@ -110,7 +111,7 @@ fun FilterPresetsDialog(
             if (presets.isEmpty()) {
                 item {
                     Text(
-                        text = "No saved presets",
+                        text = stringResource(TDMR.strings.browse_filter_preset_none_saved),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),
@@ -153,7 +154,7 @@ private fun PresetItem(
             )
             if (preset.isDefault) {
                 Text(
-                    text = "Default preset",
+                    text = stringResource(TDMR.strings.browse_filter_preset_default_label),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -164,7 +165,11 @@ private fun PresetItem(
             IconButton(onClick = onSetDefault) {
                 Icon(
                     imageVector = if (preset.isDefault) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                    contentDescription = if (preset.isDefault) "Remove default" else "Set as default",
+                    contentDescription = if (preset.isDefault) {
+                        stringResource(TDMR.strings.browse_filter_preset_remove_default_cd)
+                    } else {
+                        stringResource(TDMR.strings.browse_filter_preset_set_default_cd)
+                    },
                     tint = if (preset.isDefault) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -175,7 +180,7 @@ private fun PresetItem(
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "Delete preset",
+                    contentDescription = stringResource(TDMR.strings.browse_filter_preset_delete_cd),
                 )
             }
         }
@@ -192,13 +197,13 @@ private fun SavePresetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save Filter Preset") },
+        title = { Text(stringResource(TDMR.strings.browse_filter_preset_save_dialog_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    label = { Text("Preset Name") },
+                    label = { Text(stringResource(TDMR.strings.browse_filter_preset_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -214,7 +219,7 @@ private fun SavePresetDialog(
                         onCheckedChange = { setAsDefault = it },
                     )
                     Text(
-                        text = "Set as default preset",
+                        text = stringResource(TDMR.strings.browse_filter_preset_set_default_label),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }

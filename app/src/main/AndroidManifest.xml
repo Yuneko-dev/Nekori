@@ -64,7 +64,7 @@
                  LNReader's, not this app's branding: repository links are shared between LNReader
                  and this fork, so renaming it would orphan every link already in circulation.
                  Handled in MainActivity, which reads the "url" query parameter. -->
-            <intent-filter android:label="@string/action_add_repo">
+            <intent-filter android:label="@string/action_addExtensionStore">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />

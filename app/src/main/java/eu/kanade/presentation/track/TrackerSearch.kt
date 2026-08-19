@@ -78,6 +78,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -165,7 +166,7 @@ fun TrackerSearch(
                             IconButton(onClick = { altMenuExpanded = true }) {
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Pick alt title",
+                                    contentDescription = stringResource(TDMR.strings.track_search_pick_alt_title),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

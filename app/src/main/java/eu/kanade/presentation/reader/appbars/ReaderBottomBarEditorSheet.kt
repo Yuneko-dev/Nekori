@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +60,7 @@ fun BottomBarEditorSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Text(
-            text = "Customize Toolbar",
+            text = stringResource(TDMR.strings.reader_appbar_customize_toolbar),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
@@ -82,7 +83,7 @@ fun BottomBarEditorSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.DragHandle,
-                                contentDescription = "Drag to reorder",
+                                contentDescription = stringResource(TDMR.strings.label_drag_to_reorder),
                                 modifier = Modifier
                                     .draggableHandle()
                                     .padding(end = 12.dp),

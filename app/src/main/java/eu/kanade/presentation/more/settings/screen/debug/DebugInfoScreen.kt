@@ -28,6 +28,7 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import mihon.core.common.FeatureFlags
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -66,10 +67,10 @@ class DebugInfoScreen : Screen() {
         val installationId by installationIdPref.collectAsState()
 
         return Preference.PreferenceGroup(
-            title = "App info",
+            title = stringResource(MR.strings.ext_app_info),
             preferenceItems = listOf(
                 Preference.PreferenceItem.TextPreference(
-                    title = "Version",
+                    title = stringResource(MR.strings.version),
                     subtitle = AboutScreen.getVersionName(false),
                 ),
                 Preference.PreferenceItem.TextPreference(
@@ -138,6 +139,7 @@ class DebugInfoScreen : Screen() {
         )
     }
 
+    @Composable
     private fun getDeviceInfoGroup(): Preference.PreferenceGroup {
         val items = buildList {
             add(

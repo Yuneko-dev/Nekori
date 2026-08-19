@@ -43,13 +43,13 @@ import tachiyomi.presentation.core.i18n.stringResource
 /** Sort options offered by the UI, in display order. The enum also carries ascending variants that
  *  no chip exposes; listing them here keeps the sheet's contents explicit rather than incidental. */
 private val SORT_CHIPS = listOf(
-    SortMode.NAME to MR.strings.duplicate_sort_name,
-    SortMode.LATEST_ADDED to MR.strings.duplicate_sort_latest,
-    SortMode.CHAPTER_COUNT_DESC to MR.strings.duplicate_sort_ch_desc,
-    SortMode.DOWNLOAD_COUNT_DESC to MR.strings.duplicate_sort_dl_desc,
-    SortMode.READ_COUNT_DESC to MR.strings.duplicate_sort_read_desc,
-    SortMode.PINNED_SOURCE to MR.strings.duplicate_select_pinned,
-    SortMode.SOURCE_PRIORITY to MR.strings.duplicate_sort_priority,
+    SortMode.NAME to TDMR.strings.duplicate_sort_name,
+    SortMode.LATEST_ADDED to TDMR.strings.duplicate_sort_latest,
+    SortMode.CHAPTER_COUNT_DESC to TDMR.strings.duplicate_sort_ch_desc,
+    SortMode.DOWNLOAD_COUNT_DESC to TDMR.strings.duplicate_sort_dl_desc,
+    SortMode.READ_COUNT_DESC to TDMR.strings.duplicate_sort_read_desc,
+    SortMode.PINNED_SOURCE to TDMR.strings.duplicate_select_pinned,
+    SortMode.SOURCE_PRIORITY to TDMR.strings.duplicate_sort_priority,
 )
 
 private val SheetPadding = 16.dp
@@ -78,32 +78,32 @@ fun DuplicateFilterSheet(
                 .navigationBarsPadding(),
         ) {
             Text(
-                text = stringResource(MR.strings.duplicate_filters_sort),
+                text = stringResource(TDMR.strings.duplicate_filters_sort),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = SheetPadding),
             )
 
             FilterSection(stringResource(TDMR.strings.duplicate_match_label)) {
                 SelectableChip(
-                    label = stringResource(MR.strings.duplicate_match_exact),
+                    label = stringResource(TDMR.strings.duplicate_match_exact),
                     selected = state.matchMode == DuplicateMatchMode.EXACT,
                     enabled = !state.listingMode,
                     onClick = { screenModel.setMatchMode(DuplicateMatchMode.EXACT) },
                 )
                 SelectableChip(
-                    label = stringResource(MR.strings.duplicate_match_contains),
+                    label = stringResource(TDMR.strings.duplicate_match_contains),
                     selected = state.matchMode == DuplicateMatchMode.CONTAINS,
                     enabled = !state.listingMode,
                     onClick = { screenModel.setMatchMode(DuplicateMatchMode.CONTAINS) },
                 )
                 SelectableChip(
-                    label = stringResource(MR.strings.duplicate_listing_mode),
+                    label = stringResource(TDMR.strings.duplicate_listing_mode),
                     selected = state.listingMode,
                     onClick = { screenModel.setListingMode(!state.listingMode) },
                 )
             }
 
-            FilterSection(stringResource(TDMR.strings.duplicate_options_label)) {
+            FilterSection(stringResource(TDMR.strings.label_options)) {
                 SelectableChip(
                     label = stringResource(TDMR.strings.duplicate_full_urls_short),
                     selected = state.showFullUrls,
@@ -124,22 +124,22 @@ fun DuplicateFilterSheet(
             // CONTAINS matches substrings, so a blank key can never form a group there, and listing
             // mode does not group by key at all.
             val blankFiltersEnabled = !state.listingMode && state.matchMode != DuplicateMatchMode.CONTAINS
-            FilterSection(stringResource(MR.strings.duplicate_blank_label)) {
+            FilterSection(stringResource(TDMR.strings.duplicate_blank_label)) {
                 SelectableChip(
-                    label = stringResource(MR.strings.duplicate_blank_exclude),
+                    label = stringResource(TDMR.strings.duplicate_blank_exclude),
                     selected = state.blankTitleFilter == BlankTitleFilter.EXCLUDE,
                     enabled = blankFiltersEnabled,
                     onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.EXCLUDE) },
                 )
                 SelectableChip(
-                    label = stringResource(MR.strings.duplicate_blank_include),
+                    label = stringResource(TDMR.strings.duplicate_blank_include),
                     selected = state.blankTitleFilter == BlankTitleFilter.INCLUDE,
                     enabled = blankFiltersEnabled,
                     onClick = { screenModel.setBlankTitleFilter(BlankTitleFilter.INCLUDE) },
                 )
             }
 
-            FilterSection(stringResource(MR.strings.duplicate_sort_label)) {
+            FilterSection(stringResource(TDMR.strings.duplicate_sort_label)) {
                 SORT_CHIPS.forEach { (mode, labelRes) ->
                     SelectableChip(
                         label = stringResource(labelRes),
@@ -155,14 +155,14 @@ fun DuplicateFilterSheet(
 
             HorizontalDivider(modifier = Modifier.padding(top = 12.dp))
             ListItem(
-                supportingContent = { Text(stringResource(MR.strings.duplicate_source_priority_desc)) },
+                supportingContent = { Text(stringResource(TDMR.strings.duplicate_source_priority_desc)) },
                 trailingContent = {
                     Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                 },
                 modifier = Modifier.clickable(onClick = onOpenSourcePriority),
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             ) {
-                Text(stringResource(MR.strings.duplicate_source_priority))
+                Text(stringResource(TDMR.strings.duplicate_source_priority))
             }
         }
     }
@@ -174,7 +174,7 @@ private fun CategoryFilterSection(
     state: DuplicateDetectionViewModel.State,
     screenModel: DuplicateDetectionViewModel,
 ) {
-    FilterSection(stringResource(MR.strings.duplicate_category_label)) {
+    FilterSection(stringResource(TDMR.strings.duplicate_category_label)) {
         SelectableChip(
             label = stringResource(TDMR.strings.duplicate_category_include_or),
             selected = state.categoryIncludeMode == CategoryIncludeMode.ANY,
@@ -187,7 +187,7 @@ private fun CategoryFilterSection(
         )
         if (state.selectedCategoryFilters.isNotEmpty() || state.excludedCategoryFilters.isNotEmpty()) {
             SelectableChip(
-                label = stringResource(MR.strings.duplicate_category_clear),
+                label = stringResource(TDMR.strings.duplicate_category_clear),
                 selected = false,
                 onClick = screenModel::clearCategoryFilters,
             )

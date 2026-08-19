@@ -101,7 +101,7 @@ fun DeleteLibraryMangaDialog(
         title = {
             Text(
                 text = stringResource(
-                    if (isCategoryAction) MR.strings.action_clear_category else MR.strings.action_remove,
+                    if (isCategoryAction) TDMR.strings.action_clear_category else MR.strings.action_remove,
                 ),
             )
         },

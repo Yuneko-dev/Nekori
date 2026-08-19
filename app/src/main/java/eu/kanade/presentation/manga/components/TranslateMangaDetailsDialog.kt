@@ -30,6 +30,7 @@ import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.service.TranslationPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
@@ -297,12 +298,12 @@ fun TranslateMangaDetailsDialog(
                 !isTranslating &&
                     (translatedTitle != null || translatedDescription != null || translatedGenres != null),
             ) {
-                Text("Save")
+                Text(stringResource(MR.strings.action_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Cancel")
+                Text(stringResource(MR.strings.action_cancel))
             }
         },
     )

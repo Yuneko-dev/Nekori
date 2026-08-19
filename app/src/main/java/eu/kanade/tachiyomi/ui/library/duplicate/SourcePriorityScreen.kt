@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import mihon.core.viewmodel.StateViewModel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
@@ -63,7 +63,7 @@ object SourcePriorityScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(MR.strings.duplicate_source_priority)) },
+                    title = { Text(stringResource(TDMR.strings.duplicate_source_priority)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(
@@ -77,9 +77,9 @@ object SourcePriorityScreen : Screen {
         ) { contentPadding ->
             val sourceTypes = listOf(
                 DuplicateDetectionViewModel.SourceType.JS to
-                    stringResource(MR.strings.duplicate_source_type_js_extensions),
+                    stringResource(TDMR.strings.duplicate_source_type_js_extensions),
                 DuplicateDetectionViewModel.SourceType.LOCAL to
-                    stringResource(MR.strings.duplicate_source_type_local_source),
+                    stringResource(TDMR.strings.duplicate_source_type_local_source),
             ).filter { it.first != DuplicateDetectionViewModel.SourceType.LOCAL || state.hasLocalSource }
 
             LazyColumn(
@@ -89,12 +89,12 @@ object SourcePriorityScreen : Screen {
                 // Source Type Priority section
                 item(key = "type_header") {
                     Text(
-                        text = stringResource(MR.strings.duplicate_source_priority),
+                        text = stringResource(TDMR.strings.duplicate_source_priority),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                     )
                     Text(
-                        text = stringResource(MR.strings.duplicate_source_priority_desc),
+                        text = stringResource(TDMR.strings.duplicate_source_priority_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
@@ -119,12 +119,12 @@ object SourcePriorityScreen : Screen {
                 // Specific Source Priority section
                 item(key = "specific_header") {
                     Text(
-                        text = stringResource(MR.strings.duplicate_specific_source_priority),
+                        text = stringResource(TDMR.strings.duplicate_specific_source_priority),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(bottom = 4.dp),
                     )
                     Text(
-                        text = stringResource(MR.strings.duplicate_specific_source_priority_desc),
+                        text = stringResource(TDMR.strings.duplicate_specific_source_priority_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp),
@@ -143,7 +143,7 @@ object SourcePriorityScreen : Screen {
                 if (state.sourceItems.isEmpty()) {
                     item(key = "empty") {
                         Text(
-                            text = stringResource(MR.strings.duplicate_no_sources_found),
+                            text = stringResource(TDMR.strings.duplicate_no_sources_found),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 16.dp),

@@ -16,6 +16,7 @@ import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
@@ -41,7 +42,7 @@ class CrashLogUtil(
             val uri = file.getUriCompat(context)
             context.startActivity(uri.toShareIntent(context, "text/plain"))
         } catch (_: Throwable) {
-            withUIContext { context.toast("Failed to get logs") }
+            withUIContext { context.toast(TDMR.strings.crash_log_toast_failed) }
         }
     }
 

@@ -356,17 +356,17 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 Preference.PreferenceItem.SliderPreference(
                     value = epubCompressionLevel + 1,
                     valueRange = 0..10,
-                    title = stringResource(MR.strings.pref_epub_compression_level),
+                    title = stringResource(TDMR.strings.pref_epub_compression_level),
                     subtitle = when (epubCompressionLevel) {
-                        -1 -> stringResource(MR.strings.pref_epub_compression_default)
-                        0 -> stringResource(MR.strings.pref_epub_compression_none)
-                        in 1..3 -> stringResource(MR.strings.pref_epub_compression_low)
-                        in 4..6 -> stringResource(MR.strings.pref_epub_compression_medium)
-                        in 7..9 -> stringResource(MR.strings.pref_epub_compression_high)
-                        else -> stringResource(MR.strings.pref_epub_compression_level_label, epubCompressionLevel)
+                        -1 -> stringResource(TDMR.strings.pref_epub_compression_default)
+                        0 -> stringResource(TDMR.strings.pref_epub_compression_none)
+                        in 1..3 -> stringResource(TDMR.strings.pref_epub_compression_low)
+                        in 4..6 -> stringResource(TDMR.strings.pref_epub_compression_medium)
+                        in 7..9 -> stringResource(TDMR.strings.pref_epub_compression_high)
+                        else -> stringResource(TDMR.strings.pref_epub_compression_level_label, epubCompressionLevel)
                     },
                     valueString = if (epubCompressionLevel == -1) {
-                        stringResource(MR.strings.pref_epub_compression_default_label)
+                        stringResource(TDMR.strings.pref_epub_compression_default_label)
                     } else {
                         "$epubCompressionLevel"
                     },
@@ -482,16 +482,18 @@ object SettingsNovelDownloadScreen : SearchableSettings {
             prefs.getAllSourceOverrides()
         }
         return Preference.PreferenceGroup(
-            title = "Per-Extension Overrides",
+            title = stringResource(TDMR.strings.settings_download_per_extension_overrides),
             preferenceItems = listOf(
                 Preference.PreferenceItem.TextPreference(
-                    title = "Manage source overrides",
-                    subtitle = "${overrides.size} override(s) configured",
+                    title = stringResource(TDMR.strings.settings_download_manage_source_overrides),
+                    subtitle = stringResource(
+                        TDMR.strings.settings_download_overrides_configured_count,
+                        overrides.size,
+                    ),
                     onClick = onManageClick,
                 ),
                 Preference.PreferenceItem.InfoPreference(
-                    title = "Override throttle delays for specific extensions. " +
-                        "Overrides take priority over global settings.",
+                    title = stringResource(TDMR.strings.settings_download_overrides_info),
                 ),
             ),
         )
@@ -540,7 +542,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
         AlertDialog(
             onDismissRequest = onDismissRequest,
-            title = { Text("Per-Extension Overrides") },
+            title = { Text(stringResource(TDMR.strings.settings_download_per_extension_overrides)) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -626,7 +628,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     onDismissRequest()
                     onAddNew()
                 }) {
-                    Text("Add Override")
+                    Text(stringResource(TDMR.strings.settings_download_add_override))
                 }
             },
             dismissButton = {
@@ -670,7 +672,15 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
         AlertDialog(
             onDismissRequest = onDismissRequest,
-            title = { Text(if (existing != null) "Edit Override" else "Add Override") },
+            title = {
+                Text(
+                    if (existing != null) {
+                        stringResource(TDMR.strings.settings_download_edit_override)
+                    } else {
+                        stringResource(TDMR.strings.settings_download_add_override)
+                    },
+                )
+            },
             text = {
                 Column(
                     modifier = Modifier
@@ -679,7 +689,10 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // Source picker
-                    Text("Extension", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        stringResource(TDMR.strings.settings_download_extension_label),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                     Box {
                         OutlinedButton(
                             onClick = { sourceExpanded = true },

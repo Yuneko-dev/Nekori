@@ -73,14 +73,14 @@ fun DuplicateGroupCard(
         ListItem(
             supportingContent = {
                 Column {
-                    Text(stringResource(MR.strings.duplicate_n_in_group, mangaList.size))
+                    Text(stringResource(TDMR.strings.duplicate_n_in_group, mangaList.size))
                     if (fullGroupCount > mangaList.size) {
                         Text(
                             text = stringResource(
                                 if (canSelectHiddenTail) {
-                                    MR.strings.duplicate_group_truncated_selectable
+                                    TDMR.strings.duplicate_group_truncated_selectable
                                 } else {
-                                    MR.strings.duplicate_group_truncated_filtered
+                                    TDMR.strings.duplicate_group_truncated_filtered
                                 },
                                 mangaList.size,
                                 fullGroupCount,
@@ -99,7 +99,7 @@ fun DuplicateGroupCard(
                                 if (allSelected) {
                                     TDMR.strings.duplicate_deselect_group
                                 } else {
-                                    MR.strings.duplicate_select_group
+                                    TDMR.strings.duplicate_select_group
                                 },
                             ),
                         )
@@ -114,7 +114,7 @@ fun DuplicateGroupCard(
                         Icon(
                             imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                             contentDescription = stringResource(
-                                if (expanded) MR.strings.action_collapse else MR.strings.action_expand,
+                                if (expanded) TDMR.strings.action_collapse else TDMR.strings.action_expand,
                             ),
                         )
                     }
@@ -169,9 +169,9 @@ private fun DuplicateItem(
     // Chapter/download/read/source/author collapse into one separated line: they are peer facts about
     // the row, and one wrapping line reads better than five competing coloured fragments.
     val metadata = buildList {
-        add(stringResource(MR.strings.duplicate_n_chapters, manga.chapterCount))
-        if (downloadedCount > 0) add(stringResource(MR.strings.duplicate_n_downloads, downloadedCount))
-        if (manga.readCount > 0) add(stringResource(MR.strings.duplicate_n_read, manga.readCount.toInt()))
+        add(stringResource(TDMR.strings.duplicate_n_chapters, manga.chapterCount))
+        if (downloadedCount > 0) add(stringResource(TDMR.strings.duplicate_n_downloads, downloadedCount))
+        if (manga.readCount > 0) add(stringResource(TDMR.strings.duplicate_n_read, manga.readCount.toInt()))
         add(sourceName)
         manga.manga.author?.takeIf { it.isNotBlank() }?.let(::add)
     }.joinToString(SEPARATOR)
@@ -186,7 +186,7 @@ private fun DuplicateItem(
         overlineContent = if (isFirst) {
             {
                 Text(
-                    text = stringResource(MR.strings.duplicate_original),
+                    text = stringResource(TDMR.strings.duplicate_original),
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -199,7 +199,7 @@ private fun DuplicateItem(
                 if (categories.isNotEmpty()) {
                     Text(
                         text = stringResource(
-                            MR.strings.duplicate_categories_label,
+                            TDMR.strings.duplicate_categories_label,
                             categories.joinToString(", ") { it.name.ifBlank { defaultCategoryLabel } },
                         ),
                         maxLines = 1,

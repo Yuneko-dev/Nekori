@@ -857,7 +857,7 @@ private fun NovelReaderBottomBar(
                         IconButton(onClick = onToggleEdit) {
                             Icon(
                                 Icons.Outlined.Edit,
-                                contentDescription = "Edit",
+                                contentDescription = stringResource(MR.strings.action_edit),
                                 tint = if (isEditing) {
                                     MaterialTheme.colorScheme.onPrimaryContainer
                                 } else {
@@ -918,7 +918,7 @@ private fun NovelTtsControlsOverlay(
         IconButton(onClick = onStartFromViewport) {
             Icon(
                 Icons.Outlined.Visibility,
-                contentDescription = "Read from here",
+                contentDescription = stringResource(TDMR.strings.reader_tts_read_from_here),
                 modifier = Modifier.size(22.dp),
             )
         }

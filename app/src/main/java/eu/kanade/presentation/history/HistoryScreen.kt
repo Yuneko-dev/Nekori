@@ -25,6 +25,7 @@ import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import kotlinx.datetime.LocalDate
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -54,7 +55,11 @@ fun HistoryScreen(
                     AppBarActions(
                         listOf(
                             AppBar.Action(
-                                title = if (state.groupByNovel) "List View" else "Last only",
+                                title = if (state.groupByNovel) {
+                                    stringResource(TDMR.strings.label_list_view)
+                                } else {
+                                    stringResource(TDMR.strings.history_action_last_only)
+                                },
                                 icon = if (state.groupByNovel) Icons.Outlined.ViewList else Icons.Outlined.GridView,
                                 onClick = { onGroupByNovelChanged(!state.groupByNovel) },
                             ),

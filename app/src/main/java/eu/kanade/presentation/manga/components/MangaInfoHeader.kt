@@ -498,7 +498,7 @@ private fun ColumnScope.MangaContentInfo(
             )
         } else if (onEditAlternativeTitles != null) {
             Text(
-                text = "Add alternative titles",
+                text = stringResource(TDMR.strings.manga_add_alt_titles),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickableNoIndication(

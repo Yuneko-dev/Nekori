@@ -130,8 +130,8 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
 
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_MASS_IMPORT) {
         setSmallIcon(android.R.drawable.stat_sys_download)
-        setContentTitle("Mass Import")
-        setContentText("Starting...")
+        setContentTitle(context.stringResource(TDMR.strings.channel_mass_import))
+        setContentText(context.stringResource(TDMR.strings.notification_starting))
         setOngoing(true)
         setOnlyAlertOnce(true)
     }
@@ -323,8 +323,8 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
     private fun notifyForegroundLimitReached(batchId: String) {
         val notification = context.notificationBuilder(Notifications.CHANNEL_MASS_IMPORT) {
             setSmallIcon(android.R.drawable.stat_sys_warning)
-            setContentTitle("Mass import paused")
-            setContentText("Android background time limit reached - open the app and resume the import")
+            setContentTitle(context.stringResource(TDMR.strings.notification_mass_import_paused_title))
+            setContentText(context.stringResource(TDMR.strings.notification_mass_import_background_limit))
             setAutoCancel(true)
         }.build()
         context.notify(completionNotificationId(batchId), notification)
@@ -349,7 +349,13 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
 
         val importSources = getImportSources()
         if (importSources.isEmpty()) {
-            showCompletionNotification(batchId, 0, 0, totalCount, "No compatible sources installed")
+            showCompletionNotification(
+                batchId,
+                0,
+                0,
+                totalCount,
+                context.stringResource(TDMR.strings.mass_import_no_sources_installed),
+            )
             updateBatchStatus(batchId, BatchStatus.Completed)
             return ImportResult(added = 0, skipped = 0, errored = totalCount)
         }
@@ -514,7 +520,7 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
             MassImportStore.appendNoSource(toFlush)
         }
 
-        updateNotification(0, totalCount, "Starting import...")
+        updateNotification(0, totalCount, context.stringResource(TDMR.strings.mass_import_status_starting_import))
 
         val sourceConsecutiveFailures = ConcurrentHashMap<Long, AtomicInteger>()
         val maxSourceFailures = novelDownloadPreferences.skipSourceIfFailedXTimes().get()
@@ -647,7 +653,10 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                                 updateNotification(
                                     completedCount.get(),
                                     totalCount,
-                                    "Processing: ${activeImports.size} active",
+                                    context.stringResource(
+                                        TDMR.strings.mass_import_status_processing_active,
+                                        activeImports.size,
+                                    ),
                                 )
                                 try {
                                     val host = url.toHttpUrlOrNull()?.host
@@ -655,9 +664,16 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                                         host = host,
                                         onWaitChanged = { remainingMillis ->
                                             val status = if (remainingMillis != null) {
-                                                "Waiting %.1fs for rate limit ($host)".format(remainingMillis / 1000.0)
+                                                context.stringResource(
+                                                    TDMR.strings.mass_import_status_rate_limit_wait,
+                                                    remainingMillis / 1000.0,
+                                                    host.orEmpty(),
+                                                )
                                             } else {
-                                                "Processing: ${activeImports.size} active"
+                                                context.stringResource(
+                                                    TDMR.strings.mass_import_status_processing_active,
+                                                    activeImports.size,
+                                                )
                                             }
                                             updateNotification(completedCount.get(), totalCount, status)
                                         },
@@ -711,7 +727,15 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
                             // were already counted before the pause; don't count either.
                             if (!cancelledWhileQueued && shouldCount) {
                                 val done = completedCount.incrementAndGet()
-                                updateNotification(done, totalCount, "Processed $done/$totalCount")
+                                updateNotification(
+                                    done,
+                                    totalCount,
+                                    context.stringResource(
+                                        TDMR.strings.mass_import_status_processed_progress,
+                                        done,
+                                        totalCount,
+                                    ),
+                                )
 
                                 @Suppress("ktlint:standard:max-line-length")
                                 updateBatchProgress(
@@ -1128,7 +1152,12 @@ class MassImportJob(private val context: Context, workerParams: WorkerParameters
         }
 
     private fun showCompletionNotification(batchId: String, added: Int, skipped: Int, errored: Int, message: String?) {
-        val text = message ?: "Added: $added, Skipped: $skipped, Errors: $errored"
+        val text = message ?: context.stringResource(
+            TDMR.strings.mass_import_completion_summary,
+            added,
+            skipped,
+            errored,
+        )
 
         val resultFile = writeResultFile(batchId, added, skipped, errored)
 

@@ -98,14 +98,17 @@ data class MigrateMangaScreen(
                             )
                         }
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(imageVector = Icons.Default.MoreVert, contentDescription = "More")
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(MR.strings.label_more),
+                            )
                         }
                         androidx.compose.material3.DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                         ) {
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(text = stringResource(MR.strings.action_quick_migrate)) },
+                                text = { Text(text = stringResource(TDMR.strings.action_quick_migrate)) },
                                 onClick = {
                                     showMenu = false
                                     viewModel.showQuickMigrateDialog()
@@ -200,7 +203,7 @@ data class MigrateMangaScreen(
                                     event.removedCount,
                                 )
                             } else {
-                                context.stringResource(MR.strings.quick_migrate_complete, event.count)
+                                context.stringResource(TDMR.strings.quick_migrate_complete, event.count)
                             },
                         )
                     }

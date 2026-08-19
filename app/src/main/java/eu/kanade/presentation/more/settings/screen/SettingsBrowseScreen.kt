@@ -45,24 +45,24 @@ object SettingsBrowseScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.ListPreference(
                         preference = sourcePreferences.pageLoadDelay,
-                        title = "Page load delay",
-                        subtitle = "Delay between loading pages (helps with rate limits)",
+                        title = stringResource(TDMR.strings.settings_browse_page_load_delay),
+                        subtitle = stringResource(TDMR.strings.settings_browse_page_load_delay_summary),
                         entries = (0..15).associate { it to "${it}s" }.toMap(),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = sourcePreferences.showPageNumber,
-                        title = "Show page number",
-                        subtitle = "Display current page number with jump navigation",
+                        title = stringResource(MR.strings.pref_show_page_number),
+                        subtitle = stringResource(TDMR.strings.settings_browse_show_page_number_summary),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = sourcePreferences.skipCoverLoading,
-                        title = "Skip cover loading",
-                        subtitle = "Don't load cover images in browse to save bandwidth",
+                        title = stringResource(TDMR.strings.settings_browse_skip_cover_loading),
+                        subtitle = stringResource(TDMR.strings.settings_browse_skip_cover_loading_summary),
                     ),
                     Preference.PreferenceItem.ListPreference(
                         preference = sourcePreferences.confirmBackAfterPages,
-                        title = "Confirm back after pages",
-                        subtitle = "Show confirmation dialog when going back after loading many pages",
+                        title = stringResource(TDMR.strings.settings_browse_confirm_back_after_pages),
+                        subtitle = stringResource(TDMR.strings.settings_browse_confirm_back_after_pages_summary),
                         entries = mapOf(
                             0 to "Disabled",
                             3 to "3 pages",

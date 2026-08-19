@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.source.local.LocalNovelSource
 import uy.kohesive.injekt.Injekt
@@ -167,11 +168,19 @@ fun BrowseSourceToolbar(
 
         AlertDialog(
             onDismissRequest = { showPageJumpDialog = false },
-            title = { Text(if (showRangeMode) "Load Page Range" else "Jump to Page") },
+            title = {
+                Text(
+                    if (showRangeMode) {
+                        stringResource(TDMR.strings.browse_page_jump_title_range)
+                    } else {
+                        stringResource(TDMR.strings.browse_page_jump_title_single)
+                    },
+                )
+            },
             text = {
                 Column {
                     Text(
-                        text = "Loaded up to page: $currentPage",
+                        text = stringResource(TDMR.strings.browse_page_jump_loaded_up_to, currentPage),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -179,7 +188,15 @@ fun BrowseSourceToolbar(
                     OutlinedTextField(
                         value = pageInput,
                         onValueChange = { pageInput = it.filter { char -> char.isDigit() } },
-                        label = { Text(if (showRangeMode) "Start page" else "Page number") },
+                        label = {
+                            Text(
+                                if (showRangeMode) {
+                                    stringResource(TDMR.strings.browse_page_jump_start_page)
+                                } else {
+                                    stringResource(TDMR.strings.browse_page_jump_page_number)
+                                },
+                            )
+                        },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = if (showRangeMode) ImeAction.Next else ImeAction.Go,
@@ -204,7 +221,7 @@ fun BrowseSourceToolbar(
                         OutlinedTextField(
                             value = endPageInput,
                             onValueChange = { endPageInput = it.filter { char -> char.isDigit() } },
-                            label = { Text("End page") },
+                            label = { Text(stringResource(TDMR.strings.browse_page_jump_end_page)) },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number,
                                 imeAction = ImeAction.Go,
@@ -230,7 +247,7 @@ fun BrowseSourceToolbar(
                         // Pagination delay slider
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Pagination delay: ${currentDelay}s",
+                            text = stringResource(TDMR.strings.browse_page_jump_pagination_delay, currentDelay),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         androidx.compose.material3.Slider(
@@ -242,7 +259,7 @@ fun BrowseSourceToolbar(
                         )
 
                         Text(
-                            text = "Delay between loading each page in the range",
+                            text = stringResource(TDMR.strings.browse_page_jump_delay_desc),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 4.dp),
                         )
@@ -251,7 +268,13 @@ fun BrowseSourceToolbar(
                     TextButton(
                         onClick = { showRangeMode = !showRangeMode },
                     ) {
-                        Text(if (showRangeMode) "Single page mode" else "Load page range")
+                        Text(
+                            if (showRangeMode) {
+                                stringResource(TDMR.strings.browse_page_jump_single_mode)
+                            } else {
+                                stringResource(TDMR.strings.browse_page_jump_range_mode)
+                            },
+                        )
                     }
                 }
             },
@@ -281,12 +304,18 @@ fun BrowseSourceToolbar(
                         }
                     },
                 ) {
-                    Text(if (showRangeMode) "Load Range" else "Jump")
+                    Text(
+                        if (showRangeMode) {
+                            stringResource(TDMR.strings.browse_page_jump_load_range)
+                        } else {
+                            stringResource(TDMR.strings.browse_page_jump_action)
+                        },
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPageJumpDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(MR.strings.action_cancel))
                 }
             },
         )

@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
@@ -90,13 +91,13 @@ class WorkerInfoScreen : Screen() {
                 contentPadding = contentPadding + PaddingValues(horizontal = 16.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                item { SectionTitle(title = "Enqueued") }
+                item { SectionTitle(title = stringResource(TDMR.strings.settings_debug_worker_enqueued)) }
                 item { SectionText(text = enqueued) }
 
-                item { SectionTitle(title = "Finished") }
+                item { SectionTitle(title = stringResource(TDMR.strings.settings_debug_worker_finished)) }
                 item { SectionText(text = finished) }
 
-                item { SectionTitle(title = "Running") }
+                item { SectionTitle(title = stringResource(TDMR.strings.settings_debug_worker_running)) }
                 item { SectionText(text = running) }
             }
         }

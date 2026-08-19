@@ -89,8 +89,8 @@ fun LibrarySettingsDialog(
             stringResource(MR.strings.action_filter),
             stringResource(MR.strings.action_sort),
             stringResource(MR.strings.action_display),
-            "Tags",
-            "Extensions",
+            stringResource(TDMR.strings.edit_label_tags),
+            stringResource(MR.strings.label_extensions),
         ).toTabTitles(),
     ) { page ->
         if (page == 3) {
@@ -176,9 +176,15 @@ private fun ColumnScope.FilterPage(
     var thresholdText by remember { mutableStateOf(chapterCountThreshold.toString()) }
     TriStateItem(
         label = when (filterChapterCount) {
-            TriState.ENABLED_IS -> "Chapters ≥ $chapterCountThreshold"
-            TriState.ENABLED_NOT -> "Chapters < $chapterCountThreshold"
-            else -> "Chapter count"
+            TriState.ENABLED_IS -> stringResource(
+                TDMR.strings.library_settings_filter_chapter_count_at_least,
+                chapterCountThreshold,
+            )
+            TriState.ENABLED_NOT -> stringResource(
+                TDMR.strings.library_settings_filter_chapter_count_less_than,
+                chapterCountThreshold,
+            )
+            else -> stringResource(TDMR.strings.library_settings_filter_chapter_count_label)
         },
         state = filterChapterCount,
         onClick = { viewModel.toggleFilter(LibraryPreferences::filterChapterCount) },
@@ -192,7 +198,7 @@ private fun ColumnScope.FilterPage(
                     viewModel.libraryPreferences.filterChapterCountThreshold.set(it)
                 }
             },
-            label = { Text("Threshold") },
+            label = { Text(stringResource(TDMR.strings.library_settings_chapter_count_threshold_label)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
@@ -239,25 +245,25 @@ private fun ColumnScope.FilterPage(
     }
 
     // Search options section
-    HeadingItem("Search Options")
+    HeadingItem(stringResource(TDMR.strings.library_settings_search_options_header))
     CheckboxItem(
-        label = "Search chapter names",
+        label = stringResource(TDMR.strings.library_settings_search_chapter_names),
         pref = viewModel.libraryPreferences.searchChapterNames,
     )
     CheckboxItem(
-        label = "Search novel descriptions and tags",
+        label = stringResource(TDMR.strings.library_settings_search_descriptions_tags),
         pref = viewModel.libraryPreferences.searchChapterContent,
     )
     CheckboxItem(
-        label = "Search alternative titles",
+        label = stringResource(TDMR.strings.library_settings_search_alt_titles),
         pref = viewModel.libraryPreferences.searchAlternativeTitles,
     )
     CheckboxItem(
-        label = "Search by URL",
+        label = stringResource(TDMR.strings.library_settings_search_by_url),
         pref = viewModel.libraryPreferences.searchByUrl,
     )
     CheckboxItem(
-        label = "Use regex search",
+        label = stringResource(TDMR.strings.library_settings_use_regex_search),
         pref = viewModel.libraryPreferences.useRegexSearch,
     )
 }
@@ -397,7 +403,7 @@ private fun ColumnScope.DisplayPage(
         pref = viewModel.libraryPreferences.showContinueReadingButton,
     )
     CheckboxItem(
-        label = "Show URL in list view",
+        label = stringResource(TDMR.strings.library_settings_show_url_in_list),
         pref = viewModel.libraryPreferences.showUrlInList,
     )
 
@@ -405,7 +411,7 @@ private fun ColumnScope.DisplayPage(
     SliderItem(
         value = titleMaxLines,
         valueRange = 1..15,
-        label = "Title Max Lines",
+        label = stringResource(TDMR.strings.library_settings_title_max_lines),
         valueString = titleMaxLines.toString(),
         onChange = viewModel.libraryPreferences.titleMaxLines::set,
         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -478,10 +484,14 @@ private fun ColumnScope.TagsPage(
         TextButton(onClick = { viewModel.toggleTagOptions() }) {
             Icon(
                 imageVector = if (optionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (optionsExpanded) "Collapse options" else "Expand options",
+                contentDescription = if (optionsExpanded) {
+                    stringResource(TDMR.strings.library_settings_tags_collapse_options_cd)
+                } else {
+                    stringResource(TDMR.strings.library_settings_tags_expand_options_cd)
+                },
             )
             Spacer(Modifier.width(4.dp))
-            Text("Options")
+            Text(stringResource(TDMR.strings.label_options))
         }
         TextButton(
             onClick = { viewModel.refreshTags(forceRefresh = true) },
@@ -496,12 +506,24 @@ private fun ColumnScope.TagsPage(
             ) { state ->
                 when (state) {
                     "loading" -> CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    "done" -> Icon(Icons.Default.Done, contentDescription = "Refreshed")
-                    else -> Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    "done" -> Icon(
+                        Icons.Default.Done,
+                        contentDescription = stringResource(TDMR.strings.library_settings_refreshed_cd),
+                    )
+                    else -> Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = stringResource(MR.strings.action_webview_refresh),
+                    )
                 }
             }
             Spacer(Modifier.width(4.dp))
-            Text(if (showRefreshCompleted) "Refreshed" else "Refresh")
+            Text(
+                if (showRefreshCompleted) {
+                    stringResource(TDMR.strings.library_settings_refreshed_cd)
+                } else {
+                    stringResource(MR.strings.action_webview_refresh)
+                },
+            )
         }
     }
 
@@ -518,18 +540,21 @@ private fun ColumnScope.TagsPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Include tags mode:", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(TDMR.strings.library_settings_tags_include_mode_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Row {
                     FilterChip(
                         selected = !tagIncludeModeAnd,
                         onClick = { viewModel.libraryPreferences.tagIncludeMode.set(false) },
-                        label = { Text("OR") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_or)) },
                     )
                     Spacer(Modifier.width(8.dp))
                     FilterChip(
                         selected = tagIncludeModeAnd,
                         onClick = { viewModel.libraryPreferences.tagIncludeMode.set(true) },
-                        label = { Text("AND") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_and)) },
                     )
                 }
             }
@@ -542,18 +567,21 @@ private fun ColumnScope.TagsPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Exclude tags mode:", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(TDMR.strings.library_settings_tags_exclude_mode_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Row {
                     FilterChip(
                         selected = !tagExcludeModeAnd,
                         onClick = { viewModel.libraryPreferences.tagExcludeMode.set(false) },
-                        label = { Text("OR") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_or)) },
                     )
                     Spacer(Modifier.width(8.dp))
                     FilterChip(
                         selected = tagExcludeModeAnd,
                         onClick = { viewModel.libraryPreferences.tagExcludeMode.set(true) },
-                        label = { Text("AND") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_and)) },
                     )
                 }
             }
@@ -566,18 +594,21 @@ private fun ColumnScope.TagsPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Sort by:", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(TDMR.strings.library_settings_tags_sort_by_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Row {
                     FilterChip(
                         selected = !tagSortByName,
                         onClick = { viewModel.libraryPreferences.tagSortByName.set(false) },
-                        label = { Text("Count") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_count)) },
                     )
                     Spacer(Modifier.width(8.dp))
                     FilterChip(
                         selected = tagSortByName,
                         onClick = { viewModel.libraryPreferences.tagSortByName.set(true) },
-                        label = { Text("Name") },
+                        label = { Text(stringResource(MR.strings.name)) },
                     )
                 }
             }
@@ -590,18 +621,21 @@ private fun ColumnScope.TagsPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Sort order:", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(TDMR.strings.library_settings_tags_sort_order_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Row {
                     FilterChip(
                         selected = !tagSortAscending,
                         onClick = { viewModel.libraryPreferences.tagSortAscending.set(false) },
-                        label = { Text("Desc") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_desc)) },
                     )
                     Spacer(Modifier.width(8.dp))
                     FilterChip(
                         selected = tagSortAscending,
                         onClick = { viewModel.libraryPreferences.tagSortAscending.set(true) },
-                        label = { Text("Asc") },
+                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_asc)) },
                     )
                 }
             }
@@ -610,7 +644,7 @@ private fun ColumnScope.TagsPage(
 
             // Case sensitivity toggle
             CheckboxItem(
-                label = "Case sensitive matching",
+                label = stringResource(TDMR.strings.label_case_sensitive_matching),
                 pref = viewModel.libraryPreferences.tagCaseSensitive,
             )
         }
@@ -622,15 +656,18 @@ private fun ColumnScope.TagsPage(
             onClick = { viewModel.clearAllTagFilters() },
             modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal),
         ) {
-            Icon(Icons.Default.Clear, contentDescription = "Clear all")
+            Icon(
+                Icons.Default.Clear,
+                contentDescription = stringResource(TDMR.strings.library_settings_tags_clear_all_cd),
+            )
             Spacer(Modifier.width(4.dp))
-            Text("Clear All Filters")
+            Text(stringResource(TDMR.strings.library_settings_tags_clear_all_filters))
         }
     }
 
     // No tags filter
     TriStateItem(
-        label = "No tags ($noTagsCount)",
+        label = stringResource(TDMR.strings.library_settings_tags_no_tags_count, noTagsCount),
         state = filterNoTags,
         onClick = { viewModel.toggleNoTagsFilter() },
     )
@@ -643,12 +680,15 @@ private fun ColumnScope.TagsPage(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 8.dp),
-        placeholder = { Text("Search tags... (press Enter)") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+        placeholder = { Text(stringResource(TDMR.strings.library_settings_tags_search_placeholder)) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(MR.strings.action_search)) },
         trailingIcon = if (tagSearchQuery.isNotEmpty()) {
             {
                 IconButton(onClick = { viewModel.clearTagSearch() }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = stringResource(TDMR.strings.library_settings_tags_clear_search_cd),
+                    )
                 }
             }
         } else {
@@ -724,7 +764,7 @@ private fun ColumnScope.TagsPage(
 
     if (sortedTags.isEmpty() && !isLoading) {
         Text(
-            text = "No tags found in library",
+            text = stringResource(TDMR.strings.library_settings_tags_none_found),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 8.dp),
         )
@@ -735,18 +775,18 @@ private fun ColumnScope.TagsPage(
         ) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Loading tags...")
+            Text(stringResource(TDMR.strings.library_settings_tags_loading))
         }
     } else {
         Text(
-            text = "Tap to include, tap again to exclude, tap again to clear",
+            text = stringResource(TDMR.strings.library_settings_tags_tap_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 4.dp),
         )
 
         Text(
-            text = "${sortedTags.size} tags",
+            text = stringResource(TDMR.strings.library_settings_tags_count_label, sortedTags.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 2.dp),
@@ -853,13 +893,23 @@ private fun ColumnScope.ExtensionsPage(
             ) { state ->
                 when (state) {
                     "loading" -> CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    "done" -> Icon(Icons.Default.Done, contentDescription = "Refreshed")
-                    else -> Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    "done" -> Icon(
+                        Icons.Default.Done,
+                        contentDescription = stringResource(TDMR.strings.library_settings_refreshed_cd),
+                    )
+                    else -> Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = stringResource(MR.strings.action_webview_refresh),
+                    )
                 }
             }
             Spacer(Modifier.width(4.dp))
             Text(
-                text = if (showRefreshCompleted) "Refreshed" else "Refresh",
+                text = if (showRefreshCompleted) {
+                    stringResource(TDMR.strings.library_settings_refreshed_cd)
+                } else {
+                    stringResource(MR.strings.action_webview_refresh)
+                },
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -870,10 +920,13 @@ private fun ColumnScope.ExtensionsPage(
             onClick = { viewModel.checkAllExtensions() },
             modifier = Modifier.weight(1f),
         ) {
-            Icon(Icons.Default.Check, contentDescription = "Check all")
+            Icon(
+                Icons.Default.Check,
+                contentDescription = stringResource(TDMR.strings.library_settings_extensions_check_all_cd),
+            )
             Spacer(Modifier.width(4.dp))
             Text(
-                text = "All",
+                text = stringResource(MR.strings.all),
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -884,10 +937,13 @@ private fun ColumnScope.ExtensionsPage(
             onClick = { viewModel.uncheckAllExtensions() },
             modifier = Modifier.weight(1f),
         ) {
-            Icon(Icons.Default.Clear, contentDescription = "Uncheck all")
+            Icon(
+                Icons.Default.Clear,
+                contentDescription = stringResource(TDMR.strings.library_settings_extensions_uncheck_all_cd),
+            )
             Spacer(Modifier.width(4.dp))
             Text(
-                text = "None",
+                text = stringResource(MR.strings.none),
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -897,7 +953,7 @@ private fun ColumnScope.ExtensionsPage(
 
     if (availableExtensions.isEmpty() && !isLoading) {
         Text(
-            text = "No extensions with library entries",
+            text = stringResource(TDMR.strings.library_settings_extensions_none_found),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal),
         )
@@ -908,7 +964,7 @@ private fun ColumnScope.ExtensionsPage(
         ) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Loading extensions...")
+            Text(stringResource(TDMR.strings.library_settings_extensions_loading))
         }
     } else {
         // Show count of missing sources
@@ -928,7 +984,7 @@ private fun ColumnScope.ExtensionsPage(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = "$stubCount source(s) with missing extensions",
+                    text = stringResource(TDMR.strings.library_settings_extensions_missing_count, stubCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -965,7 +1021,7 @@ private fun ColumnScope.ExtensionsPage(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
                 Text(
-                    text = "Novel Sources",
+                    text = stringResource(TDMR.strings.label_novel_sources),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 4.dp),
@@ -981,7 +1037,7 @@ private fun ColumnScope.ExtensionsPage(
                 if (extensionInfo.isStub) {
                     Icon(
                         imageVector = Icons.Filled.Warning,
-                        contentDescription = "Missing source",
+                        contentDescription = stringResource(TDMR.strings.library_settings_extensions_missing_source_cd),
                         modifier = Modifier
                             .padding(start = TabbedDialogPaddings.Horizontal)
                             .size(16.dp),
@@ -989,7 +1045,14 @@ private fun ColumnScope.ExtensionsPage(
                     )
                 }
                 CheckboxItem(
-                    label = if (extensionInfo.isStub) "${extensionInfo.sourceName} (Missing)" else extensionInfo.sourceName,
+                    label = if (extensionInfo.isStub) {
+                        stringResource(
+                            TDMR.strings.library_settings_extensions_missing_suffix,
+                            extensionInfo.sourceName,
+                        )
+                    } else {
+                        extensionInfo.sourceName
+                    },
                     checked = isChecked,
                     onClick = {
                         viewModel.toggleExtensionFilter(extensionInfo.sourceId.toString(), !isChecked)

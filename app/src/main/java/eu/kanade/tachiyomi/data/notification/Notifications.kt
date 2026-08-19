@@ -221,7 +221,7 @@ object Notifications {
                 },
                 buildNotificationChannel(CHANNEL_APP_UPDATE, IMPORTANCE_DEFAULT) {
                     setGroup(GROUP_APK_UPDATES)
-                    setName(context.stringResource(MR.strings.channel_app_updates))
+                    setName(context.stringResource(MR.strings.update_check_notification_update_available))
                 },
                 buildNotificationChannel(CHANNEL_EXTENSIONS_UPDATE, IMPORTANCE_DEFAULT) {
                     setGroup(GROUP_APK_UPDATES)
@@ -236,15 +236,15 @@ object Notifications {
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_TTS_PLAYBACK, IMPORTANCE_LOW) {
-                    setName("TTS Playback")
+                    setName(context.stringResource(TDMR.strings.channel_tts_playback))
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_EPUB_EXPORT, IMPORTANCE_LOW) {
-                    setName("EPUB Export")
+                    setName(context.stringResource(TDMR.strings.epub_export_job_title))
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_LIBRARY_EXPORT, IMPORTANCE_LOW) {
-                    setName("Library Export")
+                    setName(context.stringResource(TDMR.strings.channel_library_export))
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_LIBRARY_CLEAR, IMPORTANCE_LOW) {

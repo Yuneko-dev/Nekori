@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -214,7 +215,11 @@ private fun UpdatesAppBar(
                         onClick = onFilterClicked,
                     ),
                     AppBar.Action(
-                        title = if (groupByNovel) "List View" else "Group by Novel",
+                        title = if (groupByNovel) {
+                            stringResource(TDMR.strings.label_list_view)
+                        } else {
+                            stringResource(TDMR.strings.updates_action_group_by_novel)
+                        },
                         icon = if (groupByNovel) Icons.Outlined.ViewList else Icons.Outlined.GridView,
                         onClick = onToggleGroupByNovel,
                     ),

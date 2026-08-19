@@ -1581,7 +1581,7 @@ class MangaViewModel(
                     }
                 } else {
                     // Show a snackbar or toast instead of dialog if no duplicates found
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.duplicate_no_duplicates))
+                    snackbarHostState.showSnackbar(context.stringResource(TDMR.strings.duplicate_no_duplicates))
                 }
             }
         }
@@ -1764,7 +1764,7 @@ class MangaViewModel(
             if (chaptersToTranslate.isEmpty()) {
                 withUIContext {
                     snackbarHostState.showSnackbar(
-                        context.stringResource(MR.strings.translation_all_downloaded_already_translated),
+                        context.stringResource(TDMR.strings.translation_all_downloaded_already_translated),
                     )
                 }
                 return@launchIO
@@ -1810,7 +1810,7 @@ class MangaViewModel(
             if (chaptersToTranslate.isEmpty()) {
                 withUIContext {
                     snackbarHostState.showSnackbar(
-                        context.stringResource(MR.strings.translation_selected_already_translated),
+                        context.stringResource(TDMR.strings.translation_selected_already_translated),
                     )
                 }
                 return@launchIO

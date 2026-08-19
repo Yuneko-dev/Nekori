@@ -140,6 +140,7 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -1865,7 +1866,7 @@ class ReaderActivity : BaseActivity() {
             logcat(LogPriority.ERROR, e) { "Translation failed" }
             runOnUiThread {
                 viewModel.disableTranslation()
-                toast(e.message ?: "Translation failed")
+                toast(e.message ?: stringResource(TDMR.strings.reader_translation_failed))
             }
             content
         }
@@ -1945,9 +1946,9 @@ class ReaderActivity : BaseActivity() {
                 pendingSelectedText = null
                 pendingParagraphIndex = null
             }
-            toast("Quote saved!")
+            toast(TDMR.strings.quotes_saved)
         } else {
-            toast("No text selected")
+            toast(TDMR.strings.reader_no_text_selected)
         }
     }
 

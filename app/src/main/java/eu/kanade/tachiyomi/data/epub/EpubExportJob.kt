@@ -77,7 +77,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
         setSmallIcon(android.R.drawable.ic_menu_save)
         setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-        setContentText(context.stringResource(TDMR.strings.epub_export_job_starting))
+        setContentText(context.stringResource(TDMR.strings.notification_starting))
         setProgress(0, 0, true)
         setOngoing(true)
         setOnlyAlertOnce(true)
@@ -1344,7 +1344,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                 context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
                     setSmallIcon(android.R.drawable.ic_menu_save)
                     setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-                    setContentText(context.stringResource(TDMR.strings.epub_export_job_starting))
+                    setContentText(context.stringResource(TDMR.strings.notification_starting))
                     setProgress(0, 0, true)
                     setOngoing(true)
                     setOnlyAlertOnce(true)

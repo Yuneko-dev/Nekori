@@ -33,9 +33,11 @@ import eu.kanade.tachiyomi.util.system.toast
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.i18n.stringResource as contextStringResource
 
 @Composable
 fun DuplicateDetectionDialog(
@@ -57,7 +59,7 @@ fun DuplicateDetectionDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Potential Duplicates")
+                Text(stringResource(TDMR.strings.library_duplicate_dialog_title))
                 if (duplicates.isNotEmpty()) {
                     IconButton(onClick = {
                         // Copy all URLs from duplicates
@@ -77,11 +79,16 @@ fun DuplicateDetectionDialog(
                             }
                         }.joinToString("\n")
                         clipboardManager.setText(AnnotatedString(urls))
-                        context.toast("Copied ${duplicates.sumOf { it.items.size }} URLs")
+                        context.toast(
+                            context.contextStringResource(
+                                TDMR.strings.duplicate_urls_copied,
+                                duplicates.sumOf { it.items.size },
+                            ),
+                        )
                     }) {
                         Icon(
                             imageVector = Icons.Outlined.ContentCopy,
-                            contentDescription = "Copy All URLs",
+                            contentDescription = stringResource(TDMR.strings.library_duplicate_dialog_copy_all_urls),
                         )
                     }
                 }
@@ -89,11 +96,11 @@ fun DuplicateDetectionDialog(
         },
         text = {
             if (duplicates.isEmpty()) {
-                Text("No potential duplicates found in your library.")
+                Text(stringResource(TDMR.strings.library_duplicate_dialog_none_found))
             } else {
                 Column {
                     Text(
-                        text = "Found ${duplicates.size} group(s) with similar titles:",
+                        text = stringResource(TDMR.strings.library_duplicate_dialog_groups_found, duplicates.size),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
@@ -112,7 +119,7 @@ fun DuplicateDetectionDialog(
             if (duplicates.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onSelectAllExceptFirst) {
-                        Text(stringResource(MR.strings.duplicate_select_all_except_first))
+                        Text(stringResource(TDMR.strings.duplicate_select_all_except_first))
                     }
                     TextButton(onClick = onSelectAll) {
                         Text(stringResource(MR.strings.action_select_all))
@@ -160,7 +167,7 @@ private fun DuplicateGroupItem(group: LibraryViewModel.DuplicateGroup, sourceMan
                             manga.url
                         }
                         clipboardManager.setText(AnnotatedString(url))
-                        context.toast("URL copied")
+                        context.toast(context.contextStringResource(TDMR.strings.library_duplicate_dialog_url_copied))
                     },
             ) {
                 // Title
@@ -200,7 +207,7 @@ private fun DuplicateGroupItem(group: LibraryViewModel.DuplicateGroup, sourceMan
                 // Alt titles if available
                 if (altTitles != null) {
                     Text(
-                        text = "Alt: $altTitles",
+                        text = stringResource(TDMR.strings.library_duplicate_dialog_alt_titles, altTitles),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1,

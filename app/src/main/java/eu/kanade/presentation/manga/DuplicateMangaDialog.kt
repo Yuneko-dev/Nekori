@@ -68,6 +68,7 @@ import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.material.padding
@@ -434,7 +435,7 @@ fun SimilarNovelsDialog(
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
         ) {
             Text(
-                text = "Similar Novels",
+                text = stringResource(TDMR.strings.manga_similar_novels),
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier
                     .then(horizontalPaddingModifier)
@@ -442,7 +443,7 @@ fun SimilarNovelsDialog(
             )
 
             Text(
-                text = "These novels have similar titles and might be duplicates or related works.",
+                text = stringResource(TDMR.strings.manga_similar_novels_description),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.then(horizontalPaddingModifier),
             )

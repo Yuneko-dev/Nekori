@@ -164,8 +164,8 @@ class SourcePreferencesFragment : PreferenceFragmentCompat() {
 
         val reverseChapterPref = SwitchPreferenceCompat(requireContext()).apply {
             key = "reverse_chapter_list_$sourceId"
-            title = "Reverse chapter list"
-            summary = "Reverse the order of chapters fetched from this source"
+            title = requireContext().contextStringResource(TDMR.strings.source_pref_reverse_chapter_list_title)
+            summary = requireContext().contextStringResource(TDMR.strings.source_pref_reverse_chapter_list_summary)
             isIconSpaceReserved = false
             isSingleLineTitle = false
 

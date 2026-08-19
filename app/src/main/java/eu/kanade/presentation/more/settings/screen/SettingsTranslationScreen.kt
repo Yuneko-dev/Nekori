@@ -36,7 +36,6 @@ import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.contextualAnchoringParagraphs
 import tachiyomi.domain.translation.service.TranslationPreferences
-import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -89,10 +88,10 @@ object SettingsTranslationScreen : SearchableSettings {
         val testResults = remember { mutableStateMapOf<TranslationEngineId, String>() }
         var testingEngineId by remember { mutableStateOf<TranslationEngineId?>(null) }
         val notSet = stringResource(TDMR.strings.not_set)
-        val testEngine = stringResource(MR.strings.pref_translation_test_engine)
-        val testing = stringResource(MR.strings.pref_translation_testing)
-        val testSend = stringResource(MR.strings.pref_translation_test_send)
-        val testText = stringResource(MR.strings.pref_translation_test_text)
+        val testEngine = stringResource(TDMR.strings.pref_translation_test_engine)
+        val testing = stringResource(TDMR.strings.pref_translation_testing)
+        val testSend = stringResource(TDMR.strings.pref_translation_test_send)
+        val testText = stringResource(TDMR.strings.pref_translation_test_text)
         fun apiKeySubtitle(value: String) = if (value.isBlank()) notSet else "••••••••"
         fun testButton(engine: TranslationEngine): Preference.PreferenceItem.TextPreference {
             val configured = engine.isConfigured()
@@ -131,20 +130,20 @@ object SettingsTranslationScreen : SearchableSettings {
             )
         }
         val queueStatus = when {
-            progress.isCancelling -> stringResource(MR.strings.pref_translation_status_cancelling)
+            progress.isCancelling -> stringResource(TDMR.strings.pref_translation_status_cancelling)
             progress.isRunning && isPaused -> stringResource(
-                MR.strings.pref_translation_status_paused,
+                TDMR.strings.pref_translation_status_paused,
                 progress.completedChapters,
                 progress.totalChapters,
             )
             progress.isRunning -> stringResource(
-                MR.strings.pref_translation_status_translating,
+                TDMR.strings.pref_translation_status_translating,
                 progress.currentChapterName ?: "...",
                 "",
                 progress.completedChapters,
                 progress.totalChapters,
             )
-            else -> stringResource(MR.strings.pref_translation_status_idle)
+            else -> stringResource(TDMR.strings.pref_translation_status_idle)
         }
         // The language list follows the chapter engine: it is the one the reader uses.
         val languageEntries = engines.getSupportedLanguages(TranslationPurpose.CHAPTER).toMap()
@@ -185,7 +184,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.libreTranslateApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
+                        title = stringResource(TDMR.strings.pref_translation_api_key),
                         subtitle = apiKeySubtitle(libreApiKey),
                         isPassword = true,
                     ),
@@ -197,7 +196,7 @@ object SettingsTranslationScreen : SearchableSettings {
                 preferenceItems = listOf(
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.deepLApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
+                        title = stringResource(TDMR.strings.pref_translation_api_key),
                         subtitle = apiKeySubtitle(deepLApiKey),
                         isPassword = true,
                     ),
@@ -209,7 +208,7 @@ object SettingsTranslationScreen : SearchableSettings {
                 preferenceItems = listOf(
                     Preference.PreferenceItem.EditTextPreference(
                         preference = prefs.googleApiKey(),
-                        title = stringResource(MR.strings.pref_translation_api_key),
+                        title = stringResource(TDMR.strings.pref_translation_api_key),
                         subtitle = apiKeySubtitle(googleApiKey),
                         isPassword = true,
                     ),
@@ -218,10 +217,10 @@ object SettingsTranslationScreen : SearchableSettings {
             ),
             behaviorGroup(prefs, isLlmChapterEngine = chapterEngineId == TranslationEngineId.LLM),
             Preference.PreferenceGroup(
-                title = stringResource(MR.strings.pref_translation_queue),
+                title = stringResource(TDMR.strings.pref_translation_queue),
                 preferenceItems = listOf(
                     Preference.PreferenceItem.TextPreference(
-                        title = stringResource(MR.strings.pref_translation_queue),
+                        title = stringResource(TDMR.strings.pref_translation_queue),
                         subtitle = queueStatus,
                         onClick = { navigator.push(DownloadQueueScreen(initialTab = 1)) },
                     ),
@@ -304,18 +303,18 @@ object SettingsTranslationScreen : SearchableSettings {
                 Preference.PreferenceItem.ListPreference(
                     preference = prefs.translationChunkMode(),
                     entries = mapOf(
-                        TranslationChunkMode.WORDS.key to stringResource(MR.strings.pref_translation_chunk_words),
+                        TranslationChunkMode.WORDS.key to stringResource(TDMR.strings.pref_translation_chunk_words),
                         TranslationChunkMode.PARAGRAPHS.key to
-                            stringResource(MR.strings.pref_translation_chunk_paragraphs),
+                            stringResource(TDMR.strings.pref_translation_chunk_paragraphs),
                     ),
-                    title = stringResource(MR.strings.pref_translation_chunk_mode),
+                    title = stringResource(TDMR.strings.pref_translation_chunk_mode),
                 ),
                 when (chunkMode) {
                     TranslationChunkMode.WORDS -> Preference.PreferenceItem.SliderPreference(
                         value = chunkWordLimit,
-                        title = stringResource(MR.strings.pref_translation_chunk_size),
-                        subtitle = stringResource(MR.strings.pref_translation_chunk_words_rec),
-                        valueString = "$chunkWordLimit ${stringResource(MR.strings.pref_translation_chunk_words)}",
+                        title = stringResource(TDMR.strings.pref_translation_chunk_size),
+                        subtitle = stringResource(TDMR.strings.pref_translation_chunk_words_rec),
+                        valueString = "$chunkWordLimit ${stringResource(TDMR.strings.pref_translation_chunk_words)}",
                         valueRange = wordLimitRange,
                         onValueChanged = prefs.translationChunkWordLimit()::set,
                         preference = prefs.translationChunkWordLimit(),
@@ -331,13 +330,13 @@ object SettingsTranslationScreen : SearchableSettings {
             listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.contextualAnchoringEnabled(),
-                    title = stringResource(MR.strings.pref_translation_contextual_anchoring),
-                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_desc),
+                    title = stringResource(TDMR.strings.pref_translation_contextual_anchoring),
+                    subtitle = stringResource(TDMR.strings.pref_translation_contextual_anchoring_desc),
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = anchoringParagraphs,
-                    title = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs),
-                    subtitle = stringResource(MR.strings.pref_translation_contextual_anchoring_paragraphs_desc),
+                    title = stringResource(TDMR.strings.pref_translation_contextual_anchoring_paragraphs),
+                    subtitle = stringResource(TDMR.strings.pref_translation_contextual_anchoring_paragraphs_desc),
                     valueString = "$anchoringParagraphs",
                     valueRange = 1..10,
                     onValueChanged = prefs.contextualAnchoringParagraphs()::set,
@@ -366,23 +365,23 @@ object SettingsTranslationScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.replaceTitle(),
-                    title = stringResource(MR.strings.pref_translation_replace_title),
-                    subtitle = stringResource(MR.strings.pref_translation_replace_title_desc),
+                    title = stringResource(TDMR.strings.pref_translation_replace_title),
+                    subtitle = stringResource(TDMR.strings.pref_translation_replace_title_desc),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.saveTranslatedTitleAsAlternative(),
-                    title = stringResource(MR.strings.pref_translation_save_alt_titles),
-                    subtitle = stringResource(MR.strings.pref_translation_save_alt_titles_desc),
+                    title = stringResource(TDMR.strings.pref_translation_save_alt_titles),
+                    subtitle = stringResource(TDMR.strings.pref_translation_save_alt_titles_desc),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.translateTags(),
-                    title = stringResource(MR.strings.pref_translation_translate_tags),
-                    subtitle = stringResource(MR.strings.pref_translation_translate_tags_desc),
+                    title = stringResource(TDMR.strings.pref_translation_translate_tags),
+                    subtitle = stringResource(TDMR.strings.pref_translation_translate_tags_desc),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.smartAutoTranslate(),
-                    title = stringResource(MR.strings.pref_translation_smart_auto),
-                    subtitle = stringResource(MR.strings.pref_translation_smart_auto_desc),
+                    title = stringResource(TDMR.strings.pref_translation_smart_auto),
+                    subtitle = stringResource(TDMR.strings.pref_translation_smart_auto_desc),
                 ),
             ) + chunkPreferences + anchoringPreferences,
         )
@@ -391,8 +390,8 @@ object SettingsTranslationScreen : SearchableSettings {
     @Composable
     private fun splitSwitch(prefs: TranslationPreferences) = Preference.PreferenceItem.SwitchPreference(
         preference = prefs.splitLargeChapters(),
-        title = stringResource(MR.strings.pref_translation_split_large_chapters),
-        subtitle = stringResource(MR.strings.pref_translation_split_large_chapters_summary),
+        title = stringResource(TDMR.strings.pref_translation_split_large_chapters),
+        subtitle = stringResource(TDMR.strings.pref_translation_split_large_chapters_summary),
     )
 
     @Composable
@@ -401,9 +400,9 @@ object SettingsTranslationScreen : SearchableSettings {
         chunkSize: Int,
     ) = Preference.PreferenceItem.SliderPreference(
         value = chunkSize,
-        title = stringResource(MR.strings.pref_translation_chunk_size),
-        subtitle = stringResource(MR.strings.pref_translation_chunk_paragraphs_rec),
-        valueString = "$chunkSize ${stringResource(MR.strings.pref_translation_chunk_paragraphs)}",
+        title = stringResource(TDMR.strings.pref_translation_chunk_size),
+        subtitle = stringResource(TDMR.strings.pref_translation_chunk_paragraphs_rec),
+        valueString = "$chunkSize ${stringResource(TDMR.strings.pref_translation_chunk_paragraphs)}",
         valueRange = 1..500,
         onValueChanged = prefs.translationChunkSize()::set,
         preference = prefs.translationChunkSize(),

@@ -3730,7 +3730,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     activity.onRememberSelectedText()
                     clearTextSelection()
                 } else {
-                    activity.toast("No text selected")
+                    activity.toast(activity.stringResource(TDMR.strings.reader_no_text_selected))
                 }
             }
         }

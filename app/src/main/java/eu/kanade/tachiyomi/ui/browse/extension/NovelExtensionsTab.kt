@@ -35,7 +35,7 @@ fun novelExtensionsTab(
                 onClick = { navigator.push(ExtensionFilterScreen()) },
             ),
             AppBar.OverflowAction(
-                title = stringResource(MR.strings.label_extension_repos),
+                title = stringResource(MR.strings.extensionStores),
                 onClick = { navigator.push(NovelExtensionReposScreen()) },
             ),
         ),
@@ -89,7 +89,7 @@ fun novelExtensionsTab(
                 },
                 onRefresh = extensionsViewModel::findAvailableExtensions,
                 onEmptyReposAction = { navigator.push(NovelExtensionReposScreen()) },
-                emptyReposLabel = MR.strings.label_extension_repos,
+                emptyReposLabel = MR.strings.extensionStores,
             )
         },
     )

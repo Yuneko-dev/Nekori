@@ -1,5 +1,6 @@
 package eu.kanade.presentation.more.settings.screen
 
+import android.app.Application
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,8 +79,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.core.viewmodel.StateViewModel
+import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.i18n.stringResource as contextStringResource
 
 class FontManagerScreen : Screen {
 
@@ -115,10 +120,13 @@ class FontManagerScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Font Manager") },
+                    title = { Text(stringResource(TDMR.strings.settings_font_manager_title)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = stringResource(MR.strings.action_webview_back),
+                            )
                         }
                     },
                 )
@@ -128,7 +136,10 @@ class FontManagerScreen : Screen {
                 FloatingActionButton(
                     onClick = { showAddFontSheet = true },
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Font")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(TDMR.strings.settings_font_manager_add_font),
+                    )
                 }
             },
         ) { paddingValues ->
@@ -142,7 +153,7 @@ class FontManagerScreen : Screen {
                 ) {
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Loading fonts...")
+                    Text(stringResource(TDMR.strings.settings_font_manager_loading))
                 }
             } else {
                 LazyColumn(
@@ -160,7 +171,7 @@ class FontManagerScreen : Screen {
                     // System Fonts Section
                     item {
                         Text(
-                            text = "System Fonts",
+                            text = stringResource(TDMR.strings.settings_font_manager_system_fonts),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 8.dp),
@@ -181,7 +192,7 @@ class FontManagerScreen : Screen {
                         item {
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Custom Fonts",
+                                text = stringResource(TDMR.strings.settings_font_manager_custom_fonts),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -209,7 +220,7 @@ class FontManagerScreen : Screen {
                                     modifier = Modifier.padding(16.dp),
                                 ) {
                                     Text(
-                                        text = "Downloading font...",
+                                        text = stringResource(TDMR.strings.settings_font_manager_downloading),
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -237,7 +248,7 @@ class FontManagerScreen : Screen {
                         .padding(16.dp),
                 ) {
                     Text(
-                        text = "Add Font",
+                        text = stringResource(TDMR.strings.settings_font_manager_add_font),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -272,12 +283,12 @@ class FontManagerScreen : Screen {
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "Import from Device",
+                                    text = stringResource(TDMR.strings.settings_font_manager_import_from_device),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                 )
                                 Text(
-                                    text = "Select a TTF or OTF file",
+                                    text = stringResource(TDMR.strings.settings_font_manager_select_ttf_otf),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -313,12 +324,12 @@ class FontManagerScreen : Screen {
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "Download from Google Fonts",
+                                    text = stringResource(TDMR.strings.settings_font_manager_download_google_fonts),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                 )
                                 Text(
-                                    text = "Browse and download free fonts",
+                                    text = stringResource(TDMR.strings.settings_font_manager_browse_free_fonts),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -349,8 +360,12 @@ class FontManagerScreen : Screen {
         fontToDelete?.let { font ->
             AlertDialog(
                 onDismissRequest = { fontToDelete = null },
-                title = { Text("Delete Font") },
-                text = { Text("Are you sure you want to delete \"${font.name}\"?") },
+                title = { Text(stringResource(TDMR.strings.settings_font_manager_delete_font_title)) },
+                text = {
+                    Text(
+                        stringResource(TDMR.strings.settings_font_manager_delete_font_confirm, font.name),
+                    )
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -358,12 +373,12 @@ class FontManagerScreen : Screen {
                             fontToDelete = null
                         },
                     ) {
-                        Text("Delete")
+                        Text(stringResource(MR.strings.action_delete))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { fontToDelete = null }) {
-                        Text("Cancel")
+                        Text(stringResource(MR.strings.action_cancel))
                     }
                 },
             )
@@ -414,7 +429,11 @@ private fun FontItem(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = if (fontInfo.isCustom) "Custom Font" else "System Font",
+                    text = if (fontInfo.isCustom) {
+                        stringResource(TDMR.strings.settings_font_manager_custom_font_label)
+                    } else {
+                        stringResource(TDMR.strings.settings_font_manager_system_font_label)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     fontStyle = FontStyle.Italic,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -424,7 +443,7 @@ private fun FontItem(
             if (isSelected) {
                 Icon(
                     Icons.Default.Check,
-                    contentDescription = "Selected",
+                    contentDescription = stringResource(TDMR.strings.settings_font_manager_selected),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -434,7 +453,7 @@ private fun FontItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(MR.strings.action_delete),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -455,7 +474,7 @@ private fun GoogleFontsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Google Fonts") },
+        title = { Text(stringResource(TDMR.strings.settings_font_manager_google_fonts_title)) },
         text = {
             Column {
                 OutlinedTextField(
@@ -465,7 +484,7 @@ private fun GoogleFontsDialog(
                         onSearch(it)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search fonts...") },
+                    placeholder = { Text(stringResource(TDMR.strings.settings_font_manager_search_fonts_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -512,7 +531,7 @@ private fun GoogleFontsDialog(
                                     }
                                     Icon(
                                         Icons.Default.Download,
-                                        contentDescription = "Download",
+                                        contentDescription = stringResource(MR.strings.action_download),
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 }
@@ -524,7 +543,7 @@ private fun GoogleFontsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(MR.strings.action_close))
             }
         },
     )
@@ -533,6 +552,7 @@ private fun GoogleFontsDialog(
 class FontManagerViewModel(
     private val fontManager: FontManager = Injekt.get(),
     private val readerPreferences: ReaderPreferences = Injekt.get(),
+    private val context: Application = Injekt.get(),
 ) : StateViewModel<FontManagerViewModel.State>(State()) {
 
     data class State(
@@ -581,10 +601,24 @@ class FontManagerViewModel(
             result.fold(
                 onSuccess = { font ->
                     loadFonts()
-                    mutableState.update { it.copy(message = "Font \"${font.name}\" imported successfully") }
+                    mutableState.update {
+                        it.copy(
+                            message = context.contextStringResource(
+                                TDMR.strings.settings_font_manager_import_success,
+                                font.name,
+                            ),
+                        )
+                    }
                 },
                 onFailure = { error ->
-                    mutableState.update { it.copy(message = "Failed to import font: ${error.message}") }
+                    mutableState.update {
+                        it.copy(
+                            message = context.contextStringResource(
+                                TDMR.strings.settings_font_manager_import_failed,
+                                error.message.orEmpty(),
+                            ),
+                        )
+                    }
                 },
             )
         }
@@ -600,9 +634,15 @@ class FontManagerViewModel(
                     readerPreferences.novelFontFamily.set("sans-serif")
                     mutableState.update { it.copy(selectedFontPath = "sans-serif") }
                 }
-                mutableState.update { it.copy(message = "Font \"${font.name}\" deleted") }
+                mutableState.update {
+                    it.copy(
+                        message = context.contextStringResource(TDMR.strings.settings_font_manager_deleted, font.name),
+                    )
+                }
             } else {
-                mutableState.update { it.copy(message = "Failed to delete font") }
+                mutableState.update {
+                    it.copy(message = context.contextStringResource(TDMR.strings.settings_font_manager_delete_failed))
+                }
             }
         }
     }
@@ -634,13 +674,25 @@ class FontManagerViewModel(
                     }
                     is FontDownloadState.Success -> {
                         mutableState.update {
-                            it.copy(downloadProgress = null, message = "Font \"${fontFamily}\" downloaded")
+                            it.copy(
+                                downloadProgress = null,
+                                message = context.contextStringResource(
+                                    TDMR.strings.settings_font_manager_downloaded,
+                                    fontFamily,
+                                ),
+                            )
                         }
                         loadFonts()
                     }
                     is FontDownloadState.Error -> {
                         mutableState.update {
-                            it.copy(downloadProgress = null, message = "Download failed: ${downloadState.message}")
+                            it.copy(
+                                downloadProgress = null,
+                                message = context.contextStringResource(
+                                    TDMR.strings.settings_font_manager_download_failed,
+                                    downloadState.message,
+                                ),
+                            )
                         }
                     }
                 }

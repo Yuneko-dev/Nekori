@@ -84,7 +84,7 @@ fun EditMangaDialog(
 
     val tabTitles = listOf(
         TabTitle.Text(stringResource(MR.strings.pref_category_general)),
-        TabTitle.Text("Description"),
+        TabTitle.Text(stringResource(TDMR.strings.edit_label_description)),
     )
 
     TabbedDialog(
@@ -165,7 +165,7 @@ fun EditMangaDialog(
                     )
                 }
                 1 -> EditTextField(
-                    label = "Description",
+                    label = stringResource(TDMR.strings.edit_label_description),
                     value = description,
                     onValueChange = { description = it },
                     minLines = 1,
@@ -281,18 +281,19 @@ private fun EditStatusField(
     status: Long,
     onStatusChange: (Long) -> Unit,
 ) {
+    val unknownLabel = stringResource(MR.strings.unknown)
     val statusOptions = listOf(
-        SManga.UNKNOWN to "Unknown",
-        SManga.ONGOING to "Ongoing",
-        SManga.COMPLETED to "Completed",
-        SManga.LICENSED to "Licensed",
-        SManga.PUBLISHING_FINISHED to "Publishing finished",
-        SManga.CANCELLED to "Cancelled",
-        SManga.ON_HIATUS to "On hiatus",
+        SManga.UNKNOWN to unknownLabel,
+        SManga.ONGOING to stringResource(MR.strings.ongoing),
+        SManga.COMPLETED to stringResource(MR.strings.completed),
+        SManga.LICENSED to stringResource(MR.strings.licensed),
+        SManga.PUBLISHING_FINISHED to stringResource(MR.strings.publishing_finished),
+        SManga.CANCELLED to stringResource(MR.strings.cancelled),
+        SManga.ON_HIATUS to stringResource(MR.strings.on_hiatus),
     )
 
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = statusOptions.find { it.first.toLong() == status }?.second ?: "Unknown"
+    val selectedLabel = statusOptions.find { it.first.toLong() == status }?.second ?: unknownLabel
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -339,7 +340,7 @@ private fun EditTagsTab(
             OutlinedTextField(
                 value = newTag,
                 onValueChange = { newTag = it },
-                label = { Text("New tag") },
+                label = { Text(stringResource(TDMR.strings.manga_edit_new_tag)) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
@@ -352,7 +353,7 @@ private fun EditTagsTab(
                 },
                 enabled = newTag.isNotBlank(),
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "Add")
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -362,7 +363,11 @@ private fun EditTagsTab(
                     onClick = { onTagsChange(tags - tag) },
                     label = { Text(tag) },
                     trailingIcon = {
-                        Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp))
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(MR.strings.action_remove),
+                            modifier = Modifier.size(16.dp),
+                        )
                     },
                 )
             }
@@ -399,11 +404,11 @@ private fun EditAltTitlesTab(
                 value = newTitle,
                 onValueChange = { newTitle = it },
                 modifier = Modifier.weight(1f),
-                label = { Text("New title") },
+                label = { Text(stringResource(TDMR.strings.manga_edit_new_title)) },
                 singleLine = true,
                 isError = isDuplicate,
                 supportingText = if (isDuplicate) {
-                    { Text("Title already exists") }
+                    { Text(stringResource(TDMR.strings.manga_edit_title_already_exists)) }
                 } else {
                     null
                 },
@@ -417,7 +422,7 @@ private fun EditAltTitlesTab(
                 },
                 enabled = trimmedNew.isNotEmpty() && !isDuplicate,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "Add")
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
             }
         }
 
@@ -425,7 +430,7 @@ private fun EditAltTitlesTab(
 
         if (altTitles.isEmpty()) {
             Text(
-                text = "No alternative titles",
+                text = stringResource(TDMR.strings.manga_edit_no_alt_titles),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 8.dp),
@@ -461,7 +466,7 @@ private fun EditAltTitlesTab(
                         ) {
                             Icon(
                                 Icons.Outlined.Star,
-                                contentDescription = "Make main title",
+                                contentDescription = stringResource(TDMR.strings.manga_edit_make_main_title_cd),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }

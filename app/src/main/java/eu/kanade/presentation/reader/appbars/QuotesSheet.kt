@@ -411,7 +411,7 @@ fun QuotesSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Reorder,
-                                contentDescription = "Reorder quotes",
+                                contentDescription = stringResource(TDMR.strings.reader_quotes_reorder),
                                 tint = if (isReorderMode.value) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
@@ -424,7 +424,7 @@ fun QuotesSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Add,
-                                contentDescription = "Add quote",
+                                contentDescription = stringResource(TDMR.strings.quotes_add_title),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -520,7 +520,7 @@ fun QuotesSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Add,
-                                contentDescription = "Add quote",
+                                contentDescription = stringResource(TDMR.strings.quotes_add_title),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -529,7 +529,7 @@ fun QuotesSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Reorder,
-                                contentDescription = "Reorder quotes",
+                                contentDescription = stringResource(TDMR.strings.reader_quotes_reorder),
                                 tint = if (isReorderMode.value) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
@@ -592,7 +592,7 @@ fun QuotesSheet(
                     if (hasMoreContent) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_down_24dp),
-                            contentDescription = "Scroll down for more quotes",
+                            contentDescription = stringResource(TDMR.strings.reader_quotes_scroll_more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             modifier = Modifier.size(16.dp),
                         )
@@ -683,7 +683,7 @@ private fun QuoteItem(
             if (isReorderMode) {
                 Icon(
                     imageVector = Icons.Outlined.Reorder,
-                    contentDescription = "Drag to reorder",
+                    contentDescription = stringResource(TDMR.strings.label_drag_to_reorder),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
                 )

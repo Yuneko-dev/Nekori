@@ -42,7 +42,7 @@ data class RestoreOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.label_extension_repos,
+                label = MR.strings.extensionStores,
                 getter = RestoreOptions::extensionRepositories,
                 setter = { options, enabled -> options.copy(extensionRepositories = enabled) },
             ),

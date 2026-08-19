@@ -121,7 +121,9 @@ data object NovelsTab : Tab {
         val onLocalRefresh: () -> Unit = {
             viewModel.reloadLibraryFromDB()
             scope.launch {
-                snackbarHostState.showSnackbar("Reloading library from database...")
+                snackbarHostState.showSnackbar(
+                    context.stringResource(TDMR.strings.library_toolbar_reloading_snackbar),
+                )
             }
         }
 
@@ -200,7 +202,10 @@ data object NovelsTab : Tab {
                         scope.launch {
                             val urls = viewModel.getSelectedMangaUrls()
                             if (urls.isNotEmpty()) {
-                                context.copyToClipboard("Novel Links", urls.joinToString("\n"))
+                                context.copyToClipboard(
+                                    context.stringResource(TDMR.strings.library_toolbar_clipboard_label_novel_links),
+                                    urls.joinToString("\n"),
+                                )
                             }
                             viewModel.clearSelection()
                         }

@@ -23,6 +23,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -33,8 +34,8 @@ class LibraryExportJob(private val context: Context, workerParams: WorkerParamet
 
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_EXPORT) {
         setSmallIcon(android.R.drawable.stat_sys_upload)
-        setContentTitle("Library Export")
-        setContentText("Starting...")
+        setContentTitle(context.stringResource(TDMR.strings.channel_library_export))
+        setContentText(context.stringResource(TDMR.strings.notification_starting))
         setOngoing(true)
         setOnlyAlertOnce(true)
         addAction(
@@ -77,7 +78,7 @@ class LibraryExportJob(private val context: Context, workerParams: WorkerParamet
                     notificationBuilder
                         .setOngoing(false)
                         .setProgress(0, 0, false)
-                        .setContentText("Export complete")
+                        .setContentText(context.stringResource(TDMR.strings.notification_library_export_complete))
                     context.notify(Notifications.ID_LIBRARY_EXPORT_COMPLETE, notificationBuilder.build())
                 },
             )
@@ -90,7 +91,9 @@ class LibraryExportJob(private val context: Context, workerParams: WorkerParamet
                 notificationBuilder
                     .setOngoing(false)
                     .setProgress(0, 0, false)
-                    .setContentText(e.message ?: "Export failed")
+                    .setContentText(
+                        e.message ?: context.stringResource(TDMR.strings.notification_library_export_failed),
+                    )
                 context.notify(Notifications.ID_LIBRARY_EXPORT_COMPLETE, notificationBuilder.build())
                 Result.failure()
             }

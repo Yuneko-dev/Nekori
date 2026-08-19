@@ -79,6 +79,7 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.i18n.stringResource as contextStringResource
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -167,8 +168,8 @@ object SettingsTrackingScreen : SearchableSettings {
             ),
             Preference.PreferenceItem.EditTextPreference(
                 preference = trackPreferences.minChaptersBeforeTrackingNovel,
-                title = "Minimum chapters before tracking",
-                subtitle = "Number of chapters that must be read before auto-tracking starts (0 = always track)",
+                title = stringResource(TDMR.strings.settings_tracking_min_chapters_title),
+                subtitle = stringResource(TDMR.strings.settings_tracking_min_chapters_summary),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),
@@ -200,13 +201,13 @@ object SettingsTrackingScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.mangaBakaMarkChaptersAsRead,
-                        title = "Mark chapters as read on MangaBaka",
-                        subtitle = "Automatically mark chapters as read when you read them in the app",
+                        title = stringResource(TDMR.strings.settings_tracking_mark_read_mangabaka),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_mark_read_summary),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.mangaBakaSyncReadingList,
-                        title = "Sync reading list",
-                        subtitle = "Keep reading list status in sync with MangaBaka",
+                        title = stringResource(TDMR.strings.settings_tracking_sync_reading_list_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_sync_reading_list_mangabaka),
                     ),
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.shikimori,
@@ -227,7 +228,7 @@ object SettingsTrackingScreen : SearchableSettings {
                 ),
             ),
             Preference.PreferenceGroup(
-                title = "Novel Trackers",
+                title = stringResource(TDMR.strings.settings_tracking_novel_trackers_group),
                 preferenceItems = listOf(
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.novelUpdates,
@@ -245,22 +246,22 @@ object SettingsTrackingScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.novelUpdatesMarkChaptersAsRead,
-                        title = "Mark chapters as read on NovelUpdates",
-                        subtitle = "Automatically mark chapters as read when you read them in the app",
+                        title = stringResource(TDMR.strings.settings_tracking_mark_read_novelupdates),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_mark_read_summary),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.novelUpdatesSyncReadingList,
-                        title = "Sync reading list",
-                        subtitle = "Keep reading list status in sync with NovelUpdates",
+                        title = stringResource(TDMR.strings.settings_tracking_sync_reading_list_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_sync_reading_list_novelupdates),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.novelUpdatesUseCustomListMapping,
-                        title = "Custom list mapping",
-                        subtitle = "Map statuses to custom NovelUpdates lists",
+                        title = stringResource(TDMR.strings.settings_tracking_custom_list_mapping_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_custom_list_mapping_summary),
                     ),
                     Preference.PreferenceItem.TextPreference(
-                        title = "Configure list mapping",
-                        subtitle = "Choose which list each status maps to",
+                        title = stringResource(TDMR.strings.settings_tracking_configure_list_mapping_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_configure_list_mapping_summary),
                         onClick = { dialog = NovelUpdatesListMappingDialog },
                     ),
                     Preference.PreferenceItem.TrackerPreference(
@@ -279,13 +280,13 @@ object SettingsTrackingScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.novelListMarkChaptersAsRead,
-                        title = "Mark chapters as read on NovelList",
-                        subtitle = "Automatically mark chapters as read when you read them in the app",
+                        title = stringResource(TDMR.strings.settings_tracking_mark_read_novellist),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_mark_read_summary),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.novelListSyncReadingList,
-                        title = "Sync reading list",
-                        subtitle = "Keep reading list status in sync with NovelList",
+                        title = stringResource(TDMR.strings.settings_tracking_sync_reading_list_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_sync_reading_list_novellist),
                     ),
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.ranobeDb,
@@ -302,13 +303,13 @@ object SettingsTrackingScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.ranobeDbMarkChaptersAsRead,
-                        title = "Mark chapters as read on RanobeDB",
-                        subtitle = "Automatically mark chapters/volumes as read when you read them in the app",
+                        title = stringResource(TDMR.strings.settings_tracking_mark_read_ranobedb),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_mark_read_summary_volumes),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.ranobeDbSyncReadingList,
-                        title = "Sync reading list",
-                        subtitle = "Keep reading list status in sync with RanobeDB",
+                        title = stringResource(TDMR.strings.settings_tracking_sync_reading_list_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_sync_reading_list_ranobedb),
                     ),
                     Preference.PreferenceItem.InfoPreference(
                         "Login via WebView. Cookies will be automatically extracted after successful login.",
@@ -316,12 +317,12 @@ object SettingsTrackingScreen : SearchableSettings {
                 ),
             ),
             Preference.PreferenceGroup(
-                title = "Source-defined trackers",
+                title = stringResource(TDMR.strings.settings_tracking_source_defined_group),
                 preferenceItems = listOf(
                     Preference.PreferenceItem.SwitchPreference(
                         preference = trackPreferences.migrationTriggersSourceTracker,
-                        title = "Run source trackers on migration",
-                        subtitle = "Fire source-defined tracker events when migrating or quick-migrating an entry",
+                        title = stringResource(TDMR.strings.settings_tracking_run_source_trackers_title),
+                        subtitle = stringResource(TDMR.strings.settings_tracking_run_source_trackers_summary),
                     ),
                     Preference.PreferenceItem.InfoPreference(
                         "Some sources implement their own tracking. They are notified when you mark chapters read, " +
@@ -616,7 +617,7 @@ object SettingsTrackingScreen : SearchableSettings {
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Login to $trackerName",
+                        text = stringResource(TDMR.strings.settings_tracking_login_to, trackerName),
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onDismissRequest) {
@@ -640,7 +641,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         modifier = Modifier.fillMaxWidth(),
                         value = token,
                         onValueChange = { token = it },
-                        label = { Text("Token / Cookies") },
+                        label = { Text(stringResource(TDMR.strings.settings_tracking_token_cookies_label)) },
                         trailingIcon = {
                             IconButton(onClick = { hideToken = !hideToken }) {
                                 Icon(
@@ -687,7 +688,12 @@ object SettingsTrackingScreen : SearchableSettings {
                                 }
                             } else {
                                 withUIContext {
-                                    context.toast(result.exceptionOrNull()?.message ?: "Login failed")
+                                    context.toast(
+                                        result.exceptionOrNull()?.message
+                                            ?: context.contextStringResource(
+                                                TDMR.strings.settings_tracking_login_failed,
+                                            ),
+                                    )
                                 }
                             }
                         }
@@ -762,7 +768,7 @@ object SettingsTrackingScreen : SearchableSettings {
 
         AlertDialog(
             onDismissRequest = onDismissRequest,
-            title = { Text("List Mapping") },
+            title = { Text(stringResource(TDMR.strings.settings_tracking_list_mapping_dialog_title)) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -794,7 +800,9 @@ object SettingsTrackingScreen : SearchableSettings {
                                     }
                                     withUIContext {
                                         isLoading = false
-                                        if (lists.isEmpty()) context.toast("Failed to fetch lists")
+                                        if (lists.isEmpty()) {
+                                            context.toast(TDMR.strings.settings_tracking_fetch_lists_failed)
+                                        }
                                     }
                                 }
                             },
@@ -803,7 +811,7 @@ object SettingsTrackingScreen : SearchableSettings {
                             if (isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.height(16.dp))
                             } else {
-                                Text("Refresh")
+                                Text(stringResource(MR.strings.action_webview_refresh))
                             }
                         }
                     }

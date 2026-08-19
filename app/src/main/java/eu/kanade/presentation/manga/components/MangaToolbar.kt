@@ -151,7 +151,7 @@ fun MangaToolbar(
                     if (onClickSimilarNovels != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = "Similar Novels",
+                                title = stringResource(TDMR.strings.manga_similar_novels),
                                 onClick = onClickSimilarNovels,
                             ),
                         )
@@ -175,7 +175,7 @@ fun MangaToolbar(
                     if (onClickFindDuplicates != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = "Find Duplicates",
+                                title = stringResource(TDMR.strings.duplicate_find_duplicates),
                                 onClick = onClickFindDuplicates,
                             ),
                         )

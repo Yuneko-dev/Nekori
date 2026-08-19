@@ -20,6 +20,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.PreferenceScaffold
 import eu.kanade.presentation.util.LocalBackPress
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 interface SearchableSettings : Screen {
@@ -52,21 +53,24 @@ interface SearchableSettings : Screen {
             val preferences = getPreferences()
             val additionalPrefs = getAdditionalResetPreferences()
             IconButton(onClick = { showResetDialog = true }) {
-                Icon(Icons.Outlined.RestartAlt, contentDescription = "Reset to defaults")
+                Icon(
+                    Icons.Outlined.RestartAlt,
+                    contentDescription = stringResource(TDMR.strings.settings_reset_to_defaults),
+                )
             }
 
             if (showResetDialog) {
                 AlertDialog(
                     onDismissRequest = { showResetDialog = false },
-                    title = { Text("Reset settings") },
-                    text = { Text("Reset all settings on this screen to their default values?") },
+                    title = { Text(stringResource(TDMR.strings.settings_reset_dialog_title)) },
+                    text = { Text(stringResource(TDMR.strings.settings_reset_dialog_message)) },
                     confirmButton = {
                         TextButton(onClick = {
                             resetPreferencesToDefaults(preferences)
                             additionalPrefs.forEach { it.delete() }
                             showResetDialog = false
                         }) {
-                            Text("Reset")
+                            Text(stringResource(MR.strings.action_reset))
                         }
                     },
                     dismissButton = {

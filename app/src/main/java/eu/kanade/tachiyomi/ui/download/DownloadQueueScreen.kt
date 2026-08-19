@@ -173,9 +173,9 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                         AppBar.Action(
                                             title = stringResource(
                                                 if (translationPaused) {
-                                                    MR.strings.pref_translation_resume
+                                                    TDMR.strings.pref_translation_resume
                                                 } else {
-                                                    MR.strings.pref_translation_pause
+                                                    TDMR.strings.pref_translation_pause
                                                 },
                                             ),
                                             icon = if (translationPaused) {
@@ -194,7 +194,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                     )
                                     add(
                                         AppBar.Action(
-                                            title = stringResource(MR.strings.pref_translation_cancel),
+                                            title = stringResource(TDMR.strings.pref_translation_cancel),
                                             icon = Icons.Filled.Stop,
                                             onClick = { translationService.cancel() },
                                         ),
@@ -203,7 +203,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                 if (translationQueue.isNotEmpty()) {
                                     add(
                                         AppBar.Action(
-                                            title = stringResource(MR.strings.pref_translation_clear_queue),
+                                            title = stringResource(TDMR.strings.pref_translation_clear_queue),
                                             icon = Icons.Filled.DeleteSweep,
                                             onClick = { translationService.clearQueue() },
                                         ),
@@ -363,7 +363,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                 ) {
                     EmptyScreen(
                         stringRes = if (selectedTab == 1) {
-                            MR.strings.pref_translation_status_idle
+                            TDMR.strings.pref_translation_status_idle
                         } else {
                             MR.strings.information_no_downloads
                         },
@@ -485,7 +485,11 @@ private fun NovelDownloadCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "${item.downloadedChapters}/${item.totalChapters} chapters",
+                        text = stringResource(
+                            TDMR.strings.novel_downloads_chapters_format,
+                            item.downloadedChapters,
+                            item.totalChapters,
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -498,7 +502,7 @@ private fun NovelDownloadCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More options",
+                            contentDescription = stringResource(TDMR.strings.novel_downloads_more_options),
                         )
                     }
 
@@ -611,7 +615,10 @@ private fun NovelDownloadCard(
                 val currentDownload = item.currentDownload
                 if (currentDownload != null) {
                     Text(
-                        text = "Chapter: ${currentDownload.chapterName}",
+                        text = stringResource(
+                            TDMR.strings.novel_downloads_chapter_format,
+                            currentDownload.chapterName,
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

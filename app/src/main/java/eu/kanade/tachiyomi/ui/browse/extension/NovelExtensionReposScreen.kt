@@ -68,7 +68,7 @@ class NovelExtensionReposScreen(
         Scaffold(
             topBar = {
                 AppBar(
-                    title = stringResource(MR.strings.label_extension_repos),
+                    title = stringResource(MR.strings.extensionStores),
                     navigateUp = navigator::pop,
                     actions = {
                         IconButton(onClick = screenModel::refreshRepos) {
@@ -94,7 +94,7 @@ class NovelExtensionReposScreen(
                 is NovelRepoScreenState.Success -> {
                     if (current.repositories.isEmpty()) {
                         EmptyScreen(
-                            stringRes = MR.strings.information_empty_repos,
+                            stringRes = MR.strings.extensionStoresScreen_emptyLabel,
                             modifier = Modifier.padding(contentPadding),
                         )
                     } else {
@@ -197,12 +197,12 @@ private fun RepositoryCreateDialog(
     var url by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.action_add_repo)) },
+        title = { Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_title)) },
         text = {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text(text = "URL") },
+                label = { Text(text = stringResource(TDMR.strings.js_plugin_repo_url)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -231,8 +231,8 @@ private fun RepositoryDeleteDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(MR.strings.action_delete)) },
-        text = { Text(text = stringResource(MR.strings.delete_repo_confirmation, repo.name)) },
+        title = { Text(text = stringResource(MR.strings.extensionStoresScreen_deleteStore_title)) },
+        text = { Text(text = stringResource(TDMR.strings.delete_repo_confirmation, repo.name)) },
         confirmButton = {
             TextButton(onClick = onDelete) {
                 Text(text = stringResource(MR.strings.action_delete))

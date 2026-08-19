@@ -456,7 +456,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = urlSelected,
                             onCheckedChange = { urlSelected = it },
                         )
-                        Text(text = "Full URL")
+                        Text(text = stringResource(TDMR.strings.settings_data_export_full_url))
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -464,7 +464,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = chapterCountSelected,
                             onCheckedChange = { chapterCountSelected = it },
                         )
-                        Text(text = "Chapter Count")
+                        Text(text = stringResource(TDMR.strings.settings_data_export_chapter_count))
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -480,7 +480,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = isNovelSelected,
                             onCheckedChange = { isNovelSelected = it },
                         )
-                        Text(text = "Is Novel")
+                        Text(text = stringResource(TDMR.strings.settings_data_export_is_novel))
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -496,7 +496,7 @@ object SettingsDataScreen : SearchableSettings {
                             checked = tagsSelected,
                             onCheckedChange = { tagsSelected = it },
                         )
-                        Text(text = "Tags (comma-separated)")
+                        Text(text = stringResource(TDMR.strings.settings_data_export_tags_comma_separated))
                     }
                 }
             },

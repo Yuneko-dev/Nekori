@@ -54,7 +54,6 @@
     <string name="novel_volume_label">Volume %s</string>
     <!-- Library -->
     <string name="chapters_from_database">Chapter entries from database</string>
-    <string name="delete_local_novel_files">Delete local EPUB/HTML?</string>
     <!-- Browse Source -->
     <string name="local_novel_source">Local novels</string>
     <string name="local_novel_source_open_folder">Open folder</string>
@@ -79,7 +78,6 @@
 
     <!-- Notification channels -->
     <string name="channel_mass_import">Mass Import</string>
-    <string name="channel_translation">Translation</string>
     <string name="mass_import_progress_title">Mass Import Progress</string>
     <string name="mass_import_complete_title">Mass Import Complete</string>
 
@@ -194,30 +192,8 @@
     <string name="action_current_chapter">Current chapter</string>
     <string name="action_translate">Translate</string>
     <string name="action_translate_downloaded">Translate downloaded chapters</string>
-    <string name="action_retranslate">Retranslate</string>
-    <string name="translation_smart_auto">Smart Auto-Translate</string>
-    <string name="translation_smart_auto_summary">Only translate if language differs from target</string>
-    <string name="translation_select_target_language">Select target language for translation</string>
-    <string name="translation_job_translating">Translating chapters…</string>
-    <string name="translation_job_processing">Processing…</string>
-    <string name="translation_job_complete">Translation Complete</string>
-    <string name="translation_job_complete_count">%d chapters translated</string>
-    <string name="action_delete_translation">Delete translation</string>
     <string name="translated_chapters">Translated chapters</string>
     <!-- Translate manga details dialog -->
-    <string name="translate_details_title">Translate Details</string>
-    <string name="translate_details_no_engine">No translation engine configured. Please configure one in Settings &gt; Translation.</string>
-    <string name="translate_details_translating">Translating…</string>
-    <string name="translate_details_original_title">Original Title:</string>
-    <string name="translate_details_translated_title">Translated Title:</string>
-    <string name="translate_details_add_alt_titles">Add translated title to alternative titles</string>
-    <string name="translate_details_save_tags_notes">Save translated tags to notes</string>
-    <string name="translate_details_original_desc">Original Description:</string>
-    <string name="translate_details_translated_desc">Translated Description:</string>
-    <string name="translate_details_original_genres">Original Genres:</string>
-    <string name="translate_details_translated_genres">Translated Genres:</string>
-    <string name="translate_details_save_genres">Save translated genres</string>
-    <string name="translate_details_merge_genres">Add to existing genres (don\'t replace)</string>
     <string name="action_export_epub">Export as EPUB</string>
     <string name="action_export_epub_bulk">Export selected as EPUB</string>
     <string name="export_epub_progress">Exporting %1$d of %2$d chapters…</string>
@@ -234,12 +210,6 @@
     <string name="action_mass_import">Mass import</string>
 
     <!-- Novel Translation Settings (reader panel) -->
-    <string name="pref_novel_translation_settings">Translation</string>
-    <string name="pref_novel_translation_enabled">Enable translation</string>
-    <string name="pref_novel_realtime_translation">Real-time translation</string>
-    <string name="pref_novel_translation_engine_label">Engine</string>
-    <string name="pref_novel_translation_target_label">Target language</string>
-    <string name="pref_novel_translation_hint">Configure translation engine and API keys in Settings &#x2192; Translation</string>
 
     <!-- Novel Download Settings -->
     <string name="pref_novel_reader_summary">Novel reading mode, fonts, colors</string>
@@ -358,7 +328,6 @@
     <string name="duplicate_apply_library_filters">Library filters</string>
     <string name="duplicate_full_urls_short">Full URLs</string>
     <string name="duplicate_match_label">Matching</string>
-    <string name="duplicate_options_label">Options</string>
     <string name="duplicate_checking_progress">Checking %1$d of %2$d candidates…</string>
     <string name="epub_create_dir_failed">Failed to create directory for: %s</string>
     <string name="epub_novels_export_count">%d novel(s) will be exported.</string>
@@ -367,12 +336,6 @@
     <string name="epub_downloaded_only">Downloaded chapters only</string>
     <string name="epub_join_volumes">Join EPUB volumes into one file</string>
     <string name="epub_prefer_translated">Prefer translated chapters</string>
-    <string name="epub_translation_mode">Translation</string>
-    <string name="epub_translation_original">Original only</string>
-    <string name="epub_translation_translated">Translated only</string>
-    <string name="epub_translation_both">Both (two separate files)</string>
-    <string name="epub_translation_translated_info">Only chapters with translations will be included.</string>
-    <string name="epub_translation_both_info">Two EPUB files will be created — one original, one translated.</string>
     <string name="epub_filename_options">Filename Options</string>
     <string name="epub_include_chapter_count">Include chapter count (e.g. [50ch])</string>
     <string name="epub_include_chapter_range">Include chapter range (e.g. [ch1-50])</string>
@@ -387,7 +350,6 @@
     <string name="epub_translated_info"> Translated chapters will be used when available.</string>
     <string name="epub_action_import">Import</string>
     <string name="epub_export_job_title">EPUB Export</string>
-    <string name="epub_export_job_starting">Starting…</string>
     <string name="epub_export_job_progress">Exporting %1$d/%2$d: %3$s</string>
     <string name="epub_export_job_complete_title">EPUB Export Complete</string>
     <string name="epub_export_job_complete">Exported %1$d novel(s)</string>
@@ -457,7 +419,6 @@
     <string name="novel_replace_with">Replace With (empty = remove)</string>
     <string name="novel_use_regex">Use Regex</string>
     <string name="novel_match_whole_word">Match whole word</string>
-    <string name="novel_case_sensitive_matching">Case sensitive matching</string>
     <string name="novel_test">Test</string>
     <string name="novel_sample_input">Sample Input</string>
     <string name="novel_pattern_empty">Pattern is empty</string>
@@ -992,10 +953,8 @@
     <string name="quick_migrate_remove_skipped_summary">Their downloads, translations and quotes move to the copy that stays</string>
     <string name="quick_migrate_complete_removed">Quick migrated %1$d entries, removed %2$d</string>
     <string name="quick_migrate_already_running">A quick migrate is already running</string>
-    <string name="quick_migrate_notification_starting">Starting…</string>
     <string name="quick_migrate_notification_result">Migrated %1$d/%2$d, removed %3$d</string>
     <string name="quick_migrate_notification_failed">Quick migrate failed</string>
-    <string name="migrate_notification_starting">Starting…</string>
     <string name="migrate_notification_result">Migrated %1$d/%2$d entries</string>
     <string name="migrate_notification_failed">Migration failed</string>
 
@@ -1233,4 +1192,544 @@
     <string name="stats_minutes">%1$d minutes</string>
     <string name="stats_hours_minutes">%1$d hours %2$d minutes</string>
     <string name="stats_days_hours_minutes">%1$d days %2$d hours %3$d minutes</string>
+    <!-- Restored from MR: fork strings dropped by the upstream Mihon i18n sync (50c32e94c).
+         They live here now because i18n/ is upstream and must stay untouched. -->
+    <string name="action_clear_category">Clear category…</string>
+    <string name="action_collapse">Collapse</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_quick_migrate">Quick</string>
+    <string name="batch_updating_entries">Updating %d entries…</string>
+    <string name="delete_repo_confirmation">Do you wish to delete the repo \"%s\"?</string>
+    <string name="download_incomplete_error">Download incomplete: %1$d of %2$d pages failed</string>
+    <string name="duplicate_blank_exclude">Exclude</string>
+    <string name="duplicate_blank_include">Include</string>
+    <string name="duplicate_blank_label">Blank titles/URLs:</string>
+    <string name="duplicate_categories_label">Categories: %s</string>
+    <string name="duplicate_category_clear">Clear</string>
+    <string name="duplicate_category_label">Category:</string>
+    <string name="duplicate_copy_links">Copy Links</string>
+    <string name="duplicate_delete_selected">Delete Selected</string>
+    <string name="duplicate_deleted_count">Deleted %d entries</string>
+    <string name="duplicate_filters_sort">Filters &amp; Sort</string>
+    <string name="duplicate_find_duplicates">Find Duplicates</string>
+    <string name="duplicate_group_truncated_filtered">Showing %1$d of %2$d. Hidden entries are excluded from bulk actions while a filter is active.</string>
+    <string name="duplicate_group_truncated_selectable">Showing %1$d of %2$d. Hidden entries are still included in bulk actions.</string>
+    <string name="duplicate_initial_description">Analyze your library to find duplicate entries.\nSelect a match mode above and click Start.</string>
+    <string name="duplicate_invert_selection">Invert Selection</string>
+    <string name="duplicate_listing_mode">List all</string>
+    <string name="duplicate_listing_truncated">Showing 2000 of %1$d matching entries. Narrow with category filters, or use Select All to act on all %1$d.</string>
+    <string name="duplicate_match_contains">Contains</string>
+    <string name="duplicate_match_exact">Exact</string>
+    <string name="duplicate_move_failed">Failed to move some entries to categories</string>
+    <string name="duplicate_move_to_category">Move to Category</string>
+    <string name="duplicate_moved_count">Moved %d entries</string>
+    <string name="duplicate_n_chapters">%d ch</string>
+    <string name="duplicate_n_downloads">%d dl</string>
+    <string name="duplicate_n_in_group">%d entries in this group</string>
+    <string name="duplicate_n_read">%d read</string>
+    <string name="duplicate_no_duplicates">No duplicates found in your library.</string>
+    <string name="duplicate_no_matches_filter">No duplicates match the selected filters.</string>
+    <string name="duplicate_no_sources_found">No sources with library entries found</string>
+    <string name="duplicate_original">ORIGINAL</string>
+    <string name="duplicate_reanalyze">Re-analyze</string>
+    <string name="duplicate_results_filtered"> (filtered)</string>
+    <string name="duplicate_results_summary">Found %1$d groups with %2$d potential duplicates</string>
+    <string name="duplicate_scan_groups_truncated">Showing %1$d of %2$d duplicate groups (largest first). Narrow with category filters or switch to List All.</string>
+    <string name="duplicate_select_all">Select ALL Duplicates</string>
+    <string name="duplicate_select_all_except_first">Select All Except First</string>
+    <string name="duplicate_select_group">Select Group</string>
+    <string name="duplicate_select_highest_ch">Select With Highest Ch Count</string>
+    <string name="duplicate_select_highest_dl">Select With Highest Downloads</string>
+    <string name="duplicate_select_highest_priority">Select Highest Priority</string>
+    <string name="duplicate_select_highest_read">Select With Highest Read Count</string>
+    <string name="duplicate_select_lowest_ch">Select With Lowest Ch Count</string>
+    <string name="duplicate_select_lowest_dl">Select With Lowest Downloads</string>
+    <string name="duplicate_select_lowest_priority">Select Lowest Priority</string>
+    <string name="duplicate_select_lowest_read">Select With Lowest Read Count</string>
+    <string name="duplicate_select_non_pinned">Select Non-Pinned Sources</string>
+    <string name="duplicate_select_pinned">Select Pinned Sources</string>
+    <string name="duplicate_sort_ch_desc">Ch↓</string>
+    <string name="duplicate_sort_dl_desc">DL↓</string>
+    <string name="duplicate_sort_label">Sort:</string>
+    <string name="duplicate_sort_latest">Latest</string>
+    <string name="duplicate_sort_name">Name</string>
+    <string name="duplicate_sort_priority">Priority</string>
+    <string name="duplicate_sort_read_desc">Read↓</string>
+    <string name="duplicate_source_priority">Source Priority</string>
+    <string name="duplicate_source_priority_desc">Set priority per source type. Higher = preferred when resolving duplicates.</string>
+    <string name="duplicate_source_type_js_extensions">JS Extensions</string>
+    <string name="duplicate_source_type_local_source">Local Source</string>
+    <string name="duplicate_specific_source_priority">Individual Source Priority</string>
+    <string name="duplicate_specific_source_priority_desc">Override priority for specific sources. Takes precedence over type-level priority.</string>
+    <string name="duplicate_start_analysis">Start Analysis</string>
+    <string name="duplicate_urls_copied">%d URLs copied</string>
+    <string name="pref_all_translations_deleted">All translations deleted</string>
+    <string name="pref_clear_temp_files">Clear temp files</string>
+    <string name="pref_clear_temp_files_subtitle">Clears temporary files from app cache (epub exports, network cache, etc.)</string>
+    <string name="pref_db_maintenance">Database maintenance</string>
+    <string name="pref_db_maintenance_subtitle">ANALYZE, REINDEX, and VACUUM. VACUUM temporarily needs free space equal to the database size.</string>
+    <string name="pref_db_statistics">Database statistics</string>
+    <string name="pref_db_statistics_subtitle">Show detailed database size breakdown</string>
+    <string name="pref_delete_all_translations">Delete all translations</string>
+    <string name="pref_delete_all_translations_confirm">Are you sure you want to delete all downloaded translations? This cannot be undone.</string>
+    <string name="pref_delete_all_translations_subtitle">Deletes all downloaded translations</string>
+    <string name="pref_epub_compression_default">Default (library decides)</string>
+    <string name="pref_epub_compression_default_label">Default</string>
+    <string name="pref_epub_compression_high">High compression (smallest)</string>
+    <string name="pref_epub_compression_level">EPUB compression level</string>
+    <string name="pref_epub_compression_level_label">Level %d</string>
+    <string name="pref_epub_compression_low">Low compression</string>
+    <string name="pref_epub_compression_medium">Medium compression</string>
+    <string name="pref_epub_compression_none">No compression (fastest)</string>
+    <string name="pref_migrate_quotes_portable">Migrate quotes to portable storage</string>
+    <string name="pref_migrate_quotes_portable_subtitle">Move id-based quote files to the source/title layout</string>
+    <string name="pref_migrate_translations_portable">Migrate translations to portable storage</string>
+    <string name="pref_migrate_translations_portable_subtitle">Move id-based translation files to the source/novel/language layout</string>
+    <string name="pref_portable_migration_done">Migrated %d file(s)</string>
+    <string name="pref_portable_migration_error">Migration failed</string>
+    <string name="pref_reset_settings">Reset settings to default</string>
+    <string name="pref_reset_settings_action">Reset</string>
+    <string name="pref_reset_settings_confirm">Are you sure you want to reset all app settings to their default values? This will not delete your library data, downloads, or backups. The app will restart afterwards.</string>
+    <string name="pref_temp_files_cleared">Cleared %s of temp files</string>
+    <string name="pref_temp_files_error">Error clearing temp files</string>
+    <string name="pref_translation_api_key">API Key</string>
+    <string name="pref_translation_cancel">Cancel</string>
+    <string name="pref_translation_chunk_mode">Translation chunk mode</string>
+    <string name="pref_translation_chunk_paragraphs">Paragraphs</string>
+    <string name="pref_translation_chunk_paragraphs_rec">Paragraphs per chunk (recommended: 20–100)</string>
+    <string name="pref_translation_chunk_size">Translation chunk size</string>
+    <string name="pref_translation_chunk_words">Words</string>
+    <string name="pref_translation_chunk_words_rec">Words per chunk (recommended: 2000)</string>
+    <string name="pref_translation_clear_queue">Clear Queue</string>
+    <string name="pref_translation_contextual_anchoring">Contextual anchoring</string>
+    <string name="pref_translation_contextual_anchoring_desc">Send previous translated paragraphs to LLM engines for consistency; chunks run sequentially while enabled</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs">Context paragraphs</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs_desc">Number of paragraphs from the previous chunk to include as context</string>
+    <string name="pref_translation_pause">Pause</string>
+    <string name="pref_translation_queue">Translation Queue</string>
+    <string name="pref_translation_replace_title">Replace title with translation</string>
+    <string name="pref_translation_replace_title_desc">When translating, replace the manga/novel title with the translated version. Original title is saved to alternative titles.</string>
+    <string name="pref_translation_resume">Resume</string>
+    <string name="pref_translation_save_alt_titles">Save translated titles as alternative</string>
+    <string name="pref_translation_save_alt_titles_desc">Store translated titles in alternative_titles for reference</string>
+    <string name="pref_translation_smart_auto">Smart auto-translate</string>
+    <string name="pref_translation_smart_auto_desc">Detect source language and skip translation if it matches target language</string>
+    <string name="pref_translation_split_large_chapters">Split large chapters</string>
+    <string name="pref_translation_split_large_chapters_summary">Split large LLM chapter requests into smaller batches</string>
+    <string name="pref_translation_status_cancelling">Cancelling…</string>
+    <string name="pref_translation_status_chunk_info"> (chunk %1$d/%2$d)</string>
+    <string name="pref_translation_status_idle">Idle — no tasks in queue</string>
+    <string name="pref_translation_status_paused">Paused — %1$d/%2$d completed</string>
+    <string name="pref_translation_status_translating">Translating: %1$s%2$s (%3$d/%4$d)</string>
+    <string name="pref_translation_test_engine">Test %s</string>
+    <string name="pref_translation_test_send">Send a test translation</string>
+    <string name="pref_translation_test_text">Hello, this is a test.</string>
+    <string name="pref_translation_testing">Testing…</string>
+    <string name="pref_translation_translate_tags">Translate tags</string>
+    <string name="pref_translation_translate_tags_desc">Translate genre tags and merge with original tags</string>
+    <string name="quick_migrate_complete">Quick migrated %1$d entries</string>
+    <string name="quick_migrate_confirm_message">Update source to \"%1$s\" for %2$d entries?</string>
+    <string name="quick_migrate_select_source">Select target source</string>
+    <string name="quick_migrate_skip_message">%1$d entries will be skipped (already exist in target)</string>
+    <string name="translation_all_downloaded_already_translated">All downloaded chapters are already translated</string>
+    <string name="translation_selected_already_translated">Selected chapters are already translated</string>
+    <string name="update_check_notification_download_in_progress">Downloading…</string>
+
+    <!-- Settings: font manager -->
+    <string name="settings_font_manager_title">Font Manager</string>
+    <string name="settings_font_manager_add_font">Add Font</string>
+    <string name="settings_font_manager_loading">Loading fonts...</string>
+    <string name="settings_font_manager_system_fonts">System Fonts</string>
+    <string name="settings_font_manager_custom_fonts">Custom Fonts</string>
+    <string name="settings_font_manager_downloading">Downloading font...</string>
+    <string name="settings_font_manager_import_from_device">Import from Device</string>
+    <string name="settings_font_manager_select_ttf_otf">Select a TTF or OTF file</string>
+    <string name="settings_font_manager_download_google_fonts">Download from Google Fonts</string>
+    <string name="settings_font_manager_browse_free_fonts">Browse and download free fonts</string>
+    <string name="settings_font_manager_delete_font_title">Delete Font</string>
+    <string name="settings_font_manager_delete_font_confirm">Are you sure you want to delete \"%1$s\"?</string>
+    <string name="settings_font_manager_custom_font_label">Custom Font</string>
+    <string name="settings_font_manager_system_font_label">System Font</string>
+    <string name="settings_font_manager_selected">Selected</string>
+    <string name="settings_font_manager_google_fonts_title">Google Fonts</string>
+    <string name="settings_font_manager_search_fonts_placeholder">Search fonts...</string>
+    <string name="settings_font_manager_import_success">Font \"%1$s\" imported successfully</string>
+    <string name="settings_font_manager_import_failed">Failed to import font: %1$s</string>
+    <string name="settings_font_manager_deleted">Font \"%1$s\" deleted</string>
+    <string name="settings_font_manager_delete_failed">Failed to delete font</string>
+    <string name="settings_font_manager_downloaded">Font \"%1$s\" downloaded</string>
+    <string name="settings_font_manager_download_failed">Download failed: %1$s</string>
+
+    <!-- Settings: per-screen reset -->
+    <string name="settings_reset_to_defaults">Reset to defaults</string>
+    <string name="settings_reset_dialog_title">Reset settings</string>
+    <string name="settings_reset_dialog_message">Reset all settings on this screen to their default values?</string>
+
+    <!-- Settings: advanced -->
+    <string name="settings_advanced_stats_copied">Statistics copied to clipboard</string>
+    <string name="settings_advanced_normalize_tags">Normalize tags</string>
+    <string name="settings_advanced_normalize_tags_summary">Trims whitespace and removes duplicate tags (case-insensitive)</string>
+    <string name="settings_advanced_normalized_tags_result">Normalized tags for %1$d novels</string>
+    <string name="settings_advanced_normalize_on_update">Normalize tags when updating entry</string>
+    <string name="settings_advanced_normalize_on_update_summary">Apply the same normalization automatically when entry details are fetched/updated or tags are edited</string>
+    <string name="settings_advanced_reset_to_default_summary">Resets all app settings to their default values (library data is preserved)</string>
+
+    <!-- Settings: browse -->
+    <string name="settings_browse_page_load_delay">Page load delay</string>
+    <string name="settings_browse_page_load_delay_summary">Delay between loading pages (helps with rate limits)</string>
+    <string name="settings_browse_show_page_number_summary">Display current page number with jump navigation</string>
+    <string name="settings_browse_skip_cover_loading">Skip cover loading</string>
+    <string name="settings_browse_skip_cover_loading_summary">Don\'t load cover images in browse to save bandwidth</string>
+    <string name="settings_browse_confirm_back_after_pages">Confirm back after pages</string>
+    <string name="settings_browse_confirm_back_after_pages_summary">Show confirmation dialog when going back after loading many pages</string>
+
+    <!-- Settings: data export columns -->
+    <string name="settings_data_export_full_url">Full URL</string>
+    <string name="settings_data_export_chapter_count">Chapter Count</string>
+    <string name="settings_data_export_is_novel">Is Novel</string>
+    <string name="settings_data_export_tags_comma_separated">Tags (comma-separated)</string>
+
+    <!-- Settings: library behavior -->
+    <string name="settings_library_sort_tags_alphabetically">Sort novel tags alphabetically</string>
+    <string name="settings_library_sort_tags_alphabetically_summary">Sort tags on novel detail page by name instead of source order</string>
+    <string name="settings_library_restore_position_completed">Restore position in completed novel chapters</string>
+    <string name="settings_library_restore_position_completed_summary">Resume novel chapters from where you left off even when already marked as read</string>
+
+    <!-- Settings: novel download per-extension overrides -->
+    <string name="settings_download_per_extension_overrides">Per-Extension Overrides</string>
+    <string name="settings_download_manage_source_overrides">Manage source overrides</string>
+    <string name="settings_download_overrides_configured_count">%1$d override(s) configured</string>
+    <string name="settings_download_overrides_info">Override throttle delays for specific extensions. Overrides take priority over global settings.</string>
+    <string name="settings_download_add_override">Add Override</string>
+    <string name="settings_download_edit_override">Edit Override</string>
+    <string name="settings_download_extension_label">Extension</string>
+
+    <!-- Settings: novel reader text/formatting/content -->
+    <string name="settings_reader_text_group">Text</string>
+    <string name="settings_reader_font_manager_summary">Download or import custom fonts</string>
+    <string name="settings_reader_force_lowercase">Force lowercase</string>
+    <string name="settings_reader_force_lowercase_summary">Convert all text to lowercase</string>
+    <string name="settings_reader_use_original_fonts_title">Use original fonts (WebView only)</string>
+    <string name="settings_reader_use_original_fonts_summary">Preserve fonts from the source website</string>
+    <string name="settings_reader_swipe_navigation_title">Swipe navigation</string>
+    <string name="settings_reader_swipe_navigation_summary">Swipe left/right to change chapters</string>
+    <string name="settings_reader_formatting_group">Formatting</string>
+    <string name="settings_reader_content_group">Content</string>
+    <string name="settings_reader_infinite_scroll_title">Infinite scroll</string>
+    <string name="settings_reader_infinite_scroll_summary">Load next chapter automatically while scrolling</string>
+    <string name="settings_reader_auto_load_next_at_title">Auto-load next chapter at</string>
+    <string name="settings_reader_mark_as_read_at_title">Mark chapter as read at</string>
+    <string name="settings_reader_auto_mark_short_title">Auto-mark short chapters as read</string>
+    <string name="settings_reader_auto_mark_short_summary">If a chapter fits the screen without scrolling, mark it read immediately</string>
+    <string name="settings_reader_hide_chapter_title">Hide chapter title</string>
+    <string name="settings_reader_hide_chapter_title_summary">Strip chapter title from content</string>
+    <string name="settings_reader_block_media_title">Block media</string>
+    <string name="settings_reader_block_media_summary">Block images and media loading in both readers</string>
+    <string name="settings_reader_text_selectable_title">Text selectable (WebView)</string>
+    <string name="settings_reader_text_selectable_summary">Allow selecting and copying text in the WebView reader</string>
+    <string name="settings_reader_show_raw_html_summary">Display HTML source instead of rendered content</string>
+    <string name="settings_reader_source_css_priority_title">Source CSS priority</string>
+    <string name="settings_reader_source_css_priority_summary">Allow embedded/source CSS to override reader theme colors</string>
+    <string name="settings_reader_tts_speed_title">TTS speed</string>
+    <string name="settings_reader_tts_pitch_title">TTS pitch</string>
+    <string name="settings_reader_tts_auto_next_title">TTS auto-next chapter</string>
+    <string name="settings_reader_tts_auto_next_summary">Automatically continue to next chapter when TTS finishes</string>
+
+    <!-- Settings: tracking -->
+    <string name="settings_tracking_min_chapters_title">Minimum chapters before tracking</string>
+    <string name="settings_tracking_min_chapters_summary">Number of chapters that must be read before auto-tracking starts (0 = always track)</string>
+    <string name="settings_tracking_mark_read_mangabaka">Mark chapters as read on MangaBaka</string>
+    <string name="settings_tracking_mark_read_summary">Automatically mark chapters as read when you read them in the app</string>
+    <string name="settings_tracking_sync_reading_list_title">Sync reading list</string>
+    <string name="settings_tracking_sync_reading_list_mangabaka">Keep reading list status in sync with MangaBaka</string>
+    <string name="settings_tracking_novel_trackers_group">Novel Trackers</string>
+    <string name="settings_tracking_mark_read_novelupdates">Mark chapters as read on NovelUpdates</string>
+    <string name="settings_tracking_sync_reading_list_novelupdates">Keep reading list status in sync with NovelUpdates</string>
+    <string name="settings_tracking_custom_list_mapping_title">Custom list mapping</string>
+    <string name="settings_tracking_custom_list_mapping_summary">Map statuses to custom NovelUpdates lists</string>
+    <string name="settings_tracking_configure_list_mapping_title">Configure list mapping</string>
+    <string name="settings_tracking_configure_list_mapping_summary">Choose which list each status maps to</string>
+    <string name="settings_tracking_mark_read_novellist">Mark chapters as read on NovelList</string>
+    <string name="settings_tracking_sync_reading_list_novellist">Keep reading list status in sync with NovelList</string>
+    <string name="settings_tracking_mark_read_ranobedb">Mark chapters as read on RanobeDB</string>
+    <string name="settings_tracking_mark_read_summary_volumes">Automatically mark chapters/volumes as read when you read them in the app</string>
+    <string name="settings_tracking_sync_reading_list_ranobedb">Keep reading list status in sync with RanobeDB</string>
+    <string name="settings_tracking_source_defined_group">Source-defined trackers</string>
+    <string name="settings_tracking_run_source_trackers_title">Run source trackers on migration</string>
+    <string name="settings_tracking_run_source_trackers_summary">Fire source-defined tracker events when migrating or quick-migrating an entry</string>
+    <string name="settings_tracking_login_to">Login to %1$s</string>
+    <string name="settings_tracking_token_cookies_label">Token / Cookies</string>
+    <string name="settings_tracking_login_failed">Login failed</string>
+    <string name="settings_tracking_list_mapping_dialog_title">List Mapping</string>
+    <string name="settings_tracking_fetch_lists_failed">Failed to fetch lists</string>
+
+    <!-- Settings: debug worker info -->
+    <string name="settings_debug_worker_enqueued">Enqueued</string>
+    <string name="settings_debug_worker_finished">Finished</string>
+    <string name="settings_debug_worker_running">Running</string>
+    <!-- Browse: page jump dialog -->
+    <string name="browse_page_jump_title_single">Jump to Page</string>
+    <string name="browse_page_jump_title_range">Load Page Range</string>
+    <string name="browse_page_jump_loaded_up_to">Loaded up to page: %1$d</string>
+    <string name="browse_page_jump_page_number">Page number</string>
+    <string name="browse_page_jump_start_page">Start page</string>
+    <string name="browse_page_jump_end_page">End page</string>
+    <string name="browse_page_jump_pagination_delay">Pagination delay: %1$ds</string>
+    <string name="browse_page_jump_delay_desc">Delay between loading each page in the range</string>
+    <string name="browse_page_jump_single_mode">Single page mode</string>
+    <string name="browse_page_jump_range_mode">Load page range</string>
+    <string name="browse_page_jump_action">Jump</string>
+    <string name="browse_page_jump_load_range">Load Range</string>
+    <!-- Library: duplicate detection dialog -->
+    <string name="library_duplicate_dialog_title">Potential Duplicates</string>
+    <string name="library_duplicate_dialog_copy_all_urls">Copy All URLs</string>
+    <string name="library_duplicate_dialog_none_found">No potential duplicates found in your library.</string>
+    <string name="library_duplicate_dialog_groups_found">Found %1$d group(s) with similar titles:</string>
+    <string name="library_duplicate_dialog_url_copied">URL copied</string>
+    <string name="library_duplicate_dialog_alt_titles">Alt: %1$s</string>
+    <!-- Library: settings dialog - filter page -->
+    <string name="library_settings_search_options_header">Search Options</string>
+    <string name="library_settings_search_chapter_names">Search chapter names</string>
+    <string name="library_settings_search_descriptions_tags">Search novel descriptions and tags</string>
+    <string name="library_settings_search_alt_titles">Search alternative titles</string>
+    <string name="library_settings_search_by_url">Search by URL</string>
+    <string name="library_settings_use_regex_search">Use regex search</string>
+    <string name="library_settings_chapter_count_threshold_label">Threshold</string>
+    <string name="library_settings_filter_chapter_count_at_least">Chapters ≥ %1$d</string>
+    <string name="library_settings_filter_chapter_count_less_than">Chapters &lt; %1$d</string>
+    <string name="library_settings_filter_chapter_count_label">Chapter count</string>
+    <!-- Library: settings dialog - display page -->
+    <string name="library_settings_show_url_in_list">Show URL in list view</string>
+    <string name="library_settings_title_max_lines">Title Max Lines</string>
+    <!-- Library: settings dialog - tags page -->
+    <string name="library_settings_tags_collapse_options_cd">Collapse options</string>
+    <string name="library_settings_tags_expand_options_cd">Expand options</string>
+    <string name="library_settings_refreshed_cd">Refreshed</string>
+    <string name="library_settings_tags_include_mode_label">Include tags mode:</string>
+    <string name="library_settings_tags_exclude_mode_label">Exclude tags mode:</string>
+    <string name="library_settings_tag_mode_and">AND</string>
+    <string name="library_settings_tag_mode_or">OR</string>
+    <string name="library_settings_tags_sort_by_label">Sort by:</string>
+    <string name="library_settings_tags_sort_count">Count</string>
+    <string name="library_settings_tags_sort_order_label">Sort order:</string>
+    <string name="library_settings_tags_sort_desc">Desc</string>
+    <string name="library_settings_tags_sort_asc">Asc</string>
+    <string name="library_settings_tags_clear_all_cd">Clear all</string>
+    <string name="library_settings_tags_clear_all_filters">Clear All Filters</string>
+    <string name="library_settings_tags_no_tags_count">No tags (%1$d)</string>
+    <string name="library_settings_tags_search_placeholder">Search tags... (press Enter)</string>
+    <string name="library_settings_tags_clear_search_cd">Clear search</string>
+    <string name="library_settings_tags_none_found">No tags found in library</string>
+    <string name="library_settings_tags_loading">Loading tags...</string>
+    <string name="library_settings_tags_tap_hint">Tap to include, tap again to exclude, tap again to clear</string>
+    <string name="library_settings_tags_count_label">%1$d tags</string>
+    <!-- Library: settings dialog - extensions page -->
+    <string name="library_settings_extensions_check_all_cd">Check all</string>
+    <string name="library_settings_extensions_uncheck_all_cd">Uncheck all</string>
+    <string name="library_settings_extensions_none_found">No extensions with library entries</string>
+    <string name="library_settings_extensions_loading">Loading extensions...</string>
+    <string name="library_settings_extensions_missing_count">%1$d source(s) with missing extensions</string>
+    <string name="library_settings_extensions_missing_source_cd">Missing source</string>
+    <string name="library_settings_extensions_missing_suffix">%1$s (Missing)</string>
+    <!-- Library: toolbar -->
+    <string name="library_toolbar_reload_library">Reload Library</string>
+    <string name="library_toolbar_reloading_snackbar">Reloading library from database...</string>
+    <string name="library_toolbar_clipboard_label_novel_links">Novel Links</string>
+    <!-- Library: EPUB batch export (LibraryViewModel) -->
+    <string name="library_export_epub_no_selection">No novels selected for export</string>
+    <string name="library_export_epub_started">EPUB export started for %1$d novels</string>
+    <string name="library_export_epub_failed">Export failed: %1$s</string>
+    <string name="library_export_epub_success_count">Exported %1$d/%2$d novels</string>
+    <string name="library_export_epub_skipped_suffix"> (%1$d skipped)</string>
+    <!-- Library: mass import dialog -->
+    <string name="mass_import_pause_all">Pause All</string>
+    <string name="mass_import_resume_all">Resume All</string>
+    <string name="mass_import_failed_to_read_files">Failed to read import files</string>
+    <string name="mass_import_tooltip_resume_batch">Resume Batch</string>
+    <string name="mass_import_tooltip_pause_batch">Pause Batch</string>
+    <string name="mass_import_processed_count">Processed: %1$d</string>
+    <string name="mass_import_skipped_count">Skipped: %1$d</string>
+    <string name="mass_import_status_running">Running</string>
+    <!-- Library: EPUB import screen -->
+    <string name="epub_import_none_parsed">No valid EPUB files were parsed</string>
+    <string name="epub_import_loaded_files_into_groups">Loaded %1$d EPUB file(s) into %2$d novel group(s)</string>
+    <string name="epub_import_auto_organize_action">Auto rename &amp; organize</string>
+    <string name="epub_import_auto_organize_snackbar">Auto-organized groups and volume titles from EPUB metadata</string>
+    <string name="epub_import_delete_confirm_title">Delete imported EPUB files?</string>
+    <string name="epub_import_delete_confirm_message">This will permanently delete successfully imported source files from storage (if permitted).</string>
+    <string name="epub_import_delete_none_deleted">No imported EPUB files were deleted</string>
+    <string name="epub_import_delete_success">Deleted %1$d imported EPUB file(s)</string>
+    <string name="epub_import_delete_partial">Deleted %1$d file(s), failed to delete %2$d</string>
+    <string name="epub_import_select_at_least_one">Select at least one EPUB file</string>
+    <string name="epub_import_untitled_group_fallback">Novel</string>
+    <string name="epub_import_parsing">Parsing EPUB files...</string>
+    <string name="epub_import_novel_groups_count">Novel groups (%1$d)</string>
+    <string name="epub_import_move_group_up_cd">Move novel group up</string>
+    <string name="epub_import_move_group_down_cd">Move novel group down</string>
+    <string name="epub_import_remove_group_cd">Remove novel group</string>
+    <string name="epub_import_group_summary">%1$d volume(s) • %2$d chapter(s)</string>
+    <string name="epub_import_volume_title_label">Volume title</string>
+    <string name="epub_import_move_volume_up_cd">Move volume up</string>
+    <string name="epub_import_move_volume_down_cd">Move volume down</string>
+    <string name="epub_import_move_to_another_group_cd">Move to another novel group</string>
+    <string name="epub_import_move_to_new_group_label">Move to new novel group</string>
+    <string name="epub_import_move_to_destination">Move to %1$s</string>
+    <string name="epub_import_fallback_group_label">Novel group %1$d</string>
+    <string name="epub_import_toc_collapse_cd">Collapse table of contents</string>
+    <string name="epub_import_toc_expand_cd">Expand table of contents</string>
+    <string name="epub_import_remove_volume_cd">Remove volume</string>
+    <string name="epub_import_volume_cover_cd">Volume cover</string>
+    <string name="epub_import_author_label">Author: %1$s</string>
+    <string name="epub_import_tags_label">Tags: %1$s</string>
+    <string name="epub_import_description_label">Description: %1$s</string>
+    <string name="epub_import_toc_none_found">No table of contents found</string>
+    <string name="epub_import_toc_section_start">Start</string>
+    <string name="epub_import_toc_section_middle">Middle</string>
+    <string name="epub_import_toc_section_end">End</string>
+    <string name="epub_import_order_label_with_index">Order %1$d (EPUB index %2$d)</string>
+    <string name="epub_import_order_label">Order %1$d</string>
+    <string name="epub_import_delete_button_label">Delete imported EPUB files</string>
+    <string name="label_options">Options</string>
+    <string name="label_case_sensitive_matching">Case sensitive matching</string>
+
+    <!-- Manga: similar novels / edit dialogs -->
+    <string name="manga_similar_novels">Similar Novels</string>
+    <string name="manga_similar_novels_description">These novels have similar titles and might be duplicates or related works.</string>
+    <string name="manga_edit_new_tag">New tag</string>
+    <string name="manga_edit_new_title">New title</string>
+    <string name="manga_edit_title_already_exists">Title already exists</string>
+    <string name="manga_edit_no_alt_titles">No alternative titles</string>
+    <string name="manga_edit_make_main_title_cd">Make main title</string>
+    <string name="manga_add_alt_titles">Add alternative titles</string>
+
+    <!-- Browse: source preferences -->
+    <string name="source_pref_reverse_chapter_list_title">Reverse chapter list</string>
+    <string name="source_pref_reverse_chapter_list_summary">Reverse the order of chapters fetched from this source</string>
+
+    <!-- Browse: quick migrate -->
+    <string name="quick_migrate_source_picker_description">This option is for migrating between the same URL/extension, or when moving from JS to KT extensions. Cannot be used to migrate to completely different extensions.</string>
+    <string name="quick_migrate_no_sources_available">No sources available</string>
+    <string name="quick_migrate_add_to_new_category">Add to new category</string>
+    <string name="quick_migrate_category_name_label">Category name</string>
+
+    <!-- Browse: source browsing -->
+    <string name="browse_source_page_load_finished">Finished loading pages up to %1$d</string>
+    <string name="browse_source_import_result">Imported: %1$d added, %2$d skipped, %3$d errors</string>
+    <string name="browse_source_jumping_to_page">Jumping to page %1$d...</string>
+    <string name="browse_source_loading_page_range">Loading pages %1$d to %2$d...</string>
+    <string name="browse_source_leave_confirm_title">Leave browse?</string>
+    <string name="browse_source_leave_confirm_message">You have loaded %1$d pages. Are you sure you want to go back?</string>
+    <string name="browse_source_select_label">Select</string>
+    <string name="browse_source_selection_count">%1$d selected</string>
+
+    <!-- Browse: filter presets -->
+    <string name="browse_filter_presets_title">Filter Presets</string>
+    <string name="browse_filter_preset_auto_apply">Auto-apply default preset when opening source</string>
+    <string name="browse_filter_preset_save_current">Save Current Filters as Preset</string>
+    <string name="browse_filter_preset_none_saved">No saved presets</string>
+    <string name="browse_filter_preset_default_label">Default preset</string>
+    <string name="browse_filter_preset_remove_default_cd">Remove default</string>
+    <string name="browse_filter_preset_set_default_cd">Set as default</string>
+    <string name="browse_filter_preset_delete_cd">Delete preset</string>
+    <string name="browse_filter_preset_save_dialog_title">Save Filter Preset</string>
+    <string name="browse_filter_preset_name_label">Preset Name</string>
+    <string name="browse_filter_preset_set_default_label">Set as default preset</string>
+    <string name="browse_filter_save_preset_cd">Save preset</string>
+    <string name="browse_filter_presets_cd">Presets</string>
+
+    <!-- Reader: status bar -->
+    <string name="reader_status_bar_expand">Expand status bar</string>
+    <string name="reader_status_bar_collapse">Collapse status bar</string>
+
+    <!-- Reader: app bars -->
+    <string name="reader_tts_read_from_here">Read from here</string>
+    <string name="reader_appbar_customize_toolbar">Customize Toolbar</string>
+    <string name="label_drag_to_reorder">Drag to reorder</string>
+
+    <!-- Reader: quotes sheet -->
+    <string name="reader_quotes_reorder">Reorder quotes</string>
+    <string name="reader_quotes_scroll_more">Scroll down for more quotes</string>
+
+    <!-- Reader: activity toasts -->
+    <string name="reader_translation_failed">Translation failed</string>
+    <string name="reader_no_text_selected">No text selected</string>
+
+    <!-- Reader: advanced settings - embedded CSS/JS -->
+    <string name="novel_reader_enable_embedded_css">Enable embedded CSS</string>
+    <string name="novel_reader_enable_embedded_js">Enable embedded JS</string>
+
+    <!-- Reader: TTS highlight settings -->
+    <string name="novel_tts_highlight_bg_title">TTS Highlight Background</string>
+    <string name="novel_tts_highlight_text_title">TTS Highlight Text</string>
+    <string name="novel_tts_enable_highlight">Enable paragraph highlighting during TTS</string>
+    <string name="novel_tts_keep_highlight_in_view">Keep highlighted paragraph in view</string>
+    <string name="novel_tts_auto_start_on_panel_open">Auto-start TTS when opening controls panel</string>
+    <string name="novel_tts_background_playback">Keep TTS running in background</string>
+    <string name="novel_tts_highlight_style">Highlight style</string>
+    <string name="novel_tts_highlight_style_background">Background</string>
+    <string name="novel_tts_highlight_style_underline">Underline</string>
+    <string name="novel_tts_highlight_style_outline">Outline</string>
+    <string name="novel_tts_color_amber">Amber</string>
+    <string name="novel_tts_color_blue">Blue</string>
+    <string name="novel_tts_color_green">Green</string>
+    <string name="novel_tts_color_pink">Pink</string>
+    <string name="novel_tts_color_dark">Dark</string>
+    <string name="novel_tts_color_navy">Navy</string>
+    <string name="novel_tts_color_maroon">Maroon</string>
+    <string name="novel_tts_color_red_value">Red: %1$d</string>
+    <string name="novel_tts_color_green_value">Green: %1$d</string>
+    <string name="novel_tts_color_blue_value">Blue: %1$d</string>
+
+    <!-- Notifications: library/EPUB/TTS channels (wave 4) -->
+    <string name="channel_library_export">Library Export</string>
+    <string name="channel_tts_playback">TTS Playback</string>
+    <string name="notification_starting">Starting…</string>
+
+    <!-- Notifications: library export job (wave 4) -->
+    <string name="notification_library_export_complete">Export complete</string>
+    <string name="notification_library_export_failed">Export failed</string>
+
+    <!-- Notifications: mass import job (wave 4) -->
+    <string name="notification_mass_import_paused_title">Mass import paused</string>
+    <string name="notification_mass_import_background_limit">Android background time limit reached - open the app and resume the import</string>
+    <string name="mass_import_completion_summary">Added: %1$d, Skipped: %2$d, Errors: %3$d</string>
+    <string name="mass_import_no_sources_installed">No compatible sources installed</string>
+    <string name="mass_import_status_starting_import">Starting import...</string>
+    <string name="mass_import_status_rate_limit_wait">Waiting %1$.1fs for rate limit (%2$s)</string>
+    <string name="mass_import_status_processing_active">Processing: %1$d active</string>
+    <string name="mass_import_status_processed_progress">Processed %1$d/%2$d</string>
+
+    <!-- History/Updates screens: list view toggle (wave 4) -->
+    <string name="label_list_view">List View</string>
+    <string name="history_action_last_only">Last only</string>
+    <string name="updates_action_group_by_novel">Group by Novel</string>
+
+    <!-- Track search (wave 4) -->
+    <string name="track_search_pick_alt_title">Pick alt title</string>
+
+    <!-- Source tracker dispatcher (wave 4) -->
+    <string name="tracker_dispatch_failure_toast">%1$s tracker failed: %2$s</string>
+
+    <!-- Updates view model (wave 4) -->
+    <string name="updates_cache_cleared">Updates cache cleared</string>
+
+    <!-- Tracker WebView login activity (wave 4) -->
+    <string name="tracker_webview_enter_token_cd">Enter token/cookie</string>
+    <string name="tracker_webview_complete_login_cd">Complete Login</string>
+    <string name="tracker_webview_token_or_cookie_label">Token or cookie</string>
+    <string name="tracker_webview_extract_failed_toast">Could not extract auth value from input</string>
+    <string name="tracker_webview_use_button">Use</string>
+    <string name="tracker_webview_instructions_novelupdates">Login to NovelUpdates, then tap the ✓ button to complete login.</string>
+    <string name="tracker_webview_instructions_novellist">Login to NovelList, then tap the ✓ button to complete login. Use the edit icon to paste token/cookie manually.</string>
+    <string name="tracker_webview_instructions_ranobedb">Login to RanobeDB, then tap the ✓ button to complete login. Use the edit icon to paste the auth_session cookie manually.</string>
+    <string name="tracker_webview_instructions_default">Login, then tap the ✓ button to complete.</string>
+    <string name="tracker_webview_dialog_title_novellist">NovelList token/cookie</string>
+    <string name="tracker_webview_dialog_title_ranobedb">RanobeDB cookie</string>
+    <string name="tracker_webview_dialog_title_default">Token</string>
+    <string name="tracker_webview_placeholder_novellist">Paste JWT, novellist cookie, or full cookie header</string>
+    <string name="tracker_webview_placeholder_ranobedb">Paste auth_session value or full cookie header</string>
+    <string name="tracker_webview_placeholder_default">Paste your token</string>
+
+    <!-- Crash log util (wave 4) -->
+    <string name="crash_log_toast_failed">Failed to get logs</string>
 </resources>

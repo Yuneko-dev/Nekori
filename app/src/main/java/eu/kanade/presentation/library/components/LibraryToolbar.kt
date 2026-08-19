@@ -127,7 +127,7 @@ private fun LibraryRegularToolbar(
                     onClick = onClickGlobalUpdate, // still triggers full update (sources)
                 ),
                 AppBar.OverflowAction(
-                    title = "Reload Library",
+                    title = stringResource(TDMR.strings.library_toolbar_reload_library),
                     onClick = onClickRefresh, // now triggers local DB reload
                 ),
                 AppBar.OverflowAction(
@@ -157,7 +157,7 @@ private fun LibraryRegularToolbar(
             if (onClickFindDuplicates != null) {
                 actions.add(
                     AppBar.OverflowAction(
-                        title = stringResource(MR.strings.duplicate_find_duplicates),
+                        title = stringResource(TDMR.strings.duplicate_find_duplicates),
                         onClick = onClickFindDuplicates,
                     ),
                 )
@@ -166,7 +166,7 @@ private fun LibraryRegularToolbar(
             if (onClickCategoryActions != null) {
                 actions.add(
                     AppBar.OverflowAction(
-                        title = stringResource(MR.strings.action_clear_category),
+                        title = stringResource(TDMR.strings.action_clear_category),
                         onClick = onClickCategoryActions,
                     ),
                 )

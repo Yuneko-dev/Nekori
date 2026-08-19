@@ -328,15 +328,15 @@ object SettingsLibraryScreen : SearchableSettings {
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.sortMangaTags,
-                    title = "Sort novel tags alphabetically",
-                    subtitle = "Sort tags on novel detail page by name instead of source order",
+                    title = stringResource(TDMR.strings.settings_library_sort_tags_alphabetically),
+                    subtitle = stringResource(TDMR.strings.settings_library_sort_tags_alphabetically_summary),
                 ),
             )
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.novelReadProgress100,
-                    title = "Restore position in completed novel chapters",
-                    subtitle = "Resume novel chapters from where you left off even when already marked as read",
+                    title = stringResource(TDMR.strings.settings_library_restore_position_completed),
+                    subtitle = stringResource(TDMR.strings.settings_library_restore_position_completed_summary),
                 ),
             )
         }

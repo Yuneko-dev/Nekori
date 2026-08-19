@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
+import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.i18n.stringResource
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -213,7 +215,11 @@ fun NovelStatusBar(
         // Collapse/expand toggle, always visible, pinned to the right
         Icon(
             imageVector = if (isCollapsed) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = if (isCollapsed) "Expand status bar" else "Collapse status bar",
+            contentDescription = if (isCollapsed) {
+                stringResource(TDMR.strings.reader_status_bar_expand)
+            } else {
+                stringResource(TDMR.strings.reader_status_bar_collapse)
+            },
             tint = dimColor,
             modifier = Modifier
                 .align(Alignment.CenterEnd)

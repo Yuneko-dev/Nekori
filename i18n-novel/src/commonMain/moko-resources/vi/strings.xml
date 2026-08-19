@@ -50,7 +50,6 @@
     <string name="novel_volume_label">Tập %s</string>
     <!-- Library -->
     <string name="chapters_from_database">Các chương trong cơ sở dữ liệu</string>
-    <string name="delete_local_novel_files">Xóa EPUB/HTML cục bộ?</string>
     <!-- Browse Source -->
     <string name="local_novel_source">Tiểu thuyết cục bộ</string>
     <string name="local_novel_source_open_folder">Mở thư mục</string>
@@ -75,7 +74,6 @@
 
     <!-- Notification channels -->
     <string name="channel_mass_import">Nhập hàng loạt</string>
-    <string name="channel_translation">Dịch</string>
     <string name="mass_import_progress_title">Tiến trình nhập hàng loạt</string>
     <string name="mass_import_complete_title">Đã hoàn tất nhập hàng loạt</string>
 
@@ -189,30 +187,8 @@
     <string name="action_current_chapter">Chương hiện tại</string>
     <string name="action_translate">Dịch</string>
     <string name="action_translate_downloaded">Dịch các chương đã tải</string>
-    <string name="action_retranslate">Dịch lại</string>
-    <string name="translation_smart_auto">Tự động dịch thông minh</string>
-    <string name="translation_smart_auto_summary">Chỉ dịch khi ngôn ngữ khác ngôn ngữ đích</string>
-    <string name="translation_select_target_language">Chọn ngôn ngữ đích để dịch</string>
-    <string name="translation_job_translating">Đang dịch chương…</string>
-    <string name="translation_job_processing">Đang xử lý…</string>
-    <string name="translation_job_complete">Đã hoàn tất dịch</string>
-    <string name="translation_job_complete_count">Đã dịch %d chương</string>
-    <string name="action_delete_translation">Xóa bản dịch</string>
     <string name="translated_chapters">Chương đã dịch</string>
     <!-- Translate manga details dialog -->
-    <string name="translate_details_title">Dịch thông tin</string>
-    <string name="translate_details_no_engine">Chưa cấu hình công cụ dịch. Hãy cấu hình trong Cài đặt &gt; Dịch.</string>
-    <string name="translate_details_translating">Đang dịch…</string>
-    <string name="translate_details_original_title">Tiêu đề gốc:</string>
-    <string name="translate_details_translated_title">Tiêu đề đã dịch:</string>
-    <string name="translate_details_add_alt_titles">Thêm tiêu đề đã dịch vào tiêu đề thay thế</string>
-    <string name="translate_details_save_tags_notes">Lưu thẻ đã dịch vào ghi chú</string>
-    <string name="translate_details_original_desc">Mô tả gốc:</string>
-    <string name="translate_details_translated_desc">Mô tả đã dịch:</string>
-    <string name="translate_details_original_genres">Thể loại gốc:</string>
-    <string name="translate_details_translated_genres">Thể loại đã dịch:</string>
-    <string name="translate_details_save_genres">Lưu thể loại đã dịch</string>
-    <string name="translate_details_merge_genres">Thêm vào các thể loại hiện có (không thay thế)</string>
     <string name="action_export_epub">Xuất dưới dạng EPUB</string>
     <string name="action_export_epub_bulk">Xuất mục đã chọn dưới dạng EPUB</string>
     <string name="export_epub_progress">Đang xuất chương %1$d/%2$d…</string>
@@ -229,12 +205,6 @@
     <string name="action_mass_import">Nhập hàng loạt</string>
 
     <!-- Novel Translation Settings (reader panel) -->
-    <string name="pref_novel_translation_settings">Dịch</string>
-    <string name="pref_novel_translation_enabled">Bật dịch</string>
-    <string name="pref_novel_realtime_translation">Dịch theo thời gian thực</string>
-    <string name="pref_novel_translation_engine_label">Công cụ</string>
-    <string name="pref_novel_translation_target_label">Ngôn ngữ đích</string>
-    <string name="pref_novel_translation_hint">Cấu hình công cụ dịch và khóa API trong Cài đặt &#x2192; Dịch</string>
 
     <!-- Novel Download Settings -->
     <string name="pref_novel_reader_summary">Chế độ đọc tiểu thuyết, phông chữ, màu sắc</string>
@@ -351,7 +321,6 @@
     <string name="duplicate_dismiss_group">Bỏ nhóm</string>
     <string name="duplicate_deselect_group">Bỏ chọn nhóm</string>
     <string name="duplicate_match_label">Kiểu so khớp</string>
-    <string name="duplicate_options_label">Tùy chọn</string>
     <string name="epub_create_dir_failed">Không thể tạo thư mục cho: %s</string>
     <string name="epub_novels_export_count">Sẽ xuất %d tiểu thuyết.</string>
     <string name="epub_and_more">… và %d mục khác</string>
@@ -359,12 +328,6 @@
     <string name="epub_downloaded_only">Chỉ các chương đã tải</string>
     <string name="epub_join_volumes">Gộp các tập EPUB thành một tệp</string>
     <string name="epub_prefer_translated">Ưu tiên chương đã dịch</string>
-    <string name="epub_translation_mode">Bản dịch</string>
-    <string name="epub_translation_original">Chỉ bản gốc</string>
-    <string name="epub_translation_translated">Chỉ bản dịch</string>
-    <string name="epub_translation_both">Cả hai (hai tệp riêng)</string>
-    <string name="epub_translation_translated_info">Chỉ những chương có bản dịch sẽ được đưa vào.</string>
-    <string name="epub_translation_both_info">Sẽ tạo hai tệp EPUB — một bản gốc, một bản dịch.</string>
     <string name="epub_filename_options">Tùy chọn tên tệp</string>
     <string name="epub_include_chapter_count">Gồm số lượng chương (ví dụ: [50ch])</string>
     <string name="epub_include_chapter_range">Gồm phạm vi chương (ví dụ: [ch1-50])</string>
@@ -379,7 +342,6 @@
     <string name="epub_translated_info"> Sẽ dùng chương đã dịch khi có.</string>
     <string name="epub_action_import">Nhập</string>
     <string name="epub_export_job_title">Xuất EPUB</string>
-    <string name="epub_export_job_starting">Đang bắt đầu…</string>
     <string name="epub_export_job_progress">Đang xuất %1$d/%2$d: %3$s</string>
     <string name="epub_export_job_complete_title">Đã hoàn tất xuất EPUB</string>
     <string name="epub_export_job_complete">Đã xuất %1$d tiểu thuyết</string>
@@ -449,7 +411,6 @@
     <string name="novel_replace_with">Thay bằng (để trống = xóa)</string>
     <string name="novel_use_regex">Dùng Regex</string>
     <string name="novel_match_whole_word">Khớp toàn bộ từ</string>
-    <string name="novel_case_sensitive_matching">Phân biệt chữ hoa/thường</string>
     <string name="novel_test">Kiểm tra</string>
     <string name="novel_sample_input">Dữ liệu mẫu</string>
     <string name="novel_pattern_empty">Mẫu trống</string>
@@ -1216,4 +1177,417 @@
     <string name="stats_minutes">%1$d phút</string>
     <string name="stats_hours_minutes">%1$d giờ %2$d phút</string>
     <string name="stats_days_hours_minutes">%1$d ngày %2$d giờ %3$d phút</string>
+    <!-- Restored from MR: fork strings dropped by the upstream Mihon i18n sync (50c32e94c). -->
+    <string name="delete_repo_confirmation">Bạn có muốn xóa nguồn \"%s\"?</string>
+    <string name="pref_translation_chunk_mode">Chế độ chia nhỏ</string>
+    <string name="pref_translation_chunk_paragraphs">Đoạn</string>
+    <string name="pref_translation_chunk_paragraphs_rec">Số đoạn mỗi phần (khuyến nghị: 20–100)</string>
+    <string name="pref_translation_chunk_size">Kích thước mỗi phần</string>
+    <string name="pref_translation_chunk_words">Từ</string>
+    <string name="pref_translation_chunk_words_rec">Số từ mỗi phần (khuyến nghị: 2000)</string>
+    <string name="pref_translation_contextual_anchoring">Neo ngữ cảnh</string>
+    <string name="pref_translation_contextual_anchoring_desc">Gửi các đoạn đã dịch trước đó cho engine LLM để nhất quán hơn; khi bật, các chunk chạy tuần tự</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs">Số đoạn ngữ cảnh</string>
+    <string name="pref_translation_contextual_anchoring_paragraphs_desc">Số đoạn lấy từ phần trước để gửi kèm làm ngữ cảnh</string>
+    <string name="pref_translation_split_large_chapters">Chia nhỏ chương lớn</string>
+    <string name="pref_translation_split_large_chapters_summary">Chia yêu cầu dịch chương bằng LLM thành các phần nhỏ hơn</string>
+    <string name="update_check_notification_download_in_progress">Đang tải xuống…</string>
+
+    <!-- Settings: font manager -->
+    <string name="settings_font_manager_title">Quản lý phông chữ</string>
+    <string name="settings_font_manager_add_font">Thêm phông chữ</string>
+    <string name="settings_font_manager_loading">Đang tải phông chữ...</string>
+    <string name="settings_font_manager_system_fonts">Phông chữ hệ thống</string>
+    <string name="settings_font_manager_custom_fonts">Phông chữ tùy chỉnh</string>
+    <string name="settings_font_manager_downloading">Đang tải phông chữ...</string>
+    <string name="settings_font_manager_import_from_device">Nhập từ thiết bị</string>
+    <string name="settings_font_manager_select_ttf_otf">Chọn tệp TTF hoặc OTF</string>
+    <string name="settings_font_manager_download_google_fonts">Tải từ Google Fonts</string>
+    <string name="settings_font_manager_browse_free_fonts">Duyệt và tải phông chữ miễn phí</string>
+    <string name="settings_font_manager_delete_font_title">Xóa phông chữ</string>
+    <string name="settings_font_manager_delete_font_confirm">Bạn có chắc muốn xóa \"%1$s\"?</string>
+    <string name="settings_font_manager_custom_font_label">Phông chữ tùy chỉnh</string>
+    <string name="settings_font_manager_system_font_label">Phông chữ hệ thống</string>
+    <string name="settings_font_manager_selected">Đã chọn</string>
+    <string name="settings_font_manager_google_fonts_title">Google Fonts</string>
+    <string name="settings_font_manager_search_fonts_placeholder">Tìm phông chữ...</string>
+    <string name="settings_font_manager_import_success">Đã nhập phông chữ \"%1$s\" thành công</string>
+    <string name="settings_font_manager_import_failed">Không thể nhập phông chữ: %1$s</string>
+    <string name="settings_font_manager_deleted">Đã xóa phông chữ \"%1$s\"</string>
+    <string name="settings_font_manager_delete_failed">Không thể xóa phông chữ</string>
+    <string name="settings_font_manager_downloaded">Đã tải phông chữ \"%1$s\"</string>
+    <string name="settings_font_manager_download_failed">Tải xuống thất bại: %1$s</string>
+
+    <!-- Settings: per-screen reset -->
+    <string name="settings_reset_to_defaults">Đặt lại về mặc định</string>
+    <string name="settings_reset_dialog_title">Đặt lại cài đặt</string>
+    <string name="settings_reset_dialog_message">Đặt lại toàn bộ cài đặt trên màn hình này về giá trị mặc định?</string>
+
+    <!-- Settings: advanced -->
+    <string name="settings_advanced_stats_copied">Đã sao chép thống kê vào bảng tạm</string>
+    <string name="settings_advanced_normalize_tags">Chuẩn hóa thẻ</string>
+    <string name="settings_advanced_normalize_tags_summary">Xóa khoảng trắng thừa và loại bỏ thẻ trùng lặp (không phân biệt hoa/thường)</string>
+    <string name="settings_advanced_normalized_tags_result">Đã chuẩn hóa thẻ cho %1$d tiểu thuyết</string>
+    <string name="settings_advanced_normalize_on_update">Chuẩn hóa thẻ khi cập nhật mục</string>
+    <string name="settings_advanced_normalize_on_update_summary">Tự động áp dụng chuẩn hóa tương tự khi thông tin mục được lấy/cập nhật hoặc thẻ được chỉnh sửa</string>
+    <string name="settings_advanced_reset_to_default_summary">Đặt lại toàn bộ cài đặt ứng dụng về giá trị mặc định (dữ liệu thư viện được giữ nguyên)</string>
+
+    <!-- Settings: browse -->
+    <string name="settings_browse_page_load_delay">Độ trễ tải trang</string>
+    <string name="settings_browse_page_load_delay_summary">Khoảng chờ giữa các lần tải trang (giúp tránh giới hạn tần suất)</string>
+    <string name="settings_browse_show_page_number_summary">Hiển thị số trang hiện tại kèm điều hướng nhảy trang</string>
+    <string name="settings_browse_skip_cover_loading">Bỏ qua tải ảnh bìa</string>
+    <string name="settings_browse_skip_cover_loading_summary">Không tải ảnh bìa khi duyệt để tiết kiệm băng thông</string>
+    <string name="settings_browse_confirm_back_after_pages">Xác nhận khi quay lại sau nhiều trang</string>
+    <string name="settings_browse_confirm_back_after_pages_summary">Hiện hộp thoại xác nhận khi quay lại sau khi đã tải nhiều trang</string>
+
+    <!-- Settings: data export columns -->
+    <string name="settings_data_export_full_url">URL đầy đủ</string>
+    <string name="settings_data_export_chapter_count">Số chương</string>
+    <string name="settings_data_export_is_novel">Là tiểu thuyết</string>
+    <string name="settings_data_export_tags_comma_separated">Thẻ (cách nhau bằng dấu phẩy)</string>
+
+    <!-- Settings: library behavior -->
+    <string name="settings_library_sort_tags_alphabetically">Sắp xếp thẻ tiểu thuyết theo bảng chữ cái</string>
+    <string name="settings_library_sort_tags_alphabetically_summary">Sắp xếp thẻ trên trang chi tiết tiểu thuyết theo tên thay vì thứ tự từ nguồn</string>
+    <string name="settings_library_restore_position_completed">Khôi phục vị trí trong chương tiểu thuyết đã hoàn thành</string>
+    <string name="settings_library_restore_position_completed_summary">Tiếp tục đọc chương tiểu thuyết từ vị trí đã dừng, kể cả khi đã đánh dấu đã đọc</string>
+
+    <!-- Settings: novel download per-extension overrides -->
+    <string name="settings_download_per_extension_overrides">Ghi đè theo từng phần mở rộng</string>
+    <string name="settings_download_manage_source_overrides">Quản lý ghi đè nguồn</string>
+    <string name="settings_download_overrides_configured_count">Đã cấu hình %1$d ghi đè</string>
+    <string name="settings_download_overrides_info">Ghi đè thời gian chờ điều tiết cho các phần mở rộng cụ thể. Ghi đè được ưu tiên hơn cài đặt chung.</string>
+    <string name="settings_download_add_override">Thêm ghi đè</string>
+    <string name="settings_download_edit_override">Sửa ghi đè</string>
+    <string name="settings_download_extension_label">Phần mở rộng</string>
+
+    <!-- Settings: novel reader text/formatting/content -->
+    <string name="settings_reader_text_group">Văn bản</string>
+    <string name="settings_reader_font_manager_summary">Tải hoặc nhập phông chữ tùy chỉnh</string>
+    <string name="settings_reader_force_lowercase">Ép chữ thường</string>
+    <string name="settings_reader_force_lowercase_summary">Chuyển toàn bộ văn bản thành chữ thường</string>
+    <string name="settings_reader_use_original_fonts_title">Dùng phông chữ gốc (chỉ WebView)</string>
+    <string name="settings_reader_use_original_fonts_summary">Giữ nguyên phông chữ từ trang nguồn</string>
+    <string name="settings_reader_swipe_navigation_title">Điều hướng vuốt</string>
+    <string name="settings_reader_swipe_navigation_summary">Vuốt trái/phải để đổi chương</string>
+    <string name="settings_reader_formatting_group">Định dạng</string>
+    <string name="settings_reader_content_group">Nội dung</string>
+    <string name="settings_reader_infinite_scroll_title">Cuộn vô hạn</string>
+    <string name="settings_reader_infinite_scroll_summary">Tự động tải chương tiếp theo khi cuộn</string>
+    <string name="settings_reader_auto_load_next_at_title">Tự động tải chương tiếp theo tại</string>
+    <string name="settings_reader_mark_as_read_at_title">Đánh dấu đã đọc chương tại</string>
+    <string name="settings_reader_auto_mark_short_title">Tự động đánh dấu chương ngắn là đã đọc</string>
+    <string name="settings_reader_auto_mark_short_summary">Nếu chương vừa với màn hình mà không cần cuộn, đánh dấu đã đọc ngay</string>
+    <string name="settings_reader_hide_chapter_title">Ẩn tiêu đề chương</string>
+    <string name="settings_reader_hide_chapter_title_summary">Loại bỏ tiêu đề chương khỏi nội dung</string>
+    <string name="settings_reader_block_media_title">Chặn nội dung đa phương tiện</string>
+    <string name="settings_reader_block_media_summary">Chặn tải ảnh và nội dung đa phương tiện ở cả hai trình đọc</string>
+    <string name="settings_reader_text_selectable_title">Cho phép chọn văn bản (WebView)</string>
+    <string name="settings_reader_text_selectable_summary">Cho phép chọn và sao chép văn bản trong trình đọc WebView</string>
+    <string name="settings_reader_show_raw_html_summary">Hiển thị mã nguồn HTML thay vì nội dung đã hiển thị</string>
+    <string name="settings_reader_source_css_priority_title">Ưu tiên CSS nguồn</string>
+    <string name="settings_reader_source_css_priority_summary">Cho phép CSS nhúng/nguồn ghi đè màu chủ đề trình đọc</string>
+    <string name="settings_reader_tts_speed_title">Tốc độ TTS</string>
+    <string name="settings_reader_tts_pitch_title">Cao độ TTS</string>
+    <string name="settings_reader_tts_auto_next_title">TTS tự động sang chương tiếp theo</string>
+    <string name="settings_reader_tts_auto_next_summary">Tự động chuyển sang chương tiếp theo khi TTS đọc xong</string>
+
+    <!-- Settings: tracking -->
+    <string name="settings_tracking_min_chapters_title">Số chương tối thiểu trước khi theo dõi</string>
+    <string name="settings_tracking_min_chapters_summary">Số chương phải đọc trước khi tự động theo dõi bắt đầu (0 = luôn theo dõi)</string>
+    <string name="settings_tracking_mark_read_mangabaka">Đánh dấu chương đã đọc trên MangaBaka</string>
+    <string name="settings_tracking_mark_read_summary">Tự động đánh dấu chương đã đọc khi bạn đọc chúng trong ứng dụng</string>
+    <string name="settings_tracking_sync_reading_list_title">Đồng bộ danh sách đọc</string>
+    <string name="settings_tracking_sync_reading_list_mangabaka">Giữ trạng thái danh sách đọc đồng bộ với MangaBaka</string>
+    <string name="settings_tracking_novel_trackers_group">Theo dõi tiểu thuyết</string>
+    <string name="settings_tracking_mark_read_novelupdates">Đánh dấu chương đã đọc trên NovelUpdates</string>
+    <string name="settings_tracking_sync_reading_list_novelupdates">Giữ trạng thái danh sách đọc đồng bộ với NovelUpdates</string>
+    <string name="settings_tracking_custom_list_mapping_title">Ánh xạ danh sách tùy chỉnh</string>
+    <string name="settings_tracking_custom_list_mapping_summary">Ánh xạ trạng thái sang danh sách NovelUpdates tùy chỉnh</string>
+    <string name="settings_tracking_configure_list_mapping_title">Cấu hình ánh xạ danh sách</string>
+    <string name="settings_tracking_configure_list_mapping_summary">Chọn danh sách mà mỗi trạng thái ánh xạ tới</string>
+    <string name="settings_tracking_mark_read_novellist">Đánh dấu chương đã đọc trên NovelList</string>
+    <string name="settings_tracking_sync_reading_list_novellist">Giữ trạng thái danh sách đọc đồng bộ với NovelList</string>
+    <string name="settings_tracking_mark_read_ranobedb">Đánh dấu chương đã đọc trên RanobeDB</string>
+    <string name="settings_tracking_mark_read_summary_volumes">Tự động đánh dấu chương/tập đã đọc khi bạn đọc chúng trong ứng dụng</string>
+    <string name="settings_tracking_sync_reading_list_ranobedb">Giữ trạng thái danh sách đọc đồng bộ với RanobeDB</string>
+    <string name="settings_tracking_source_defined_group">Trình theo dõi do nguồn định nghĩa</string>
+    <string name="settings_tracking_run_source_trackers_title">Chạy trình theo dõi của nguồn khi di chuyển</string>
+    <string name="settings_tracking_run_source_trackers_summary">Kích hoạt sự kiện theo dõi do nguồn định nghĩa khi di chuyển hoặc di chuyển nhanh một mục</string>
+    <string name="settings_tracking_login_to">Đăng nhập vào %1$s</string>
+    <string name="settings_tracking_token_cookies_label">Token / Cookie</string>
+    <string name="settings_tracking_login_failed">Đăng nhập thất bại</string>
+    <string name="settings_tracking_list_mapping_dialog_title">Ánh xạ danh sách</string>
+    <string name="settings_tracking_fetch_lists_failed">Không thể lấy danh sách</string>
+
+    <!-- Settings: debug worker info -->
+    <string name="settings_debug_worker_enqueued">Đang chờ</string>
+    <string name="settings_debug_worker_finished">Đã xong</string>
+    <string name="settings_debug_worker_running">Đang chạy</string>
+    <!-- Browse: page jump dialog -->
+    <string name="browse_page_jump_title_single">Nhảy tới trang</string>
+    <string name="browse_page_jump_title_range">Tải khoảng trang</string>
+    <string name="browse_page_jump_loaded_up_to">Đã tải đến trang: %1$d</string>
+    <string name="browse_page_jump_page_number">Số trang</string>
+    <string name="browse_page_jump_start_page">Trang bắt đầu</string>
+    <string name="browse_page_jump_end_page">Trang kết thúc</string>
+    <string name="browse_page_jump_pagination_delay">Độ trễ phân trang: %1$d giây</string>
+    <string name="browse_page_jump_delay_desc">Độ trễ giữa mỗi lần tải trang trong khoảng</string>
+    <string name="browse_page_jump_single_mode">Chế độ một trang</string>
+    <string name="browse_page_jump_range_mode">Tải khoảng trang</string>
+    <string name="browse_page_jump_action">Nhảy</string>
+    <string name="browse_page_jump_load_range">Tải khoảng</string>
+    <!-- Library: duplicate detection dialog -->
+    <string name="library_duplicate_dialog_title">Mục trùng lặp tiềm năng</string>
+    <string name="library_duplicate_dialog_copy_all_urls">Sao chép tất cả URL</string>
+    <string name="library_duplicate_dialog_none_found">Không tìm thấy mục trùng lặp nào trong thư viện.</string>
+    <string name="library_duplicate_dialog_groups_found">Tìm thấy %1$d nhóm có tựa đề tương tự:</string>
+    <string name="library_duplicate_dialog_url_copied">Đã sao chép URL</string>
+    <string name="library_duplicate_dialog_alt_titles">Tên khác: %1$s</string>
+    <!-- Library: settings dialog - filter page -->
+    <string name="library_settings_search_options_header">Tùy chọn tìm kiếm</string>
+    <string name="library_settings_search_chapter_names">Tìm trong tên chương</string>
+    <string name="library_settings_search_descriptions_tags">Tìm trong mô tả và thẻ tiểu thuyết</string>
+    <string name="library_settings_search_alt_titles">Tìm trong tên khác</string>
+    <string name="library_settings_search_by_url">Tìm theo URL</string>
+    <string name="library_settings_use_regex_search">Dùng tìm kiếm regex</string>
+    <string name="library_settings_chapter_count_threshold_label">Ngưỡng</string>
+    <string name="library_settings_filter_chapter_count_at_least">Số chương ≥ %1$d</string>
+    <string name="library_settings_filter_chapter_count_less_than">Số chương &lt; %1$d</string>
+    <string name="library_settings_filter_chapter_count_label">Số chương</string>
+    <!-- Library: settings dialog - display page -->
+    <string name="library_settings_show_url_in_list">Hiện URL ở chế độ danh sách</string>
+    <string name="library_settings_title_max_lines">Số dòng tối đa cho tiêu đề</string>
+    <!-- Library: settings dialog - tags page -->
+    <string name="library_settings_tags_collapse_options_cd">Thu gọn tùy chọn</string>
+    <string name="library_settings_tags_expand_options_cd">Mở rộng tùy chọn</string>
+    <string name="library_settings_refreshed_cd">Đã làm mới</string>
+    <string name="library_settings_tags_include_mode_label">Chế độ thẻ cần có:</string>
+    <string name="library_settings_tags_exclude_mode_label">Chế độ thẻ loại trừ:</string>
+    <string name="library_settings_tag_mode_and">VÀ</string>
+    <string name="library_settings_tag_mode_or">HOẶC</string>
+    <string name="library_settings_tags_sort_by_label">Sắp xếp theo:</string>
+    <string name="library_settings_tags_sort_count">Số lượng</string>
+    <string name="library_settings_tags_sort_order_label">Thứ tự sắp xếp:</string>
+    <string name="library_settings_tags_sort_desc">Giảm dần</string>
+    <string name="library_settings_tags_sort_asc">Tăng dần</string>
+    <string name="library_settings_tags_clear_all_cd">Xóa tất cả</string>
+    <string name="library_settings_tags_clear_all_filters">Xóa tất cả bộ lọc</string>
+    <string name="library_settings_tags_no_tags_count">Không có thẻ (%1$d)</string>
+    <string name="library_settings_tags_search_placeholder">Tìm thẻ... (nhấn Enter)</string>
+    <string name="library_settings_tags_clear_search_cd">Xóa tìm kiếm</string>
+    <string name="library_settings_tags_none_found">Không tìm thấy thẻ nào trong thư viện</string>
+    <string name="library_settings_tags_loading">Đang tải thẻ...</string>
+    <string name="library_settings_tags_tap_hint">Chạm để bao gồm, chạm lại để loại trừ, chạm lần nữa để bỏ chọn</string>
+    <string name="library_settings_tags_count_label">%1$d thẻ</string>
+    <!-- Library: settings dialog - extensions page -->
+    <string name="library_settings_extensions_check_all_cd">Chọn tất cả</string>
+    <string name="library_settings_extensions_uncheck_all_cd">Bỏ chọn tất cả</string>
+    <string name="library_settings_extensions_none_found">Không có tiện ích mở rộng nào có mục trong thư viện</string>
+    <string name="library_settings_extensions_loading">Đang tải tiện ích mở rộng...</string>
+    <string name="library_settings_extensions_missing_count">%1$d nguồn thiếu tiện ích mở rộng</string>
+    <string name="library_settings_extensions_missing_source_cd">Thiếu nguồn</string>
+    <string name="library_settings_extensions_missing_suffix">%1$s (Thiếu)</string>
+    <!-- Library: toolbar -->
+    <string name="library_toolbar_reload_library">Tải lại thư viện</string>
+    <string name="library_toolbar_reloading_snackbar">Đang tải lại thư viện từ cơ sở dữ liệu...</string>
+    <string name="library_toolbar_clipboard_label_novel_links">Liên kết tiểu thuyết</string>
+    <!-- Library: EPUB batch export (LibraryViewModel) -->
+    <string name="library_export_epub_no_selection">Chưa chọn tiểu thuyết nào để xuất</string>
+    <string name="library_export_epub_started">Đã bắt đầu xuất EPUB cho %1$d tiểu thuyết</string>
+    <string name="library_export_epub_failed">Xuất thất bại: %1$s</string>
+    <string name="library_export_epub_success_count">Đã xuất %1$d/%2$d tiểu thuyết</string>
+    <string name="library_export_epub_skipped_suffix"> (bỏ qua %1$d)</string>
+    <!-- Library: mass import dialog -->
+    <string name="mass_import_pause_all">Tạm dừng tất cả</string>
+    <string name="mass_import_resume_all">Tiếp tục tất cả</string>
+    <string name="mass_import_failed_to_read_files">Không thể đọc tệp nhập</string>
+    <string name="mass_import_tooltip_resume_batch">Tiếp tục lô</string>
+    <string name="mass_import_tooltip_pause_batch">Tạm dừng lô</string>
+    <string name="mass_import_processed_count">Đã xử lý: %1$d</string>
+    <string name="mass_import_skipped_count">Đã bỏ qua: %1$d</string>
+    <string name="mass_import_status_running">Đang chạy</string>
+    <!-- Library: EPUB import screen -->
+    <string name="epub_import_none_parsed">Không có tệp EPUB hợp lệ nào được phân tích</string>
+    <string name="epub_import_loaded_files_into_groups">Đã tải %1$d tệp EPUB vào %2$d nhóm tiểu thuyết</string>
+    <string name="epub_import_auto_organize_action">Tự động đổi tên &amp; sắp xếp</string>
+    <string name="epub_import_auto_organize_snackbar">Đã tự động sắp xếp nhóm và tiêu đề tập từ dữ liệu EPUB</string>
+    <string name="epub_import_delete_confirm_title">Xóa các tệp EPUB đã nhập?</string>
+    <string name="epub_import_delete_confirm_message">Thao tác này sẽ xóa vĩnh viễn các tệp nguồn đã nhập thành công khỏi bộ nhớ (nếu được phép).</string>
+    <string name="epub_import_delete_none_deleted">Không có tệp EPUB đã nhập nào bị xóa</string>
+    <string name="epub_import_delete_success">Đã xóa %1$d tệp EPUB đã nhập</string>
+    <string name="epub_import_delete_partial">Đã xóa %1$d tệp, không thể xóa %2$d tệp</string>
+    <string name="epub_import_select_at_least_one">Chọn ít nhất một tệp EPUB</string>
+    <string name="epub_import_untitled_group_fallback">Tiểu thuyết</string>
+    <string name="epub_import_parsing">Đang phân tích tệp EPUB...</string>
+    <string name="epub_import_novel_groups_count">Nhóm tiểu thuyết (%1$d)</string>
+    <string name="epub_import_move_group_up_cd">Di chuyển nhóm tiểu thuyết lên</string>
+    <string name="epub_import_move_group_down_cd">Di chuyển nhóm tiểu thuyết xuống</string>
+    <string name="epub_import_remove_group_cd">Xóa nhóm tiểu thuyết</string>
+    <string name="epub_import_group_summary">%1$d tập • %2$d chương</string>
+    <string name="epub_import_volume_title_label">Tiêu đề tập</string>
+    <string name="epub_import_move_volume_up_cd">Di chuyển tập lên</string>
+    <string name="epub_import_move_volume_down_cd">Di chuyển tập xuống</string>
+    <string name="epub_import_move_to_another_group_cd">Di chuyển sang nhóm tiểu thuyết khác</string>
+    <string name="epub_import_move_to_new_group_label">Di chuyển sang nhóm tiểu thuyết mới</string>
+    <string name="epub_import_move_to_destination">Di chuyển đến %1$s</string>
+    <string name="epub_import_fallback_group_label">Nhóm tiểu thuyết %1$d</string>
+    <string name="epub_import_toc_collapse_cd">Thu gọn mục lục</string>
+    <string name="epub_import_toc_expand_cd">Mở rộng mục lục</string>
+    <string name="epub_import_remove_volume_cd">Xóa tập</string>
+    <string name="epub_import_volume_cover_cd">Bìa tập</string>
+    <string name="epub_import_author_label">Tác giả: %1$s</string>
+    <string name="epub_import_tags_label">Thẻ: %1$s</string>
+    <string name="epub_import_description_label">Mô tả: %1$s</string>
+    <string name="epub_import_toc_none_found">Không tìm thấy mục lục</string>
+    <string name="epub_import_toc_section_start">Đầu</string>
+    <string name="epub_import_toc_section_middle">Giữa</string>
+    <string name="epub_import_toc_section_end">Cuối</string>
+    <string name="epub_import_order_label_with_index">Thứ tự %1$d (chỉ mục EPUB %2$d)</string>
+    <string name="epub_import_order_label">Thứ tự %1$d</string>
+    <string name="epub_import_delete_button_label">Xóa các tệp EPUB đã nhập</string>
+    <string name="label_options">Tùy chọn</string>
+    <string name="label_case_sensitive_matching">Phân biệt hoa thường</string>
+
+    <!-- Manga: similar novels / edit dialogs -->
+    <string name="manga_similar_novels">Tiểu thuyết tương tự</string>
+    <string name="manga_similar_novels_description">Các tiểu thuyết này có tiêu đề tương tự và có thể là bản trùng lặp hoặc tác phẩm liên quan.</string>
+    <string name="manga_edit_new_tag">Thẻ mới</string>
+    <string name="manga_edit_new_title">Tiêu đề mới</string>
+    <string name="manga_edit_title_already_exists">Tiêu đề đã tồn tại</string>
+    <string name="manga_edit_no_alt_titles">Không có tiêu đề thay thế</string>
+    <string name="manga_edit_make_main_title_cd">Đặt làm tiêu đề chính</string>
+    <string name="manga_add_alt_titles">Thêm tiêu đề thay thế</string>
+
+    <!-- Browse: source preferences -->
+    <string name="source_pref_reverse_chapter_list_title">Đảo ngược danh sách chương</string>
+    <string name="source_pref_reverse_chapter_list_summary">Đảo ngược thứ tự chương được lấy từ nguồn này</string>
+
+    <!-- Browse: quick migrate -->
+    <string name="quick_migrate_source_picker_description">Tùy chọn này dùng để chuyển giữa cùng URL/tiện ích mở rộng, hoặc khi chuyển từ tiện ích JS sang KT. Không thể dùng để chuyển sang tiện ích mở rộng hoàn toàn khác.</string>
+    <string name="quick_migrate_no_sources_available">Không có nguồn khả dụng</string>
+    <string name="quick_migrate_add_to_new_category">Thêm vào danh mục mới</string>
+    <string name="quick_migrate_category_name_label">Tên danh mục</string>
+
+    <!-- Browse: source browsing -->
+    <string name="browse_source_page_load_finished">Đã tải xong các trang đến %1$d</string>
+    <string name="browse_source_import_result">Đã nhập: thêm %1$d, bỏ qua %2$d, lỗi %3$d</string>
+    <string name="browse_source_jumping_to_page">Đang chuyển đến trang %1$d...</string>
+    <string name="browse_source_loading_page_range">Đang tải các trang %1$d đến %2$d...</string>
+    <string name="browse_source_leave_confirm_title">Rời khỏi trang duyệt?</string>
+    <string name="browse_source_leave_confirm_message">Bạn đã tải %1$d trang. Bạn có chắc muốn quay lại không?</string>
+    <string name="browse_source_select_label">Chọn</string>
+    <string name="browse_source_selection_count">Đã chọn %1$d</string>
+
+    <!-- Browse: filter presets -->
+    <string name="browse_filter_presets_title">Bộ lọc đã lưu</string>
+    <string name="browse_filter_preset_auto_apply">Tự động áp dụng bộ lọc mặc định khi mở nguồn</string>
+    <string name="browse_filter_preset_save_current">Lưu bộ lọc hiện tại thành bộ lọc đã lưu</string>
+    <string name="browse_filter_preset_none_saved">Chưa có bộ lọc nào được lưu</string>
+    <string name="browse_filter_preset_default_label">Bộ lọc mặc định</string>
+    <string name="browse_filter_preset_remove_default_cd">Bỏ đặt mặc định</string>
+    <string name="browse_filter_preset_set_default_cd">Đặt làm mặc định</string>
+    <string name="browse_filter_preset_delete_cd">Xóa bộ lọc</string>
+    <string name="browse_filter_preset_save_dialog_title">Lưu bộ lọc</string>
+    <string name="browse_filter_preset_name_label">Tên bộ lọc</string>
+    <string name="browse_filter_preset_set_default_label">Đặt làm bộ lọc mặc định</string>
+    <string name="browse_filter_save_preset_cd">Lưu bộ lọc</string>
+    <string name="browse_filter_presets_cd">Bộ lọc đã lưu</string>
+
+    <!-- Reader: status bar -->
+    <string name="reader_status_bar_expand">Mở rộng thanh trạng thái</string>
+    <string name="reader_status_bar_collapse">Thu gọn thanh trạng thái</string>
+
+    <!-- Reader: app bars -->
+    <string name="reader_tts_read_from_here">Đọc từ đây</string>
+    <string name="reader_appbar_customize_toolbar">Tùy chỉnh thanh công cụ</string>
+    <string name="label_drag_to_reorder">Kéo để sắp xếp lại</string>
+
+    <!-- Reader: quotes sheet -->
+    <string name="reader_quotes_reorder">Sắp xếp lại trích dẫn</string>
+    <string name="reader_quotes_scroll_more">Cuộn xuống để xem thêm trích dẫn</string>
+
+    <!-- Reader: activity toasts -->
+    <string name="reader_translation_failed">Dịch thất bại</string>
+    <string name="reader_no_text_selected">Chưa chọn văn bản</string>
+
+    <!-- Reader: advanced settings - embedded CSS/JS -->
+    <string name="novel_reader_enable_embedded_css">Bật CSS nhúng</string>
+    <string name="novel_reader_enable_embedded_js">Bật JS nhúng</string>
+
+    <!-- Reader: TTS highlight settings -->
+    <string name="novel_tts_highlight_bg_title">Màu nền tô sáng TTS</string>
+    <string name="novel_tts_highlight_text_title">Màu chữ tô sáng TTS</string>
+    <string name="novel_tts_enable_highlight">Tô sáng đoạn văn khi đọc TTS</string>
+    <string name="novel_tts_keep_highlight_in_view">Giữ đoạn văn tô sáng trong tầm nhìn</string>
+    <string name="novel_tts_auto_start_on_panel_open">Tự động bắt đầu TTS khi mở bảng điều khiển</string>
+    <string name="novel_tts_background_playback">Giữ TTS chạy nền</string>
+    <string name="novel_tts_highlight_style">Kiểu tô sáng</string>
+    <string name="novel_tts_highlight_style_background">Nền</string>
+    <string name="novel_tts_highlight_style_underline">Gạch chân</string>
+    <string name="novel_tts_highlight_style_outline">Viền</string>
+    <string name="novel_tts_color_amber">Hổ phách</string>
+    <string name="novel_tts_color_blue">Xanh dương</string>
+    <string name="novel_tts_color_green">Xanh lá</string>
+    <string name="novel_tts_color_pink">Hồng</string>
+    <string name="novel_tts_color_dark">Đậm</string>
+    <string name="novel_tts_color_navy">Xanh navy</string>
+    <string name="novel_tts_color_maroon">Đỏ mận</string>
+    <string name="novel_tts_color_red_value">Đỏ: %1$d</string>
+    <string name="novel_tts_color_green_value">Lục: %1$d</string>
+    <string name="novel_tts_color_blue_value">Lam: %1$d</string>
+
+    <!-- Notifications: library/EPUB/TTS channels (wave 4) -->
+    <string name="channel_library_export">Xuất thư viện</string>
+    <string name="channel_tts_playback">Phát TTS</string>
+    <string name="notification_starting">Đang bắt đầu…</string>
+
+    <!-- Notifications: library export job (wave 4) -->
+    <string name="notification_library_export_complete">Xuất hoàn tất</string>
+    <string name="notification_library_export_failed">Xuất thất bại</string>
+
+    <!-- Notifications: mass import job (wave 4) -->
+    <string name="notification_mass_import_paused_title">Đã tạm dừng nhập hàng loạt</string>
+    <string name="notification_mass_import_background_limit">Đã đạt giới hạn thời gian chạy nền của Android - hãy mở ứng dụng để tiếp tục nhập</string>
+    <string name="mass_import_completion_summary">Đã thêm: %1$d, Đã bỏ qua: %2$d, Lỗi: %3$d</string>
+    <string name="mass_import_no_sources_installed">Không có nguồn tương thích nào được cài đặt</string>
+    <string name="mass_import_status_starting_import">Đang bắt đầu nhập...</string>
+    <string name="mass_import_status_rate_limit_wait">Đang chờ %1$.1fs do giới hạn tốc độ (%2$s)</string>
+    <string name="mass_import_status_processing_active">Đang xử lý: %1$d đang chạy</string>
+    <string name="mass_import_status_processed_progress">Đã xử lý %1$d/%2$d</string>
+
+    <!-- History/Updates screens: list view toggle (wave 4) -->
+    <string name="label_list_view">Chế độ danh sách</string>
+    <string name="history_action_last_only">Chỉ mới nhất</string>
+    <string name="updates_action_group_by_novel">Nhóm theo tiểu thuyết</string>
+
+    <!-- Track search (wave 4) -->
+    <string name="track_search_pick_alt_title">Chọn tên khác</string>
+
+    <!-- Source tracker dispatcher (wave 4) -->
+    <string name="tracker_dispatch_failure_toast">Theo dõi %1$s thất bại: %2$s</string>
+
+    <!-- Updates view model (wave 4) -->
+    <string name="updates_cache_cleared">Đã xóa bộ nhớ đệm cập nhật</string>
+
+    <!-- Tracker WebView login activity (wave 4) -->
+    <string name="tracker_webview_enter_token_cd">Nhập token/cookie</string>
+    <string name="tracker_webview_complete_login_cd">Hoàn tất đăng nhập</string>
+    <string name="tracker_webview_token_or_cookie_label">Token hoặc cookie</string>
+    <string name="tracker_webview_extract_failed_toast">Không thể trích xuất giá trị xác thực từ dữ liệu nhập</string>
+    <string name="tracker_webview_use_button">Dùng</string>
+    <string name="tracker_webview_instructions_novelupdates">Đăng nhập vào NovelUpdates, sau đó nhấn nút ✓ để hoàn tất đăng nhập.</string>
+    <string name="tracker_webview_instructions_novellist">Đăng nhập vào NovelList, sau đó nhấn nút ✓ để hoàn tất đăng nhập. Dùng biểu tượng chỉnh sửa để dán token/cookie thủ công.</string>
+    <string name="tracker_webview_instructions_ranobedb">Đăng nhập vào RanobeDB, sau đó nhấn nút ✓ để hoàn tất đăng nhập. Dùng biểu tượng chỉnh sửa để dán cookie auth_session thủ công.</string>
+    <string name="tracker_webview_instructions_default">Đăng nhập, sau đó nhấn nút ✓ để hoàn tất.</string>
+    <string name="tracker_webview_dialog_title_novellist">Token/cookie NovelList</string>
+    <string name="tracker_webview_dialog_title_ranobedb">Cookie RanobeDB</string>
+    <string name="tracker_webview_dialog_title_default">Token</string>
+    <string name="tracker_webview_placeholder_novellist">Dán JWT, cookie novellist, hoặc toàn bộ tiêu đề cookie</string>
+    <string name="tracker_webview_placeholder_ranobedb">Dán giá trị auth_session hoặc toàn bộ tiêu đề cookie</string>
+    <string name="tracker_webview_placeholder_default">Dán token của bạn</string>
+
+    <!-- Crash log util (wave 4) -->
+    <string name="crash_log_toast_failed">Không thể lấy nhật ký</string>
 </resources>

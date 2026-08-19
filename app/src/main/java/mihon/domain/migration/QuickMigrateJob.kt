@@ -74,8 +74,8 @@ class QuickMigrateJob(private val context: Context, workerParams: WorkerParamete
 
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_MIGRATION) {
         setSmallIcon(android.R.drawable.stat_notify_sync)
-        setContentTitle(context.stringResource(MR.strings.action_quick_migrate))
-        setContentText(context.stringResource(TDMR.strings.quick_migrate_notification_starting))
+        setContentTitle(context.stringResource(TDMR.strings.action_quick_migrate))
+        setContentText(context.stringResource(TDMR.strings.notification_starting))
         setOngoing(true)
         setOnlyAlertOnce(true)
         addAction(
