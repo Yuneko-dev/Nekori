@@ -51,6 +51,29 @@ class LNReaderBackupVersionTest {
     }
 
     @Test
+    fun `points local novel assets at the file names the import actually wrote`() {
+        val html = """
+            <link href="file:///storage/emulated/0/Android/data/app/files/Novels/local/22/style.css">
+            <img src="file:///storage/emulated/0/Android/data/app/files/Novels/local/22/07627654-1c39.">
+            <img src="file:///storage/emulated/0/Android/data/app/files/Novels/local/22/absent.png">
+        """.trimIndent()
+
+        val rewritten = rewriteLnReaderLocalAssetUrls(
+            html,
+            mapOf("style.css" to "style.css", "07627654-1c39." to "07627654-1c39"),
+        )
+
+        assertEquals(
+            """
+            <link href="style.css">
+            <img src="07627654-1c39">
+            <img src="file:///storage/emulated/0/Android/data/app/files/Novels/local/22/absent.png">
+            """.trimIndent(),
+            rewritten,
+        )
+    }
+
+    @Test
     fun `normalizes read duration units from both LNReader formats`() {
         assertEquals(12_000L, normalizeLnReaderReadDuration(readDurationSeconds = 12L, timeSpentMilliseconds = 999L))
         assertEquals(999L, normalizeLnReaderReadDuration(readDurationSeconds = null, timeSpentMilliseconds = 999L))

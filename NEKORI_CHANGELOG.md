@@ -61,7 +61,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 #### Elsewhere
 - Discord rich presence.
-- Novel-only backup and restore overhaul, plus LNReader backup import.
+- Novel-only backup and restore overhaul, plus LNReader backup import, including local novels and an
+  opt-in for novels whose plugin the backup cannot identify.
 - Novel structures and reading sessions in the database.
 - Quick filter preset chips in Browse.
 - Vietnamese translations for the fork's own strings.

@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPluginRepository
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,8 @@ import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.novel.model.NovelLayout
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.LocalNovelSource
+import tachiyomi.source.local.io.LocalNovelSourceFileSystem
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
@@ -88,6 +91,7 @@ class LNReaderBackupImporter(
     private val downloadCache: DownloadCache = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val localNovelFileSystem: LocalNovelSourceFileSystem = Injekt.get(),
     private val settingsRestorer: LNReaderSettingsRestorer = LNReaderSettingsRestorer(),
 ) {
 
@@ -194,6 +198,7 @@ class LNReaderBackupImporter(
         val appVersion: String,
         val formatVersion: Int,
         val novelCount: Int,
+        val localNovelCount: Int,
         val chapterCount: Int,
         val categoryCount: Int,
         val pluginCount: Int,
@@ -212,6 +217,7 @@ class LNReaderBackupImporter(
         val restoreHistory: Boolean = true,
         val restorePlugins: Boolean = true,
         val restoreMissingPlugins: Boolean = false,
+        val restoreLocalNovels: Boolean = true,
         val restoreDownloadedChapters: Boolean = true,
         val restoreCovers: Boolean = true,
         val restoreCompatibleSettings: Boolean = true,
@@ -224,6 +230,7 @@ class LNReaderBackupImporter(
             appVersion = extracted.manifest.appVersion,
             formatVersion = extracted.manifest.formatVersion,
             novelCount = extracted.novels.count { !it.isLocal },
+            localNovelCount = extracted.novels.count { it.isLocal },
             chapterCount = extracted.novels.asSequence().filterNot { it.isLocal }.sumOf { it.chapters.size },
             categoryCount = extracted.categories.size,
             pluginCount = extracted.pluginMetadata.size,
@@ -259,7 +266,7 @@ class LNReaderBackupImporter(
             uri = uri,
             extractPluginArchive = options.restorePlugins || options.restoreNovels,
             extractNovelFilesArchive = options.restoreNovels &&
-                (options.restoreDownloadedChapters || options.restoreCovers),
+                (options.restoreDownloadedChapters || options.restoreCovers || options.restoreLocalNovels),
         )
         val novels = extracted.novels
         val remoteNovels = novels.filterNot { it.isLocal }
@@ -460,6 +467,17 @@ class LNReaderBackupImporter(
                 )
                 restoredDownloadCount = restored.first
                 restoredCoverCount = restored.second
+            }
+            // Step 6: Restore local novels as files, which is where the local source reads them from.
+            if (options.restoreNovels && options.restoreLocalNovels && extracted.novelFilesArchiveFile != null) {
+                novelCount += restoreLocalNovels(
+                    extracted.novelFilesArchiveFile,
+                    novels.filter { it.isLocal },
+                    extracted.manifest.formatVersion,
+                    novelIdToCategoryNames,
+                    backupCategories,
+                    options,
+                )
             }
             if (options.restoreNovels) {
                 downloadCache.invalidateCache()
@@ -843,6 +861,150 @@ class LNReaderBackupImporter(
         return restoredChapters to restoredCovers
     }
 
+    /**
+     * Writes local novels into the local source directory and restores their database rows.
+     *
+     * LNReader stores a local novel as `local/{novelId}/{chapterId}/index.html` with the assets those
+     * chapters share sitting at the novel root. The local source reads a novel directory as a flat list
+     * of chapter files, and resolves an image relative to the chapter's own directory without ever
+     * climbing above it, so the chapters are flattened into sibling files next to the assets they use.
+     */
+    private suspend fun restoreLocalNovels(
+        archiveFile: File,
+        novels: List<LNNovel>,
+        formatVersion: Int,
+        novelIdToCategoryNames: Map<Int, List<String>>,
+        backupCategories: List<BackupCategory>,
+        options: ImportOptions,
+    ): Int {
+        if (novels.isEmpty()) return 0
+        val baseDir = localNovelFileSystem.getBaseDirectory()
+        if (baseDir == null) {
+            errors.add(Date() to "Local novels skipped: no local novel storage directory is configured")
+            return 0
+        }
+        val budget = ArchiveSizeBudget(MAX_NOVEL_ASSET_TOTAL_BYTES)
+        var restored = 0
+        java.util.zip.ZipFile(archiveFile).use { zip ->
+            val assetsByNovel = zip.indexNovelAssets(formatVersion)
+                .filter { it.pluginId.equals(LOCAL_PLUGIN_ID, true) }
+                .groupBy { it.novelId }
+            novels.forEachIndexed { index, novel ->
+                currentCoroutineContext().ensureActive()
+                notifier?.showRestoreProgress("Restoring local novels", index + 1, novels.size)
+                try {
+                    if (restoreLocalNovel(
+                            zip,
+                            baseDir,
+                            novel,
+                            assetsByNovel[novel.id].orEmpty(),
+                            budget,
+                            novelIdToCategoryNames,
+                            backupCategories,
+                            options,
+                        )
+                    ) {
+                        restored++
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to restore local novel '${novel.name}'" }
+                    errors.add(Date() to "${novel.name} [local]: ${e.message}")
+                }
+            }
+        }
+        logcat(LogPriority.INFO) { "LNReaderImport: Restored $restored of ${novels.size} local novels" }
+        return restored
+    }
+
+    private suspend fun restoreLocalNovel(
+        zip: java.util.zip.ZipFile,
+        baseDir: UniFile,
+        novel: LNNovel,
+        assets: List<NovelAsset>,
+        budget: ArchiveSizeBudget,
+        novelIdToCategoryNames: Map<Int, List<String>>,
+        backupCategories: List<BackupCategory>,
+        options: ImportOptions,
+    ): Boolean {
+        // A chapter directory is named after the chapter id, not its index in the novel.
+        val chapterHtml = assets.filter { it.isChapterHtml() }
+            .groupBy { it.relativePath.first().toIntOrNull() }
+            .filterKeys { it != null }
+        // LNReader keeps the library row after its files are gone, so a novel without any chapter file
+        // is a dead entry rather than a novel worth importing.
+        if (chapterHtml.isEmpty()) {
+            errors.add(Date() to "${novel.name} [local]: no chapter files in the backup; skipped")
+            return false
+        }
+
+        val novelDir = requireNotNull(baseDir.createDirectory(DiskUtil.buildValidFilename(novel.name))) {
+            "Failed to create the local novel directory for '${novel.name}'"
+        }
+        val novelDirName = requireNotNull(novelDir.name) { "The local novel directory has no name" }
+
+        val assetNames = mutableMapOf<String, String>()
+        val usedNames = mutableSetOf<String>()
+        assets.filterNot { it.isHtml() }.forEach { asset ->
+            val originalName = asset.relativePath.last()
+            val base = DiskUtil.buildValidFilename(originalName)
+            var target = base
+            var suffix = 1
+            while (!usedNames.add(target)) target = "${suffix++}_$base"
+            val file = novelDir.replaceFile(target) ?: return@forEach
+            zip.getInputStream(asset.entry).use { input ->
+                file.openOutputStream().use { copyWithLimit(input, it, MAX_ASSET_BYTES, budget) }
+            }
+            // Storage providers rename freely - they drop trailing dots and disambiguate collisions - so
+            // the chapter HTML is pointed at the name the file actually got rather than the one asked for.
+            assetNames[originalName] = file.name ?: target
+        }
+
+        val written = mutableListOf<LNChapter>()
+        normalizeNovelChapters(novel).chapters.forEach { normalized ->
+            val chapter = normalized.chapter
+            val entries = chapterHtml[chapter.id] ?: return@forEach
+            val fileName = DiskUtil.buildValidFilename(
+                "%04d - %s".format(Locale.US, written.size + 1, chapter.name),
+                DiskUtil.MAX_FILE_NAME_BYTES - HTML_EXTENSION_BYTES,
+            ) + ".html"
+            val file = novelDir.replaceFile(fileName) ?: return@forEach
+            val content = entries.sortedBy { it.relativePath.last() }
+                .map { entry ->
+                    zip.getInputStream(entry.entry).use {
+                        rewriteLnReaderLocalAssetUrls(readEntryText(it, MAX_ASSET_BYTES, budget), assetNames)
+                    }
+                }
+                .joinToString("\n\n")
+            file.openOutputStream().use { it.write(content.toByteArray()) }
+            // The local source derives a chapter URL from the file name, and reads a directory as one flat
+            // list, so the imported rows have to use that same name and carry no volume of their own.
+            written += chapter.copy(path = "$novelDirName/${file.name}", page = "")
+        }
+        if (written.isEmpty()) {
+            errors.add(Date() to "${novel.name} [local]: no chapter file could be written; skipped")
+            return false
+        }
+
+        mangaRestorer.restore(
+            convertNovel(
+                // On disk the novel is one flat directory, so it carries no pages of its own either.
+                novel.copy(path = novelDirName, totalPages = 0, chapters = written),
+                LocalNovelSource.ID,
+                novelIdToCategoryNames,
+                backupCategories,
+                includeChapters = options.restoreChapters,
+                includeHistory = options.restoreHistory,
+                includeCategories = options.restoreCategories,
+            ),
+            backupCategories,
+        )
+        logcat(LogPriority.DEBUG) {
+            "LNReaderImport: Restored local novel '${novel.name}' as '$novelDirName' (${written.size} chapters)"
+        }
+        return true
+    }
+
     private fun java.util.zip.ZipFile.indexNovelAssets(formatVersion: Int): List<NovelAsset> {
         val assets = entries().asSequence()
             .filterNot { it.isDirectory }
@@ -948,9 +1110,23 @@ class LNReaderBackupImporter(
         }
     }
 
-    private fun NovelAsset.isChapterHtml(): Boolean {
-        return relativePath.drop(1).lastOrNull()?.substringAfterLast('.', "")?.lowercase() in HTML_EXTENSIONS
+    /**
+     * Creates [name] in this directory, replacing any file already there.
+     *
+     * A plain overwrite is not enough: SAF's write mode does not truncate on every provider, so a
+     * shorter second import would leave the tail of the first one behind.
+     */
+    private fun UniFile.replaceFile(name: String): UniFile? {
+        findFile(name)?.delete()
+        return createFile(name)
     }
+
+    private fun NovelAsset.isHtml(): Boolean {
+        return relativePath.last().substringAfterLast('.', "").lowercase() in HTML_EXTENSIONS
+    }
+
+    /** An HTML file inside a chapter directory, as opposed to one sitting at the novel root. */
+    private fun NovelAsset.isChapterHtml(): Boolean = relativePath.size >= 2 && isHtml()
 
     private suspend fun restoreCoverToCache(
         novel: LNNovel,
@@ -1250,6 +1426,10 @@ class LNReaderBackupImporter(
 
     private companion object {
         const val DEFAULT_SECTION = "Default"
+        const val LOCAL_PLUGIN_ID = "local"
+
+        /** Room for the `.html` appended after a local chapter file name is trimmed to length. */
+        const val HTML_EXTENSION_BYTES = 5
         const val MAX_OUTER_ENTRIES = 100_000
         const val MAX_NESTED_ENTRIES = 200_000
         const val MAX_JSON_BYTES = 64L * 1024 * 1024
@@ -1298,17 +1478,31 @@ internal fun validateLnReaderArchivePath(rawPath: String, isDirectory: Boolean):
 private val LNREADER_FILE_ATTRIBUTE =
     Regex("""(\b(?:src|href|poster)\s*=\s*[\"'])(file://[^\"']+)([\"'])""", RegexOption.IGNORE_CASE)
 
-internal fun rewriteLnReaderChapterAssetUrls(content: String): String {
+/** Replaces every `file://` resource reference for which [resolve] yields a replacement. */
+private fun rewriteLnReaderFileAttributes(content: String, resolve: (path: String) -> String?): String {
     if (!content.contains("file://", ignoreCase = true)) return content
     return LNREADER_FILE_ATTRIBUTE.replace(content) { match ->
         val fileUrl = match.groupValues[2]
         val path = runCatching { URI(fileUrl.replace(" ", "%20")).path }.getOrNull() ?: return@replace match.value
-        val parts = path.split('/').filter(String::isNotBlank)
-        val novelsIndex = parts.indexOfFirst { it.equals("Novels", ignoreCase = true) }
-        if (novelsIndex < 0) return@replace match.value
-        val relativePath = parts.drop(novelsIndex + 4).joinToString("/")
-        if (relativePath.isBlank()) return@replace match.value
-        val encoded = URLEncoder.encode(relativePath, StandardCharsets.UTF_8.name())
-        "${match.groupValues[1]}tsundoku-novel-image://$encoded${match.groupValues[3]}"
+        val replacement = resolve(path) ?: return@replace match.value
+        "${match.groupValues[1]}$replacement${match.groupValues[3]}"
     }
 }
+
+/**
+ * Points a local novel's chapter at the sibling files the import wrote, keyed by the name the asset had
+ * in the backup. A reference the backup has no file for is left alone rather than pointed at nothing.
+ */
+internal fun rewriteLnReaderLocalAssetUrls(content: String, assetNames: Map<String, String>): String =
+    rewriteLnReaderFileAttributes(content) { path -> assetNames[path.substringAfterLast('/')] }
+
+/** Points a downloaded remote chapter at the assets stored alongside it in the chapter archive. */
+internal fun rewriteLnReaderChapterAssetUrls(content: String): String =
+    rewriteLnReaderFileAttributes(content) { path ->
+        val parts = path.split('/').filter(String::isNotBlank)
+        val novelsIndex = parts.indexOfFirst { it.equals("Novels", ignoreCase = true) }
+        if (novelsIndex < 0) return@rewriteLnReaderFileAttributes null
+        val relativePath = parts.drop(novelsIndex + 4).joinToString("/")
+        if (relativePath.isBlank()) return@rewriteLnReaderFileAttributes null
+        "tsundoku-novel-image://" + URLEncoder.encode(relativePath, StandardCharsets.UTF_8.name())
+    }

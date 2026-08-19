@@ -1112,7 +1112,8 @@
     <string name="lnreader_import_invalid">Không thể nhập bản sao lưu này</string>
     <string name="lnreader_import_summary">LNReader %1$s · định dạng %2$d\n%3$d truyện · %4$d chương · %5$d danh mục\n%6$d mục siêu dữ liệu plugin · %7$d chương đã tải</string>
     <string name="lnreader_import_novels">Truyện</string>
-    <string name="lnreader_import_local_novels_unsupported">Không hỗ trợ truyện cục bộ vì bản sao lưu LNReader có thể thiếu tài nguyên được tham chiếu và sử dụng cấu trúc lưu trữ khác. Hãy nhập lại tệp EPUB, TXT hoặc HTML gốc qua mục Truyện cục bộ.</string>
+    <string name="lnreader_import_local_novels">Truyện cục bộ</string>
+    <string name="lnreader_import_local_novels_note">Truyện cục bộ sẽ được chép vào thư mục lưu trữ truyện cục bộ. LNReader vẫn giữ mục trong thư viện sau khi đã xóa tệp, nên truyện nào không còn tệp chương trong bản sao lưu sẽ bị bỏ qua.</string>
     <string name="lnreader_import_chapters">Danh sách chương</string>
     <string name="lnreader_import_categories">Danh mục</string>
     <string name="lnreader_import_history">Lịch sử đọc</string>

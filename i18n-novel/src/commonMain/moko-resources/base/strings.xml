@@ -1129,7 +1129,8 @@
     <string name="lnreader_import_invalid">This backup cannot be imported</string>
     <string name="lnreader_import_summary">LNReader %1$s · format %2$d\n%3$d novels · %4$d chapters · %5$d categories\n%6$d plugin metadata entries · %7$d downloaded chapters</string>
     <string name="lnreader_import_novels">Novels</string>
-    <string name="lnreader_import_local_novels_unsupported">Local novels are not supported because LNReader backups may omit referenced assets and use a different on-disk format. Import the original EPUB, TXT, or HTML files through Local novels instead.</string>
+    <string name="lnreader_import_local_novels">Local novels</string>
+    <string name="lnreader_import_local_novels_note">Local novels are copied into the local novel storage directory. LNReader keeps a library entry after deleting the files behind it, so any novel the backup has no chapter file for is skipped.</string>
     <string name="lnreader_import_chapters">Chapter lists</string>
     <string name="lnreader_import_categories">Categories</string>
     <string name="lnreader_import_history">Reading history</string>

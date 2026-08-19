@@ -94,6 +94,7 @@ class LNReaderImportScreen(private val uriString: String) : Screen() {
                             restoreHistory = options.novels && options.history,
                             restorePlugins = options.plugins,
                             restoreMissingPlugins = options.novels && options.missingPlugins,
+                            restoreLocalNovels = options.novels && options.localNovels,
                             restoreDownloadedChapters = options.novels && options.chapters && options.downloads,
                             restoreCovers = options.novels && options.covers,
                             restoreCompatibleSettings = options.compatibleSettings,
@@ -123,6 +124,7 @@ private fun ImportOptions(
                 history = summary.novelCount > 0,
                 plugins = summary.hasPlugins,
                 missingPlugins = false,
+                localNovels = summary.localNovelCount > 0,
                 downloads = summary.hasDownloadedFiles,
                 covers = summary.hasDownloadedFiles,
                 compatibleSettings = summary.hasSettings,
@@ -159,7 +161,16 @@ private fun ImportOptions(
                 }
             }
             item {
-                InfoWidget(stringResource(TDMR.strings.lnreader_import_local_novels_unsupported))
+                ImportOption(
+                    stringResource(TDMR.strings.lnreader_import_local_novels),
+                    selection.localNovels,
+                    selection.novels && summary.localNovelCount > 0,
+                ) { selection = selection.copy(localNovels = it) }
+            }
+            if (selection.novels && selection.localNovels && summary.localNovelCount > 0) {
+                item {
+                    InfoWidget(stringResource(TDMR.strings.lnreader_import_local_novels_note))
+                }
             }
             item {
                 ImportOption(
@@ -260,6 +271,7 @@ private data class ImportSelection(
     val history: Boolean,
     val plugins: Boolean,
     val missingPlugins: Boolean,
+    val localNovels: Boolean,
     val downloads: Boolean,
     val covers: Boolean,
     val compatibleSettings: Boolean,

@@ -45,6 +45,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 restoreHistory = inputData.getBoolean(KEY_RESTORE_HISTORY, true),
                 restorePlugins = inputData.getBoolean(KEY_RESTORE_PLUGINS, true),
                 restoreMissingPlugins = inputData.getBoolean(KEY_RESTORE_MISSING_PLUGINS, false),
+                restoreLocalNovels = inputData.getBoolean(KEY_RESTORE_LOCAL_NOVELS, true),
                 restoreDownloadedChapters = inputData.getBoolean(KEY_RESTORE_DOWNLOADED_CHAPTERS, true),
                 restoreCovers = inputData.getBoolean(KEY_RESTORE_COVERS, true),
                 restoreCompatibleSettings = inputData.getBoolean(KEY_RESTORE_COMPATIBLE_SETTINGS, true),
@@ -125,6 +126,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
             restoreHistory: Boolean = true,
             restorePlugins: Boolean = true,
             restoreMissingPlugins: Boolean = false,
+            restoreLocalNovels: Boolean = true,
             restoreDownloadedChapters: Boolean = true,
             restoreCovers: Boolean = true,
             restoreCompatibleSettings: Boolean = true,
@@ -138,6 +140,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 KEY_RESTORE_HISTORY to restoreHistory,
                 KEY_RESTORE_PLUGINS to restorePlugins,
                 KEY_RESTORE_MISSING_PLUGINS to restoreMissingPlugins,
+                KEY_RESTORE_LOCAL_NOVELS to restoreLocalNovels,
                 KEY_RESTORE_DOWNLOADED_CHAPTERS to restoreDownloadedChapters,
                 KEY_RESTORE_COVERS to restoreCovers,
                 KEY_RESTORE_COMPATIBLE_SETTINGS to restoreCompatibleSettings,
@@ -164,6 +167,7 @@ private const val KEY_RESTORE_CATEGORIES = "restore_categories"
 private const val KEY_RESTORE_HISTORY = "restore_history"
 private const val KEY_RESTORE_PLUGINS = "restore_plugins"
 private const val KEY_RESTORE_MISSING_PLUGINS = "restore_missing_plugins"
+private const val KEY_RESTORE_LOCAL_NOVELS = "restore_local_novels"
 private const val KEY_RESTORE_DOWNLOADED_CHAPTERS = "restore_downloaded_chapters"
 private const val KEY_RESTORE_COVERS = "restore_covers"
 private const val KEY_RESTORE_COMPATIBLE_SETTINGS = "restore_compatible_settings"
