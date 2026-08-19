@@ -371,7 +371,6 @@
     <string name="pref_novel_paragraph_indent">Thụt đầu dòng đoạn văn</string>
     <string name="pref_novel_paragraph_spacing">Khoảng cách đoạn văn</string>
     <string name="pref_novel_block_media">Chặn ảnh và video</string>
-    <string name="pref_novel_show_raw_html">Hiện HTML thô</string>
     <string name="pref_novel_swipe_navigation">Vuốt để đổi chương</string>
     <string name="pref_novel_auto_load_next_at">Ngưỡng tự tải chương tiếp theo (%)</string>
     <string name="pref_novel_auto_load_next_always">Luôn tải trước 1 chương</string>
@@ -917,7 +916,6 @@
     <string name="settings_reader_block_media_summary">Chặn tải ảnh và nội dung đa phương tiện ở cả hai trình đọc</string>
     <string name="settings_reader_text_selectable_title">Cho phép chọn văn bản (WebView)</string>
     <string name="settings_reader_text_selectable_summary">Cho phép chọn và sao chép văn bản trong trình đọc WebView</string>
-    <string name="settings_reader_show_raw_html_summary">Hiển thị mã nguồn HTML thay vì nội dung đã hiển thị</string>
     <string name="settings_reader_source_css_priority_title">Ưu tiên CSS nguồn</string>
     <string name="settings_reader_source_css_priority_summary">Cho phép CSS nhúng/nguồn ghi đè màu chủ đề trình đọc</string>
     <string name="settings_reader_tts_speed_title">Tốc độ TTS</string>

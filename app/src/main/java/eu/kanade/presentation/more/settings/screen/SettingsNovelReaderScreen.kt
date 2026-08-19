@@ -442,11 +442,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(TDMR.strings.settings_reader_text_selectable_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelShowRawHtml,
-                    title = stringResource(TDMR.strings.pref_novel_show_raw_html),
-                    subtitle = stringResource(TDMR.strings.settings_reader_show_raw_html_summary),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelSourceCssPriority,
                     title = stringResource(TDMR.strings.settings_reader_source_css_priority_title),
                     subtitle = stringResource(TDMR.strings.settings_reader_source_css_priority_summary),

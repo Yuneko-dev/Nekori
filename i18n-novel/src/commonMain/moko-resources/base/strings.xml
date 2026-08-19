@@ -379,7 +379,6 @@
     <string name="pref_novel_paragraph_indent">Paragraph indent</string>
     <string name="pref_novel_paragraph_spacing">Paragraph spacing</string>
     <string name="pref_novel_block_media">Block images and videos</string>
-    <string name="pref_novel_show_raw_html">Show raw HTML</string>
     <string name="pref_novel_swipe_navigation">Swipe to change chapters</string>
     <string name="pref_novel_auto_load_next_at">Auto-load next chapter at %</string>
     <string name="pref_novel_auto_load_next_always">Always one ahead</string>
@@ -1050,7 +1049,6 @@
     <string name="settings_reader_block_media_summary">Block images and media loading in both readers</string>
     <string name="settings_reader_text_selectable_title">Text selectable (WebView)</string>
     <string name="settings_reader_text_selectable_summary">Allow selecting and copying text in the WebView reader</string>
-    <string name="settings_reader_show_raw_html_summary">Display HTML source instead of rendered content</string>
     <string name="settings_reader_source_css_priority_title">Source CSS priority</string>
     <string name="settings_reader_source_css_priority_summary">Allow embedded/source CSS to override reader theme colors</string>
     <string name="settings_reader_tts_speed_title">TTS speed</string>

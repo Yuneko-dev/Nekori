@@ -279,9 +279,6 @@ class ReaderPreferences(
     val novelMarkShortChapterAsRead: Preference<Boolean> =
         preferenceStore.getBoolean("pref_novel_mark_short_chapter_read", true)
 
-    // Show raw HTML (display HTML tags without parsing) - useful for debugging
-    val novelShowRawHtml: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_show_raw_html", false)
-
     // TTS (Text-to-Speech) preferences
     val novelTtsEnabled: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_enabled", true)
     val novelTtsSpeed: Preference<Float> = preferenceStore.getFloat("pref_novel_tts_speed", 1.0f)
