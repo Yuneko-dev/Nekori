@@ -82,6 +82,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - The FOSS build. Upstream needs it because the regular build ships Firebase and F-Droid will not take
   that; this fork dropped Firebase, so the two builds were the same app under two package names, built
   twice on every release.
+- The preview build. It and the nightly build came off the same branch with the same `r{commit count}`
+  versioning and the same signing, differing only in cadence, and preview's recipe lived in a second
+  repository that had to mirror every change to the main one. Nightly is the only unstable channel now,
+  which also collapses `isPreviewBuildType` into `isNightlyBuildType`.
 
 ### Fixed
 

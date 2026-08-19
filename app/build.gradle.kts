@@ -118,17 +118,6 @@ android {
 
         val commonMatchingFallbacks = listOf(release.name)
 
-        create("preview") {
-            initWith(release)
-
-            applicationIdSuffix = ".debug"
-
-            versionNameSuffix = debug.versionNameSuffix
-
-            matchingFallbacks.addAll(commonMatchingFallbacks)
-
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
-        }
         create("nightly") {
             initWith(release)
 
