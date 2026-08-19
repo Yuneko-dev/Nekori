@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.widget.InfoWidget
 import eu.kanade.presentation.util.Screen
@@ -151,96 +153,64 @@ private fun ImportOptions(
                 )
                 HorizontalDivider()
             }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_novels),
-                    selection.novels,
-                    summary.novelCount > 0,
-                ) {
-                    selection = selection.copy(novels = it)
-                }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_local_novels),
-                    selection.localNovels,
-                    selection.novels && summary.localNovelCount > 0,
-                ) { selection = selection.copy(localNovels = it) }
-            }
-            if (selection.novels && selection.localNovels && summary.localNovelCount > 0) {
-                item {
-                    InfoWidget(stringResource(TDMR.strings.lnreader_import_local_novels_note))
-                }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_chapters),
-                    selection.chapters,
-                    selection.novels,
-                ) { selection = selection.copy(chapters = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_categories),
-                    selection.categories,
-                    selection.novels,
-                ) { selection = selection.copy(categories = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_history),
-                    selection.history,
-                    selection.novels,
-                ) { selection = selection.copy(history = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_downloads),
-                    selection.downloads,
-                    selection.novels && selection.chapters && summary.hasDownloadedFiles,
-                ) { selection = selection.copy(downloads = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_covers),
-                    selection.covers,
-                    selection.novels && summary.hasDownloadedFiles,
-                ) { selection = selection.copy(covers = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_plugins),
-                    selection.plugins,
-                    summary.hasPlugins,
-                ) { selection = selection.copy(plugins = it) }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_missing_plugins),
-                    selection.missingPlugins,
-                    selection.novels,
-                ) { selection = selection.copy(missingPlugins = it) }
-            }
-            if (selection.novels && selection.missingPlugins) {
-                item {
-                    InfoWidget(stringResource(TDMR.strings.lnreader_import_missing_plugins_warning))
-                }
-            }
-            item {
-                ImportOption(
-                    stringResource(TDMR.strings.lnreader_import_compatible_settings),
-                    selection.compatibleSettings,
-                    summary.hasSettings,
-                ) { selection = selection.copy(compatibleSettings = it) }
-            }
+            importOption(
+                TDMR.strings.lnreader_import_novels,
+                selection.novels,
+                summary.novelCount > 0,
+            ) { selection = selection.copy(novels = it) }
+            importOption(
+                TDMR.strings.lnreader_import_local_novels,
+                selection.localNovels,
+                selection.novels && summary.localNovelCount > 0,
+                note = TDMR.strings.lnreader_import_local_novels_note,
+            ) { selection = selection.copy(localNovels = it) }
+            importOption(
+                TDMR.strings.lnreader_import_chapters,
+                selection.chapters,
+                selection.novels,
+            ) { selection = selection.copy(chapters = it) }
+            importOption(
+                TDMR.strings.lnreader_import_categories,
+                selection.categories,
+                selection.novels,
+            ) { selection = selection.copy(categories = it) }
+            importOption(
+                TDMR.strings.lnreader_import_history,
+                selection.history,
+                selection.novels,
+            ) { selection = selection.copy(history = it) }
+            importOption(
+                TDMR.strings.lnreader_import_downloads,
+                selection.downloads,
+                selection.novels && selection.chapters && summary.hasDownloadedFiles,
+            ) { selection = selection.copy(downloads = it) }
+            importOption(
+                TDMR.strings.lnreader_import_covers,
+                selection.covers,
+                selection.novels && summary.hasDownloadedFiles,
+            ) { selection = selection.copy(covers = it) }
+            importOption(
+                TDMR.strings.lnreader_import_plugins,
+                selection.plugins,
+                summary.hasPlugins,
+            ) { selection = selection.copy(plugins = it) }
+            importOption(
+                TDMR.strings.lnreader_import_missing_plugins,
+                selection.missingPlugins,
+                selection.novels,
+                note = TDMR.strings.lnreader_import_missing_plugins_warning,
+            ) { selection = selection.copy(missingPlugins = it) }
+            importOption(
+                TDMR.strings.lnreader_import_compatible_settings,
+                selection.compatibleSettings,
+                summary.hasSettings,
+            ) { selection = selection.copy(compatibleSettings = it) }
             if (summary.hasApiKeys) {
-                item {
-                    ImportOption(
-                        stringResource(TDMR.strings.lnreader_import_ai_keys),
-                        selection.aiApiKeys,
-                        selection.compatibleSettings,
-                    ) { selection = selection.copy(aiApiKeys = it) }
-                }
+                importOption(
+                    TDMR.strings.lnreader_import_ai_keys,
+                    selection.aiApiKeys,
+                    selection.compatibleSettings,
+                ) { selection = selection.copy(aiApiKeys = it) }
             }
         }
         Button(
@@ -253,15 +223,26 @@ private fun ImportOptions(
     }
 }
 
-@Composable
-private fun ImportOption(title: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        trailingContent = {
-            Checkbox(checked = checked && enabled, enabled = enabled, onCheckedChange = onCheckedChange)
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
+/** One import toggle, plus [note] underneath it while the toggle is both available and ticked. */
+private fun LazyListScope.importOption(
+    title: StringResource,
+    checked: Boolean,
+    enabled: Boolean,
+    note: StringResource? = null,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    item {
+        ListItem(
+            headlineContent = { Text(stringResource(title)) },
+            trailingContent = {
+                Checkbox(checked = checked && enabled, enabled = enabled, onCheckedChange = onCheckedChange)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    if (note != null && checked && enabled) {
+        item { InfoWidget(stringResource(note)) }
+    }
 }
 
 private data class ImportSelection(

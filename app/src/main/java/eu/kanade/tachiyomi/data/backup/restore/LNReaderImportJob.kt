@@ -54,22 +54,19 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
             val startTime = System.currentTimeMillis()
             val result = withContext(Dispatchers.IO) { importer.import(uri, options) }
 
-            val missingSuffix = if (result.missingPlugins.isNotEmpty()) {
-                " (Missing: ${result.missingPlugins.size})"
-            } else {
-                ""
+            val summaryMessage = buildString {
+                append("Completed - ${result.novelCount} novels, ${result.categoryCount} categories, ")
+                append("${result.installedPluginCount} plugins, ${result.restoredDownloadCount} chapters, ")
+                append("${result.restoredCoverCount} covers, ")
+                append("${result.skippedCount} skipped, ${result.errorCount} errors")
+                if (result.missingPlugins.isNotEmpty()) {
+                    append(" (Missing: ${result.missingPlugins.size})")
+                }
+                if (result.placeholderPlugins.isNotEmpty()) {
+                    append(" - novels from ${result.placeholderPlugins.joinToString()} use a placeholder ")
+                    append("source and must be migrated manually")
+                }
             }
-            val placeholderSuffix = if (result.placeholderPlugins.isNotEmpty()) {
-                " - novels from ${result.placeholderPlugins.joinToString()} use a placeholder source and " +
-                    "must be migrated manually"
-            } else {
-                ""
-            }
-            val summaryMessage = "Completed - ${result.novelCount} novels, ${result.categoryCount} categories, " +
-                "${result.installedPluginCount} plugins, ${result.restoredDownloadCount} chapters, " +
-                "${result.restoredCoverCount} covers, " +
-                "${result.skippedCount} skipped, ${result.errorCount} errors" +
-                missingSuffix + placeholderSuffix
 
             notifier.showRestoreComplete(
                 time = System.currentTimeMillis() - startTime,

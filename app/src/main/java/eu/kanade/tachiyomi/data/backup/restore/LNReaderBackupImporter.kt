@@ -896,19 +896,17 @@ class LNReaderBackupImporter(
                 currentCoroutineContext().ensureActive()
                 notifier?.showRestoreProgress("Restoring local novels", index + 1, novels.size)
                 try {
-                    if (restoreLocalNovel(
-                            zip,
-                            baseDir,
-                            novel,
-                            assetsByNovel[novel.id].orEmpty(),
-                            budget,
-                            novelIdToCategoryNames,
-                            backupCategories,
-                            options,
-                        )
-                    ) {
-                        restored++
-                    }
+                    val imported = restoreLocalNovel(
+                        zip,
+                        baseDir,
+                        novel,
+                        assetsByNovel[novel.id].orEmpty(),
+                        budget,
+                        novelIdToCategoryNames,
+                        backupCategories,
+                        options,
+                    )
+                    if (imported) restored++
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to restore local novel '${novel.name}'" }
@@ -946,9 +944,11 @@ class LNReaderBackupImporter(
         }
         val novelDirName = requireNotNull(novelDir.name) { "The local novel directory has no name" }
 
+        // Only the novel root holds shared assets. Flattening a chapter directory's own files here would
+        // collapse same-named files from different chapters onto one, so they are left where they are.
         val assetNames = mutableMapOf<String, String>()
         val usedNames = mutableSetOf<String>()
-        assets.filterNot { it.isHtml() }.forEach { asset ->
+        assets.filter { it.relativePath.size == 1 && !it.isHtml() }.forEach { asset ->
             val originalName = asset.relativePath.last()
             val base = DiskUtil.buildValidFilename(originalName)
             var target = base
