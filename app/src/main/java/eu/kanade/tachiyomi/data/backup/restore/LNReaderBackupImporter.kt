@@ -868,6 +868,9 @@ class LNReaderBackupImporter(
      * chapters share sitting at the novel root. The local source reads a novel directory as a flat list
      * of chapter files, and resolves an image relative to the chapter's own directory without ever
      * climbing above it, so the chapters are flattened into sibling files next to the assets they use.
+     *
+     * Every chapter is read, rewritten and written back one file at a time, so a backup holding several
+     * local novels spends most of the import here - the sample backup alone is 327 chapters for one novel.
      */
     private suspend fun restoreLocalNovels(
         archiveFile: File,

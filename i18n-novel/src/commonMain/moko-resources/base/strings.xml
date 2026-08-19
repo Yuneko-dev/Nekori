@@ -1130,7 +1130,7 @@
     <string name="lnreader_import_summary">LNReader %1$s · format %2$d\n%3$d novels · %4$d chapters · %5$d categories\n%6$d plugin metadata entries · %7$d downloaded chapters</string>
     <string name="lnreader_import_novels">Novels</string>
     <string name="lnreader_import_local_novels">Local novels</string>
-    <string name="lnreader_import_local_novels_note">Local novels are copied into the local novel storage directory. LNReader keeps a library entry after deleting the files behind it, so any novel the backup has no chapter file for is skipped.</string>
+    <string name="lnreader_import_local_novels_note">Local novels are copied into the local novel storage directory. LNReader keeps a library entry after deleting the files behind it, so any novel the backup has no chapter file for is skipped. Importing several local novels takes a while, because every chapter is rewritten and written out as its own file.</string>
     <string name="lnreader_import_chapters">Chapter lists</string>
     <string name="lnreader_import_categories">Categories</string>
     <string name="lnreader_import_history">Reading history</string>

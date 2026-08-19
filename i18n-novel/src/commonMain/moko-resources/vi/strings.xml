@@ -1113,7 +1113,7 @@
     <string name="lnreader_import_summary">LNReader %1$s · định dạng %2$d\n%3$d truyện · %4$d chương · %5$d danh mục\n%6$d mục siêu dữ liệu plugin · %7$d chương đã tải</string>
     <string name="lnreader_import_novels">Truyện</string>
     <string name="lnreader_import_local_novels">Truyện cục bộ</string>
-    <string name="lnreader_import_local_novels_note">Truyện cục bộ sẽ được chép vào thư mục lưu trữ truyện cục bộ. LNReader vẫn giữ mục trong thư viện sau khi đã xóa tệp, nên truyện nào không còn tệp chương trong bản sao lưu sẽ bị bỏ qua.</string>
+    <string name="lnreader_import_local_novels_note">Truyện cục bộ sẽ được chép vào thư mục lưu trữ truyện cục bộ. LNReader vẫn giữ mục trong thư viện sau khi đã xóa tệp, nên truyện nào không còn tệp chương trong bản sao lưu sẽ bị bỏ qua. Nhập nhiều truyện cục bộ sẽ khá lâu, vì mỗi chương đều được ghi lại thành một tệp riêng.</string>
     <string name="lnreader_import_chapters">Danh sách chương</string>
     <string name="lnreader_import_categories">Danh mục</string>
     <string name="lnreader_import_history">Lịch sử đọc</string>
