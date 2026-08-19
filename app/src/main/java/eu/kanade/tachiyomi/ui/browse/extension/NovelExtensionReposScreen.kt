@@ -232,7 +232,15 @@ private fun RepositoryDeleteDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(MR.strings.extensionStoresScreen_deleteStore_title)) },
-        text = { Text(text = stringResource(TDMR.strings.delete_repo_confirmation, repo.name)) },
+        text = {
+            Text(
+                text = stringResource(
+                    MR.strings.extensionStoresScreen_deleteStore_body,
+                    repo.name,
+                    repo.url,
+                ),
+            )
+        },
         confirmButton = {
             TextButton(onClick = onDelete) {
                 Text(text = stringResource(MR.strings.action_delete))

@@ -561,7 +561,7 @@ private fun HeatLegend() {
                 )
             }
         }
-        Text(stringResource(TDMR.strings.stats_more), style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(MR.strings.label_more), style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -623,7 +623,7 @@ private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {
                 )
                 Text(
                     text = "${formatCount(state.chapters.downloadCount.toLong())} " +
-                        stringResource(TDMR.strings.stats_chapters_downloaded),
+                        stringResource(MR.strings.downloaded_chapters),
                     modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

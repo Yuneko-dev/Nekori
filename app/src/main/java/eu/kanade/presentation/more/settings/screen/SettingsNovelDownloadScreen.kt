@@ -85,7 +85,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
-    override fun getTitleRes() = TDMR.strings.pref_category_novel_downloads
+    override fun getTitleRes() = MR.strings.pref_category_downloads
 
     @Composable
     override fun getPreferences(): List<Preference> {
@@ -366,7 +366,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                         else -> stringResource(TDMR.strings.pref_epub_compression_level_label, epubCompressionLevel)
                     },
                     valueString = if (epubCompressionLevel == -1) {
-                        stringResource(TDMR.strings.pref_epub_compression_default_label)
+                        stringResource(MR.strings.label_default)
                     } else {
                         "$epubCompressionLevel"
                     },

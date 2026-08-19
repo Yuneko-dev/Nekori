@@ -43,8 +43,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 /** Sort options offered by the UI, in display order. The enum also carries ascending variants that
  *  no chip exposes; listing them here keeps the sheet's contents explicit rather than incidental. */
 private val SORT_CHIPS = listOf(
-    SortMode.NAME to TDMR.strings.duplicate_sort_name,
-    SortMode.LATEST_ADDED to TDMR.strings.duplicate_sort_latest,
+    SortMode.NAME to MR.strings.name,
+    SortMode.LATEST_ADDED to MR.strings.latest,
     SortMode.CHAPTER_COUNT_DESC to TDMR.strings.duplicate_sort_ch_desc,
     SortMode.DOWNLOAD_COUNT_DESC to TDMR.strings.duplicate_sort_dl_desc,
     SortMode.READ_COUNT_DESC to TDMR.strings.duplicate_sort_read_desc,

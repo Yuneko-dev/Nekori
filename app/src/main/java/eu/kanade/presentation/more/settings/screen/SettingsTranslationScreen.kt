@@ -36,6 +36,7 @@ import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
 import tachiyomi.domain.translation.model.contextualAnchoringParagraphs
 import tachiyomi.domain.translation.service.TranslationPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -69,7 +70,7 @@ object SettingsTranslationScreen : SearchableSettings {
         if (!enabled) {
             return listOf(
                 Preference.PreferenceGroup(
-                    title = stringResource(TDMR.strings.pref_translation_general),
+                    title = stringResource(MR.strings.pref_category_general),
                     preferenceItems = listOf(masterPreference(prefs)),
                 ),
             )
@@ -150,7 +151,7 @@ object SettingsTranslationScreen : SearchableSettings {
 
         return listOf(
             Preference.PreferenceGroup(
-                title = stringResource(TDMR.strings.pref_translation_general),
+                title = stringResource(MR.strings.pref_category_general),
                 preferenceItems = listOf(masterPreference(prefs)),
             ),
             engineGroup(
@@ -346,7 +347,7 @@ object SettingsTranslationScreen : SearchableSettings {
             )
         }
         return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_translation_behavior),
+            title = stringResource(MR.strings.pref_behavior),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.autoDownloadBeforeTranslate(),

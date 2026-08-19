@@ -120,10 +120,10 @@ data class RegexReplacement(
 
 internal val novelThemes = listOf(
     TDMR.strings.novel_theme_app to "app",
-    TDMR.strings.novel_theme_light to "light",
-    TDMR.strings.novel_theme_dark to "dark",
+    MR.strings.theme_light to "light",
+    MR.strings.theme_dark to "dark",
     TDMR.strings.novel_theme_sepia to "sepia",
-    TDMR.strings.novel_theme_black to "black",
+    MR.strings.black_background to "black",
     TDMR.strings.novel_theme_grey to "grey",
     TDMR.strings.novel_theme_custom to "custom",
 )
@@ -137,10 +137,10 @@ private val textAlignments = listOf(
 
 // Predefined font colors (ARGB int format, 0 = theme default, Int.MIN_VALUE = custom)
 private val fontColors = listOf(
-    TDMR.strings.novel_color_default to 0,
-    TDMR.strings.novel_color_black to 0xFF000000.toInt(),
-    TDMR.strings.novel_color_white to 0xFFFFFFFF.toInt(),
-    TDMR.strings.novel_color_gray to 0xFF808080.toInt(),
+    MR.strings.label_default to 0,
+    MR.strings.black_background to 0xFF000000.toInt(),
+    MR.strings.white_background to 0xFFFFFFFF.toInt(),
+    MR.strings.gray_background to 0xFF808080.toInt(),
     TDMR.strings.novel_color_dark_gray to 0xFF404040.toInt(),
     TDMR.strings.novel_color_light_gray to 0xFFC0C0C0.toInt(),
     TDMR.strings.novel_color_off_white to 0xFFCCCCCC.toInt(),
@@ -150,9 +150,9 @@ private val fontColors = listOf(
 
 // Predefined background colors (ARGB int format, 0 = theme default, Int.MIN_VALUE = custom)
 private val backgroundColors = listOf(
-    TDMR.strings.novel_color_default to 0,
-    TDMR.strings.novel_color_white to 0xFFFFFFFF.toInt(),
-    TDMR.strings.novel_color_black to 0xFF000000.toInt(),
+    MR.strings.label_default to 0,
+    MR.strings.white_background to 0xFFFFFFFF.toInt(),
+    MR.strings.black_background to 0xFF000000.toInt(),
     TDMR.strings.novel_color_light_gray to 0xFFF5F5F5.toInt(),
     TDMR.strings.novel_color_dark_gray to 0xFF1A1A1A.toInt(),
     TDMR.strings.novel_color_sepia to 0xFFF4ECD8.toInt(),
@@ -510,7 +510,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
 
     // Keep Screen On
     ReaderSwitchItem(
-        label = stringResource(TDMR.strings.pref_novel_keep_screen_on),
+        label = stringResource(MR.strings.pref_keep_screen_on),
         pref = screenModel.preferences.novelKeepScreenOn,
     )
 
@@ -624,7 +624,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         else -> "horizontal"
     }
     val scrollbarModeOptions = listOf(
-        stringResource(TDMR.strings.novel_scrollbar_none) to "none",
+        stringResource(MR.strings.none) to "none",
         stringResource(TDMR.strings.novel_scrollbar_horizontal) to "horizontal",
         stringResource(TDMR.strings.novel_vertical_scrollbar_left) to "vertical_left",
         stringResource(TDMR.strings.novel_vertical_scrollbar_right) to "vertical_right",
@@ -1371,7 +1371,7 @@ private fun RegexEditDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text(stringResource(TDMR.strings.novel_rule_title)) },
+                    label = { Text(stringResource(MR.strings.title)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -1812,7 +1812,7 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
         SettingsChipRow(TDMR.strings.pref_novel_font_color) {
             listOf(
                 0xFF111111.toInt() to stringResource(TDMR.strings.novel_tts_color_dark),
-                0xFFFFFFFF.toInt() to stringResource(TDMR.strings.novel_color_white),
+                0xFFFFFFFF.toInt() to stringResource(MR.strings.white_background),
                 0xFF1E3A8A.toInt() to stringResource(TDMR.strings.novel_tts_color_navy),
                 0xFF7F1D1D.toInt() to stringResource(TDMR.strings.novel_tts_color_maroon),
                 Int.MIN_VALUE to stringResource(TDMR.strings.novel_color_custom),

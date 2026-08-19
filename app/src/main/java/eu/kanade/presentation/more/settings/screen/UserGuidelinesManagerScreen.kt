@@ -105,7 +105,7 @@ data class UserGuidelinesEditorScreen(private val guidelinesId: String? = null) 
                 ManagerTextField(
                     name,
                     { name = it },
-                    stringResource(TDMR.strings.pref_ai_guidelines_name),
+                    stringResource(MR.strings.name),
                     readOnly = id == UserGuidelines.DEFAULT_ID,
                 )
                 OutlinedTextField(

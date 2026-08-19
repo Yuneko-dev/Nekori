@@ -199,7 +199,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = readerPreferences.novelWebViewNetworkMode,
                     entries = mapOf(
                         NovelWebViewNetworkMode.CHROMIUM to
-                            stringResource(TDMR.strings.pref_novel_webview_network_chromium),
+                            "Chromium / WebView",
                         NovelWebViewNetworkMode.NETWORK_HELPER to
                             stringResource(TDMR.strings.pref_novel_webview_network_interceptor),
                     ),
@@ -348,7 +348,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                             }
                         },
                     ) {
-                        Text(text = stringResource(TDMR.strings.pref_reset_settings_action))
+                        Text(text = stringResource(MR.strings.action_reset))
                     }
                 },
                 dismissButton = {

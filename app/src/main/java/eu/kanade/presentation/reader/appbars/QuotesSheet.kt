@@ -194,7 +194,7 @@ fun QuotesSheet(
                             selectedQuote.value = null
                         },
                     ) {
-                        Text(stringResource(TDMR.strings.quotes_copy))
+                        Text(stringResource(MR.strings.copy))
                     }
                     TextButton(onClick = { selectedQuote.value = null }) {
                         Text(stringResource(MR.strings.action_close))

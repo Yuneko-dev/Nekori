@@ -112,7 +112,7 @@ internal fun LazyItemScope.StorageSection(
         val context = LocalContext.current
         val colorScheme = MaterialTheme.colorScheme
         val items = listOf(
-            StorageItem(TDMR.strings.stats_storage_downloads, data.downloadedChaptersBytes, colorScheme.primary),
+            StorageItem(MR.strings.downloaded_chapters, data.downloadedChaptersBytes, colorScheme.primary),
             StorageItem(
                 TDMR.strings.stats_storage_local_novels,
                 data.localNovelsBytes,

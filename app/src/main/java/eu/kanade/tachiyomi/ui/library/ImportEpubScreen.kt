@@ -1140,7 +1140,7 @@ private fun buildTocPreviewSections(totalChapters: Int): List<TocSection> {
     val endIndices = (endStart until totalChapters).toList()
 
     return listOf(
-        TocSection(TDMR.strings.epub_import_toc_section_start, startIndices),
+        TocSection(MR.strings.action_start, startIndices),
         TocSection(TDMR.strings.epub_import_toc_section_middle, middleIndices),
         TocSection(TDMR.strings.epub_import_toc_section_end, endIndices),
     )

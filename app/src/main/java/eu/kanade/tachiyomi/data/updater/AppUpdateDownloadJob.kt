@@ -26,7 +26,6 @@ import kotlinx.coroutines.CancellationException
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.injectLazy
 import java.io.File
 
@@ -57,7 +56,7 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = context.notificationBuilder(Notifications.CHANNEL_APP_UPDATE)
             .setContentTitle(context.stringResource(MR.strings.update_check_notification_update_available))
-            .setContentText(context.stringResource(TDMR.strings.update_check_notification_download_in_progress))
+            .setContentText(context.stringResource(MR.strings.ext_downloading))
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
             .build()

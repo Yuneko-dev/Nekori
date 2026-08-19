@@ -443,7 +443,7 @@ private fun FontItem(
             if (isSelected) {
                 Icon(
                     Icons.Default.Check,
-                    contentDescription = stringResource(TDMR.strings.settings_font_manager_selected),
+                    contentDescription = stringResource(MR.strings.selected),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -474,7 +474,7 @@ private fun GoogleFontsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(TDMR.strings.settings_font_manager_google_fonts_title)) },
+        title = { Text("Google Fonts") },
         text = {
             Column {
                 OutlinedTextField(

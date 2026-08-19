@@ -195,7 +195,7 @@ object SettingsMainScreen : Screen() {
             screen = SettingsNovelReaderScreen,
         ),
         Item(
-            titleRes = TDMR.strings.pref_category_novel_downloads,
+            titleRes = MR.strings.pref_category_downloads,
             subtitleRes = TDMR.strings.pref_novel_request_throttling_summary,
             icon = Icons.Outlined.GetApp,
             screen = SettingsNovelDownloadScreen,

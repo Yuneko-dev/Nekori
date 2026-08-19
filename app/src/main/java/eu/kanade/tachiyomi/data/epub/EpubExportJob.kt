@@ -46,6 +46,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.model.TranslationLocator
 import tachiyomi.domain.translation.model.TranslationMode
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.LocalNovelSource
 import tachiyomi.source.local.groupChaptersByVolume
@@ -133,7 +134,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                 } else {
                     logcat(LogPriority.ERROR, e) { "EPUB export failed" }
                     showErrorNotification(
-                        e.message ?: context.stringResource(TDMR.strings.epub_export_job_error_unknown),
+                        e.message ?: context.stringResource(MR.strings.unknown_error),
                     )
                     Result.failure()
                 }

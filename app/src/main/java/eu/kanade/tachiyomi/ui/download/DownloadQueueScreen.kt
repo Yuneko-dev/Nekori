@@ -173,9 +173,9 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                         AppBar.Action(
                                             title = stringResource(
                                                 if (translationPaused) {
-                                                    TDMR.strings.pref_translation_resume
+                                                    MR.strings.action_resume
                                                 } else {
-                                                    TDMR.strings.pref_translation_pause
+                                                    MR.strings.action_pause
                                                 },
                                             ),
                                             icon = if (translationPaused) {
@@ -194,7 +194,7 @@ class DownloadQueueScreen(private val initialTab: Int = 0) : Screen() {
                                     )
                                     add(
                                         AppBar.Action(
-                                            title = stringResource(TDMR.strings.pref_translation_cancel),
+                                            title = stringResource(MR.strings.action_cancel),
                                             icon = Icons.Filled.Stop,
                                             onClick = { translationService.cancel() },
                                         ),
@@ -502,7 +502,7 @@ private fun NovelDownloadCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(TDMR.strings.novel_downloads_more_options),
+                            contentDescription = stringResource(MR.strings.action_menu_overflow_description),
                         )
                     }
 
@@ -534,7 +534,7 @@ private fun NovelDownloadCard(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(TDMR.strings.novel_downloads_move_top)) },
+                            text = { Text(stringResource(MR.strings.action_move_to_top)) },
                             onClick = {
                                 onMoveToTop()
                                 showMenu = false
@@ -547,7 +547,7 @@ private fun NovelDownloadCard(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(TDMR.strings.novel_downloads_move_bottom)) },
+                            text = { Text(stringResource(MR.strings.action_move_to_bottom)) },
                             onClick = {
                                 onMoveToBottom()
                                 showMenu = false

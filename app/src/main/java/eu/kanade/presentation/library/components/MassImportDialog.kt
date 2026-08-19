@@ -429,7 +429,7 @@ fun MassImportDialog(
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
-                                        PlainTooltip { Text(stringResource(TDMR.strings.mass_import_cancel_all)) }
+                                        PlainTooltip { Text(stringResource(MR.strings.action_cancel_all)) }
                                     },
                                     state = rememberTooltipState(),
                                 ) {
@@ -438,7 +438,7 @@ fun MassImportDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Cancel,
-                                            contentDescription = stringResource(TDMR.strings.mass_import_cancel_all),
+                                            contentDescription = stringResource(MR.strings.action_cancel_all),
                                             tint = MaterialTheme.colorScheme.error,
                                         )
                                     }
@@ -968,7 +968,7 @@ fun MassImportDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text(stringResource(TDMR.strings.mass_import_close))
+                Text(stringResource(MR.strings.action_close))
             }
         },
     )
@@ -990,7 +990,7 @@ fun MassImportDialog(
             },
             dismissButton = {
                 TextButton(onClick = { showClearCompletedConfirm = false }) {
-                    Text(stringResource(TDMR.strings.mass_import_button_cancel))
+                    Text(stringResource(MR.strings.action_cancel))
                 }
             },
         )
@@ -1013,7 +1013,7 @@ fun MassImportDialog(
             },
             dismissButton = {
                 TextButton(onClick = { showClearPendingConfirm = false }) {
-                    Text(stringResource(TDMR.strings.mass_import_button_cancel))
+                    Text(stringResource(MR.strings.action_cancel))
                 }
             },
         )
@@ -1031,7 +1031,7 @@ fun MassImportDialog(
                         showCancelAllConfirm = false
                     },
                 ) {
-                    Text(stringResource(TDMR.strings.mass_import_button_cancel_all))
+                    Text(stringResource(MR.strings.action_cancel_all))
                 }
             },
             dismissButton = {
@@ -1191,7 +1191,7 @@ private fun BatchItem(
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Cancel,
-                                    contentDescription = stringResource(TDMR.strings.mass_import_cd_cancel),
+                                    contentDescription = stringResource(MR.strings.action_cancel),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.error,
                                 )
@@ -1223,7 +1223,7 @@ private fun BatchItem(
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Delete,
-                                    contentDescription = stringResource(TDMR.strings.mass_import_cd_remove),
+                                    contentDescription = stringResource(MR.strings.action_remove),
                                     modifier = Modifier.size(16.dp),
                                 )
                             }
@@ -1439,12 +1439,12 @@ private fun BatchItem(
                         showRemoveConfirm = false
                     },
                 ) {
-                    Text(stringResource(TDMR.strings.mass_import_confirm_remove_button))
+                    Text(stringResource(MR.strings.action_remove))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveConfirm = false }) {
-                    Text(stringResource(TDMR.strings.mass_import_confirm_remove_dismiss))
+                    Text(stringResource(MR.strings.action_cancel))
                 }
             },
         )

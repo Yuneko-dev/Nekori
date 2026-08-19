@@ -34,6 +34,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.backup.restore.LNReaderBackupImporter
 import eu.kanade.tachiyomi.data.backup.restore.LNReaderImportJob
 import eu.kanade.tachiyomi.util.system.toast
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -170,7 +171,7 @@ private fun ImportOptions(
                 selection.novels,
             ) { selection = selection.copy(chapters = it) }
             importOption(
-                TDMR.strings.lnreader_import_categories,
+                MR.strings.categories,
                 selection.categories,
                 selection.novels,
             ) { selection = selection.copy(categories = it) }
@@ -180,7 +181,7 @@ private fun ImportOptions(
                 selection.novels,
             ) { selection = selection.copy(history = it) }
             importOption(
-                TDMR.strings.lnreader_import_downloads,
+                MR.strings.downloaded_chapters,
                 selection.downloads,
                 selection.novels && selection.chapters && summary.hasDownloadedFiles,
             ) { selection = selection.copy(downloads = it) }

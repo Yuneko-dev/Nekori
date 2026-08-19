@@ -387,7 +387,7 @@ private fun HeaderRow(header: AIHeader, onChange: (AIHeader) -> Unit, onDelete: 
         OutlinedTextField(
             value = header.name,
             onValueChange = { onChange(header.copy(name = it)) },
-            label = { Text(stringResource(TDMR.strings.pref_ai_header_name)) },
+            label = { Text(stringResource(MR.strings.name)) },
             singleLine = true,
             modifier = Modifier.weight(1f),
         )

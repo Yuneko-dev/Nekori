@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 import mihon.core.viewmodel.StateViewModel
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -79,7 +80,7 @@ object SourcePriorityScreen : Screen {
                 DuplicateDetectionViewModel.SourceType.JS to
                     stringResource(TDMR.strings.duplicate_source_type_js_extensions),
                 DuplicateDetectionViewModel.SourceType.LOCAL to
-                    stringResource(TDMR.strings.duplicate_source_type_local_source),
+                    stringResource(MR.strings.local_source),
             ).filter { it.first != DuplicateDetectionViewModel.SourceType.LOCAL || state.hasLocalSource }
 
             LazyColumn(

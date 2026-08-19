@@ -490,7 +490,7 @@ data class BrowseSourceScreen(
                                         )
                                     },
                                     label = {
-                                        Text(text = stringResource(TDMR.strings.local_novel_source_add_to_library))
+                                        Text(text = stringResource(MR.strings.add_to_library))
                                     },
                                 )
                                 FilterChip(
@@ -834,7 +834,7 @@ private fun LocalNovelsAddToCategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(text = stringResource(TDMR.strings.local_novel_source_add_to_library)) },
+        title = { Text(text = stringResource(MR.strings.add_to_library)) },
         text = {
             ExposedDropdownMenuBox(
                 expanded = expanded,
