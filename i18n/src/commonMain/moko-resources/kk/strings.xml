@@ -237,7 +237,7 @@
     <string name="untrusted_extension">Сенімсіз кеңейту</string>
     <string name="untrusted_extension_message">Бұл кеңейту сенімсіз сертификатпен қол қойылған және іске қосылмаған.
 \n
-\nЗиянды кеңейту Nekori-де сақталған кез келген кіру тіркелгі деректерін оқуы немесе еркін кодты орындауы мүмкін.
+\nЗиянды кеңейту Mihon-де сақталған кез келген кіру тіркелгі деректерін оқуы немесе еркін кодты орындауы мүмкін.
 \n
 \nОсы сертификатқа сену арқылы сіз осы қауіп-қатерді қабылдайсыз.</string>
     <string name="ext_nsfw_short">18+</string>
@@ -489,7 +489,7 @@
     <string name="repeating">Қайта оқылуда</string>
     <string name="reading_list">Оқылудағылар Тізімі</string>
     <string name="update_check_no_new_updates">Жаңалтулар жоқ</string>
-    <string name="information_webview_required">Nekori-ны қолдану үшін WebView керек</string>
+    <string name="information_webview_required">Mihon-ны қолдану үшін WebView керек</string>
     <string name="chapter_settings_updated">Әдепкі тарау параметрлері жаңартылды</string>
     <string name="download_notifier_no_network">Желі байланысы жоқ</string>
     <string name="information_empty_category_dialog">Сіздің кітапханаңызда санаттар жоқ.</string>
@@ -579,14 +579,12 @@
     <string name="download_notifier_unknown_error">Белгісіз қателіктің кесірінен тарау жүктеп алынбады</string>
     <string name="download_notifier_split_page_path_not_found">Бет файлының жолы %d табылмады</string>
     <string name="channel_new_chapters">Тарау жаңартулары</string>
-    <string name="channel_app_updates">Қолданба жаңартулары</string>
     <string name="channel_ext_updates">Кеңейту жаңартулары</string>
     <string name="spen_previous_page">Алдыңғы бет</string>
     <string name="spen_next_page">Келесі бет</string>
     <string name="appwidget_updates_description">Жақында кітапханада жаңартылған жазбаларды қарау</string>
     <string name="remove_manga">\"%s\"ті кітапханадан жойғай тұрсыз</string>
     <string name="skipped_reason_not_always_update">Туындыға жаңарту керек жоқ болғандықтан өткізіп жіберіледі</string>
-    <string name="update_check_notification_download_in_progress">Жүктелуде…</string>
     <string name="channel_errors">Қателіктер</string>
     <string name="unfinished_list">Аяқталмағандар Тізімі</string>
     <string name="score">Бағалау</string>

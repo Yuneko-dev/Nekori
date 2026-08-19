@@ -316,7 +316,6 @@
     <string name="file_select_backup">ამოირჩიე რეზერვის ფაილი</string>
     <string name="update_check_confirm">გადმოწერა</string>
     <string name="update_check_no_new_updates">განახლება ვერ მოიძებნა</string>
-    <string name="update_check_notification_download_in_progress">გადმოწერა…</string>
     <string name="update_check_notification_update_available">ხელმისაწვდომია ახალი ვერსია!</string>
     <string name="information_no_downloads">გადმოწერები არ არის</string>
     <string name="information_no_recent">განახლებები არ არის</string>
@@ -365,7 +364,7 @@
     <string name="confirm_set_image_as_cover">გამოვიყენოთ ეს სურათი ყდის ნახატად?</string>
     <string name="information_no_recent_manga">ბოლო ხანებში არაფერი არ არის წაკითხული</string>
     <string name="information_empty_category">შენ არ გაქვს კატეგორიები, აირჩიე \"+\" ღილაკი რათა შექმნა ერთი, შენი ბიბლიოთეკის დასაორგანიზებლად.</string>
-    <string name="information_webview_required">WebView არის აუცილებელი Nekori-ს სამუშაოდ</string>
+    <string name="information_webview_required">WebView არის აუცილებელი Mihon-ს სამუშაოდ</string>
     <string name="information_webview_outdated">გთხოვთ განაახლოთ WebView აპლიკაცია უკეთესი თავსებდობისთვის</string>
     <string name="download_notifier_downloader_title">გადმომწერი</string>
     <string name="download_notifier_title_error">შეცდომა</string>

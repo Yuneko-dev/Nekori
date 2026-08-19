@@ -51,7 +51,6 @@
     <string name="file_select_backup">Valitse varmuuskopio-tiedosto</string>
     <string name="update_check_confirm">Lataa</string>
     <string name="update_check_no_new_updates">Ei päivityksiä saatavilla</string>
-    <string name="update_check_notification_download_in_progress">Ladataan…</string>
     <string name="update_check_notification_update_available">Uusi versio saatavilla!</string>
     <string name="information_no_downloads">Ei latauksia</string>
     <string name="information_no_recent">Ei viimeisimpiä päivityksiä</string>
@@ -139,7 +138,7 @@
     <string name="ext_untrusted">Luottamaton</string>
     <string name="ext_uninstall">Poista asennus</string>
     <string name="untrusted_extension">Luottamattomat laajennokset</string>
-    <string name="untrusted_extension_message">Haitallinen laajennus voi lukea tallennetut kirjautumistiedot Nekoriista tai suorittaa luvatonta koodia.
+    <string name="untrusted_extension_message">Haitallinen laajennus voi lukea tallennetut kirjautumistiedot Mihonista tai suorittaa luvatonta koodia.
 \n
 \nLuottamalla tähän laajennokseen hyväksyt nämä riskit.</string>
     <string name="pref_fullscreen">Koko näyttö</string>
@@ -284,7 +283,7 @@
     <string name="action_webview_refresh">Päivitä</string>
     <string name="pref_category_library">Kirjasto</string>
     <string name="ext_obsolete">Vanhentunut</string>
-    <string name="obsolete_extension_message">Tämä laajennos ei ole enää saatavilla. Se ei välttämättä toimi oikein ja voi aiheuttaa ongelmia Nekoriin kanssa. Laajennoksen poistoa suositellaan.</string>
+    <string name="obsolete_extension_message">Tämä laajennos ei ole enää saatavilla. Se ei välttämättä toimi oikein ja voi aiheuttaa ongelmia Mihonin kanssa. Laajennoksen poistoa suositellaan.</string>
     <string name="pref_date_format">Päivämäärän muoto</string>
     <string name="pref_category_library_update">Globaali päivitys</string>
     <string name="logout_title">Kirjaa ulos kohteesta %1$s?</string>
@@ -342,7 +341,7 @@
     <string name="action_pin">Kiinnitä</string>
     <string name="action_select_inverse">Valitse käänteinen</string>
     <string name="vertical_plus_viewer">Jatkuva pystysuora</string>
-    <string name="information_webview_required">WebView on pakollinen Nekoriissa</string>
+    <string name="information_webview_required">WebView on pakollinen Mihonissa</string>
     <string name="restore_in_progress">Palautus on jo käynnissä</string>
     <string name="backup_in_progress">Varmuuskopiointi on jo käynnissä</string>
     <string name="pref_webtoon_side_padding">Sivuntäyttö</string>
@@ -578,7 +577,6 @@
     <string name="help_translate">Auta kääntämisessä</string>
     <string name="pref_clear_webview_data">Tyhjennä WebView-tiedot</string>
     <string name="privacy_policy">Tietosuojakäytäntö</string>
-    <string name="channel_app_updates">Sovelluspäivitykset</string>
     <string name="clear_database_source_item_count">%1$d sarjaa joita ei olla lisätty kirjastoon tietokanassa</string>
     <string name="database_clean">Ei mitään tyhjennettävää</string>
     <string name="pref_reset_viewer_flags">Poista sarjakohtaiset lukijan asetukset</string>

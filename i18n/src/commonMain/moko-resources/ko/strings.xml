@@ -93,7 +93,7 @@
     <string name="ext_untrusted">신뢰되지않음</string>
     <string name="ext_uninstall">삭제</string>
     <string name="untrusted_extension">신뢰할 수 없는 확장 앱</string>
-    <string name="untrusted_extension_message">일부 악의적인 확장 앱은 Nekori에 저장된 로그인 정보를 읽거나 임의의 코드를 실행할 수도 있습니다.
+    <string name="untrusted_extension_message">일부 악의적인 확장 앱은 Mihon에 저장된 로그인 정보를 읽거나 임의의 코드를 실행할 수도 있습니다.
 \n
 \n이 확장 앱을 신뢰하면 이러한 위험에 노출될 수 있습니다.</string>
     <string name="pref_fullscreen">전체화면</string>
@@ -209,7 +209,6 @@
     <string name="file_select_backup">백업 파일 선택</string>
     <string name="update_check_confirm">다운로드</string>
     <string name="update_check_no_new_updates">새로운 업데이트 없음</string>
-    <string name="update_check_notification_download_in_progress">다운로드 중…</string>
     <string name="update_check_notification_update_available">업데이트 이용 가능!</string>
     <string name="information_no_downloads">다운로드 없음</string>
     <string name="information_no_recent">최근 업데이트 없음</string>
@@ -415,7 +414,6 @@
     <string name="set_chapter_settings_as_default">기본값으로 설정</string>
     <string name="pref_manage_notifications">알림 설정</string>
     <string name="also_set_chapter_settings_for_library">서재의 모든 항목에 적용</string>
-    <string name="channel_app_updates">앱 업데이트</string>
     <string name="channel_progress">진행 상황</string>
     <string name="channel_errors">오류</string>
     <string name="database_clean">지울 것이 없습니다</string>
@@ -467,7 +465,7 @@
     <string name="skipped_reason_not_started">읽지 않은 만화를 건너 뛰었습니다</string>
     <string name="update_check_eol">이 안드로이드 버전은 더이상 지원되지 않습니다</string>
     <string name="information_cloudflare_bypass_failure">Cloudflare를 통과하지 못했습니다</string>
-    <string name="information_webview_required">Nekori 앱의 기능을 사용하려면 WebView가 필요합니다</string>
+    <string name="information_webview_required">Mihon 앱의 기능을 사용하려면 WebView가 필요합니다</string>
     <string name="information_webview_outdated">호환성을 위해 WebView 어플리케이션을 업데이트 해 주세요</string>
     <string name="pref_navigate_pan">넓은 이미지 이동</string>
     <string name="obsolete_extension_message">이 확장 프로그램은 어떤 스토어와도 연결되어 있지 않습니다. 업데이트되지 않으며, 제대로 작동하지 않을 수 있고, 앱에 문제가 발생할 수 있습니다. 제거하는 것을 권장합니다.</string>
@@ -801,11 +799,6 @@
     <string name="pref_flash_duration">플래시 지속시간</string>
     <string name="pref_flash_duration_summary">%1$s ms</string>
     <string name="pref_flash_page_interval">플래시 간격</string>
-    <string name="pref_hardware_bitmap_threshold">커스텀 하드웨어 비트맵 임계값</string>
-    <string name="pref_hardware_bitmap_threshold_default">기본값 (%d)</string>
-    <string name="pref_hardware_bitmap_threshold_summary">리더가 빈 이미지를 불러올 경우 임계값을 점진적으로 줄입니다.\n선택: %s</string>
-    <string name="pref_always_decode_long_strip_with_ssiv_2">긴 스트립 리더에 레거시 디코더 사용</string>
-    <string name="pref_always_decode_long_strip_with_ssiv_summary">성능에 영향을 미칩니다. 비트맵 임계값을 줄여도 빈 이미지 문제가 해결되지 않을 경우에만 활성화하십시오</string>
     <string name="pref_display_profile">커스텀 디스플레이 프로필</string>
     <string name="pref_webtoon_disable_zoom_out">줌아웃 비활성화</string>
     <string name="storage_failed_to_create_download_directory">다운로드 경로 생성 실패</string>
@@ -921,4 +914,5 @@
     <string name="theme_tokyonight">도쿄 나이트</string>
     <string name="downloading_with_progress">다운로드 중… (%d%%)</string>
     <string name="pref_filter_update_categories_details">제외된 카테고리 업데이트는 포함되는 카테고리가 있어도 표시되지 않습니다.</string>
+    <string name="pref_filter_upcoming_categories_details">제외 범주에 속한 작품은 포함 범주에 속해 있더라도 표시되지 않습니다.</string>
 </resources>

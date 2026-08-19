@@ -101,7 +101,7 @@
     <string name="untrusted_extension">Nedôveryhodné rozšírenie</string>
     <string name="untrusted_extension_message">Toto rozšírenie bolo podpísané nedôveryhodným certifikátom a nebolo aktivované.
 \n
-\nŠkodlivé rozšírenie môže čítať všetky prihlasovacie údaje uložené v Nekori alebo spúšťať ľubovoľný kód.
+\nŠkodlivé rozšírenie môže čítať všetky prihlasovacie údaje uložené v Mihon alebo spúšťať ľubovoľný kód.
 \n
 \nDôverovaním tohto certifikátu akceptujete tieto riziká.</string>
     <string name="pref_fullscreen">Na celú obrazovku</string>
@@ -271,7 +271,6 @@
     <string name="file_select_backup">Vyberte záložný súbor</string>
     <string name="update_check_confirm">Stiahnuť</string>
     <string name="update_check_no_new_updates">Žiadné nové aktualizácie</string>
-    <string name="update_check_notification_download_in_progress">Prebiehá stahovanie…</string>
     <string name="update_check_notification_update_available">Dostupná nová aktualizácia!</string>
     <string name="information_no_downloads">Žiadne sťahovanie</string>
     <string name="information_no_recent">Žiadne nedávne aktualizácie</string>
@@ -412,7 +411,7 @@
     <string name="error_sharing_cover">Chyba pri zdieľaní obalu</string>
     <string name="loader_not_implemented_error">Zdroj sa nenašiel</string>
     <string name="empty_screen">No, toto je trápne</string>
-    <string name="information_webview_required">WebView je potrebné pre Nekori</string>
+    <string name="information_webview_required">WebView je potrebné pre Mihon</string>
     <string name="popular">Populárne</string>
     <string name="reading_list">Zoznam čítania</string>
     <string name="track_finished_reading_date">Dátum ukončenia</string>
@@ -581,7 +580,6 @@
     <string name="about_dont_kill_my_app">Niektorí výrobcovia majú ďalšie obmedzenia aplikácií, ktoré vypínajú služby na pozadí. Na tejto webovej stránke nájdete viac informácií o tom, ako to opraviť.</string>
     <string name="viewer">Režim čítania</string>
     <string name="error_saving_picture">Chyba pri ukladaní obrázka</string>
-    <string name="channel_app_updates">Aktualizácie aplikácie</string>
     <string name="appwidget_unavailable_locked">Widget nie je k dispozícii, keď je povolený zámok aplikácie</string>
     <string name="local_filter_order_by">Zoradiť podľa</string>
     <string name="local_invalid_format">Neplatný formát kapitoly</string>
@@ -733,8 +731,4 @@
     <string name="pref_flash_style_black">Čiernou</string>
     <string name="pref_flash_style_white">Bielou</string>
     <string name="pref_flash_style_white_black">Čiernou aj Bielou</string>
-    <string name="pref_hardware_bitmap_threshold">Vlastný prah pre hardvérové bitmapy</string>
-    <string name="pref_hardware_bitmap_threshold_default">Predvolený (%d)</string>
-    <string name="pref_hardware_bitmap_threshold_summary">Ak čítacie rozhranie načítava prázdne obrázky, postupne znížte prah.\nVybrané: %s</string>
-    <string name="pref_always_decode_long_strip_with_ssiv_2">Použiť starší dekodér pre čítacie rozhranie \"dlhé pásy\"</string>
 </resources>

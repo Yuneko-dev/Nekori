@@ -182,7 +182,6 @@
     <string name="file_select_backup">Chọn file sao lưu</string>
     <string name="update_check_confirm">Tải xuống</string>
     <string name="update_check_no_new_updates">Không có cập nhật mới</string>
-    <string name="update_check_notification_download_in_progress">Đang tải xuống…</string>
     <string name="update_check_notification_update_available">Có cập nhật mới!</string>
     <string name="information_no_downloads">Không có tải xuống</string>
     <string name="information_no_recent">Không có cập nhật mới</string>
@@ -292,8 +291,7 @@
     <string name="pref_skip_filtered_chapters">Bỏ qua các chương đã lọc</string>
     <string name="filter_mode_screen">Màn hình</string>
     <string name="pref_cutout_short">Hiển thị nội dung ở phần rìa</string>
-    <string name="obsolete_extension_message">Phần mở rộng này không khả dụng. Nó có thể không chạy và có thể gây ra lỗi với Nekori. Kiến nghị nên Gỡ cài đặt.</string>
-    <string name="ext_obsolete">Lỗi thời</string>
+    <string name="obsolete_extension_message">Phần mở rộng này không liên kết với bất kỳ cửa hàng nào. Nó sẽ không nhận cập nhật, có thể không hoạt động đúng cách và có thể gây ra lỗi với ứng dụng. Kiến nghị bạn nên gỡ cài đặt.</string>
     <string name="ext_updates_pending">Đang chờ cập nhật</string>
     <string name="pref_category_library_update">Cập nhật toàn bộ</string>
     <string name="pref_category_display">Hiển thị</string>
@@ -382,7 +380,7 @@
     <string name="channel_errors">Lỗi</string>
     <string name="channel_complete">Hoàn thành</string>
     <string name="channel_progress">Quá trình</string>
-    <string name="information_webview_required">Nekori yêu cầu phải có WebView</string>
+    <string name="information_webview_required">Cần có WebView để ứng dụng hoạt động</string>
     <string name="update_check_eol">Phiên bản Android này không còn được hỗ trợ</string>
     <string name="notification_chapters_multiple">Chương %1$s</string>
     <string name="notification_chapters_single_and_more">Chương %1$s và thêm %2$d</string>
@@ -538,7 +536,6 @@
     <string name="update_72hour">Mỗi 3 ngày</string>
     <string name="connected_to_wifi">Chỉ qua Wi-Fi</string>
     <string name="download_queue_size_warning">Cảnh báo: tải xuống hàng loạt cỡ lớn có thể dẫn đến các nguồn trở nên chậm hơn và / hoặc chặn %s. Nhấn vào để tìm hiểu thêm.</string>
-    <string name="channel_app_updates">Cập nhật ứng dụng</string>
     <string name="ext_update_all">Cập nhật tất cả</string>
     <string name="pref_auto_clear_chapter_cache">Xóa bộ nhớ chương đệm khi chạy ứng dụng</string>
     <string name="clear_database_source_item_count">%1$d truyện ngoài thư viện có trong cơ sở dữ liệu</string>
@@ -765,21 +762,10 @@
     <string name="theme_nord">Phương bắc</string>
     <string name="pref_library_update_smart_update">Cập nhật thông minh</string>
     <string name="label_upcoming">Sắp tới</string>
-    <string name="onboarding_storage_help_info">Cập nhật từ phiên bản cũ hơn và không biết nên chọn gì? Tham khảo hướng dẫn để biết thêm thông tin.</string>
-    <string name="action_add_repo_message">Thêm nguồn bổ sung vào %s. Địa chỉ URL này cần phải kết thúc với \"index.min.json\".</string>
-    <string name="action_replace_repo_message">Kho lưu trữ %1$s có Dấu vân tay Khóa ký giống hệt như %2$s.
-\nNếu điều này là dự kiến, %2$s sẽ bị thay thế. Nếu không, vui lòng liên hệ với người quản lý kho lưu trữ của bạn.</string>
-    <string name="information_empty_repos">Bạn chưa có nguồn nào.</string>
+    <string name="onboarding_storage_help_info">Cập nhật từ phiên bản cũ hơn và không biết nên chọn gì? Tham khảo hướng dẫn lưu trữ để biết thêm thông tin.</string>
     <string name="ext_revoke_trust">Thu hồi quyền truy cập của tiện ích không xác định</string>
-    <string name="action_add_repo">Thêm nguồn</string>
-    <string name="error_repo_exists">Nguồn đã có rồi!</string>
-    <string name="action_delete_repo">Xóa nguồn</string>
-    <string name="onboarding_storage_help_action">Hướng dẫn</string>
-    <string name="label_extension_repos">Quản lý nguồn</string>
-    <string name="invalid_repo_name">URL nguồn không hợp lệ</string>
-    <string name="label_add_repo_input">URL nguồn</string>
-    <string name="delete_repo_confirmation">Bạn có muốn xóa nguồn \"%s\"?</string>
-    <string name="action_open_repo">Mở nguồn</string>
+    <string name="onboarding_storage_help_action">Hướng dẫn lưu trữ</string>
+    <string name="action_open_repo">Nguồn mở</string>
     <string name="manga_interval_expected_update_soon">Sớm</string>
     <string name="manga_interval_custom_amount">Tần suất cập nhật tùy chỉnh:</string>
     <string name="pref_display_profile">Tùy chỉnh hồ sơ màn hình</string>
@@ -788,8 +774,6 @@
     <string name="upcoming_guide">Hướng dẫn sắp tới</string>
     <string name="upcoming_calendar_next">Tháng tiếp theo</string>
     <string name="upcoming_calendar_prev">Tháng trước</string>
-    <string name="action_replace_repo">Thay thế</string>
-    <string name="action_replace_repo_title">Dấu vân tay cho khóa ký đã được tạo trước đó</string>
     <string name="action_copy_link">Sao chép liên kết</string>
     <string name="manga_interval_expected_update_null">Manga này đã hoàn thành hoặc chưa có ngày phát hành dự kiến.</string>
     <string name="pref_flash_duration_summary">%1$s ms</string>
@@ -798,8 +782,6 @@
     <string name="pref_flash_style_black">Nền đen</string>
     <string name="pref_flash_style_white">Nền trắng</string>
     <string name="pref_flash_style_white_black">Nền trắng và Nền đen</string>
-    <string name="extensionRepo_settings">Kho lưu tiện ích mở rộng (repo)</string>
-    <string name="add_repo_confirmation">Bạn có muốn thêm repo \"%s\" không?</string>
     <string name="pref_flash_duration">Độ dài làm mới</string>
     <string name="pref_download_new_unread_chapters_only">Bỏ qua tải xuống các chương đã đọc bị trùng</string>
     <string name="invalid_backup_file_json">Sao lưu JSON không được hỗ trợ</string>
@@ -820,10 +802,6 @@
     <string name="remove_private_extension_message">Bạn có thật sự muốn gỡ tiện ích mở rộng \"%s\"?</string>
     <string name="pref_auto_update_manga_on_mark_read">Cập nhật tiến trình khi được đánh dấu là đã đọc</string>
     <string name="trackers_updated_summary">Trình theo dõi được cập nhật đến chương %d</string>
-    <string name="pref_hardware_bitmap_threshold">Tùy chỉnh ngưỡng bitmap phần cứng</string>
-    <string name="pref_hardware_bitmap_threshold_default">Mặc định (%d)</string>
-    <string name="pref_hardware_bitmap_threshold_summary">Nếu trình đọc tải một hình ảnh trống thì giảm dần ngưỡng\nĐã chọn: %s</string>
-    <string name="pref_always_decode_long_strip_with_ssiv_summary">Ảnh hưởng đến hiệu suất. Chỉ bật nếu việc giảm ngưỡng bitmap không khắc phục được sự cố hình ảnh trống</string>
     <string name="pref_incognito_mode_extension_summary">Tạm dừng lịch sử đọc của phần mở rộng</string>
     <string name="pref_behavior">Hành vi</string>
     <string name="pref_mark_duplicate_read_chapter_read_existing">Sau khi đọc một chương</string>
@@ -850,7 +828,6 @@
     <string name="migrationConfigScreen.selectEnabledLabel">Chọn Nguồn được kích hoạt</string>
     <string name="migrationConfigScreen.selectPinnedLabel">Chọn các nguồn được ghim</string>
     <string name="migrationConfigScreen.continueButtonText">Tiếp tục</string>
-    <string name="pref_always_decode_long_strip_with_ssiv_2">Sử dụng bộ giải mã cũ cho trình đọc cuộc dài</string>
     <string name="export">Xuất</string>
     <string name="tracked_privately">Đang theo dõi riêng tư</string>
     <string name="action_toggle_private_off">Theo dõi công khai</string>
@@ -923,6 +900,7 @@
     <string name="extensionStoresScreen.addStore.processing">Đang xử lý…</string>
     <string name="extensionStoresScreen.addStoreInput.inputLabel">Lưu URL chỉ mục</string>
     <string name="extensionStoresScreen.addStoreDeeplink.bodyText">Bạn có muốn thêm cửa hàng tiên ích mở rộng bên dưới không ?</string>
+    <string name="ext_obsolete">Bỏ hoang</string>
     <string name="extensionStores">Cửa hàng tiện ích mở rộng</string>
     <string name="extensionStoresScreen.deleteStore.title">Xóa cửa hàng tiện ích mở rộng</string>
     <string name="extensionStoresScreen.deleteStore.body">Bạn có muốn xóa cửa hàng phần mở rộng \"%1$s\" (%2$s) không?</string>
@@ -934,16 +912,4 @@
     <string name="downloading_with_progress">Đang tải xuống… (%d%%)</string>
     <string name="pref_filter_update_categories_details">Các cập nhật trong các danh mục bị loại trừ sẽ không được hiển thị ngay cả khi chúng cũng nằm trong bất kỳ danh mục nào được bao gồm.</string>
     <string name="pref_filter_upcoming_categories_details">Các tựa sách thuộc các danh mục bị loại trừ sẽ không được hiển thị, ngay cả khi chúng cũng nằm trong bất kỳ danh mục nào được bao gồm.</string>
-    <string name="pref_translation_split_large_chapters">Chia nhỏ chương lớn</string>
-    <string name="pref_translation_split_large_chapters_summary">Chia yêu cầu dịch chương bằng LLM thành các phần nhỏ hơn</string>
-    <string name="pref_translation_chunk_mode">Chế độ chia nhỏ</string>
-    <string name="pref_translation_chunk_paragraphs">Đoạn</string>
-    <string name="pref_translation_chunk_words">Từ</string>
-    <string name="pref_translation_chunk_size">Kích thước mỗi phần</string>
-    <string name="pref_translation_chunk_paragraphs_rec">Số đoạn mỗi phần (khuyến nghị: 20–100)</string>
-    <string name="pref_translation_chunk_words_rec">Số từ mỗi phần (khuyến nghị: 2000)</string>
-    <string name="pref_translation_contextual_anchoring">Neo ngữ cảnh</string>
-    <string name="pref_translation_contextual_anchoring_desc">Gửi các đoạn đã dịch trước đó cho engine LLM để nhất quán hơn; khi bật, các chunk chạy tuần tự</string>
-    <string name="pref_translation_contextual_anchoring_paragraphs">Số đoạn ngữ cảnh</string>
-    <string name="pref_translation_contextual_anchoring_paragraphs_desc">Số đoạn lấy từ phần trước để gửi kèm làm ngữ cảnh</string>
 </resources>
