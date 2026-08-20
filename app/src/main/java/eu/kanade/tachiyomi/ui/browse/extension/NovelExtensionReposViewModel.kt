@@ -15,13 +15,24 @@ class NovelExtensionReposViewModel(
     private val jsPluginManager: JsPluginManager = Injekt.get(),
 ) : StateViewModel<NovelRepoScreenState>(NovelRepoScreenState.Loading) {
 
+    private var pendingDeeplinkUrl: String? = null
+
     init {
         viewModelScope.launchIO {
             jsPluginManager.repositories.collectLatest { repositories ->
+                val deeplink = pendingDeeplinkUrl
+                pendingDeeplinkUrl = null
                 mutableState.update {
                     NovelRepoScreenState.Success(
                         repositories = repositories,
-                        dialog = (it as? NovelRepoScreenState.Success)?.dialog,
+                        dialog = deeplink?.let { url ->
+                            NovelRepoDialog.Confirm(
+                                url = url,
+                                alreadyExists = repositories.any {
+                                    JsPluginManager.normalizeRepositoryUrl(it.url) == url
+                                },
+                            )
+                        } ?: (it as? NovelRepoScreenState.Success)?.dialog,
                     )
                 }
             }
@@ -29,8 +40,56 @@ class NovelExtensionReposViewModel(
     }
 
     fun createRepo(url: String) {
-        jsPluginManager.addRepository(url)
-        dismissDialog()
+        addRepository(url)
+    }
+
+    fun addFromDeeplink(url: String) {
+        val normalizedUrl = JsPluginManager.normalizeRepositoryUrl(url)
+        pendingDeeplinkUrl = normalizedUrl
+        val repositories = (state.value as? NovelRepoScreenState.Success)?.repositories.orEmpty()
+        if (state.value is NovelRepoScreenState.Loading) return
+        pendingDeeplinkUrl = null
+        showDialog(
+            NovelRepoDialog.Confirm(
+                url = normalizedUrl,
+                alreadyExists = repositories.any {
+                    JsPluginManager.normalizeRepositoryUrl(it.url) == normalizedUrl
+                },
+            ),
+        )
+    }
+
+    fun confirmDeeplink(url: String) {
+        addRepository(url)
+    }
+
+    private fun addRepository(url: String) {
+        viewModelScope.launchIO {
+            updateDialog { dialog ->
+                when (dialog) {
+                    is NovelRepoDialog.Create -> dialog.copy(processing = true, errorMessage = null)
+                    is NovelRepoDialog.Confirm -> dialog.copy(processing = true, errorMessage = null)
+                    else -> dialog
+                }
+            }
+            jsPluginManager.addRepository(url)
+                .onSuccess { dismissDialog() }
+                .onFailure { error ->
+                    updateDialog { dialog ->
+                        when (dialog) {
+                            is NovelRepoDialog.Create -> dialog.copy(
+                                processing = false,
+                                errorMessage = error.message ?: "Failed to add repository",
+                            )
+                            is NovelRepoDialog.Confirm -> dialog.copy(
+                                processing = false,
+                                errorMessage = error.message ?: "Failed to add repository",
+                            )
+                            else -> dialog
+                        }
+                    }
+                }
+        }
     }
 
     fun deleteRepo(url: String) {
@@ -68,10 +127,30 @@ class NovelExtensionReposViewModel(
             }
         }
     }
+
+    private inline fun updateDialog(
+        transform: (NovelRepoDialog) -> NovelRepoDialog,
+    ) {
+        mutableState.update { state ->
+            when (state) {
+                NovelRepoScreenState.Loading -> state
+                is NovelRepoScreenState.Success -> state.copy(dialog = state.dialog?.let(transform))
+            }
+        }
+    }
 }
 
 sealed class NovelRepoDialog {
-    data object Create : NovelRepoDialog()
+    data class Create(
+        val processing: Boolean = false,
+        val errorMessage: String? = null,
+    ) : NovelRepoDialog()
+    data class Confirm(
+        val url: String,
+        val alreadyExists: Boolean = false,
+        val processing: Boolean = false,
+        val errorMessage: String? = null,
+    ) : NovelRepoDialog()
     data class Delete(val repo: JsPluginRepository) : NovelRepoDialog()
 }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -62,7 +64,7 @@ class NovelExtensionReposScreen(
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(url) {
-            url?.let(screenModel::createRepo)
+            url?.let(screenModel::addFromDeeplink)
         }
 
         Scaffold(
@@ -81,7 +83,7 @@ class NovelExtensionReposScreen(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = { screenModel.showDialog(NovelRepoDialog.Create) }) {
+                FloatingActionButton(onClick = { screenModel.showDialog(NovelRepoDialog.Create()) }) {
                     Icon(
                         imageVector = Icons.Outlined.Add,
                         contentDescription = stringResource(MR.strings.action_add),
@@ -114,9 +116,17 @@ class NovelExtensionReposScreen(
 
                     when (val dialog = current.dialog) {
                         null -> Unit
-                        NovelRepoDialog.Create -> RepositoryCreateDialog(
+                        is NovelRepoDialog.Create -> RepositoryCreateDialog(
+                            existingRepositoryUrls = current.repositories.map { it.url }.toSet(),
+                            processing = dialog.processing,
+                            errorMessage = dialog.errorMessage,
                             onDismissRequest = screenModel::dismissDialog,
                             onCreate = screenModel::createRepo,
+                        )
+                        is NovelRepoDialog.Confirm -> RepositoryConfirmDialog(
+                            dialog = dialog,
+                            onDismissRequest = screenModel::dismissDialog,
+                            onConfirm = { screenModel.confirmDeeplink(dialog.url) },
                         )
                         is NovelRepoDialog.Delete -> RepositoryDeleteDialog(
                             repo = dialog.repo,
@@ -191,10 +201,17 @@ private fun RepositoryItem(
 
 @Composable
 private fun RepositoryCreateDialog(
+    existingRepositoryUrls: Set<String>,
+    processing: Boolean,
+    errorMessage: String?,
     onDismissRequest: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
+    val normalizedUrl = url.trim().trimEnd('/')
+    val alreadyExists = normalizedUrl.isNotBlank() && existingRepositoryUrls.any {
+        it.trim().trimEnd('/') == normalizedUrl
+    }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_title)) },
@@ -203,6 +220,17 @@ private fun RepositoryCreateDialog(
                 value = url,
                 onValueChange = { url = it },
                 label = { Text(text = stringResource(TDMR.strings.js_plugin_repo_url)) },
+                supportingText = {
+                    Text(
+                        text = when {
+                            errorMessage != null -> errorMessage
+                            alreadyExists -> stringResource(MR.strings.extensionStoresScreen_addStore_alreadyExists)
+                            else -> stringResource(MR.strings.information_required_plain)
+                        },
+                    )
+                },
+                isError = errorMessage != null || alreadyExists,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -210,9 +238,72 @@ private fun RepositoryCreateDialog(
         confirmButton = {
             TextButton(
                 onClick = { onCreate(url) },
-                enabled = url.isNotBlank(),
+                enabled = !processing && normalizedUrl.isNotBlank() && !alreadyExists,
             ) {
-                Text(text = stringResource(MR.strings.action_add))
+                Text(
+                    text = stringResource(
+                        if (processing) {
+                            MR.strings.extensionStoresScreen_addStore_processing
+                        } else {
+                            MR.strings.action_add
+                        },
+                    ),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun RepositoryConfirmDialog(
+    dialog: NovelRepoDialog.Confirm,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_title)) },
+        text = {
+            Column {
+                Text(text = stringResource(MR.strings.extensionStoresScreen_addStoreDeeplink_bodyText))
+                OutlinedTextField(
+                    value = dialog.url,
+                    onValueChange = {},
+                    readOnly = true,
+                    supportingText = when {
+                        dialog.errorMessage != null -> ({ Text(dialog.errorMessage) })
+                        dialog.alreadyExists -> (
+                            {
+                                Text(stringResource(MR.strings.extensionStoresScreen_addStore_alreadyExists))
+                            }
+                            )
+                        else -> null
+                    },
+                    isError = dialog.errorMessage != null || dialog.alreadyExists,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !dialog.processing && !dialog.alreadyExists,
+            ) {
+                Text(
+                    text = stringResource(
+                        if (dialog.processing) {
+                            MR.strings.extensionStoresScreen_addStore_processing
+                        } else {
+                            MR.strings.action_add
+                        },
+                    ),
+                )
             }
         },
         dismissButton = {

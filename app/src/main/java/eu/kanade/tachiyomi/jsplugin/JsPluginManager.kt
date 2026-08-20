@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.util.lang.Hash
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,11 +30,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
 import logcat.LogPriority
 import okhttp3.CacheControl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
@@ -53,6 +60,59 @@ class JsPluginManager(
         private const val CUSTOM_JS_KIND = "js"
         private const val CUSTOM_CSS_KIND = "css"
         private val CUSTOM_ASSET_FILE = Regex("""^[0-9a-f]{64}\.custom[.-](js|css)$""")
+
+        private val repositoryJson = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
+
+        internal fun normalizeRepositoryUrl(url: String): String = url.trim().trimEnd('/')
+
+        internal fun validateRepositoryUrl(url: String): String {
+            val normalized = normalizeRepositoryUrl(url)
+            val parsed = normalized.toHttpUrlOrNull()
+            require(parsed != null && parsed.host.isNotBlank()) {
+                "Repository URL must be an absolute HTTP(S) URL"
+            }
+            return normalized
+        }
+
+        internal fun decodeRepositoryManifest(body: String, allowEmpty: Boolean): List<JsPlugin> {
+            val root = try {
+                repositoryJson.decodeFromString<JsonElement>(body)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Repository manifest is not valid JSON", e)
+            }
+            val entries = root as? kotlinx.serialization.json.JsonArray
+                ?: throw IllegalArgumentException("Repository manifest must be a JSON array")
+            if (entries.isEmpty() && !allowEmpty) {
+                throw IllegalArgumentException("Repository manifest does not contain any plugins")
+            }
+
+            return entries.mapIndexed { index, element ->
+                val objectValue = element as? JsonObject
+                    ?: throw IllegalArgumentException("Plugin entry $index must be an object")
+                val id = objectValue.requiredRepositoryString("id", index)
+                val plugin = try {
+                    repositoryJson.decodeFromJsonElement<JsPlugin>(objectValue)
+                } catch (e: Exception) {
+                    throw IllegalArgumentException("Plugin entry $index is invalid", e)
+                }
+                require(isSafePluginId(id)) { "Plugin entry $index has an unsafe id" }
+                listOf("name", "site", "lang", "version", "url", "iconUrl").forEach {
+                    objectValue.requiredRepositoryString(it, index)
+                }
+                plugin
+            }
+        }
+
+        private fun JsonObject.requiredRepositoryString(name: String, index: Int): String {
+            val value = get(name) as? JsonPrimitive
+            require(value?.isString == true && !value.contentOrNull.isNullOrBlank()) {
+                "Plugin entry $index is missing a nonblank $name"
+            }
+            return value.content
+        }
 
         internal fun isSafePluginId(pluginId: String): Boolean =
             pluginId.isNotEmpty() &&
@@ -119,10 +179,7 @@ class JsPluginManager(
     // Plugin repo/list/icon fetches, not a source's own content requests (JsSource routes
     // through JSLibraryProvider's fetch() instead) - not paced by novel-source throttling.
     private val client: OkHttpClient get() = networkHelper.client.rateLimitExempt()
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    }
+    private val json = repositoryJson
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -160,6 +217,7 @@ class JsPluginManager(
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     private val refreshMutex = Mutex()
+    private val repositoryMutex = Mutex()
     private val pluginMutationMutex = Mutex()
 
     private val _jsSources = MutableStateFlow<List<CatalogueSource>>(emptyList())
@@ -226,10 +284,12 @@ class JsPluginManager(
 
             for (repo in _repositories.value.filter { it.enabled }) {
                 try {
-                    val plugins = fetchPluginList(repo.url)
+                    val plugins = fetchPluginList(repo.url, allowEmpty = true)
                     plugins.forEach { it.repositoryUrl = repo.url }
                     allPlugins.addAll(plugins)
                     logcat(LogPriority.DEBUG) { "Loaded ${plugins.size} plugins from ${repo.name}" }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) { "Failed to fetch plugins from ${repo.name}" }
                 }
@@ -251,27 +311,18 @@ class JsPluginManager(
     /**
      * Fetch plugin list from a repository URL
      */
-    private suspend fun fetchPluginList(url: String): List<JsPlugin> = withContext(Dispatchers.IO) {
-        try {
-            // Use URL as is, do not append index or modify
-            val response = client.newCall(GET(url)).execute()
-            val body = response.use { resp ->
-                if (!resp.isSuccessful) {
-                    throw Exception("HTTP ${resp.code}")
-                }
-                resp.body?.string() ?: return@withContext emptyList()
+    private suspend fun fetchPluginList(
+        url: String,
+        allowEmpty: Boolean,
+    ): List<JsPlugin> = withContext(Dispatchers.IO) {
+        val response = client.newCall(GET(url)).execute()
+        response.use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("Repository request failed with HTTP ${resp.code}")
             }
-            try {
-                json.decodeFromString<List<JsPlugin>>(body)
-            } catch (e: kotlinx.serialization.SerializationException) {
-                logcat(LogPriority.WARN) {
-                    "Failed to parse $url as JS plugin list: ${e.message}"
-                }
-                emptyList()
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to fetch plugin list from $url" }
-            emptyList()
+            val body = resp.body?.string()
+                ?: throw IllegalStateException("Repository response body is empty")
+            decodeRepositoryManifest(body, allowEmpty)
         }
     }
 
@@ -553,21 +604,34 @@ class JsPluginManager(
     /**
      * Add a new repository
      */
-    fun addRepository(url: String) {
-        val normalizedUrl = normalizeRepositoryUrl(url)
-        val name = JsPluginRepository.nameFromUrl(normalizedUrl)
-        logcat(LogPriority.INFO) { "JsPluginManager: addRepository called — name='$name', url='$normalizedUrl'" }
-        _repositories.update { current ->
-            if (current.any { it.url == normalizedUrl }) {
-                logcat(LogPriority.DEBUG) { "JsPluginManager: repo already exists, skipping: $normalizedUrl" }
-                current
-            } else {
-                logcat(LogPriority.INFO) { "JsPluginManager: adding new repo — total will be ${current.size + 1}" }
-                current + JsPluginRepository(name, normalizedUrl)
+    suspend fun addRepository(url: String): Result<Unit> {
+        return try {
+            val normalizedUrl = validateRepositoryUrl(url)
+            repositoryMutex.withLock {
+                require(_repositories.value.none { it.url == normalizedUrl }) {
+                    "Repository already exists"
+                }
+                fetchPluginList(normalizedUrl, allowEmpty = false)
+                val name = JsPluginRepository.nameFromUrl(normalizedUrl)
+                logcat(LogPriority.INFO) {
+                    "JsPluginManager: adding new repo — name='$name', url='$normalizedUrl'"
+                }
+                _repositories.update { current ->
+                    require(current.none { it.url == normalizedUrl }) {
+                        "Repository already exists"
+                    }
+                    current + JsPluginRepository(name, normalizedUrl)
+                }
+                saveRepositories()
             }
+            scope.launch { refreshAvailablePlugins(forceRefresh = true) }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to add JS plugin repository '$url'" }
+            Result.failure(e)
         }
-        saveRepositories()
-        scope.launch { refreshAvailablePlugins(forceRefresh = true) }
     }
 
     suspend fun restoreRepositories(repositories: List<JsPluginRepository>) {
@@ -871,8 +935,6 @@ class JsPluginManager(
             logcat(LogPriority.ERROR, e) { "Failed to save repositories to SharedPreferences" }
         }
     }
-
-    private fun normalizeRepositoryUrl(url: String): String = url.trim().trimEnd('/')
 
     /**
      * Group plugins by language

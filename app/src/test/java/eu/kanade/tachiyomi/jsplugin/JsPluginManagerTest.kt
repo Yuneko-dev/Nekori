@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -82,5 +83,59 @@ class JsPluginManagerTest {
 
         assertEquals(2, deduplicated.size)
         assertEquals("2.9", deduplicated.single { it.id == "acme" }.version)
+    }
+
+    @Test
+    fun `repository URL validation accepts HTTP(S) and rejects unsupported schemes`() {
+        assertEquals(
+            "https://example.com/plugins.json",
+            JsPluginManager.validateRepositoryUrl(" https://example.com/plugins.json/ "),
+        )
+        assertEquals(
+            "http://10.0.2.2/plugins.min.json",
+            JsPluginManager.validateRepositoryUrl("http://10.0.2.2/plugins.min.json"),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.validateRepositoryUrl("example.com/plugins.json")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.validateRepositoryUrl("ftp://example.com/plugins.json")
+        }
+    }
+
+    @Test
+    fun `repository manifest validation accepts LNReader fields and rejects invalid shapes`() {
+        val manifest = """
+            [
+              {
+                "id": "example",
+                "name": "Example",
+                "site": "domain",
+                "lang": "English",
+                "version": "1.0.0",
+                "url": "https://example.com/example.js?x=1&y=2",
+                "iconUrl": "https://example.com/icon[1].png",
+                "unknownField": true
+              }
+            ]
+        """.trimIndent()
+
+        assertEquals("example", JsPluginManager.decodeRepositoryManifest(manifest, allowEmpty = false).single().id)
+        assertEquals(emptyList<JsPlugin>(), JsPluginManager.decodeRepositoryManifest("[]", allowEmpty = true))
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.decodeRepositoryManifest("[]", allowEmpty = false)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.decodeRepositoryManifest("{}", allowEmpty = true)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.decodeRepositoryManifest(manifest.replace("\"site\": \"domain\",", ""), allowEmpty = true)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            JsPluginManager.decodeRepositoryManifest(
+                manifest.replace("\"id\": \"example\"", "\"id\": \"../example\""),
+                allowEmpty = true,
+            )
+        }
     }
 }

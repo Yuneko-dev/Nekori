@@ -108,6 +108,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - A plugin rescan forced when a JS repository is toggled.
 - Unavailable plugin modules tolerated so a plugin probing for an optional helper still loads.
 - JS plugin incognito restored, and the app user agent used consistently in WebView.
+- JS plugin repositories now validate absolute HTTP(S) URLs and LNReader manifests before persistence, keep
+  actionable failures in the add dialog, confirm deep-link additions, and leave backup/LNReader restore
+  network-optional.
 
 #### Translation
 - LLM output aligned by paragraph index rather than by position alone.
