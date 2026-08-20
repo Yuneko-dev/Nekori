@@ -278,10 +278,10 @@ registerTextHandler('plugin.parseChapter', async args => {
 AppRegistry.registerHeadlessTask('TsundokuJsRuntime', () => async () => {
   startBridge();
   global.__TSUNDOKU_JS_READY__ = true;
-  console.log('[tsundoku] headless JS runtime started');
+  console.log('[nekori] headless JS runtime started');
   await new Promise<never>(() => {});
 });
 
-console.log('[tsundoku] js runtime evaluated');
+console.log('[nekori] js runtime evaluated');
 
 export {};

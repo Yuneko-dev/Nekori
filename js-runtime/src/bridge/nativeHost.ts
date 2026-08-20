@@ -82,7 +82,7 @@ export function startBridge(): void {
     } catch (error) {
       // Nothing can be reported through the bridge — this *is* the bridge failing to come up. Kotlin
       // sees it as the ready() timeout, so leave a line saying what actually happened.
-      console.error('[tsundoku] bridge bootstrap failed', error);
+      console.error('[nekori] bridge bootstrap failed', error);
     }
   });
 }
