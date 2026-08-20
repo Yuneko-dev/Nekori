@@ -14,6 +14,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Improved
 - Support tsundoku:// extension stores [@Rojikku](https://github.com/Rojikku) [#397](https://github.com/tsundoku-otaku/tsundoku/pull/397)
 
+### Fixed
+- Crash fixes: Theme fallback, incompatible extensions [@Rojikku](https://github.com/Rojikku) [#398](https://github.com/tsundoku-otaku/tsundoku/pull/398)
+
 ## [v0.3.1] - 2026-08-14
 ### Improved
 - Novel Extension Repo > Extension Store + Related fixes [@Rojikku](https://github.com/Rojikku) [#391](https://github.com/tsundoku-otaku/tsundoku/pull/391)

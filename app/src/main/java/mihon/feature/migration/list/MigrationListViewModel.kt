@@ -229,6 +229,13 @@ class MigrationListViewModel(
             throw e
         } catch (_: Exception) {
             null
+        } catch (e: LinkageError) {
+            // Outdated/incompatible extensions throw LinkageError subtypes
+            // (NoClassDefFoundError, NoSuchMethodError, etc.) rather than Exception.
+            // Catching only Exception let one broken source crash the whole migration
+            // screen instead of failing just that source's search.
+            logcat(LogPriority.ERROR, e)
+            null
         }
     }
 

@@ -162,6 +162,14 @@ abstract class SearchViewModel(
                         if (isActive) {
                             updateItem(source, SearchItemResult.Error(e))
                         }
+                    } catch (e: LinkageError) {
+                        // Outdated/incompatible extensions throw LinkageError subtypes
+                        // (NoClassDefFoundError, NoSuchMethodError, etc.) rather than Exception.
+                        // Catching only Exception let one broken source crash the whole global
+                        // search instead of failing just that source.
+                        if (isActive) {
+                            updateItem(source, SearchItemResult.Error(e))
+                        }
                     }
                 }
             }
