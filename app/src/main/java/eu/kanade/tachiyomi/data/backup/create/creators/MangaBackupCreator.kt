@@ -47,16 +47,6 @@ class MangaBackupCreator(
         }
     }
 
-    /**
-     * Legacy method that collects all manga at once - may OOM on very large libraries.
-     * Use backupMangaStream() for streaming approach instead.
-     */
-    suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
-        return mangas.map {
-            backupManga(it, options, emptySet())
-        }
-    }
-
     private suspend fun backupManga(
         manga: Manga,
         options: BackupOptions,

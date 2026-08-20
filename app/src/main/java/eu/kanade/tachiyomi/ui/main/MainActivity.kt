@@ -371,7 +371,6 @@ class MainActivity : BaseActivity() {
     //                         .padding(horizontal = MaterialTheme.padding.medium)
     //                         .fillMaxWidth(),
     //                     onClick = {
-    //                         navigator.push(SupportUsScreen())
     //                         dismissSupportMessage()
     //                     },
     //                 ) {

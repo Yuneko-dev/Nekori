@@ -21,23 +21,6 @@ object WebViewUtil {
 
     const val MINIMUM_WEBVIEW_VERSION = 118
 
-    /**
-     * Uses the WebView's user agent string to create something similar to what Chrome on Android
-     * would return.
-     *
-     * Example of WebView user agent string:
-     *   Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230901.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/116.0.0.0 Mobile Safari/537.36
-     *
-     * Example of Chrome on Android:
-     *   Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.3
-     */
-    fun getInferredUserAgent(context: Context): String {
-        return WebView(context)
-            .getDefaultUserAgentString()
-            .replace("; Android .*?\\)".toRegex(), "; Android 10; K)")
-            .replace("Version/.* Chrome/".toRegex(), "Chrome/")
-    }
-
     fun getVersion(context: Context): String {
         val webView = WebView.getCurrentWebViewPackage() ?: return "how did you get here?"
         val pm = context.packageManager

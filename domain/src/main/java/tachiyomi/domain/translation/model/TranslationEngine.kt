@@ -39,17 +39,6 @@ interface TranslationEngine {
     suspend fun translate(request: TranslationRequest): TranslationResult
 
     /**
-     * Translate a single text.
-     */
-    suspend fun translateSingle(
-        text: String,
-        sourceLanguage: String,
-        targetLanguage: String,
-    ): TranslationResult {
-        return translate(TranslationRequest(listOf(text), sourceLanguage, targetLanguage))
-    }
-
-    /**
      * Check if the engine is properly configured (API key set, etc.) for [config].
      *
      * Only the LLM engine varies per profile; engines keyed by a service-wide API key ignore the

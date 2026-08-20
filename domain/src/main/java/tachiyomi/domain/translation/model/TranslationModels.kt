@@ -92,24 +92,6 @@ data class TranslationProgress(
 }
 
 /**
- * Summary of a translation for display in chapter list.
- */
-data class TranslationInfo(
-    val chapterId: Long,
-    val targetLanguage: String,
-    val engineId: String,
-    val dateTranslated: Long,
-)
-
-/**
- * Available languages for a manga's translations.
- */
-data class TranslatedLanguages(
-    val mangaId: Long,
-    val languages: List<String>,
-)
-
-/**
  * Controls which content variant is used for EPUB export.
  */
 enum class TranslationMode(val key: String) {

@@ -127,14 +127,6 @@ class GetLibraryManga(
     }
 
     /**
-     * Await refresh - waits for the current refresh to complete.
-     * Use this when you need to ensure the library is up-to-date before proceeding.
-     */
-    suspend fun awaitRefresh() {
-        refreshInternal(force = false)
-    }
-
-    /**
      * Like [refreshForced] but recomputes aggregates for only the given manga instead of the
      * whole favorites table.
      */
@@ -574,22 +566,6 @@ class GetLibraryManga(
      */
     suspend fun awaitForUpdate(): List<LibraryMangaForUpdate> {
         return mangaRepository.getLibraryMangaForUpdate()
-    }
-
-    /**
-     * Get only genres for tag counting - much faster than await().
-     * This avoids the expensive libraryView JOIN and only fetches _id + genre from mangas table.
-     */
-    suspend fun awaitGenresOnly(): List<Pair<Long, List<String>?>> {
-        return mangaRepository.getFavoriteGenres()
-    }
-
-    /**
-     * Get genres with source ID for tag counting filtered by content type.
-     * This avoids the expensive libraryView JOIN and only fetches _id + source + genre from mangas table.
-     */
-    suspend fun awaitGenresWithSource(): List<Triple<Long, Long, List<String>?>> {
-        return mangaRepository.getFavoriteGenresWithSource()
     }
 
     /**

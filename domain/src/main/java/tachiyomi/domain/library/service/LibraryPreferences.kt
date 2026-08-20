@@ -118,11 +118,6 @@ class LibraryPreferences(
         TriState.DISABLED,
     )
 
-    val filterExtensions: Preference<Set<String>> = preferenceStore.getStringSet(
-        "pref_filter_library_extensions",
-        emptySet(),
-    )
-
     // Stores extension IDs that are excluded (unchecked) from the library filter
     val excludedExtensions: Preference<Set<String>> = preferenceStore.getStringSet(
         "pref_excluded_library_extensions",
@@ -302,11 +297,6 @@ class LibraryPreferences(
     )
 
     val showMangaSourceName: Preference<Boolean> = preferenceStore.getBoolean("pref_show_manga_source_name", true)
-
-    /**
-     * Whether the library should auto-refresh when database changes occur.
-     */
-    val autoRefreshLibrary: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_refresh_library", true)
 
     // endregion
 

@@ -49,19 +49,6 @@ fun String.byteSize(): Int {
 }
 
 /**
- * Returns a string containing the first [n] bytes from this string, or the entire string if this
- * string is shorter.
- */
-fun String.takeBytes(n: Int): String {
-    val bytes = toByteArray(StandardCharsets.UTF_8)
-    return if (bytes.size <= n) {
-        this
-    } else {
-        bytes.decodeToString(endIndex = n).replace("\uFFFD", "")
-    }
-}
-
-/**
  * HTML-decode the string
  */
 fun String.htmlDecode(): String {

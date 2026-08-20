@@ -4,7 +4,6 @@ import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
-import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -20,10 +19,6 @@ import tachiyomi.domain.manga.model.CustomMangaInfo.Companion.writeSourceInto
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
-import tachiyomi.domain.translation.model.TranslationPurpose
-import tachiyomi.domain.translation.model.TranslationRequest
-import tachiyomi.domain.translation.model.TranslationResult
-import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -270,24 +265,6 @@ class UpdateManga(
         return result
     }
 
-    suspend fun awaitUpdateAuthor(mangaId: Long, author: String): Boolean {
-        return mangaRepository.update(
-            MangaUpdate(id = mangaId, author = author),
-        )
-    }
-
-    suspend fun awaitUpdateArtist(mangaId: Long, artist: String): Boolean {
-        return mangaRepository.update(
-            MangaUpdate(id = mangaId, artist = artist),
-        )
-    }
-
-    suspend fun awaitUpdateStatus(mangaId: Long, status: Long): Boolean {
-        return mangaRepository.update(
-            MangaUpdate(id = mangaId, status = status),
-        )
-    }
-
     suspend fun awaitUpdateDescription(mangaId: Long, description: String): Boolean {
         return mangaRepository.update(
             MangaUpdate(id = mangaId, description = description),
@@ -297,126 +274,6 @@ class UpdateManga(
     suspend fun awaitUpdateUrl(mangaId: Long, url: String): Boolean {
         return mangaRepository.update(
             MangaUpdate(id = mangaId, url = url),
-        )
-    }
-
-    /**
-     * Translate manga title and/or tags based on translation preferences.
-     *
-     * If replaceTitle is enabled: translated title becomes the main title, original is added to alternative titles.
-     * If saveTranslatedTitleAsAlternative is enabled: translated title is added to alternative titles.
-     * If translateTags is enabled: translated tags are merged with original tags.
-     *
-     * @param manga The manga to translate metadata for
-     * @param sourceLanguage The source language (or "auto" for auto-detect)
-     * @param targetLanguage The target language
-     * @return true if any updates were made
-     */
-    suspend fun translateMangaMetadata(
-        manga: Manga,
-        sourceLanguage: String = "auto",
-        targetLanguage: String = "en",
-    ): Boolean {
-        val translationPreferences: TranslationPreferences = Injekt.get()
-        val engineManager: TranslationEngineManager = Injekt.get()
-
-        if (!translationPreferences.translationEnabled().get()) {
-            return false
-        }
-
-        if (engineManager.getEngine(TranslationPurpose.METADATA) == null) {
-            logcat(LogPriority.WARN) { "Translation engine not configured" }
-            return false
-        }
-
-        val replaceTitle = translationPreferences.replaceTitle().get()
-        val saveAsAlternative = translationPreferences.saveTranslatedTitleAsAlternative().get()
-        val translateTags = translationPreferences.translateTags().get()
-        val replaceTags = translationPreferences.replaceTagsInsteadOfMerge().get()
-
-        if (!replaceTitle && !saveAsAlternative && !translateTags) {
-            return false
-        }
-
-        var updatedTitle: String? = null
-        var updatedAlternativeTitles: List<String>? = null
-        var updatedGenre: List<String>? = null
-
-        // Translate title if needed
-        if (replaceTitle || saveAsAlternative) {
-            val titleResult = engineManager.translate(
-                TranslationPurpose.METADATA,
-                TranslationRequest(listOf(manga.title), sourceLanguage, targetLanguage),
-            )
-            when (titleResult) {
-                is TranslationResult.Success -> {
-                    val translatedTitle = titleResult.translatedTexts.firstOrNull()
-                    if (!translatedTitle.isNullOrBlank() && translatedTitle != manga.title) {
-                        if (replaceTitle) {
-                            // Translated becomes main title, original goes to alternatives
-                            updatedTitle = translatedTitle
-                            val currentAlternatives = manga.alternativeTitles.toMutableList()
-                            if (!currentAlternatives.contains(manga.title)) {
-                                currentAlternatives.add(0, manga.title) // Add original at start
-                            }
-                            updatedAlternativeTitles = currentAlternatives
-                        } else if (saveAsAlternative) {
-                            // Keep original title, add translated to alternatives
-                            val currentAlternatives = manga.alternativeTitles.toMutableList()
-                            if (!currentAlternatives.contains(translatedTitle)) {
-                                currentAlternatives.add(translatedTitle)
-                            }
-                            updatedAlternativeTitles = currentAlternatives
-                        }
-                    }
-                }
-                is TranslationResult.Error -> {
-                    logcat(LogPriority.WARN) { "Failed to translate title: ${titleResult.message}" }
-                }
-            }
-        }
-
-        // Translate tags if needed
-        val genres = manga.genre
-        if (translateTags && !genres.isNullOrEmpty()) {
-            val tagsResult = engineManager.translate(
-                TranslationPurpose.METADATA,
-                TranslationRequest(genres, sourceLanguage, targetLanguage),
-            )
-            when (tagsResult) {
-                is TranslationResult.Success -> {
-                    val translatedTags = tagsResult.translatedTexts
-                    if (translatedTags.isNotEmpty()) {
-                        // Either replace original tags or merge them based on preference
-                        val resultTags = if (replaceTags) {
-                            translatedTags.distinct()
-                        } else {
-                            // Merge original and translated tags (remove duplicates)
-                            (genres + translatedTags).distinct()
-                        }
-                        if (resultTags != genres) {
-                            updatedGenre = resultTags
-                        }
-                    }
-                }
-                is TranslationResult.Error -> {
-                    logcat(LogPriority.WARN) { "Failed to translate tags: ${tagsResult.message}" }
-                }
-            }
-        }
-
-        // Apply updates
-        if (updatedTitle == null && updatedAlternativeTitles == null && updatedGenre == null) {
-            return false
-        }
-
-        return mangaRepository.update(
-            MangaUpdate(
-                id = manga.id,
-                title = updatedTitle,
-                alternativeTitles = updatedAlternativeTitles,
-                genre = updatedGenre,
-            ),
         )
     }
 }

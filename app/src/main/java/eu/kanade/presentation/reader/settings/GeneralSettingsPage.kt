@@ -56,11 +56,6 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsViewModel) {
     }
 
     ReaderSwitchItem(
-        label = stringResource(MR.strings.pref_show_page_number),
-        pref = screenModel.preferences.showPageNumber,
-    )
-
-    ReaderSwitchItem(
         label = stringResource(MR.strings.pref_fullscreen),
         pref = screenModel.preferences.fullscreen,
     )

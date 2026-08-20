@@ -32,17 +32,6 @@ fun launchUI(block: suspend CoroutineScope.() -> Unit): Job =
 fun launchIO(block: suspend CoroutineScope.() -> Unit): Job =
     GlobalScope.launch(Dispatchers.IO, CoroutineStart.DEFAULT, block)
 
-/**
- * Think twice before using this. This is a delicate API. It is easy to accidentally create resource or memory leaks when GlobalScope is used.
- *
- * **Possible replacements**
- * - suspend function
- * - custom scope like view or presenter scope
- */
-@DelicateCoroutinesApi
-fun launchNow(block: suspend CoroutineScope.() -> Unit): Job =
-    GlobalScope.launch(Dispatchers.Main, CoroutineStart.UNDISPATCHED, block)
-
 fun CoroutineScope.launchUI(block: suspend CoroutineScope.() -> Unit): Job =
     launch(Dispatchers.Main, block = block)
 

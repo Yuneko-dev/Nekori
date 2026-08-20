@@ -673,10 +673,6 @@ class BrowseSourceViewModel(
         logcat(LogPriority.INFO) { "BrowseSource: Default preset set" }
     }
 
-    fun getAutoApplyPresets(): Boolean {
-        return manageFilterPresets.getAutoApplyEnabled()
-    }
-
     fun setAutoApplyPresets(enabled: Boolean) {
         logcat(LogPriority.DEBUG) { "BrowseSource: setAutoApplyPresets=$enabled" }
         manageFilterPresets.setAutoApplyEnabled(enabled)
@@ -850,14 +846,6 @@ class BrowseSourceViewModel(
      */
     fun translateTitles(mangaList: List<Manga>) {
         mangaList.forEach { translateManga(it) }
-    }
-
-    /**
-     * Get the display title for a manga (translated if available and enabled)
-     */
-    fun getDisplayTitle(manga: Manga): String {
-        if (!state.value.translateTitles) return manga.title
-        return state.value.translatedTitles[manga.id] ?: manga.title
     }
 
     // Mass Import / Selection Mode

@@ -135,6 +135,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Chapter text returned directly from the runtime instead of round-tripping.
 - JavaScript stack traces preserved across the bridge.
 - Automatic video conversion setting.
+- Dead novel-irrelevant legacy UI, preference accessors, and resources pruned without changing novel behavior or database/backup compatibility.
 
 ## Upstream Sync
 

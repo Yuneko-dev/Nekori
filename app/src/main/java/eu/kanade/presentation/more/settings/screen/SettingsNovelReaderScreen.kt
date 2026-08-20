@@ -164,10 +164,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_fullscreen),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.showPageNumber,
-                    title = stringResource(MR.strings.pref_show_page_number),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelShowProgressSlider,
                     title = stringResource(TDMR.strings.pref_novel_progress_slider),
                 ),

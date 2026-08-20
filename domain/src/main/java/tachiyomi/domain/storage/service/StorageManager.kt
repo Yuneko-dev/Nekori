@@ -80,10 +80,6 @@ class StorageManager(
         return getOrCreateDirectory(baseDir, DOWNLOADS_PATH)
     }
 
-    fun getLocalSourceDirectory(): UniFile? {
-        return getOrCreateDirectory(baseDir, LOCAL_SOURCE_PATH)
-    }
-
     fun getLocalNovelSourceDirectory(): UniFile? {
         return getOrCreateDirectory(baseDir, LOCAL_NOVEL_SOURCE_PATH)
     }

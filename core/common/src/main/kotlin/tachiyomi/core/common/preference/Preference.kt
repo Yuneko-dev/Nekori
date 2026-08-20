@@ -61,10 +61,6 @@ operator fun <T> Preference<Set<T>>.plusAssign(items: Iterable<T>) {
     set(get() + items)
 }
 
-operator fun <T> Preference<Set<T>>.minusAssign(item: T) {
-    set(get() - item)
-}
-
 fun Preference<Boolean>.toggle(): Boolean {
     set(!get())
     return get()

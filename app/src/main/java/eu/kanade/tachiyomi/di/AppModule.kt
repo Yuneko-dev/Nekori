@@ -24,7 +24,6 @@ import eu.kanade.tachiyomi.data.track.source.SourceTrackerDispatcher
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
 import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
 import eu.kanade.tachiyomi.data.translation.LlmGenerator
-import eu.kanade.tachiyomi.data.translation.TranslationCache
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.discord.DiscordAuth
@@ -164,7 +163,6 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { ImageSaver(app) }
 
         // Translation services
-        addSingletonFactory { TranslationCache(app) }
         addSingletonFactory { AiSettingsStore(get(), get()) }
         addSingletonFactory { LlmGenerator(get(), get()) }
         addSingletonFactory { ChapterSummaryService(get(), get(), get()) }

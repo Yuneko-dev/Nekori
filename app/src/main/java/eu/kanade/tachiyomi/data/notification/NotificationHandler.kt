@@ -3,9 +3,7 @@ package eu.kanade.tachiyomi.data.notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.net.toUri
-import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import tachiyomi.core.common.Constants
 
@@ -29,39 +27,6 @@ object NotificationHandler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-    }
-
-    /**
-     * Returns [PendingIntent] that starts a gallery activity
-     *
-     * @param context context of application
-     * @param file file containing image
-     */
-    internal fun openImagePendingActivity(context: Context, uri: Uri): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "image/*")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-    }
-
-    /**
-     * Returns [PendingIntent] that prompts user with apk install intent
-     *
-     * @param context context
-     * @param uri uri of apk that is installed
-     */
-    fun installApkPendingActivity(context: Context, uri: Uri): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, ExtensionInstaller.APK_MIME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 
     fun openUrl(context: Context, url: String): PendingIntent {

@@ -26,8 +26,6 @@ class ReaderPreferences(
 
     val flashColor: Preference<FlashColor> = preferenceStore.getEnum("pref_reader_flash_mode", FlashColor.BLACK)
 
-    val showPageNumber: Preference<Boolean> = preferenceStore.getBoolean("pref_show_page_number_key", true)
-
     val fullscreen: Preference<Boolean> = preferenceStore.getBoolean("fullscreen", true)
 
     val drawUnderCutout: Preference<Boolean> = preferenceStore.getBoolean("cutout_short", true)
@@ -40,8 +38,6 @@ class ReaderPreferences(
     )
 
     val readerTheme: Preference<Int> = preferenceStore.getInt("pref_reader_theme_key", 1)
-
-    val folderPerManga: Preference<Boolean> = preferenceStore.getBoolean("create_folder_per_manga", false)
 
     val skipRead: Preference<Boolean> = preferenceStore.getBoolean("skip_read", false)
 
@@ -199,18 +195,12 @@ class ReaderPreferences(
     val novelCustomCssSnippets: Preference<String> = preferenceStore.getString("pref_novel_css_snippets", "[]")
     val novelCustomJsSnippets: Preference<String> = preferenceStore.getString("pref_novel_js_snippets", "[]")
 
-    // Global CSS/JS presets stored as JSON array of {name, css, js} objects
-    val novelGlobalPresets: Preference<String> = preferenceStore.getString("pref_novel_global_presets", "[]")
-
     // Regex find/replace rules stored as JSON array of {title, pattern, replacement, enabled, isRegex}
     // Applied to chapter HTML content before rendering in both WebView and TextView modes
     val novelRegexReplacements: Preference<String> = preferenceStore.getString("pref_novel_regex_replacements", "[]")
 
     // Infinite scroll - automatically load next/previous chapters
     val novelInfiniteScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_infinite_scroll", false)
-
-    // Keep chapters loaded in memory (0 = only current, 1 = current + prev, 2 = current + next, 3 = both)
-    val novelKeepChaptersLoaded: Preference<Int> = preferenceStore.getInt("pref_novel_keep_chapters_loaded", 0)
 
     // Custom brightness for novel reader
     val novelCustomBrightness: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_custom_brightness", false)

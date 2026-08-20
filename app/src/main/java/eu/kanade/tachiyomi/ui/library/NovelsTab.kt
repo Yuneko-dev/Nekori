@@ -393,10 +393,6 @@ data object NovelsTab : Tab {
                     onDismissRequest = onDismissRequest,
                 )
             }
-            is LibraryViewModel.Dialog.ImportEpub -> {
-                // EPUB import now uses full-screen navigation from the toolbar action.
-                onDismissRequest()
-            }
             is LibraryViewModel.Dialog.ExportEpub -> {
                 eu.kanade.presentation.library.components.BatchExportEpubDialog(
                     mangaList = dialog.manga,
@@ -405,11 +401,6 @@ data object NovelsTab : Tab {
                         viewModel.exportNovelsAsEpub(dialog.manga, uri, options)
                     },
                 )
-            }
-            // DuplicateDetection now navigates to new screen, not a dialog
-            is LibraryViewModel.Dialog.DuplicateDetection -> {
-                // Navigation handled by toolbar click, dismiss dialog
-                onDismissRequest()
             }
             null -> {}
         }

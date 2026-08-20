@@ -123,14 +123,6 @@ abstract class BaseSourcePagingSource(
         @Suppress("ktlint:standard:backing-property-naming")
         private var _initialPageOverride = 1
 
-        // Reset page counter (call when creating new pager)
-        // Also resets the initial page override so future searches start from page 1
-        fun resetPageCounter() {
-            generation.incrementAndGet()
-            _initialPageOverride = 1
-            _currentPage.value = 1
-        }
-
         // Set initial page for next pager creation
         fun setInitialPage(page: Int) {
             generation.incrementAndGet()

@@ -37,7 +37,6 @@ import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.filter.OrderBy
 import tachiyomi.source.local.image.LocalNovelCoverManager
 import tachiyomi.source.local.io.Archive
-import tachiyomi.source.local.io.Format
 import tachiyomi.source.local.io.LocalNovelSourceFileSystem
 import tachiyomi.source.local.metadata.fillMetadata
 import uy.kohesive.injekt.injectLazy
@@ -218,14 +217,6 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
 
     private fun setNovelDetailsFromComicInfoFile(stream: InputStream, manga: SManga) {
         manga.copyFromComicInfo(parseComicInfo(stream))
-    }
-
-    private fun setChapterDetailsFromComicInfoFile(stream: InputStream, chapter: SChapter) {
-        val comicInfo = parseComicInfo(stream)
-
-        comicInfo.title?.let { chapter.name = it.value }
-        comicInfo.number?.value?.toFloatOrNull()?.let { chapter.chapter_number = it }
-        comicInfo.translator?.let { chapter.scanlator = it.value }
     }
 
     // Chapters
@@ -534,26 +525,10 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
         return Archive.isSupported(file)
     }
 
-    fun getFormat(chapter: SChapter): Format {
-        try {
-            val filePath = chapter.url.substringBefore('#')
-            return resolveChapterFile(filePath)
-                ?.let(Format::valueOf)
-                ?: throw Exception(context.stringResource(MR.strings.chapter_not_found))
-        } catch (e: Format.UnknownFormatException) {
-            throw Exception(context.stringResource(MR.strings.local_invalid_format))
-        } catch (e: Exception) {
-            throw e
-        }
-    }
-
     fun getLocalSourceDir(): android.net.Uri? = fileSystem.getBaseDirectory()?.uri
 
     fun deleteNovelDirectory(mangaUrl: String): Boolean =
         fileSystem.getNovelDirectory(mangaUrl)?.delete() == true
-
-    fun findCoverUri(mangaUrl: String): String? =
-        coverManager.find(mangaUrl)?.uri?.toString()
 
     companion object {
         const val ID = 1L // Different from LocalSource ID (0L)

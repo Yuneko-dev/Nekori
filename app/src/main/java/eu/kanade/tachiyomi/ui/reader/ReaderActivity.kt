@@ -3,8 +3,6 @@ package eu.kanade.tachiyomi.ui.reader
 import android.annotation.SuppressLint
 import android.app.assist.AssistContent
 import android.content.BroadcastReceiver
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -27,16 +25,12 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -57,7 +51,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.getSystemService
 import androidx.core.graphics.Insets
 import androidx.core.net.toUri
 import androidx.core.transition.doOnEnd
@@ -75,8 +68,6 @@ import eu.kanade.presentation.reader.NovelChapterDrawer
 import eu.kanade.presentation.reader.NovelStatusBar
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
-import eu.kanade.presentation.reader.ReaderPageActionsDialog
-import eu.kanade.presentation.reader.ReaderPageIndicator
 import eu.kanade.presentation.reader.TranslationLanguageSelectDialog
 import eu.kanade.presentation.reader.appbars.BottomBarEditorSheet
 import eu.kanade.presentation.reader.appbars.BottomBarItem
@@ -97,10 +88,6 @@ import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
-import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Error
-import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Success
-import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService
@@ -370,20 +357,6 @@ class ReaderActivity : BaseActivity() {
             .launchIn(lifecycleScope)
 
         viewModel.state
-            .map { it.isLoadingAdjacentChapter }
-            .distinctUntilChanged()
-            .onEach { isLoading ->
-                // Skip loading dialog for infinite scroll - the viewer handles inline indicators
-                val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
-                if (novelViewer?.isInfiniteScrollEnabled() == true) {
-                    // Don't show popup for infinite scroll - viewer shows inline indicators
-                    return@onEach
-                }
-                setProgressDialog(isLoading)
-            }
-            .launchIn(lifecycleScope)
-
-        viewModel.state
             .map { it.manga }
             .distinctUntilChanged()
             .filterNotNull()
@@ -441,18 +414,6 @@ class ReaderActivity : BaseActivity() {
                     is ReaderViewModel.Event.SetOrientation -> {
                         setOrientation(event.orientation)
                     }
-                    is ReaderViewModel.Event.SavedImage -> {
-                        onSaveImageResult(event.result)
-                    }
-                    is ReaderViewModel.Event.ShareImage -> {
-                        onShareImageResult(event.uri, event.page)
-                    }
-                    is ReaderViewModel.Event.CopyImage -> {
-                        onCopyImageResult(event.uri)
-                    }
-                    is ReaderViewModel.Event.SetCoverResult -> {
-                        onSetAsCoverResult(event.result)
-                    }
                 }
             }
             .launchIn(lifecycleScope)
@@ -475,7 +436,6 @@ class ReaderActivity : BaseActivity() {
 
     private fun ReaderActivityBinding.setComposeOverlay(): Unit = composeOverlay.setComposeContent {
         val state by viewModel.state.collectAsState()
-        val showPageNumber by readerPreferences.showPageNumber.collectAsState()
         val autoTranslateEnabled by readerPreferences.autoTranslate.collectAsState()
         val novelStatusBarEnabled by readerPreferences.novelStatusBarEnabled.collectAsState()
         val novelStatusBarShowTime by readerPreferences.novelStatusBarShowTime.collectAsState()
@@ -646,16 +606,6 @@ class ReaderActivity : BaseActivity() {
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val isNovelMode = state.viewer is NovelWebViewViewer
-                if (!readerChromeVisible && showPageNumber && !isNovelMode) {
-                    ReaderPageIndicator(
-                        currentPage = state.currentPage,
-                        totalPages = state.totalPages,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .navigationBarsPadding(),
-                    )
-                }
-
                 ContentOverlay(state = state)
 
                 val statusBarAtBottom = novelStatusBarPosition != "top"
@@ -724,21 +674,6 @@ class ReaderActivity : BaseActivity() {
 
         val onDismissRequest = viewModel::closeDialog
         when (state.dialog) {
-            is ReaderViewModel.Dialog.Loading -> {
-                AlertDialog(
-                    onDismissRequest = {},
-                    confirmButton = {},
-                    text = {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator()
-                            Text(stringResource(MR.strings.loading))
-                        }
-                    },
-                )
-            }
             is ReaderViewModel.Dialog.Settings -> {
                 ReaderSettingsDialog(
                     onDismissRequest = onDismissRequest,
@@ -794,14 +729,6 @@ class ReaderActivity : BaseActivity() {
                             },
                         )
                     },
-                )
-            }
-            is ReaderViewModel.Dialog.PageActions -> {
-                ReaderPageActionsDialog(
-                    onDismissRequest = onDismissRequest,
-                    onSetAsCover = viewModel::setAsCover,
-                    onShare = viewModel::shareImage,
-                    onSave = viewModel::saveImage,
                 )
             }
             null -> {}
@@ -1662,16 +1589,6 @@ class ReaderActivity : BaseActivity() {
     }
 
     /**
-     * Called from the presenter whenever it's loading the next or previous chapter. It shows or
-     * dismisses a non-cancellable dialog to prevent user interaction according to the value of
-     * [show]. This is only used when the next/previous buttons on the toolbar are clicked; the
-     * other cases are handled with chapter transitions on the viewers and chapter preloading.
-     */
-    @Suppress("UNUSED_PARAMETER")
-    private fun setProgressDialog(show: Boolean) {
-    }
-
-    /**
      * Moves the viewer to the given page [index]. It does nothing if the viewer is null or the
      * page is not found.
      */
@@ -1779,22 +1696,6 @@ class ReaderActivity : BaseActivity() {
     }
 
     /**
-     * Called from the viewer whenever a [page] is long clicked. A bottom sheet with a list of
-     * actions to perform is shown.
-     */
-    fun onPageLongTap(page: ReaderPage) {
-        viewModel.openPageDialog(page)
-    }
-
-    /**
-     * Called from the viewer when the given [chapter] should be preloaded. It should be called when
-     * the viewer is reaching the beginning or end of a chapter or the transition page is active.
-     */
-    fun requestPreloadChapter(chapter: ReaderChapter) {
-        lifecycleScope.launchIO { viewModel.preload(chapter) }
-    }
-
-    /**
      * Called from the viewer to toggle the visibility of the menu. It's implemented on the
      * viewer because each one implements its own touch and key events.
      */
@@ -1808,15 +1709,6 @@ class ReaderActivity : BaseActivity() {
     fun showMenu() {
         if (!viewModel.state.value.menuVisible) {
             setMenuVisibility(true)
-        }
-    }
-
-    /**
-     * Called from the viewer to hide the menu.
-     */
-    fun hideMenu() {
-        if (viewModel.state.value.menuVisible) {
-            setMenuVisibility(false)
         }
     }
 
@@ -1870,56 +1762,6 @@ class ReaderActivity : BaseActivity() {
             }
             content
         }
-    }
-
-    /**
-     * Called from the presenter when a page is ready to be shared. It shows Android's default
-     * sharing tool.
-     */
-    private fun onShareImageResult(uri: Uri, page: ReaderPage) {
-        val manga = viewModel.manga ?: return
-        val chapter = page.chapter.chapter
-
-        val intent = uri.toShareIntent(
-            context = applicationContext,
-            message = stringResource(MR.strings.share_page_info, manga.title, chapter.name, page.number),
-        )
-        startActivity(intent)
-    }
-
-    private fun onCopyImageResult(uri: Uri) {
-        val clipboardManager = applicationContext.getSystemService<ClipboardManager>() ?: return
-        val clipData = ClipData.newUri(applicationContext.contentResolver, "", uri)
-        clipboardManager.setPrimaryClip(clipData)
-    }
-
-    /**
-     * Called from the presenter when a page is saved or fails. It shows a message or logs the
-     * event depending on the [result].
-     */
-    private fun onSaveImageResult(result: ReaderViewModel.SaveImageResult) {
-        when (result) {
-            is ReaderViewModel.SaveImageResult.Success -> {
-                toast(MR.strings.picture_saved)
-            }
-            is ReaderViewModel.SaveImageResult.Error -> {
-                logcat(LogPriority.ERROR, result.error)
-            }
-        }
-    }
-
-    /**
-     * Called from the presenter when a page is set as cover or fails. It shows a different message
-     * depending on the [result].
-     */
-    private fun onSetAsCoverResult(result: ReaderViewModel.SetAsCoverResult) {
-        toast(
-            when (result) {
-                Success -> MR.strings.cover_updated
-                AddToLibraryFirst -> MR.strings.notification_first_add_to_library
-                Error -> MR.strings.notification_cover_update_failed
-            },
-        )
     }
 
     /**

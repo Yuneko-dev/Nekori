@@ -69,15 +69,6 @@ class FontManager(
     }
 
     /**
-     * Get all available fonts (system + custom).
-     */
-    suspend fun getAllFonts(): List<FontInfo> {
-        val systemFonts = getSystemFonts()
-        val customFonts = getInstalledFonts()
-        return systemFonts + customFonts
-    }
-
-    /**
      * Get system fonts.
      */
     fun getSystemFonts(): List<FontInfo> {
@@ -428,20 +419,6 @@ class FontManager(
                 Typeface.DEFAULT
             }
         }
-    }
-
-    /**
-     * Get the CSS font-face declaration for a custom font.
-     */
-    fun getFontFaceCss(fontInfo: FontInfo): String {
-        if (!fontInfo.isCustom) return ""
-
-        return """
-            @font-face {
-                font-family: '${fontInfo.name}';
-                src: url('${fontInfo.path}');
-            }
-        """.trimIndent()
     }
 
     companion object {

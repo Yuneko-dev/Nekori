@@ -20,7 +20,6 @@ object Notifications {
      * Common notification channel and ids used anywhere.
      */
     const val CHANNEL_COMMON = "common_channel"
-    const val ID_DOWNLOAD_IMAGE = 2
 
     /**
      * Notification channel and ids used by the library updater.

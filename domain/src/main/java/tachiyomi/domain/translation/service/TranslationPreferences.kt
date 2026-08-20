@@ -121,22 +121,6 @@ class TranslationPreferences(
         false,
     )
 
-    /**
-     * Chapter count threshold to show rate limit warning.
-     */
-    fun rateLimitWarningThreshold() = preferenceStore.getInt(
-        "translation_rate_limit_warning_threshold",
-        10,
-    )
-
-    /**
-     * Whether to bypass the rate limit warning.
-     */
-    fun bypassRateLimitWarning() = preferenceStore.getBoolean(
-        "translation_bypass_rate_limit_warning",
-        false,
-    )
-
     /** Maximum chapter chunks translated concurrently. */
     fun maxParallelTranslations() = preferenceStore.getInt(
         "translation_max_parallel",

@@ -535,8 +535,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     }
                 }
 
-                override fun getCurrentPage(): ReaderPage? = currentPage
-
                 override fun onHighlightChunk(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int) {
                     applyTtsHighlight(chunkIndex, paragraphIndex)
                     saveTtsProgressForChunk(chunkIndex)
@@ -916,7 +914,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    hideLoadingIndicator()
 
                     // The error page is a fresh document; re-arm autoscroll before the real-chapter
                     // gate below, which the error load (docState=ERROR, not LOADING_REAL) would skip.
@@ -1508,7 +1505,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             page.status = Page.State.Queue
         }
         if (page.status == Page.State.Ready && !page.text.isNullOrEmpty()) {
-            if (!isPrepend) hideLoadingIndicator()
             displayContent(chapters.currChapter, page, isPrepend, isPrepend)
             if (!isPrepend) activity.viewModel.setNovelVisibleChapter(page.chapter.chapter)
             return
@@ -1520,7 +1516,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val loader = page.chapter.pageLoader
             if (loader == null) {
                 logcat(LogPriority.ERROR) { "NovelWebViewViewer: No page loader available" }
-                if (!isPrepend) hideLoadingIndicator()
                 return@launch
             }
 
@@ -1534,7 +1529,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         if (!isPrepend) showLoadingIndicator()
                     }
                     Page.State.Ready -> {
-                        if (!isPrepend) hideLoadingIndicator()
                         displayContent(chapters.currChapter, page, isPrepend, isPrepend)
                         if (!isPrepend) activity.viewModel.setNovelVisibleChapter(page.chapter.chapter)
                     }
@@ -1549,7 +1543,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                                 isPrepend = true,
                             )
                         } else {
-                            hideLoadingIndicator()
                             displayError(state.error)
                         }
                     }
@@ -2257,9 +2250,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         docState = DocState.LOADING
         webView.loadDataWithBaseURL(null, loadingHtml, "text/html", "UTF-8", null)
-    }
-
-    private fun hideLoadingIndicator() {
     }
 
     private fun displayError(error: Throwable) {

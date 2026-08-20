@@ -25,10 +25,5 @@ sealed interface Format {
             isArchiveSupported(file) -> Archive(file)
             else -> throw UnknownFormatException()
         }
-
-        fun isTextFormat(file: UniFile): Boolean {
-            return TEXT_EXTENSIONS.any { file.extension.equals(it, true) } ||
-                HTML_EXTENSIONS.any { file.extension.equals(it, true) }
-        }
     }
 }

@@ -795,8 +795,6 @@ object SettingsTrackingScreen : SearchableSettings {
                                             lists.map { listOf(it.first, it.second) },
                                         )
                                         trackPreferences.novelUpdatesCachedLists.set(cached)
-                                        trackPreferences.novelUpdatesLastListRefresh
-                                            .set(System.currentTimeMillis())
                                     }
                                     withUIContext {
                                         isLoading = false

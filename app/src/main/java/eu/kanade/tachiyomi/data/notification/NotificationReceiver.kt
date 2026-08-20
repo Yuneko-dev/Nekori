@@ -5,11 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
-import eu.kanade.tachiyomi.data.updater.AppUpdateDownloadJob
 import eu.kanade.tachiyomi.source.awaitSource
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -54,20 +52,12 @@ class NotificationReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            // Dismiss notification
-            ACTION_DISMISS_NOTIFICATION -> dismissNotification(context, intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1))
             // Resume the download service
             ACTION_RESUME_DOWNLOADS -> downloadManager.startDownloads()
             // Pause the download service
             ACTION_PAUSE_DOWNLOADS -> downloadManager.pauseDownloads()
             // Clear the download queue
             ACTION_CLEAR_DOWNLOADS -> downloadManager.clearQueue()
-            // Launch share activity and dismiss notification
-            ACTION_SHARE_IMAGE ->
-                shareImage(
-                    context,
-                    intent.getStringExtra(EXTRA_URI)!!.toUri(),
-                )
             // Share backup file
             ACTION_SHARE_BACKUP ->
                 shareFile(
@@ -86,10 +76,6 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_CANCEL_MIGRATION -> cancelMigration(context)
             // Cancel quick migrate
             ACTION_CANCEL_QUICK_MIGRATE -> cancelQuickMigrate(context)
-            // Start downloading app update
-            ACTION_START_APP_UPDATE -> startDownloadAppUpdate(context, intent)
-            // Cancel downloading app update
-            ACTION_CANCEL_APP_UPDATE_DOWNLOAD -> cancelDownloadAppUpdate(context)
             // Open reader activity
             ACTION_OPEN_CHAPTER -> {
                 openChapter(
@@ -123,25 +109,6 @@ class NotificationReceiver : BroadcastReceiver() {
                 }
             }
         }
-    }
-
-    /**
-     * Dismiss the notification
-     *
-     * @param notificationId the id of the notification
-     */
-    private fun dismissNotification(context: Context, notificationId: Int) {
-        context.cancelNotification(notificationId)
-    }
-
-    /**
-     * Called to start share intent to share image
-     *
-     * @param context context of application
-     * @param uri path of file
-     */
-    private fun shareImage(context: Context, uri: Uri) {
-        context.startActivity(uri.toShareIntent(context))
     }
 
     /**
@@ -231,15 +198,6 @@ class NotificationReceiver : BroadcastReceiver() {
         context.cancelNotification(Notifications.ID_QUICK_MIGRATE_PROGRESS)
     }
 
-    private fun startDownloadAppUpdate(context: Context, intent: Intent) {
-        val url = intent.getStringExtra(AppUpdateDownloadJob.EXTRA_DOWNLOAD_URL) ?: return
-        AppUpdateDownloadJob.start(context, url)
-    }
-
-    private fun cancelDownloadAppUpdate(context: Context) {
-        AppUpdateDownloadJob.stop(context)
-    }
-
     /**
      * Method called when user wants to mark manga chapters as read
      *
@@ -293,8 +251,6 @@ class NotificationReceiver : BroadcastReceiver() {
     companion object {
         private const val NAME = "NotificationReceiver"
 
-        private const val ACTION_SHARE_IMAGE = "$ID.$NAME.SHARE_IMAGE"
-
         private const val ACTION_SHARE_BACKUP = "$ID.$NAME.SEND_BACKUP"
 
         private const val ACTION_CANCEL_RESTORE = "$ID.$NAME.CANCEL_RESTORE"
@@ -307,9 +263,6 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_CANCEL_MIGRATION = "$ID.$NAME.CANCEL_MIGRATION"
         private const val ACTION_CANCEL_QUICK_MIGRATE = "$ID.$NAME.CANCEL_QUICK_MIGRATE"
 
-        private const val ACTION_START_APP_UPDATE = "$ID.$NAME.ACTION_START_APP_UPDATE"
-        private const val ACTION_CANCEL_APP_UPDATE_DOWNLOAD = "$ID.$NAME.CANCEL_APP_UPDATE_DOWNLOAD"
-
         private const val ACTION_MARK_AS_READ = "$ID.$NAME.MARK_AS_READ"
         private const val ACTION_OPEN_CHAPTER = "$ID.$NAME.ACTION_OPEN_CHAPTER"
         private const val ACTION_DOWNLOAD_CHAPTER = "$ID.$NAME.ACTION_DOWNLOAD_CHAPTER"
@@ -319,8 +272,6 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_RESUME_DOWNLOADS = "$ID.$NAME.ACTION_RESUME_DOWNLOADS"
         private const val ACTION_PAUSE_DOWNLOADS = "$ID.$NAME.ACTION_PAUSE_DOWNLOADS"
         private const val ACTION_CLEAR_DOWNLOADS = "$ID.$NAME.ACTION_CLEAR_DOWNLOADS"
-
-        private const val ACTION_DISMISS_NOTIFICATION = "$ID.$NAME.ACTION_DISMISS_NOTIFICATION"
 
         private const val EXTRA_URI = "$ID.$NAME.URI"
         private const val EXTRA_NOTIFICATION_ID = "$ID.$NAME.NOTIFICATION_ID"
@@ -416,26 +367,6 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param notificationId id of notification
          * @return [PendingIntent]
          */
-        internal fun dismissNotificationPendingBroadcast(context: Context, notificationId: Int): PendingIntent {
-            val intent = Intent(context, NotificationReceiver::class.java).apply {
-                action = ACTION_DISMISS_NOTIFICATION
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            }
-            return PendingIntent.getBroadcast(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
-
-        /**
-         * Returns [PendingIntent] that starts a service which dismissed the notification
-         *
-         * @param context context of application
-         * @param notificationId id of notification
-         * @return [PendingIntent]
-         */
         internal fun dismissNotification(context: Context, notificationId: Int, groupId: Int? = null) {
             /*
             Group notifications always have at least 2 notifications:
@@ -463,27 +394,6 @@ class NotificationReceiver : BroadcastReceiver() {
             }
 
             context.cancelNotification(notificationId)
-        }
-
-        /**
-         * Returns [PendingIntent] that starts a share activity
-         *
-         * @param context context of application
-         * @param uri location path of file
-         * @param notificationId id of notification
-         * @return [PendingIntent]
-         */
-        internal fun shareImagePendingBroadcast(context: Context, uri: Uri): PendingIntent {
-            val intent = Intent(context, NotificationReceiver::class.java).apply {
-                action = ACTION_SHARE_IMAGE
-                putExtra(EXTRA_URI, uri.toString())
-            }
-            return PendingIntent.getBroadcast(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
         }
 
         /**
@@ -667,39 +577,6 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelQuickMigratePendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_QUICK_MIGRATE
-            }
-            return PendingIntent.getBroadcast(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
-
-        /**         * Returns [PendingIntent] that starts the [AppUpdateDownloadJob] to download an app update.
-         *
-         * @param context context of application
-         * @return [PendingIntent]
-         */
-        internal fun downloadAppUpdatePendingBroadcast(context: Context, url: String): PendingIntent {
-            return Intent(context, NotificationReceiver::class.java).run {
-                action = ACTION_START_APP_UPDATE
-                putExtra(AppUpdateDownloadJob.EXTRA_DOWNLOAD_URL, url)
-                PendingIntent.getBroadcast(
-                    context,
-                    0,
-                    this,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                )
-            }
-        }
-
-        /**
-         *
-         */
-        internal fun cancelDownloadAppUpdatePendingBroadcast(context: Context): PendingIntent {
-            val intent = Intent(context, NotificationReceiver::class.java).apply {
-                action = ACTION_CANCEL_APP_UPDATE_DOWNLOAD
             }
             return PendingIntent.getBroadcast(
                 context,

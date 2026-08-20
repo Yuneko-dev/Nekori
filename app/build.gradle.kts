@@ -281,11 +281,8 @@ dependencies {
     implementation(libs.androidx.appCompat)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
-    implementation(libs.androidx.constraintLayout)
     implementation(libs.androidx.core)
     implementation(libs.androidx.coreSplashScreen)
-    implementation(libs.androidx.recyclerView)
-    implementation(libs.androidx.viewPager)
     implementation(libs.androidx.profileInstaller)
 
     implementation(libs.bundles.androidx.lifecycle)
@@ -323,7 +320,6 @@ dependencies {
 
     // UI libraries
     implementation(libs.material)
-    implementation(libs.flexibleAdapter)
     implementation(libs.composeRichEditor)
     implementation(libs.aboutLibraries.compose)
     implementation(libs.bundles.voyager)

@@ -78,8 +78,6 @@ class TrackPreferences(
         "[]",
     )
 
-    val novelUpdatesLastListRefresh: Preference<Long> = preferenceStore.getLong("novelupdates_last_list_refresh", 0L)
-
     // NovelList Settings
     val novelListMarkChaptersAsRead: Preference<Boolean> = preferenceStore.getBoolean(
         "novellist_mark_chapters_read",

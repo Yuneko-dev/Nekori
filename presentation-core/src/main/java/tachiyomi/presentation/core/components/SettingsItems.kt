@@ -95,21 +95,6 @@ fun HeadingItem(text: String) {
 }
 
 @Composable
-fun IconItem(label: String, icon: ImageVector, onClick: () -> Unit) {
-    BaseSettingsItem(
-        label = label,
-        widget = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        onClick = onClick,
-    )
-}
-
-@Composable
 fun SortItem(label: String, sortDescending: Boolean?, onClick: () -> Unit) {
     val arrowIcon = when (sortDescending) {
         true -> Icons.Default.ArrowDownward
@@ -179,93 +164,6 @@ fun RadioItem(label: String, selected: Boolean, onClick: () -> Unit) {
         },
         onClick = onClick,
     )
-}
-
-@Composable
-fun <T> RadioSelectItem(
-    label: String,
-    options: List<Pair<String, T>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    defaultValue: T? = null,
-) {
-    var showDialog by remember { mutableStateOf(false) }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(label) },
-            text = {
-                Column {
-                    options.forEach { (optionLabel, value) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelect(value)
-                                    showDialog = false
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            RadioButton(
-                                selected = selected == value,
-                                onClick = {
-                                    onSelect(value)
-                                    showDialog = false
-                                },
-                            )
-                            Text(
-                                text = optionLabel,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                Row {
-                    if (defaultValue != null) {
-                        TextButton(onClick = {
-                            onSelect(defaultValue)
-                            showDialog = false
-                        }) {
-                            Text("Default")
-                        }
-                    }
-                    TextButton(onClick = { showDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            },
-        )
-    }
-
-    Row(
-        modifier = Modifier
-            .clickable { showDialog = true }
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = options.find { it.second == selected }?.first ?: "",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.End,
-        )
-    }
 }
 
 @Composable

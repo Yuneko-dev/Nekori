@@ -4,8 +4,6 @@ import eu.kanade.domain.source.model.FilterPreset
 import eu.kanade.domain.source.model.FilterPresetList
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.model.FilterList
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -25,11 +23,6 @@ class ManageFilterPresets(
     fun getPresets(sourceId: Long): FilterPresetList {
         val presets = preferences.filterPresets(sourceId).get()
         return presets
-    }
-
-    fun getPresetsFlow(sourceId: Long): Flow<List<FilterPreset>> {
-        return preferences.filterPresets(sourceId).changes()
-            .map { it.presets }
     }
 
     fun savePreset(

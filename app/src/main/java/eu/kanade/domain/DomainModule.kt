@@ -4,7 +4,6 @@ import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.download.interactor.DeleteDownload
-import eu.kanade.domain.extension.interactor.GetExtensionLanguages
 import eu.kanade.domain.extension.interactor.GetExtensionSources
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
 import eu.kanade.domain.extension.interactor.TrustExtension
@@ -85,7 +84,6 @@ import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.history.repository.ReadingSessionRepository
-import tachiyomi.domain.library.interactor.RefreshLibraryCache
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.FindDuplicateNovels
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
@@ -145,8 +143,6 @@ class DomainModule : InjektModule {
         addFactory { GetFavoritesEntry(get()) }
         // Singleton so all screens share the same cached SharedFlow for library queries
         addSingletonFactory { GetLibraryManga(get(), get()) }
-        // Singleton for library cache management
-        addSingletonFactory { RefreshLibraryCache(get()) }
         addFactory { GetMangaWithChapters(get(), get()) }
         addFactory { GetMangaByUrlAndSourceId(get()) }
         addFactory { GetManga(get()) }
@@ -214,8 +210,6 @@ class DomainModule : InjektModule {
 
         addFactory { GetExtensionsByType(get(), get()) }
         addFactory { GetExtensionSources(get()) }
-        addFactory { GetExtensionLanguages(get(), get(), get()) }
-
         addSingletonFactory<UpdatesRepository> { UpdatesRepositoryImpl(get()) }
         addFactory { GetUpdates(get()) }
         addFactory { ClearUpdatesCache(get()) }

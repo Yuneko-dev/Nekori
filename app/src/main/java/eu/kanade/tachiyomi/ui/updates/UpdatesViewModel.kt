@@ -38,7 +38,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -53,11 +52,9 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.updates.interactor.ClearUpdatesCache
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.domain.updates.service.UpdatesPreferences
-import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Clock
@@ -94,7 +91,6 @@ class UpdatesViewModel(
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val setReadStatus: SetReadStatus = Injekt.get(),
     private val getUpdates: GetUpdates = Injekt.get(),
-    private val clearUpdatesCache: ClearUpdatesCache = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
@@ -529,14 +525,6 @@ class UpdatesViewModel(
         val newValue = !state.value.groupByNovel
         mutableState.update { it.copy(groupByNovel = newValue) }
         libraryPreferences.updatesGroupByNovel.set(newValue)
-    }
-
-    fun clearUpdatesCacheAll() {
-        viewModelScope.launchIO {
-            clearUpdatesCache.clearAll()
-            val context = Injekt.get<Application>()
-            snackbarHostState.showSnackbar(context.stringResource(TDMR.strings.updates_cache_cleared))
-        }
     }
 
     /**

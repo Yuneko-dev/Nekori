@@ -856,35 +856,6 @@ class TranslationService(
     }
 
     /**
-     * Translate text using the configured engine.
-     */
-    suspend fun translateText(
-        text: String,
-        sourceLanguage: String = translationPreferences.sourceLanguage().get(),
-        targetLanguage: String = translationPreferences.targetLanguage().get(),
-    ): TranslationResult {
-        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
-            ?: return TranslationResult.Error("No translation engine available")
-
-        logcat(LogPriority.DEBUG) {
-            "Translation: sending ${text.length} chars via ${engine.name} ($sourceLanguage → $targetLanguage)"
-        }
-        val result = translationEngineManager.translate(
-            TranslationPurpose.CHAPTER,
-            TranslationRequest(listOf(text), sourceLanguage, targetLanguage),
-        )
-        when (result) {
-            is TranslationResult.Success -> logcat(LogPriority.DEBUG) {
-                "Translation: received ${result.translatedTexts.firstOrNull()?.length ?: 0} chars"
-            }
-            is TranslationResult.Error -> logcat(LogPriority.WARN) {
-                "Translation: engine error — ${result.message}"
-            }
-        }
-        return result
-    }
-
-    /**
      * Translate chapter content in real-time (for reader).
      * Translates the same HTML fragments as LNReader and writes them back into the original DOM.
      * Saves translations to database for future use.

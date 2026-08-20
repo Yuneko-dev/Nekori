@@ -223,28 +223,9 @@ class QuoteManager(private val context: Context) {
         return loadQuotes(sourceName, novelTitle)
     }
 
-    /**
-     * Clear all quotes for a novel
-     */
-    fun clearQuotes(sourceName: String, novelTitle: String) = withNovelLock(sourceName, novelTitle) {
-        val file = getQuotesFile(sourceName, novelTitle)
-        if (file?.exists() == true) {
-            file.delete()
-        }
-        deletePendingTmp(sourceName, novelTitle)
-        Unit
-    }
-
     private fun deletePendingTmp(sourceName: String, novelTitle: String) {
         val dir = findSourceDir(sourceName) ?: return
         dir.findFile("${getNovelFileName(novelTitle)}.tmp")?.takeIf { it.exists() }?.delete()
-    }
-
-    /**
-     * Get quote count for a novel
-     */
-    fun getQuoteCount(sourceName: String, novelTitle: String): Int {
-        return loadQuotes(sourceName, novelTitle).size
     }
 
     /**

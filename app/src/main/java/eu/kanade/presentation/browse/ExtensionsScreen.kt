@@ -42,14 +42,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.browse.components.ExtensionIcon
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.manga.components.DotSeparatorNoSpaceText
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
@@ -85,11 +82,9 @@ fun ExtensionScreen(
     onOpenExtension: (Extension) -> Unit,
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
-    onEmptyReposAction: (() -> Unit)? = null,
+    onEmptyReposAction: () -> Unit,
     emptyReposLabel: StringResource = MR.strings.extensionStores,
 ) {
-    val navigator = LocalNavigator.currentOrThrow
-
     PullRefresh(
         refreshing = state.isRefreshing,
         onRefresh = onRefresh,
@@ -110,7 +105,7 @@ fun ExtensionScreen(
                         EmptyScreenAction(
                             stringRes = emptyReposLabel,
                             icon = Icons.Outlined.Settings,
-                            onClick = onEmptyReposAction ?: { navigator.push(ExtensionStoresScreen()) },
+                            onClick = onEmptyReposAction,
                         ),
                     ),
                 )

@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -13,7 +12,6 @@ import logcat.logcat
 import okhttp3.OkHttpClient
 import tachiyomi.tts.tiktok.TikTokTtsEngine
 import tachiyomi.tts.tiktok.TikTokVoiceCatalog
-import tachiyomi.tts.tiktok.displayName
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -27,7 +25,6 @@ class TtsController(
 
     interface Callbacks {
         fun onInitialized(pendingRequest: StartRequest?)
-        fun getCurrentPage(): ReaderPage?
         fun onHighlightChunk(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int)
         fun onClearHighlights()
         fun onLastChunkDone()
@@ -186,15 +183,6 @@ class TtsController(
     }
 
     private fun utteranceId(chunkIndex: Int) = "$UTTERANCE_PREFIX$playbackGeneration:$chunkIndex"
-
-    /**
-     * Shift the cached playback chapter index when chapters are removed from the front of the
-     * loaded queue (TTS chapter trimming). [ttsPlaybackChapterId] is unaffected, so id-based
-     * lookups stay correct regardless. Floors at 0.
-     */
-    fun shiftPlaybackChapterIndex(removedFromFront: Int) {
-        ttsPlaybackChapterIndex = (ttsPlaybackChapterIndex - removedFromFront).coerceAtLeast(0)
-    }
 
     fun speak(text: String, chapterIndex: Int = 0, chapterId: Long? = null) {
         val engineUnavailable = if (usesTikTok()) tikTokTts == null else tts == null
@@ -415,20 +403,6 @@ class TtsController(
             engine.setPitch(preferences.novelTtsPitch.get())
         }
     }
-
-    fun getAvailableVoices(): List<Pair<String, String>> =
-        if (usesTikTok()) {
-            TikTokVoiceCatalog.voices.map { voice ->
-                voice.id to voice.displayName()
-            }
-        } else {
-            tts?.voices?.map { voice ->
-                Pair(voice.name, "${voice.locale.displayLanguage} (${voice.name})")
-            }?.sortedBy { it.second } ?: emptyList()
-        }
-
-    fun getCurrentVoiceName(): String =
-        if (usesTikTok()) selectedTikTokVoice() else tts?.voice?.name ?: preferences.novelTtsVoice.get()
 
     fun onEngineChanged() {
         stop()
