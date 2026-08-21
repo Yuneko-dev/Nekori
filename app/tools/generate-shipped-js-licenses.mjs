@@ -15,23 +15,15 @@ for (let index = 2; index < process.argv.length; index += 2) {
 const metroSourcemap = requiredArg("--metro-sourcemap");
 const licenseTemplate = requiredArg("--license-template");
 const outputFile = requiredArg("--output");
-const temporaryVideoInputs = path.join(
-  path.dirname(outputFile),
-  "video-license-inputs.json",
-);
-console.log(`Generating shipped JS licenses to ${outputFile}`);
 const jsRuntimeDir = path.join(rootDir, "js-runtime");
 const videoBundleDir = path.join(rootDir, "app", "tools", "videojs-bundle");
+const videoLibrariesCache = path.join(videoBundleDir, "shipped-libraries.json");
 
 await mkdir(path.dirname(outputFile), { recursive: true });
-await collectVideoInputs();
 
 const packageDirectories = new Set([
   ...packageDirectoriesFromSources(
     JSON.parse(await readFile(metroSourcemap, "utf8")).sources,
-  ),
-  ...packageDirectoriesFromVideoInputs(
-    JSON.parse(await readFile(temporaryVideoInputs, "utf8")),
   ),
 ]);
 
@@ -42,9 +34,11 @@ for (const library of await Promise.all(
   packageRecords.set(library.uniqueId, library);
 }
 
-const libraries = [...packageRecords.values(), ...customLibrary()].sort(
-  (first, second) => first.name.localeCompare(second.name),
-);
+const libraries = [
+  ...packageRecords.values(),
+  ...(await readVideoLibraries()),
+  ...customLibrary(),
+].sort((first, second) => first.name.localeCompare(second.name));
 const licenseIds = new Set(libraries.flatMap((library) => library.licenses));
 const nativeLicenses = JSON.parse(
   await readFile(licenseTemplate, "utf8"),
@@ -71,7 +65,6 @@ const licenses = Object.fromEntries(
 
 validateOutput(libraries, licenses);
 await writeFile(outputFile, JSON.stringify({ libraries, licenses }));
-await rm(temporaryVideoInputs, { force: true });
 
 function requiredArg(name) {
   const value = args.get(name);
@@ -79,14 +72,34 @@ function requiredArg(name) {
   return path.resolve(value);
 }
 
-function collectVideoInputs() {
+async function readVideoLibraries() {
+  try {
+    return JSON.parse(await readFile(videoLibrariesCache, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  const temporaryInputs = path.join(
+    path.dirname(outputFile),
+    "video-license-inputs.json",
+  );
   const result = spawnSync(
     process.execPath,
-    ["build.mjs", "--check", "--license-inputs", temporaryVideoInputs],
+    ["build.mjs", "--check", "--license-inputs", temporaryInputs],
     { cwd: videoBundleDir, stdio: "inherit" },
   );
   if (result.status !== 0)
     throw new Error("Could not inspect Video.js bundle inputs");
+
+  const directories = packageDirectoriesFromVideoInputs(
+    JSON.parse(await readFile(temporaryInputs, "utf8")),
+  );
+  const libraries = await Promise.all(
+    [...new Set(directories)].map(readPackage),
+  );
+  await writeFile(videoLibrariesCache, JSON.stringify(libraries));
+  await rm(temporaryInputs, { force: true });
+  return libraries;
 }
 
 function packageDirectoriesFromSources(sources) {
