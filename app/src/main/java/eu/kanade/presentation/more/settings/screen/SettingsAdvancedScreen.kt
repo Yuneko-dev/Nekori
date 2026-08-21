@@ -4,6 +4,7 @@ package eu.kanade.presentation.more.settings.screen
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
 import android.webkit.WebStorage
@@ -46,6 +47,7 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.NovelWebViewNetworkMode
@@ -143,6 +145,16 @@ object SettingsAdvancedScreen : SearchableSettings {
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_debug_info),
                 onClick = { navigator.push(DebugInfoScreen()) },
+            ),
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(TDMR.strings.pref_restart_app),
+                subtitle = stringResource(TDMR.strings.pref_restart_app_summary),
+                onClick = {
+                    context.startActivity(
+                        Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java)),
+                    )
+                    Runtime.getRuntime().exit(0)
+                },
             ),
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_onboarding_guide),

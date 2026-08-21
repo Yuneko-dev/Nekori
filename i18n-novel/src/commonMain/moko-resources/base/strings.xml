@@ -1349,4 +1349,7 @@
 
     <!-- Crash log util (wave 4) -->
     <string name="crash_log_toast_failed">Failed to get logs</string>
+    <!-- Advanced settings: app restart -->
+    <string name="pref_restart_app">Restart app</string>
+    <string name="pref_restart_app_summary">Restart the app to recover a stuck or unresponsive JS Engine</string>
 </resources>

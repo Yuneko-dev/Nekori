@@ -1347,4 +1347,7 @@
     <string name="quick_migrate_skip_message">%1$d truyện sẽ bị bỏ qua (đã tồn tại ở nguồn đích)</string>
     <string name="translation_all_downloaded_already_translated">Tất cả chương đã tải đều đã được dịch</string>
     <string name="translation_selected_already_translated">Các chương đã chọn đều đã được dịch</string>
+    <!-- Cài đặt nâng cao: khởi động lại ứng dụng -->
+    <string name="pref_restart_app">Khởi động lại ứng dụng</string>
+    <string name="pref_restart_app_summary">Khởi động lại ứng dụng để khắc phục JS Engine bị treo hoặc không phản hồi</string>
 </resources>
