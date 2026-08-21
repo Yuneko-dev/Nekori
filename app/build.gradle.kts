@@ -3,9 +3,58 @@ import mihon.gradle.getBuildTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
 import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
 import java.io.FileInputStream
 import java.util.Properties
+import javax.inject.Inject
 import kotlin.io.encoding.Base64
+
+abstract class GenerateShippedJsLicenses @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    init {
+        doNotTrackState("The generator reads the current JavaScript package trees.")
+    }
+
+    @get:InputFile
+    abstract val metroSourcemap: RegularFileProperty
+
+    @get:InputFile
+    abstract val generatorScript: RegularFileProperty
+
+    @get:InputFile
+    abstract val licenseTemplate: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                generatorScript.get().asFile.absolutePath,
+                "--metro-sourcemap",
+                metroSourcemap.get().asFile.absolutePath,
+                "--license-template",
+                licenseTemplate.get().asFile.absolutePath,
+                "--output",
+                outputDir.file("raw/aboutlibraries_js.json").get().asFile.absolutePath,
+            )
+        }
+    }
+}
 
 plugins {
     alias(mihonx.plugins.android.application)
@@ -360,6 +409,23 @@ androidComponents {
         val resSource = variant.sources.res ?: return@onVariants
 
         val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val generatedLicensesDir = layout.buildDirectory.dir("generated/shipped-js-licenses/${variant.name}")
+        val generateShippedJsLicensesTask = tasks.register<GenerateShippedJsLicenses>(
+            "generate${variantName}ShippedJsLicenses",
+        ) {
+            dependsOn("createBundle${variantName}JsAndAssets", "prepareLibraryDefinitions$variantName")
+            metroSourcemap.set(
+                layout.buildDirectory.file("generated/sourcemaps/react/${variant.name}/index.android.bundle.map"),
+            )
+            generatorScript.set(rootProject.layout.projectDirectory.file("app/tools/generate-shipped-js-licenses.mjs"))
+            licenseTemplate.set(
+                layout.buildDirectory.file("generated/aboutLibraries/${variant.name}/res/raw/aboutlibraries.json"),
+            )
+            outputDir.set(generatedLicensesDir)
+            workingDirectory.set(rootProject.layout.projectDirectory)
+        }
+        resSource.addGeneratedSourceDirectory(generateShippedJsLicensesTask) { it.outputDir }
+
         val replaceShortcutsPlaceholderTask = tasks.register<ReplaceShortcutsPlaceholderTask>(
             "replace${variantName}ShortcutPlaceholder",
         ) {

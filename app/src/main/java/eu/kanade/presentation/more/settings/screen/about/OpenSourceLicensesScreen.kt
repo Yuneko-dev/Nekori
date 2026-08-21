@@ -30,9 +30,17 @@ class OpenSourceLicensesScreen : Screen() {
                 )
             },
         ) { contentPadding ->
-            val libraries by produceLibraries(R.raw.aboutlibraries)
+            val nativeLibraries by produceLibraries(R.raw.aboutlibraries)
+            val jsLibraries by produceLibraries(R.raw.aboutlibraries_js)
             LibrariesContainer(
-                libraries = libraries,
+                libraries = nativeLibraries?.let { native ->
+                    jsLibraries?.let { js ->
+                        native.copy(
+                            libraries = (native.libraries + js.libraries).sortedBy { it.name.lowercase() },
+                            licenses = native.licenses + js.licenses,
+                        )
+                    } ?: native
+                },
                 modifier = Modifier
                     .fillMaxSize(),
                 contentPadding = contentPadding,

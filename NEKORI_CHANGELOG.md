@@ -25,6 +25,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Novel extension management: install, update, delete, repository handling, plugin details and install state.
 - Plugin identity and metadata derived from the installed code by the runtime rather than by parsing source text.
 - A Settings → Advanced action to restart the app process and recover a stuck JS engine.
+- The native Open Source Licenses screen now includes JavaScript packages actually shipped by the Hermes and WebView bundles.
 
 #### Reader
 - Paged and volume novel navigation.

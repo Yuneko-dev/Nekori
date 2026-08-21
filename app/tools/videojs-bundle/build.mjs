@@ -9,6 +9,12 @@ const toolDir = path.dirname(fileURLToPath(import.meta.url));
 const assetDir = path.resolve(toolDir, "../../src/main/assets/novel-reader");
 const sourceDir = path.join(toolDir, "src");
 const checkOnly = process.argv.includes("--check");
+const licenseInputsIndex = process.argv.indexOf("--license-inputs");
+const licenseInputsPath = licenseInputsIndex < 0 ? null : process.argv[licenseInputsIndex + 1];
+
+if (licenseInputsIndex >= 0 && !licenseInputsPath) {
+  throw new Error("--license-inputs requires an output path");
+}
 
 await mkdir(assetDir, { recursive: true });
 
@@ -98,6 +104,16 @@ const forbiddenInputs = [...bundledInputs].filter(
 );
 if (forbiddenInputs.length) {
   throw new Error(`Forbidden Video.js bundle code:\n${forbiddenInputs.map(([input]) => input).join("\n")}`);
+}
+if (licenseInputsPath) {
+  await writeFile(
+    path.resolve(licenseInputsPath),
+    JSON.stringify(
+      [...bundledInputs].map(([input, bytes]) => ({ input, bytes })),
+      null,
+      2,
+    ),
+  );
 }
 
 const playerOutput = checkOnly
