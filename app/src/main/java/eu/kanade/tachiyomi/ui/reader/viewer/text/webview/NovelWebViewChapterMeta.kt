@@ -87,6 +87,81 @@ internal object NovelWebViewChapterMeta {
         return sb.toString()
     }
 
+    /**
+     * Inverse of [quoteForJson]: decodes a JSON string literal (as handed back by
+     * `evaluateJavascript`, quotes included) into the raw text.
+     *
+     * Walks the string once, consuming each backslash escape together with the character
+     * after it. Sequential global replaces (e.g. `.replace("\\n", "\n")` after `.replace("\\\\",
+     * "\\")`) can't tell a real `\n` escape apart from an escaped literal backslash followed by
+     * the letter n - both collapse to the same two characters after the backslash-unescape pass,
+     * so a page using "\" as text obfuscation would have it misread as a newline.
+     */
+    fun unescapeJsResult(result: String): String {
+        if (!(result.startsWith("\"") && result.endsWith("\""))) return result
+        val inner = result.substring(1, result.length - 1)
+        val sb = StringBuilder(inner.length)
+        var i = 0
+        while (i < inner.length) {
+            val c = inner[i]
+            if (c == '\\' && i + 1 < inner.length) {
+                when (inner[i + 1]) {
+                    '\\' -> {
+                        sb.append('\\')
+                        i += 2
+                    }
+                    'n' -> {
+                        sb.append('\n')
+                        i += 2
+                    }
+                    't' -> {
+                        sb.append('\t')
+                        i += 2
+                    }
+                    'r' -> {
+                        sb.append('\r')
+                        i += 2
+                    }
+                    '"' -> {
+                        sb.append('"')
+                        i += 2
+                    }
+                    '/' -> {
+                        sb.append('/')
+                        i += 2
+                    }
+                    'b' -> {
+                        sb.append('\b')
+                        i += 2
+                    }
+                    'f' -> {
+                        sb.append('\u000C')
+                        i += 2
+                    }
+                    'u' -> {
+                        val hex = inner.substring(i + 2, minOf(i + 6, inner.length))
+                        val code = hex.takeIf { it.length == 4 }?.toIntOrNull(16)
+                        if (code != null) {
+                            sb.append(code.toChar())
+                            i += 6
+                        } else {
+                            sb.append(c)
+                            i += 1
+                        }
+                    }
+                    else -> {
+                        sb.append(c)
+                        i += 1
+                    }
+                }
+            } else {
+                sb.append(c)
+                i += 1
+            }
+        }
+        return sb.toString()
+    }
+
     fun toAbsoluteChapterUrl(chapterPath: String?, novelUrl: String?): String {
         val normalized = HtmlUtils.normalizeUrl(chapterPath).orEmpty().trim()
         if (normalized.isBlank()) return ""

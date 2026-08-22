@@ -12,10 +12,25 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 ### Improved
+- Add option to clear only error-free completed massimport batches [@mrissaoussama](https://github.com/mrissaoussama) [#402](https://github.com/tsundoku-otaku/tsundoku/pull/402)
+
+
+### Fixed
+- Library sort by last read now updates after reading [@mrissaoussama](https://github.com/mrissaoussama) [#400](https://github.com/tsundoku-otaku/tsundoku/pull/400)
+- Double-tapping browse now does novel search if manga UI hidden [@mrissaoussama](https://github.com/mrissaoussama) [#401](https://github.com/tsundoku-otaku/tsundoku/pull/401)
+- Clarified UI text on text-selectable option [@mrissaoussama](https://github.com/mrissaoussama) [#403](https://github.com/tsundoku-otaku/tsundoku/pull/403)
+- Fix novel theme preference showing null [@mrissaoussama](https://github.com/mrissaoussama) [#404](https://github.com/tsundoku-otaku/tsundoku/pull/404)
+- Fix TTS highlight outline getting clipped in WebView reader [@mrissaoussama](https://github.com/mrissaoussama) [#406](https://github.com/tsundoku-otaku/tsundoku/pull/406)
+- Globally throttle notification updates for massimport across batches [@mrissaoussama](https://github.com/mrissaoussama) [#407](https://github.com/tsundoku-otaku/tsundoku/pull/407)
+- Fix JS result unescaping misreading obfuscated backslashes as escapes [@mrissaoussama](https://github.com/mrissaoussama) [#405](https://github.com/tsundoku-otaku/tsundoku/pull/405)
+
+## [v0.3.2] - 2026-08-21
+### Improved
 - Support tsundoku:// extension stores [@Rojikku](https://github.com/Rojikku) [#397](https://github.com/tsundoku-otaku/tsundoku/pull/397)
 
 ### Fixed
 - Crash fixes: Theme fallback, incompatible extensions [@Rojikku](https://github.com/Rojikku) [#398](https://github.com/tsundoku-otaku/tsundoku/pull/398)
+- Duplicate scan total groups cap OOM [@mrissaoussama](https://github.com/mrissaoussama) [#396](https://github.com/tsundoku-otaku/tsundoku/pull/396)
 
 ## [v0.3.1] - 2026-08-14
 ### Improved
@@ -361,7 +376,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - **Browse Screen Enhancements**: Jump-to-page, page range loading, back confirmation
 
 
-[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.0...main
+[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.1...main
+[v0.3.2]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.1...v0.3.2
+[v0.3.1]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.1.4...v0.2.0
 [v0.1.4]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.1.3...v0.1.4

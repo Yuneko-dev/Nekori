@@ -92,8 +92,9 @@
     <string name="mass_import_cd_add_to_pending">Add to pending</string>
     <string name="mass_import_add_to_queue">Add to Queue</string>
     <string name="mass_import_confirm_clear_completed_title">Clear completed batches?</string>
-    <string name="mass_import_confirm_clear_completed_message">This will remove all completed and cancelled batches from the queue.</string>
+    <string name="mass_import_confirm_clear_completed_message">Choose whether to remove only completed batches without errors, or all completed and cancelled batches from the queue.</string>
     <string name="mass_import_button_clear">Clear</string>
+    <string name="mass_import_button_clear_no_errors">Clear without errors</string>
     <string name="mass_import_confirm_clear_pending_title">Clear pending URLs?</string>
     <string name="mass_import_confirm_clear_pending_message">This will remove all pending URLs from the input field.</string>
     <string name="mass_import_confirm_cancel_all_title">Cancel all import batches?</string>
@@ -1047,8 +1048,8 @@
     <string name="settings_reader_hide_chapter_title_summary">Strip chapter title from content</string>
     <string name="settings_reader_block_media_title">Block media</string>
     <string name="settings_reader_block_media_summary">Block images and media loading in both readers</string>
-    <string name="settings_reader_text_selectable_title">Text selectable (WebView)</string>
-    <string name="settings_reader_text_selectable_summary">Allow selecting and copying text in the WebView reader</string>
+    <string name="settings_reader_text_selectable_title">Text selectable</string>
+    <string name="settings_reader_text_selectable_summary">Allow selecting and copying text in the reader</string>
     <string name="settings_reader_source_css_priority_title">Source CSS priority</string>
     <string name="settings_reader_source_css_priority_summary">Allow embedded/source CSS to override reader theme colors</string>
     <string name="settings_reader_tts_speed_title">TTS speed</string>

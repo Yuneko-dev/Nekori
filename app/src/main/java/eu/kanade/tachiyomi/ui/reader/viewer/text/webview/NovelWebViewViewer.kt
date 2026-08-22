@@ -81,6 +81,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_CHAPTER_ATTR
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.unescapeJsResult
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.proxy.NovelReaderProxyServer
 import eu.kanade.tachiyomi.util.system.setUserAgent
 import eu.kanade.tachiyomi.util.system.toast
@@ -190,18 +191,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     .join('\n');
             })();
         """
-
-        fun unescapeJsResult(result: String): String =
-            if (result.startsWith("\"") && result.endsWith("\"")) {
-                // \\ must come first so \\n stays as backslash+n rather than becoming a newline.
-                result.substring(1, result.length - 1)
-                    .replace("\\\\", "\\")
-                    .replace("\\n", "\n")
-                    .replace("\\t", "\t")
-                    .replace("\\\"", "\"")
-            } else {
-                result
-            }
     }
 
     private val container = FrameLayout(activity)
@@ -610,7 +599,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     state.styleEl.textContent =
                         '.td-tts-highlight-bg{background:var(--td-tts-highlight-bg)!important;color:var(--td-tts-highlight-text)!important;border-radius:6px;padding:0 .2em;}' +
                         '.td-tts-highlight-underline{text-decoration:underline 2px var(--td-tts-highlight-bg)!important;text-underline-offset:0.2em;}' +
-                        '.td-tts-highlight-outline{outline:2px solid var(--td-tts-highlight-bg)!important;outline-offset:2px;border-radius:8px;padding:0 .2em;}' ;
+                        '.td-tts-highlight-outline{outline:2px solid var(--td-tts-highlight-bg)!important;outline-offset:2px;border-radius:8px;padding:0 .2em;}' +
+                        '$CHAPTER_TAG_NAME:has(.td-tts-highlight-outline){contain:layout style;}' ;
                     document.head.appendChild(state.styleEl);
                 }
 

@@ -914,8 +914,8 @@
     <string name="settings_reader_hide_chapter_title_summary">Loại bỏ tiêu đề chương khỏi nội dung</string>
     <string name="settings_reader_block_media_title">Chặn nội dung đa phương tiện</string>
     <string name="settings_reader_block_media_summary">Chặn tải ảnh và nội dung đa phương tiện ở cả hai trình đọc</string>
-    <string name="settings_reader_text_selectable_title">Cho phép chọn văn bản (WebView)</string>
-    <string name="settings_reader_text_selectable_summary">Cho phép chọn và sao chép văn bản trong trình đọc WebView</string>
+    <string name="settings_reader_text_selectable_title">Cho phép chọn văn bản</string>
+    <string name="settings_reader_text_selectable_summary">Cho phép chọn và sao chép văn bản trong trình đọc</string>
     <string name="settings_reader_source_css_priority_title">Ưu tiên CSS nguồn</string>
     <string name="settings_reader_source_css_priority_summary">Cho phép CSS nhúng/nguồn ghi đè màu chủ đề trình đọc</string>
     <string name="settings_reader_tts_speed_title">Tốc độ TTS</string>
