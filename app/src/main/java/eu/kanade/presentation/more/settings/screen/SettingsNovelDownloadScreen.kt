@@ -297,8 +297,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = requestDelay,
-                    valueRange = 0..120000,
-                    steps = 1000,
+                    valueRange = 0..120000 step 1000,
                     title = stringResource(TDMR.strings.pref_novel_request_delay),
                     subtitle = stringResource(TDMR.strings.pref_novel_request_delay_summary) + lowDelayWarning,
                     valueString = "${requestDelay}ms",
@@ -307,8 +306,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = requestJitter,
-                    valueRange = 0..10000,
-                    steps = 1000,
+                    valueRange = 0..10000 step 1000,
                     title = stringResource(TDMR.strings.pref_novel_request_jitter),
                     subtitle = stringResource(TDMR.strings.pref_novel_request_jitter_summary),
                     valueString = "0-${requestJitter}ms",
@@ -394,7 +392,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = maxSizeKb,
-                    valueRange = 0..2000,
+                    valueRange = 0..2000 step 100,
                     title = stringResource(TDMR.strings.pref_novel_max_image_size),
                     subtitle = stringResource(TDMR.strings.pref_novel_max_image_size_summary),
                     valueString = if (maxSizeKb == 0) stringResource(TDMR.strings.no_limit) else "${maxSizeKb}KB",
@@ -403,7 +401,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = compressionQuality,
-                    valueRange = 10..100,
+                    valueRange = 10..100 step 5,
                     title = stringResource(TDMR.strings.pref_novel_image_quality),
                     subtitle = stringResource(TDMR.strings.pref_novel_image_quality_summary),
                     valueString = "$compressionQuality%",
