@@ -4,6 +4,7 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import logcat.LogPriority
 import mihon.core.archive.ArchiveReader
+import mihon.core.archive.NOVEL_IMAGE_SCHEME
 import mihon.core.archive.rewriteResolvedAssetRefs
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -94,9 +95,7 @@ class ChapterContentReader(
             source,
         ) ?: return null
 
-        val isCbz = chapterDirOrCbz.name?.let { it.endsWith(".cbz") || it.endsWith(".zip") } == true
-
-        return if (isCbz) {
+        return if (chapterDirOrCbz.name.isArchiveFile()) {
             readContentFromCbz(chapterDirOrCbz)
         } else {
             readContentFromDirectory(chapterDirOrCbz)
@@ -114,7 +113,7 @@ class ChapterContentReader(
     ): String? {
         val mangaDir = downloadProvider.findMangaDir(manga.title, source) ?: return null
         val cbzFiles = mangaDir.listFiles()?.filter {
-            it.isFile && (it.name?.endsWith(".cbz") == true || it.name?.endsWith(".zip") == true)
+            it.isFile && it.name.isArchiveFile()
         } ?: return null
 
         val validNames = downloadProvider.getValidChapterDirNames(
@@ -178,7 +177,7 @@ class ChapterContentReader(
             .sortedBy { it.first }
             .joinToString("\n\n") { it.second }
             .ifBlank { null }
-            ?.let { rewriteAssetRefs(it, entryBaseNames::contains) }
+            ?.let { rewriteResolvedAssetRefs(it, entryBaseNames::contains) }
             ?: return null
 
         return ExportContent(
@@ -187,11 +186,7 @@ class ChapterContentReader(
         )
     }
 
-    private fun rewriteAssetRefs(text: String, fileExists: (String) -> Boolean): String =
-        rewriteResolvedAssetRefs(text, fileExists)
-
     companion object {
-        private const val NOVEL_IMAGE_SCHEME = "tsundoku-novel-image://"
         private val IMAGE_EXTENSIONS = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif")
     }
 
@@ -211,7 +206,7 @@ class ChapterContentReader(
      * Uses libarchive's [ArchiveReader] for compatibility with archives
      * created by the download system's ZipWriter.
      */
-    fun readContentFromCbz(cbzFile: UniFile): String? {
+    private fun readContentFromCbz(cbzFile: UniFile): String? {
         val uri = cbzFile.uri
         logcat(LogPriority.DEBUG) { "CBZ: reading from $uri" }
         return try {
@@ -251,7 +246,7 @@ class ChapterContentReader(
         val content = files.joinToString("\n\n") { file ->
             context.contentResolver.openInputStream(file.uri)?.use { it.bufferedReader().readText() }.orEmpty()
         }
-        return content.ifBlank { null }?.let { rewriteAssetRefs(it, fileExists) }
+        return content.ifBlank { null }?.let { rewriteResolvedAssetRefs(it, fileExists) }
     }
 
     private fun readImagesFromFiles(allFiles: List<UniFile>): Map<String, ByteArray> {
@@ -280,18 +275,7 @@ class ChapterContentReader(
         return entries.sortedBy { it.first }
             .joinToString("\n\n") { it.second }
             .ifEmpty { null }
-            ?.let { rewriteAssetRefs(it, entryBaseNames::contains) }
-    }
-
-    private fun readImagesFromArchive(reader: ArchiveReader, imageFileNames: List<String>): Map<String, ByteArray> {
-        return imageFileNames.asSequence().mapNotNull { fileName ->
-            try {
-                reader.getInputStream(fileName)?.use { fileName.substringAfterLast('/') to it.readBytes() }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "CBZ: failed to read image $fileName" }
-                null
-            }
-        }.toMap()
+            ?.let { rewriteResolvedAssetRefs(it, entryBaseNames::contains) }
     }
 
     private fun String?.isArchiveFile(): Boolean =

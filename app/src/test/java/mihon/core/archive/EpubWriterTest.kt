@@ -26,14 +26,16 @@ class EpubWriterTest {
         customJs: String? = null,
     ): Map<String, ByteArray> {
         val out = ByteArrayOutputStream()
-        EpubWriter().write(
+        EpubWriter().open(
             outputStream = out,
             metadata = metadata,
-            chapters = chapters,
             coverImage = coverImage,
             customCss = customCss,
             customJs = customJs,
-        )
+        ).use { session ->
+            chapters.forEach(session::append)
+            session.finish()
+        }
         val entries = mutableMapOf<String, ByteArray>()
         ZipInputStream(out.toByteArray().inputStream()).use { zip ->
             var entry = zip.nextEntry
@@ -336,20 +338,6 @@ class EpubWriterTest {
         assertNotNull(entries["OEBPS/chapter0001.xhtml"])
         val nav = entries.text("OEBPS/nav.xhtml")
         assertTrue(nav.indexOf("First") < nav.indexOf("Second"))
-    }
-
-    @Test
-    fun `aborted session rejects later appends`() {
-        val session = EpubWriter().open(
-            outputStream = ByteArrayOutputStream(),
-            metadata = EpubWriter.Metadata(title = "Test Book"),
-        )
-
-        session.abort()
-
-        assertThrows(IllegalStateException::class.java) {
-            session.append(EpubWriter.Chapter(title = "Late", content = "<p>late</p>"))
-        }
     }
 
     @Test

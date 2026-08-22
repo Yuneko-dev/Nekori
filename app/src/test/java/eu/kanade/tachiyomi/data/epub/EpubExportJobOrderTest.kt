@@ -24,6 +24,5 @@ class EpubExportJobOrderTest {
     private fun chapter(id: Long, sourceOrder: Long): Chapter = Chapter.create().copy(
         id = id,
         sourceOrder = sourceOrder,
-        chapterNumber = 1.0,
     )
 }

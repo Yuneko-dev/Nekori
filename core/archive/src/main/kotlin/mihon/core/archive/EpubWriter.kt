@@ -32,7 +32,6 @@ class EpubWriter(
     data class Chapter(
         val title: String,
         val content: String,
-        val order: Int = 0,
         val images: List<EmbeddedImage> = emptyList(),
     )
 
@@ -41,7 +40,6 @@ class EpubWriter(
         val author: String? = null,
         val description: String? = null,
         val language: String = "en",
-        val coverImagePath: String? = null,
         val genres: List<String> = emptyList(),
         val publisher: String? = null,
     )
@@ -133,7 +131,7 @@ class EpubWriter(
             }
         }
 
-        fun abort() {
+        override fun close() {
             if (!isOpen) return
             try {
                 zip.close()
@@ -141,8 +139,6 @@ class EpubWriter(
                 isOpen = false
             }
         }
-
-        override fun close() = abort()
     }
 
     private data class WrittenChapter(
@@ -168,24 +164,6 @@ class EpubWriter(
             Session(this, zip, metadata, coverImage, customCss, customJs)
         } catch (error: Throwable) {
             zip.close()
-            throw error
-        }
-    }
-
-    fun write(
-        outputStream: OutputStream,
-        metadata: Metadata,
-        chapters: List<Chapter>,
-        coverImage: ByteArray? = null,
-        customCss: String? = null,
-        customJs: String? = null,
-    ) {
-        val session = open(outputStream, metadata, coverImage, customCss, customJs)
-        try {
-            chapters.forEach(session::append)
-            session.finish()
-        } catch (error: Throwable) {
-            session.abort()
             throw error
         }
     }
@@ -465,10 +443,7 @@ $spineItems
     }
 
     private fun writeEntry(zip: ZipOutputStream, path: String, content: ByteArray) {
-        val entry = ZipEntry(path).apply {
-            method = ZipEntry.DEFLATED
-        }
-        zip.putNextEntry(entry)
+        zip.putNextEntry(ZipEntry(path))
         zip.write(content)
         zip.closeEntry()
     }

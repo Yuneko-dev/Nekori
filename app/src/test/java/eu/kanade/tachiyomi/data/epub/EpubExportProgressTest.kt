@@ -28,20 +28,6 @@ class EpubExportProgressTest {
     }
 
     @Test
-    fun `keeps novel progress primary and chapter progress in title`() {
-        assertEquals(
-            "Novel (2/12): Chapter two",
-            EpubExportJob.epubChapterProgressTitle("Novel", 2, 12, "Chapter two"),
-        )
-    }
-
-    @Test
-    fun `configures a deflated outer zip entry`() {
-        val deflated = EpubExportJob.createEpubBundleEntry("Novel.epub", 42, null, 6)
-        assertEquals(ZipEntry.DEFLATED, deflated.method)
-    }
-
-    @Test
     fun `writes a readable stored outer zip entry with real size and crc`() = runTest {
         val payload = "EPUB payload".toByteArray()
         val source = tempDir.resolve("source.epub").toFile().apply { writeBytes(payload) }
