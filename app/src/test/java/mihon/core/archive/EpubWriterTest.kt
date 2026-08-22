@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
@@ -308,6 +309,66 @@ class EpubWriterTest {
         val xhtml = buildEpub(chapters = listOf(chapter)).text("OEBPS/chapter0000.xhtml")
         assertTrue(xhtml.contains("Plain"), "Plain text content must be preserved")
         assertTrue(xhtml.contains("<strong>"), "Inline HTML must be preserved")
+    }
+
+    @Test
+    fun `session appends chapters in order and finalizes navigation`() {
+        val out = ByteArrayOutputStream()
+        val session = EpubWriter().open(
+            outputStream = out,
+            metadata = EpubWriter.Metadata(title = "Test Book"),
+        )
+
+        session.append(EpubWriter.Chapter(title = "First", content = "<p>1</p>"))
+        session.append(EpubWriter.Chapter(title = "Second", content = "<p>2</p>"))
+        session.finish()
+
+        val entries = mutableMapOf<String, ByteArray>()
+        ZipInputStream(out.toByteArray().inputStream()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                entries[entry.name] = zip.readBytes()
+                entry = zip.nextEntry
+            }
+        }
+
+        assertNotNull(entries["OEBPS/chapter0000.xhtml"])
+        assertNotNull(entries["OEBPS/chapter0001.xhtml"])
+        val nav = entries.text("OEBPS/nav.xhtml")
+        assertTrue(nav.indexOf("First") < nav.indexOf("Second"))
+    }
+
+    @Test
+    fun `aborted session rejects later appends`() {
+        val session = EpubWriter().open(
+            outputStream = ByteArrayOutputStream(),
+            metadata = EpubWriter.Metadata(title = "Test Book"),
+        )
+
+        session.abort()
+
+        assertThrows(IllegalStateException::class.java) {
+            session.append(EpubWriter.Chapter(title = "Late", content = "<p>late</p>"))
+        }
+    }
+
+    @Test
+    fun `use aborts an unfinished session after an exception`() {
+        val session = EpubWriter().open(
+            outputStream = ByteArrayOutputStream(),
+            metadata = EpubWriter.Metadata(title = "Test Book"),
+        )
+
+        assertThrows(IllegalStateException::class.java) {
+            session.use {
+                it.append(EpubWriter.Chapter(title = "First", content = "<p>1</p>"))
+                error("append failed")
+            }
+        }
+
+        assertThrows(IllegalStateException::class.java) {
+            session.append(EpubWriter.Chapter(title = "Late", content = "<p>late</p>"))
+        }
     }
 
     // ── Required EPUB structure ─────────────────────────────────────

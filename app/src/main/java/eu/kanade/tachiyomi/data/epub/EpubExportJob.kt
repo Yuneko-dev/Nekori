@@ -12,9 +12,9 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.hippo.unifile.UniFile
 import eu.kanade.presentation.reader.settings.CodeSnippet
 import eu.kanade.tachiyomi.data.download.ChapterContentReader
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -30,9 +30,14 @@ import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.core.archive.EpubWriter
+import mihon.core.archive.ZipWriter
 import mihon.core.archive.epubReader
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -43,13 +48,12 @@ import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.translation.model.TranslationLocator
+import tachiyomi.domain.translation.model.ChapterRef
 import tachiyomi.domain.translation.model.TranslationMode
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.LocalNovelSource
-import tachiyomi.source.local.groupChaptersByVolume
 import tachiyomi.source.local.io.LocalNovelSourceFileSystem
 import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.isLocalNovel
@@ -58,8 +62,7 @@ import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URLDecoder
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
+import java.util.UUID
 
 class EpubExportJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
@@ -67,7 +70,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     private val sourceManager: SourceManager = Injekt.get()
     private val mangaRepository: MangaRepository = Injekt.get()
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get()
-    private val downloadManager: DownloadManager = Injekt.get()
     private val downloadProvider: DownloadProvider = Injekt.get()
     private val networkHelper: NetworkHelper = Injekt.get()
     private val translatedChapterRepository: TranslatedChapterRepository = Injekt.get()
@@ -84,6 +86,23 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         setOnlyAlertOnce(true)
     }
 
+    private fun isRunOwner(): Boolean = synchronized(runLock) { activeRun?.id == id }
+
+    private fun notifyIfRunOwner(block: () -> Unit) {
+        synchronized(runLock) {
+            if (activeRun?.id == id) {
+                block()
+            }
+        }
+    }
+
+    private suspend fun ensureActiveRun() {
+        currentCoroutineContext().ensureActive()
+        if (!isRunOwner()) {
+            throw CancellationException("EPUB export was replaced")
+        }
+    }
+
     override suspend fun doWork(): Result {
         val mangaIds = inputData.getLongArray(KEY_MANGA_IDS)?.toList() ?: return Result.failure()
         val uriString = inputData.getString(KEY_OUTPUT_URI) ?: return Result.failure()
@@ -98,6 +117,11 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         val includeVolumeNumber = inputData.getBoolean(KEY_INCLUDE_VOLUME_NUMBER, false)
         val includeCustomCss = inputData.getBoolean(KEY_INCLUDE_CUSTOM_CSS, false)
         val includeCustomJs = inputData.getBoolean(KEY_INCLUDE_CUSTOM_JS, false)
+        val outputUri = uriString.toUri()
+
+        if (!claimRun(id, outputUri)) {
+            throw CancellationException("EPUB export was replaced")
+        }
 
         logcat(LogPriority.INFO) {
             "EPUB Export starting: ${mangaIds.size} novels, downloadedOnly=$downloadedOnly, " +
@@ -108,6 +132,8 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
         try {
             setForegroundSafely()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to set foreground service" }
         }
@@ -116,7 +142,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             try {
                 performExport(
                     mangaIds = mangaIds,
-                    outputUri = uriString.toUri(),
+                    outputUri = outputUri,
                     downloadedOnly = downloadedOnly,
                     translationMode = translationMode,
                     includeChapterCount = includeChapterCount,
@@ -128,16 +154,14 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                     includeCustomJs = includeCustomJs,
                 )
                 Result.success()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (e is CancellationException) {
-                    Result.success()
-                } else {
-                    logcat(LogPriority.ERROR, e) { "EPUB export failed" }
-                    showErrorNotification(
-                        e.message ?: context.stringResource(MR.strings.unknown_error),
-                    )
-                    Result.failure()
-                }
+                logcat(LogPriority.ERROR, e) { "EPUB export failed" }
+                showErrorNotification(
+                    e.message ?: context.stringResource(MR.strings.unknown_error),
+                )
+                Result.failure()
             }
         }
     }
@@ -174,7 +198,8 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         val bundledCss = if (includeCustomCss) collectActiveCustomCss() else null
         val bundledJs = if (includeCustomJs) collectActiveCustomJs() else null
 
-        val mangaList = mangaIds.mapNotNull { mangaRepository.getMangaById(it) }
+        val mangasById = mangaRepository.getMangasByIds(mangaIds).associateBy(Manga::id)
+        val mangaList = mangaIds.mapNotNull(mangasById::get)
         if (mangaList.isEmpty()) {
             logcat(LogPriority.ERROR) { "No manga found for IDs: $mangaIds" }
             showErrorNotification(context.stringResource(TDMR.strings.epub_export_job_error_no_novels))
@@ -190,11 +215,12 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         var skippedCount = 0
         val totalCount = mangaList.size
         val deflateLevel = novelDownloadPreferences.epubCompressionLevel.get()
+        val completedArtifacts = mutableListOf<CompletedArtifact>()
+        val usedEntryNames = mutableSetOf<String>()
 
         try {
-            for ((index, manga) in mangaList.withIndex()) {
-                updateProgress(index + 1, totalCount, manga.title)
-
+            for (manga in mangaList) {
+                val localEpubContexts = mutableMapOf<String, LocalEpubContext>()
                 try {
                     val source = resolveExportSource(manga)
                     if (source == null || !source.isNovelSource()) {
@@ -203,8 +229,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                         continue
                     }
 
-                    val chapters = getChaptersByMangaId.await(manga.id)
-                        .sortedBy { it.chapterNumber }
+                    val chapters = sortChaptersForEpubExport(getChaptersByMangaId.await(manga.id))
 
                     if (chapters.isEmpty()) {
                         logcat(LogPriority.WARN) { "${manga.title}: No chapters found" }
@@ -214,146 +239,109 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
                     val chapterContents = mutableListOf<ChapterContent>()
                     val isLocalSource = source.isLocal() || manga.isLocalNovel()
-                    val localEpubContexts = mutableMapOf<String, LocalEpubContext>()
+                    val chapterReader = ChapterContentReader(context, downloadProvider)
+                    val chapterFiles = if (isLocalSource) {
+                        emptyMap()
+                    } else {
+                        downloadProvider.findChapterDirs(chapters, manga, source).second
+                    }
+                    val translationsByChapterId = if (translationMode != TranslationMode.ORIGINAL) {
+                        try {
+                            translatedChapterRepository.getAllTranslationsForNovel(
+                                source.toString(),
+                                manga.title,
+                                chapters.map { ChapterRef(it.id, it.name, it.url) },
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logcat(LogPriority.WARN, e) { "Failed to batch translations for ${manga.title}" }
+                            emptyMap()
+                        }
+                    } else {
+                        emptyMap()
+                    }
                     val localVolumePositions = mutableMapOf<String, Int>()
 
-                    try {
-                        for ((chapterIndex, chapter) in chapters.withIndex()) {
-                            val isDownloaded = if (isLocalSource) {
-                                true
-                            } else {
-                                downloadManager.isChapterDownloaded(
-                                    chapter.name,
-                                    chapter.scanlator,
-                                    chapter.url,
-                                    manga.title,
-                                    manga.source,
-                                )
-                            }
+                    for ((chapterIndex, chapter) in chapters.withIndex()) {
+                        ensureActiveRun()
+                        updateProgress(
+                            chapterIndex + 1,
+                            chapters.size,
+                            "${manga.title}: ${chapter.name}",
+                        )
+                        val isDownloaded = if (isLocalSource) {
+                            true
+                        } else {
+                            chapter.id in chapterFiles
+                        }
 
-                            val chapterTranslations = if (translationMode != TranslationMode.ORIGINAL) {
-                                try {
-                                    translatedChapterRepository.getAllTranslationsForChapter(
-                                        TranslationLocator(source.toString(), manga.title, chapter.name, chapter.url),
-                                    )
-                                } catch (e: Exception) {
-                                    logcat(LogPriority.WARN, e) {
-                                        "Failed to get translations for chapter: ${chapter.name}"
-                                    }
-                                    emptyList()
-                                }
-                            } else {
-                                emptyList()
-                            }
-                            val hasTranslation = chapterTranslations.isNotEmpty()
-                            val localReference = if (isLocalSource) parseLocalEpubReference(chapter.url) else null
-                            val localContext = localReference?.let {
-                                getOrCreateLocalEpubContext(it, localEpubContexts)
-                            }
-                            val localChapterHref = localReference?.chapterHref
-                            val localOrderInVolume = localContext?.let { context ->
-                                val current = localVolumePositions[context.key] ?: 0
-                                localVolumePositions[context.key] = current + 1
-                                current
-                            }
-                            val resolvedLocalChapterHref = if (localContext != null) {
-                                findBestTocEntry(localContext.toc, localChapterHref, localOrderInVolume)?.href
-                                    ?: localChapterHref
-                            } else {
-                                null
-                            }
+                        val chapterTranslations = if (translationMode != TranslationMode.ORIGINAL) {
+                            translationsByChapterId[chapter.id].orEmpty()
+                        } else {
+                            emptyList()
+                        }
+                        val hasTranslation = chapterTranslations.isNotEmpty()
+                        val localReference = if (isLocalSource) parseLocalEpubReference(chapter.url) else null
+                        val localContext = localReference?.let {
+                            getOrCreateLocalEpubContext(it, localEpubContexts)
+                        }
+                        val localChapterHref = localReference?.chapterHref
+                        val localOrderInVolume = localContext?.let { context ->
+                            val current = localVolumePositions[context.key] ?: 0
+                            localVolumePositions[context.key] = current + 1
+                            current
+                        }
+                        val resolvedLocalChapterHref = if (localContext != null) {
+                            findBestTocEntry(localContext.toc, localChapterHref, localOrderInVolume)?.href
+                                ?: localChapterHref
+                        } else {
+                            null
+                        }
 
-                            if (chapterIndex == 0) {
+                        if (chapterIndex == 0) {
+                            logcat(LogPriority.DEBUG) {
+                                "${manga.title} ch ${chapter.name}: isDownloaded=$isDownloaded, hasTranslation=$hasTranslation, localRef=${localReference?.key}"
+                            }
+                        }
+
+                        // Skip undownloaded chapters if downloadedOnly and no translation available
+                        if (downloadedOnly && !isDownloaded && !hasTranslation) {
+                            if (chapterIndex < 3) {
                                 logcat(LogPriority.DEBUG) {
-                                    "${manga.title} ch ${chapter.name}: isDownloaded=$isDownloaded, hasTranslation=$hasTranslation, localRef=${localReference?.key}"
+                                    "${manga.title} ch ${chapter.name}: skipping - not downloaded and downloadedOnly=true"
                                 }
                             }
+                            continue
+                        }
 
-                            // Skip undownloaded chapters if downloadedOnly and no translation available
-                            if (downloadedOnly && !isDownloaded && !hasTranslation) {
-                                if (chapterIndex < 3) {
-                                    logcat(LogPriority.DEBUG) {
-                                        "${manga.title} ch ${chapter.name}: skipping - not downloaded and downloadedOnly=true"
-                                    }
-                                }
-                                continue
-                            }
+                        val translatedContent = chapterTranslations.firstOrNull()
+                            ?.translatedContent
+                            ?.takeIf { it.isNotBlank() }
+                        val hasCandidateOutput = when (translationMode) {
+                            TranslationMode.ORIGINAL -> isDownloaded
+                            TranslationMode.TRANSLATED -> translatedContent != null
+                            TranslationMode.BOTH -> isDownloaded || translatedContent != null
+                        }
 
-                            // Original content
-                            var originalContent: String? = null
-                            var originalImages: Map<String, ByteArray> = emptyMap()
-                            if (translationMode != TranslationMode.TRANSLATED && isDownloaded) {
-                                if (localContext != null) {
-                                    val localExport = readLocalEpubChapterForExport(
+                        if (hasCandidateOutput) {
+                            chapterContents.add(
+                                ChapterContent(
+                                    chapter = chapter,
+                                    name = resolveExportChapterTitle(
+                                        chapterName = chapter.name,
                                         localContext = localContext,
                                         chapterHref = resolvedLocalChapterHref,
                                         fallbackOrder = localOrderInVolume,
-                                    )
-                                    if (localExport != null) {
-                                        originalContent = localExport.html
-                                        originalImages = localExport.images
-                                    } else {
-                                        originalContent = readOriginalContent(manga, chapter, source)
-                                    }
-                                } else {
-                                    originalContent = readOriginalContent(manga, chapter, source)
-                                }
-                                if (!isLocalSource && originalContent != null &&
-                                    originalContent.contains("tsundoku-novel-image://")
-                                ) {
-                                    originalImages = readOriginalImages(manga, chapter, source)
-                                }
-                            }
-
-                            // Translated content
-                            var translatedContent: String? = null
-                            if (translationMode != TranslationMode.ORIGINAL && hasTranslation) {
-                                translatedContent = chapterTranslations.firstOrNull()?.translatedContent
-                            }
-
-                            val keepLocalOriginalSlot = isLocalSource && isDownloaded
-
-                            val hasUsableContent = when (translationMode) {
-                                TranslationMode.ORIGINAL ->
-                                    (originalContent != null && originalContent.isNotBlank()) || keepLocalOriginalSlot
-                                TranslationMode.TRANSLATED ->
-                                    translatedContent != null &&
-                                        translatedContent.isNotBlank()
-                                TranslationMode.BOTH ->
-                                    (originalContent != null && originalContent.isNotBlank()) ||
-                                        keepLocalOriginalSlot ||
-                                        (translatedContent != null && translatedContent.isNotBlank())
-                            }
-
-                            if (hasUsableContent) {
-                                chapterContents.add(
-                                    ChapterContent(
-                                        name = resolveExportChapterTitle(
-                                            chapterName = chapter.name,
-                                            localContext = localContext,
-                                            chapterHref = resolvedLocalChapterHref,
-                                            fallbackOrder = localOrderInVolume,
-                                        ),
-                                        chapterNumber = chapter.chapterNumber,
-                                        order = chapterIndex,
-                                        originalContent = originalContent?.takeIf { it.isNotBlank() },
-                                        translatedContent = translatedContent?.takeIf { it.isNotBlank() },
-                                        volumeKey = localContext?.key,
-                                        volumeLabel = localContext?.volumeLabel,
-                                        volumeNumber = localContext?.volumeNumber,
-                                        chapterHref = resolvedLocalChapterHref,
-                                        images = originalImages,
                                     ),
-                                )
-                            }
-                        }
-
-                        if (isLocalSource) {
-                            rebuildLocalChapterContentsFromToc(chapterContents, localEpubContexts.values)
-                        }
-                    } finally {
-                        localEpubContexts.values.forEach { localContext ->
-                            runCatching { localContext.reader.close() }
+                                    order = chapterIndex,
+                                    translatedContent = translatedContent,
+                                    resolvedDownload = chapterFiles[chapter.id],
+                                    localContext = localContext,
+                                    localOrderInVolume = localOrderInVolume,
+                                    chapterHref = resolvedLocalChapterHref,
+                                ),
+                            )
                         }
                     }
 
@@ -401,22 +389,87 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                         publisher = source.name.takeIf { it.isNotBlank() },
                     )
 
-                    fun writeEpub(
-                        filename: String,
+                    suspend fun writeEpub(
+                        candidates: List<ChapterContent>,
                         epubMetadata: EpubWriter.Metadata,
-                        outputChapters: List<EpubWriter.Chapter>,
-                        cover: ByteArray?,
-                    ) {
-                        val tempFile = File(tempDir, filename)
-                        tempFile.outputStream().use { outputStream ->
-                            EpubWriter(deflateLevel).write(
-                                outputStream = outputStream,
+                        volumeSuffix: String?,
+                        translationSuffix: String?,
+                        writeOriginal: Boolean,
+                    ): Boolean {
+                        val tempFile = File(
+                            tempDir,
+                            "artifact-${completedArtifacts.size.toString().padStart(5, '0')}.epub",
+                        )
+                        val output = tempFile.outputStream()
+                        val session = try {
+                            EpubWriter(deflateLevel).open(
+                                outputStream = output,
                                 metadata = epubMetadata,
-                                chapters = outputChapters,
-                                coverImage = cover,
+                                coverImage = coverImage,
                                 customCss = bundledCss,
                                 customJs = bundledJs,
                             )
+                        } catch (e: Throwable) {
+                            output.close()
+                            throw e
+                        }
+                        val writtenChapters = mutableListOf<ChapterContent>()
+                        try {
+                            candidates.forEach { candidate ->
+                                ensureActiveRun()
+                                updateProgress(
+                                    candidate.order + 1,
+                                    chapters.size,
+                                    "${manga.title}: ${candidate.name}",
+                                )
+                                val outputChapter = if (writeOriginal) {
+                                    readOriginalChapterForExport(
+                                        content = candidate,
+                                        source = source,
+                                        reader = chapterReader,
+                                        isLocalSource = isLocalSource,
+                                    )
+                                } else {
+                                    candidate.translatedContent?.let {
+                                        EpubWriter.Chapter(
+                                            title = candidate.name,
+                                            content = it,
+                                            order = candidate.order,
+                                        )
+                                    }
+                                }
+                                if (outputChapter != null) {
+                                    session.append(outputChapter)
+                                    writtenChapters += candidate
+                                }
+                            }
+                            if (writtenChapters.isEmpty()) {
+                                session.abort()
+                                tempFile.delete()
+                                return false
+                            }
+                            session.finish()
+                            completedArtifacts += CompletedArtifact(
+                                file = tempFile,
+                                entryName = uniqueEntryName(
+                                    buildExportFilename(
+                                        mangaTitle = manga.title,
+                                        chapterContents = writtenChapters,
+                                        includeChapterCount = includeChapterCount,
+                                        includeChapterRange = includeChapterRange,
+                                        includeStatus = includeStatus,
+                                        statusLabel = statusLabel,
+                                        volumeSuffix = volumeSuffix,
+                                        translationSuffix = translationSuffix,
+                                    ),
+                                    usedEntryNames,
+                                ),
+                            )
+                            return true
+                        } catch (e: Throwable) {
+                            session.abort()
+                            tempFile.delete()
+                            throw e
                         }
                     }
 
@@ -441,130 +494,53 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
                         when (translationMode) {
                             TranslationMode.ORIGINAL -> {
-                                val originalSourceChapters = if (isLocalSource) {
-                                    volumeUnit.chapters
-                                } else {
-                                    volumeUnit.chapters.filter { !it.originalContent.isNullOrBlank() }
-                                }
-                                val originalEpubChapters = originalSourceChapters.map { ch ->
-                                    EpubWriter.Chapter(
-                                        title = ch.name,
-                                        content = ch.originalContent.orEmpty(),
-                                        order = ch.order,
-                                        images = toEmbeddedImages(ch.images),
-                                    )
-                                }
-
-                                if (originalEpubChapters.isNotEmpty()) {
-                                    writeEpub(
-                                        filename = buildExportFilename(
-                                            mangaTitle = manga.title,
-                                            chapterContents = originalSourceChapters,
-                                            includeChapterCount = includeChapterCount,
-                                            includeChapterRange = includeChapterRange,
-                                            includeStatus = includeStatus,
-                                            statusLabel = statusLabel,
-                                            volumeSuffix = volumeSuffix,
-                                        ),
+                                if (writeEpub(
+                                        candidates = volumeUnit.chapters,
                                         epubMetadata = metadataForUnit,
-                                        outputChapters = originalEpubChapters,
-                                        cover = coverImage,
+                                        volumeSuffix = volumeSuffix,
+                                        translationSuffix = null,
+                                        writeOriginal = true,
                                     )
+                                ) {
                                     writtenFilesForManga++
                                 }
                             }
 
                             TranslationMode.TRANSLATED -> {
-                                val translatedSourceChapters = volumeUnit.chapters
-                                    .filter { !it.translatedContent.isNullOrBlank() }
-                                val translatedEpubChapters = translatedSourceChapters.map { ch ->
-                                    EpubWriter.Chapter(
-                                        title = ch.name,
-                                        content = ch.translatedContent.orEmpty(),
-                                        order = ch.order,
-                                    )
-                                }
-
-                                if (translatedEpubChapters.isNotEmpty()) {
-                                    writeEpub(
-                                        filename = buildExportFilename(
-                                            mangaTitle = manga.title,
-                                            chapterContents = translatedSourceChapters,
-                                            includeChapterCount = includeChapterCount,
-                                            includeChapterRange = includeChapterRange,
-                                            includeStatus = includeStatus,
-                                            statusLabel = statusLabel,
-                                            volumeSuffix = volumeSuffix,
-                                        ),
+                                if (writeEpub(
+                                        candidates = volumeUnit.chapters,
                                         epubMetadata = metadataForUnit,
-                                        outputChapters = translatedEpubChapters,
-                                        cover = coverImage,
+                                        volumeSuffix = volumeSuffix,
+                                        translationSuffix = null,
+                                        writeOriginal = false,
                                     )
+                                ) {
                                     writtenFilesForManga++
                                 }
                             }
 
                             TranslationMode.BOTH -> {
-                                val originalSourceChapters = if (isLocalSource) {
-                                    volumeUnit.chapters
-                                } else {
-                                    volumeUnit.chapters.filter { !it.originalContent.isNullOrBlank() }
-                                }
-                                val originalEpubChapters = originalSourceChapters.map { ch ->
-                                    EpubWriter.Chapter(
-                                        title = ch.name,
-                                        content = ch.originalContent.orEmpty(),
-                                        order = ch.order,
-                                        images = toEmbeddedImages(ch.images),
-                                    )
-                                }
-                                if (originalEpubChapters.isNotEmpty()) {
-                                    writeEpub(
-                                        filename = buildExportFilename(
-                                            mangaTitle = manga.title,
-                                            chapterContents = originalSourceChapters,
-                                            includeChapterCount = includeChapterCount,
-                                            includeChapterRange = includeChapterRange,
-                                            includeStatus = includeStatus,
-                                            statusLabel = statusLabel,
-                                            volumeSuffix = volumeSuffix,
-                                            translationSuffix = "Original",
-                                        ),
+                                if (writeEpub(
+                                        candidates = volumeUnit.chapters,
                                         epubMetadata = metadataForUnit,
-                                        outputChapters = originalEpubChapters,
-                                        cover = coverImage,
+                                        volumeSuffix = volumeSuffix,
+                                        translationSuffix = "Original",
+                                        writeOriginal = true,
                                     )
+                                ) {
                                     writtenFilesForManga++
                                 }
 
-                                val translatedSourceChapters = volumeUnit.chapters
-                                    .filter { !it.translatedContent.isNullOrBlank() }
-                                val translatedEpubChapters = translatedSourceChapters.map { ch ->
-                                    EpubWriter.Chapter(
-                                        title = ch.name,
-                                        content = ch.translatedContent.orEmpty(),
-                                        order = ch.order,
-                                    )
-                                }
-                                if (translatedEpubChapters.isNotEmpty()) {
-                                    val translatedMetadata = metadataForUnit.copy(
-                                        title = "${metadataForUnit.title} [Translated]",
-                                    )
-                                    writeEpub(
-                                        filename = buildExportFilename(
-                                            mangaTitle = manga.title,
-                                            chapterContents = translatedSourceChapters,
-                                            includeChapterCount = includeChapterCount,
-                                            includeChapterRange = includeChapterRange,
-                                            includeStatus = includeStatus,
-                                            statusLabel = statusLabel,
-                                            volumeSuffix = volumeSuffix,
-                                            translationSuffix = "Translated",
+                                if (writeEpub(
+                                        candidates = volumeUnit.chapters,
+                                        epubMetadata = metadataForUnit.copy(
+                                            title = "${metadataForUnit.title} [Translated]",
                                         ),
-                                        epubMetadata = translatedMetadata,
-                                        outputChapters = translatedEpubChapters,
-                                        cover = coverImage,
+                                        volumeSuffix = volumeSuffix,
+                                        translationSuffix = "Translated",
+                                        writeOriginal = false,
                                     )
+                                ) {
                                     writtenFilesForManga++
                                 }
                             }
@@ -582,65 +558,35 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                         }
                         skippedCount++
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e) { "Failed to export ${manga.title}" }
                     skippedCount++
+                } finally {
+                    localEpubContexts.values.forEach { localContext ->
+                        runCatching { localContext.reader.close() }
+                    }
                 }
             }
 
             // Write to output
-            val tempFiles = tempDir.listFiles()
-                ?.filter { it.name.endsWith(".epub") }
-                ?.sortedBy { it.name }
-                ?: emptyList()
-
             logcat(LogPriority.INFO) {
-                "Export complete: ${tempFiles.size} EPUB files in temp dir, successCount=$successCount, skippedCount=$skippedCount"
+                "Export complete: ${completedArtifacts.size} EPUB files in temp dir, successCount=$successCount, skippedCount=$skippedCount"
             }
 
-            if (tempFiles.isEmpty()) {
+            if (completedArtifacts.isEmpty()) {
                 logcat(LogPriority.ERROR) { "No EPUB files were created in temp dir" }
-                showErrorNotification(context.stringResource(TDMR.strings.epub_export_job_error_no_files))
-                return
+                error(context.stringResource(TDMR.strings.epub_export_job_error_no_files))
             }
 
-            val shouldZipOutput = tempFiles.size > 1 || totalCount > 1 || !joinVolumes
-            if (shouldZipOutput) {
-                // Create ZIP for multiple files (multiple novels OR both-mode producing two files)
-                logcat(LogPriority.INFO) { "Writing ${tempFiles.size} EPUBs to ZIP at $outputUri" }
-                context.contentResolver.openOutputStream(outputUri)?.use { outputStream ->
-                    ZipOutputStream(outputStream).use { zipOut ->
-                        zipOut.setLevel(deflateLevel)
-                        tempFiles.forEach { file ->
-                            val entry = ZipEntry(file.name)
-                            zipOut.putNextEntry(entry)
-                            file.inputStream().use { input ->
-                                input.copyTo(zipOut)
-                            }
-                            zipOut.closeEntry()
-                        }
-                    }
-                } ?: run {
-                    logcat(LogPriority.ERROR) { "Failed to open output stream for URI: $outputUri" }
-                    showErrorNotification(context.stringResource(TDMR.strings.epub_export_job_error_write_output))
-                    return
-                }
-            } else {
-                // Single file, copy directly
-                logcat(LogPriority.INFO) {
-                    "Writing single EPUB to $outputUri (size=${tempFiles.first().length()} bytes)"
-                }
-                context.contentResolver.openOutputStream(outputUri)?.use { outputStream ->
-                    tempFiles.first().inputStream().use { input ->
-                        input.copyTo(outputStream)
-                    }
-                } ?: run {
-                    logcat(LogPriority.ERROR) { "Failed to open output stream for URI: $outputUri" }
-                    showErrorNotification(context.stringResource(TDMR.strings.epub_export_job_error_write_output))
-                    return
-                }
-            }
+            writeFinalOutput(
+                artifacts = completedArtifacts,
+                outputUri = outputUri,
+                shouldZipOutput = completedArtifacts.size > 1 || totalCount > 1 || !joinVolumes,
+            )
 
+            ensureActiveRun()
             showCompleteNotification(successCount, skippedCount)
         } finally {
             // Cleanup
@@ -662,17 +608,75 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         return null
     }
 
+    private suspend fun writeFinalOutput(
+        artifacts: List<CompletedArtifact>,
+        outputUri: Uri,
+        shouldZipOutput: Boolean,
+    ) {
+        finalWriteMutex.withLock {
+            try {
+                ensureActiveRun()
+                if (shouldZipOutput) {
+                    val destination = UniFile.fromUri(context, outputUri)
+                        ?: error("Failed to access output URI: $outputUri")
+                    ZipWriter(context, destination, novelDownloadPreferences.zipCompressionLevel().get()).use { zip ->
+                        artifacts.forEach { artifact ->
+                            ensureActiveRun()
+                            zip.write(
+                                file = UniFile.fromFile(artifact.file)
+                                    ?: error("Failed to open staged EPUB: ${artifact.file}"),
+                                entryName = artifact.entryName,
+                                isCancelled = { isStopped || !isRunOwner() },
+                            )
+                        }
+                    }
+                } else {
+                    val artifact = artifacts.single()
+                    context.contentResolver.openOutputStream(outputUri)?.use { output ->
+                        artifact.file.inputStream().use { input ->
+                            val buffer = ByteArray(8 * 1024)
+                            while (true) {
+                                ensureActiveRun()
+                                val read = input.read(buffer)
+                                if (read < 0) break
+                                output.write(buffer, 0, read)
+                            }
+                        }
+                    } ?: error("Failed to open output stream for URI: $outputUri")
+                }
+                ensureActiveRun()
+            } catch (e: CancellationException) {
+                cleanupIncompleteOutput(outputUri)
+                throw e
+            }
+        }
+    }
+
+    private fun cleanupIncompleteOutput(outputUri: Uri) {
+        val replacementUsesSameUri = synchronized(runLock) {
+            activeRun?.let { it.id != id && it.outputUri == outputUri } == true
+        }
+        if (replacementUsesSameUri) {
+            runCatching { context.contentResolver.openOutputStream(outputUri, "wt")?.close() }
+        } else {
+            runCatching { context.contentResolver.delete(outputUri, null, null) }
+        }
+    }
+
     private data class ChapterContent(
+        val chapter: Chapter,
         val name: String,
-        val chapterNumber: Double,
         val order: Int,
-        val originalContent: String?,
         val translatedContent: String?,
-        val volumeKey: String?,
-        val volumeLabel: String?,
-        val volumeNumber: Int?,
+        val resolvedDownload: UniFile?,
+        val localContext: LocalEpubContext?,
+        val localOrderInVolume: Int?,
         val chapterHref: String?,
-        val images: Map<String, ByteArray> = emptyMap(),
+    )
+
+    private data class CompletedArtifact(
+        val file: File,
+        val entryName: String,
     )
 
     private data class LocalEpubReference(
@@ -689,7 +693,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     )
 
     private data class VolumeUnit(
-        val key: String,
         val label: String?,
         val number: Int?,
         val chapters: List<ChapterContent>,
@@ -923,9 +926,8 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             val first = sortedContents.first()
             return listOf(
                 VolumeUnit(
-                    key = first.volumeKey ?: "all",
-                    label = first.volumeLabel,
-                    number = first.volumeNumber,
+                    label = first.localContext?.volumeLabel,
+                    number = first.localContext?.volumeNumber,
                     chapters = sortedContents,
                 ),
             )
@@ -933,7 +935,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
         val groupedByVolume = linkedMapOf<String, MutableList<ChapterContent>>()
         sortedContents.forEach { chapter ->
-            val key = chapter.volumeKey ?: "__default__"
+            val key = chapter.localContext?.key ?: "__default__"
             groupedByVolume.getOrPut(key) { mutableListOf() }.add(chapter)
         }
 
@@ -941,20 +943,18 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             val first = sortedContents.first()
             return listOf(
                 VolumeUnit(
-                    key = first.volumeKey ?: "all",
-                    label = first.volumeLabel,
-                    number = first.volumeNumber,
+                    label = first.localContext?.volumeLabel,
+                    number = first.localContext?.volumeNumber,
                     chapters = sortedContents,
                 ),
             )
         }
 
-        return groupedByVolume.map { (key, groupedChapters) ->
+        return groupedByVolume.map { (_, groupedChapters) ->
             val first = groupedChapters.first()
             VolumeUnit(
-                key = key,
-                label = first.volumeLabel,
-                number = first.volumeNumber,
+                label = first.localContext?.volumeLabel,
+                number = first.localContext?.volumeNumber,
                 chapters = groupedChapters,
             )
         }
@@ -981,7 +981,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         }
 
         val volumeCount = chapterContents
-            .mapNotNull { it.volumeKey }
+            .mapNotNull { it.localContext?.key }
             .distinct()
             .size
 
@@ -990,7 +990,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         }
 
         val volumeNumbers = chapterContents
-            .mapNotNull { it.volumeNumber }
+            .mapNotNull { it.localContext?.volumeNumber }
             .distinct()
             .sorted()
 
@@ -1003,28 +1003,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         }
 
         return null
-    }
-
-    private fun rebuildLocalChapterContentsFromToc(
-        chapterContents: MutableList<ChapterContent>,
-        localContexts: Collection<LocalEpubContext>,
-    ) {
-        if (chapterContents.isEmpty() || localContexts.isEmpty()) return
-
-        val knownVolumeKeys = localContexts.mapTo(hashSetOf()) { it.key }
-        val regrouped = groupChaptersByVolume(
-            chapters = chapterContents.toList(),
-            volumeKeyOf = { chapter ->
-                chapter.volumeKey?.takeIf { it in knownVolumeKeys }
-            },
-            orderOf = { it.order },
-            withOrder = { chapter, newOrder -> chapter.copy(order = newOrder) },
-        )
-
-        if (regrouped == chapterContents) return
-
-        chapterContents.clear()
-        chapterContents.addAll(regrouped)
     }
 
     private fun buildExportFilename(
@@ -1045,7 +1023,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         )
         EpubExportNaming.appendChapterRange(
             filenameBuilder = filenameBuilder,
-            chapterNumbers = chapterContents.map { it.chapterNumber },
+            chapterNumbers = chapterContents.map { it.chapter.chapterNumber },
             includeChapterRange = includeChapterRange,
         )
         EpubExportNaming.appendStatusLabel(
@@ -1066,16 +1044,16 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         return filenameBuilder.toString()
     }
 
-    private fun readOriginalImages(
-        manga: Manga,
-        chapter: Chapter,
-        source: eu.kanade.tachiyomi.source.Source,
-    ): Map<String, ByteArray> {
-        return try {
-            ChapterContentReader(context, downloadProvider).readChapterImages(manga, chapter, source)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to read images for chapter: ${chapter.name}" }
-            emptyMap()
+    private fun uniqueEntryName(requestedName: String, usedNames: MutableSet<String>): String {
+        if (usedNames.add(requestedName)) return requestedName
+
+        val extension = requestedName.substringAfterLast('.', missingDelimiterValue = "")
+        val stem = requestedName.removeSuffix(if (extension.isBlank()) "" else ".$extension")
+        var suffix = 2
+        while (true) {
+            val candidate = "$stem ($suffix)" + if (extension.isBlank()) "" else ".$extension"
+            if (usedNames.add(candidate)) return candidate
+            suffix++
         }
     }
 
@@ -1095,6 +1073,43 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         }
     }
 
+    private suspend fun readOriginalChapterForExport(
+        content: ChapterContent,
+        source: Source,
+        reader: ChapterContentReader,
+        isLocalSource: Boolean,
+    ): EpubWriter.Chapter? {
+        if (!isLocalSource && content.resolvedDownload == null) return null
+
+        val localExport = content.localContext?.let { localContext ->
+            readLocalEpubChapterForExport(
+                localContext = localContext,
+                chapterHref = content.chapterHref,
+                fallbackOrder = content.localOrderInVolume,
+            )
+        }
+        val exportContent = when {
+            localExport != null -> ChapterContentReader.ExportContent(
+                content = localExport.html,
+                images = localExport.images,
+            )
+            isLocalSource -> ChapterContentReader.ExportContent(
+                content = source.fetchPageText(Page(0, content.chapter.url)),
+                images = emptyMap(),
+            )
+            else -> content.resolvedDownload?.let(reader::readExportContent)
+        }
+        val body = exportContent?.content.orEmpty()
+        if (body.isBlank() && !isLocalSource) return null
+
+        return EpubWriter.Chapter(
+            title = content.name,
+            content = body,
+            order = content.order,
+            images = toEmbeddedImages(exportContent?.images.orEmpty()),
+        )
+    }
+
     private fun compressImageForEpub(imageBytes: ByteArray, quality: Int, maxSizeKb: Int): ByteArray? {
         return try {
             val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size) ?: return null
@@ -1110,28 +1125,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             outputBytes
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "Failed to compress image for EPUB" }
-            null
-        }
-    }
-
-    /**
-     * Read original (source) content for a chapter from the download directory or CBZ archive.
-     * Delegates to [ChapterContentReader] (DRY fix 2.2).
-     */
-    private suspend fun readOriginalContent(
-        manga: Manga,
-        chapter: Chapter,
-        source: eu.kanade.tachiyomi.source.Source,
-    ): String? {
-        return try {
-            if (source.isLocal() || manga.isLocalNovel()) {
-                return source.fetchPageText(Page(0, chapter.url))
-            }
-
-            val reader = ChapterContentReader(context, downloadProvider)
-            reader.readDownloadedContent(manga, chapter, source)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to read downloaded chapter: ${chapter.name}" }
             null
         }
     }
@@ -1186,39 +1179,43 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     }
 
     private fun updateProgress(current: Int, total: Int, title: String) {
-        context.notify(
-            Notifications.ID_EPUB_EXPORT_PROGRESS,
-            notificationBuilder
-                .setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-                .setContentText(
-                    context.stringResource(
-                        TDMR.strings.epub_export_job_progress,
-                        current,
-                        total,
-                        title,
-                    ),
-                )
-                .setProgress(total, current, false)
-                .build(),
-        )
+        notifyIfRunOwner {
+            context.notify(
+                Notifications.ID_EPUB_EXPORT_PROGRESS,
+                notificationBuilder
+                    .setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
+                    .setContentText(
+                        context.stringResource(
+                            TDMR.strings.epub_export_job_progress,
+                            current,
+                            total,
+                            title,
+                        ),
+                    )
+                    .setProgress(total, current, false)
+                    .build(),
+            )
+        }
     }
 
     private fun showCompleteNotification(success: Int, skipped: Int) {
-        context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
-        val message = if (skipped > 0) {
-            context.stringResource(TDMR.strings.epub_export_job_complete_with_skipped, success, skipped)
-        } else {
-            context.stringResource(TDMR.strings.epub_export_job_complete, success)
+        notifyIfRunOwner {
+            context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
+            val message = if (skipped > 0) {
+                context.stringResource(TDMR.strings.epub_export_job_complete_with_skipped, success, skipped)
+            } else {
+                context.stringResource(TDMR.strings.epub_export_job_complete, success)
+            }
+            context.notify(
+                Notifications.ID_EPUB_EXPORT_COMPLETE,
+                context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
+                    setSmallIcon(android.R.drawable.ic_menu_save)
+                    setContentTitle(context.stringResource(TDMR.strings.epub_export_job_complete_title))
+                    setContentText(message)
+                    setAutoCancel(true)
+                }.build(),
+            )
         }
-        context.notify(
-            Notifications.ID_EPUB_EXPORT_COMPLETE,
-            context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
-                setSmallIcon(android.R.drawable.ic_menu_save)
-                setContentTitle(context.stringResource(TDMR.strings.epub_export_job_complete_title))
-                setContentText(message)
-                setAutoCancel(true)
-            }.build(),
-        )
     }
 
     /**
@@ -1286,16 +1283,18 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     }
 
     private fun showErrorNotification(error: String) {
-        context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
-        context.notify(
-            Notifications.ID_EPUB_EXPORT_COMPLETE,
-            context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
-                setSmallIcon(android.R.drawable.ic_menu_close_clear_cancel)
-                setContentTitle(context.stringResource(TDMR.strings.epub_export_job_failed_title))
-                setContentText(error)
-                setAutoCancel(true)
-            }.build(),
-        )
+        notifyIfRunOwner {
+            context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
+            context.notify(
+                Notifications.ID_EPUB_EXPORT_COMPLETE,
+                context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
+                    setSmallIcon(android.R.drawable.ic_menu_close_clear_cancel)
+                    setContentTitle(context.stringResource(TDMR.strings.epub_export_job_failed_title))
+                    setContentText(error)
+                    setAutoCancel(true)
+                }.build(),
+            )
+        }
     }
 
     companion object {
@@ -1311,6 +1310,27 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         private const val KEY_INCLUDE_VOLUME_NUMBER = "include_volume_number"
         private const val KEY_INCLUDE_CUSTOM_CSS = "include_custom_css"
         private const val KEY_INCLUDE_CUSTOM_JS = "include_custom_js"
+
+        private data class RunOwner(val id: UUID, val outputUri: Uri)
+
+        private val runLock = Any()
+        private var activeRun: RunOwner? = null
+        private val finalWriteMutex = Mutex()
+
+        internal fun sortChaptersForEpubExport(chapters: List<Chapter>): List<Chapter> =
+            chapters.sortedWith(compareByDescending<Chapter> { it.sourceOrder }.thenBy { it.id })
+
+        private fun claimRun(id: UUID, outputUri: Uri): Boolean = synchronized(runLock) {
+            val current = activeRun
+            when {
+                current == null -> {
+                    activeRun = RunOwner(id, outputUri)
+                    true
+                }
+                current.id == id -> true
+                else -> false
+            }
+        }
 
         fun start(
             context: Context,
@@ -1340,22 +1360,25 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                 KEY_INCLUDE_CUSTOM_JS to includeCustomJs,
             )
 
-            context.notify(
-                Notifications.ID_EPUB_EXPORT_PROGRESS,
-                context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
-                    setSmallIcon(android.R.drawable.ic_menu_save)
-                    setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-                    setContentText(context.stringResource(TDMR.strings.notification_starting))
-                    setProgress(0, 0, true)
-                    setOngoing(true)
-                    setOnlyAlertOnce(true)
-                }.build(),
-            )
-
             val request = OneTimeWorkRequestBuilder<EpubExportJob>()
                 .addTag(TAG)
                 .setInputData(data)
                 .build()
+
+            synchronized(runLock) {
+                activeRun = RunOwner(request.id, outputUri)
+                context.notify(
+                    Notifications.ID_EPUB_EXPORT_PROGRESS,
+                    context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
+                        setSmallIcon(android.R.drawable.ic_menu_save)
+                        setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
+                        setContentText(context.stringResource(TDMR.strings.notification_starting))
+                        setProgress(0, 0, true)
+                        setOngoing(true)
+                        setOnlyAlertOnce(true)
+                    }.build(),
+                )
+            }
 
             context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
         }

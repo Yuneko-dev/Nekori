@@ -27,6 +27,18 @@ class ChapterContentReader(
     private val downloadProvider: DownloadProvider,
 ) {
 
+    /**
+     * Content and assets needed to write one downloaded chapter into an EPUB.
+     *
+     * The content has already had resolvable relative assets rewritten to the
+     * reader image scheme, so [images] is only populated when the content can
+     * reference it.
+     */
+    data class ExportContent(
+        val content: String,
+        val images: Map<String, ByteArray>,
+    )
+
     // ── Public API ──────────────────────────────────────────────────
 
     /**
@@ -44,6 +56,25 @@ class ChapterContentReader(
                 ?: readFromMangaDirCbz(manga, chapter, source)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to read downloaded chapter: ${chapter.name}" }
+            null
+        }
+    }
+
+    /**
+     * Reads export content from a chapter location resolved by
+     * [DownloadProvider.findChapterDirs]. Directories are listed once and CBZ
+     * archives are enumerated once, avoiding the separate content/image scans
+     * used by the legacy APIs.
+     */
+    fun readExportContent(resolvedFile: UniFile): ExportContent? {
+        return try {
+            if (resolvedFile.isFile && resolvedFile.name.isArchiveFile()) {
+                readExportContentFromArchive(resolvedFile)
+            } else {
+                readExportContentFromDirectory(resolvedFile)
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to read export content from ${resolvedFile.name}" }
             null
         }
     }
@@ -102,115 +133,47 @@ class ChapterContentReader(
 
     // ── Image reading ───────────────────────────────────────────────
 
-    /**
-     * Read all embedded images for [chapter] from its downloaded files.
-     * Returns a map of filename → bytes, e.g. `"image_0.jpg" → ByteArray`.
-     */
-    fun readChapterImages(
-        manga: Manga,
-        chapter: Chapter,
-        source: eu.kanade.tachiyomi.source.Source,
-    ): Map<String, ByteArray> {
-        return try {
-            readImagesFromChapterDir(manga, chapter, source)
-                ?: readImagesFromMangaDirCbz(manga, chapter, source)
-                ?: emptyMap()
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to read images for chapter: ${chapter.name}" }
+    private fun readExportContentFromDirectory(dir: UniFile): ExportContent? {
+        val allFiles = dir.listFiles()?.toList() ?: return null
+        val fileNames = allFiles.mapNotNull { it.name }.toSet()
+        val content = readContentFromFiles(allFiles, fileNames::contains) ?: return null
+        val images = if (content.contains(NOVEL_IMAGE_SCHEME)) {
+            readImagesFromFiles(allFiles)
+        } else {
             emptyMap()
         }
+        return ExportContent(content, images)
     }
 
-    private fun readImagesFromChapterDir(
-        manga: Manga,
-        chapter: Chapter,
-        source: eu.kanade.tachiyomi.source.Source,
-    ): Map<String, ByteArray>? {
-        val chapterDirOrCbz = downloadProvider.findChapterDir(
-            chapter.name,
-            chapter.scanlator,
-            chapter.url,
-            manga.title,
-            source,
-        ) ?: return null
-
-        val isCbz = chapterDirOrCbz.name?.let { it.endsWith(".cbz") || it.endsWith(".zip") } == true
-        return if (isCbz) readImagesFromCbz(chapterDirOrCbz) else readImagesFromDirectory(chapterDirOrCbz)
-    }
-
-    private fun readImagesFromMangaDirCbz(
-        manga: Manga,
-        chapter: Chapter,
-        source: eu.kanade.tachiyomi.source.Source,
-    ): Map<String, ByteArray>? {
-        val mangaDir = downloadProvider.findMangaDir(manga.title, source) ?: return null
-        val cbzFiles = mangaDir.listFiles()?.filter {
-            it.isFile && (it.name?.endsWith(".cbz") == true || it.name?.endsWith(".zip") == true)
-        } ?: return null
-
-        val validNames = downloadProvider.getValidChapterDirNames(
-            chapter.name,
-            chapter.scanlator,
-            chapter.url,
-        )
-
-        val matchingCbz = cbzFiles.find { cbz ->
-            val base = cbz.name?.substringBeforeLast(".") ?: ""
-            validNames.any { it == base }
-        } ?: return null
-
-        return readImagesFromCbz(matchingCbz)
-    }
-
-    private fun readImagesFromDirectory(dir: UniFile): Map<String, ByteArray>? {
-        val allFiles = dir.listFiles() ?: return null
-        val imageFiles = allFiles.filter { file ->
-            file.isFile && IMAGE_EXTENSIONS.any { ext ->
-                file.name?.lowercase()?.endsWith(ext) == true
-            }
-        }
-        if (imageFiles.isEmpty()) return null
-
-        return imageFiles.mapNotNull { file ->
-            val name = file.name ?: return@mapNotNull null
-            val bytes = context.contentResolver.openInputStream(file.uri)?.use { it.readBytes() }
-                ?: return@mapNotNull null
-            name to bytes
-        }.toMap().ifEmpty { null }
-    }
-
-    private fun readImagesFromCbz(cbzFile: UniFile): Map<String, ByteArray>? {
-        val uri = cbzFile.uri
-        return try {
-            val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
-            pfd.use { descriptor ->
-                ArchiveReader(descriptor).use { reader ->
-                    val imageFileNames = mutableListOf<String>()
-                    reader.useEntries { seq ->
-                        seq.forEach { entry ->
-                            val name = entry.name.lowercase()
-                            if (entry.isFile && IMAGE_EXTENSIONS.any { name.endsWith(it) }) {
-                                imageFileNames.add(entry.name)
-                            }
+    private fun readExportContentFromArchive(cbzFile: UniFile): ExportContent? {
+        val descriptor = context.contentResolver.openFileDescriptor(cbzFile.uri, "r") ?: return null
+        return descriptor.use {
+            ArchiveReader(it).use { reader ->
+                val contentFileNames = mutableListOf<String>()
+                val imageFileNames = mutableListOf<String>()
+                val entryBaseNames = mutableSetOf<String>()
+                reader.useEntries { entries ->
+                    entries.forEach { entry ->
+                        if (!entry.isFile) return@forEach
+                        entryBaseNames += entry.name.substringAfterLast('/')
+                        val name = entry.name.lowercase()
+                        if (name.isContentFile()) {
+                            contentFileNames += entry.name
+                        }
+                        if (name.isImageFile()) {
+                            imageFileNames += entry.name
                         }
                     }
-
-                    val result = mutableMapOf<String, ByteArray>()
-                    imageFileNames.forEach { fileName ->
-                        try {
-                            reader.getInputStream(fileName)?.use { stream ->
-                                result[fileName.substringAfterLast('/')] = stream.readBytes()
-                            }
-                        } catch (e: Exception) {
-                            logcat(LogPriority.ERROR, e) { "CBZ: failed to read image $fileName" }
-                        }
-                    }
-                    result.ifEmpty { null }
                 }
+
+                val content = readContentFromArchive(reader, contentFileNames, entryBaseNames) ?: return@use null
+                val images = if (content.contains(NOVEL_IMAGE_SCHEME)) {
+                    readImagesFromArchive(reader, imageFileNames)
+                } else {
+                    emptyMap()
+                }
+                ExportContent(content, images)
             }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "CBZ: failed to read images from $uri" }
-            null
         }
     }
 
@@ -218,6 +181,7 @@ class ChapterContentReader(
         rewriteResolvedAssetRefs(text, fileExists)
 
     companion object {
+        private const val NOVEL_IMAGE_SCHEME = "tsundoku-novel-image://"
         private val IMAGE_EXTENSIONS = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif")
     }
 
@@ -228,27 +192,7 @@ class ChapterContentReader(
      */
     private fun readContentFromDirectory(dir: UniFile): String? {
         val allFiles = dir.listFiles() ?: return null
-        val htmlFiles = allFiles.filter {
-            it.isFile && it.name?.endsWith(".html") == true
-        }.sortedBy { it.name }
-
-        val txtFiles = allFiles.filter {
-            it.isFile && it.name?.endsWith(".txt") == true
-        }.sortedBy { it.name }
-
-        val files = htmlFiles.ifEmpty { txtFiles }
-        if (files.isEmpty()) return null
-
-        val sb = StringBuilder()
-        files.forEachIndexed { i, file ->
-            val text = context.contentResolver.openInputStream(file.uri)?.use {
-                it.bufferedReader().readText()
-            } ?: ""
-            sb.append(text)
-            if (i < files.size - 1) sb.append("\n\n")
-        }
-        val content = sb.toString()
-        return content.ifBlank { null }?.let { rewriteAssetRefs(it) { name -> dir.findFile(name) != null } }
+        return readContentFromFiles(allFiles.asList()) { name -> dir.findFile(name) != null }
     }
 
     /**
@@ -264,7 +208,6 @@ class ChapterContentReader(
             val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
             pfd.use { descriptor ->
                 ArchiveReader(descriptor).use { reader ->
-                    // First pass: collect content file names and entry base names.
                     val contentFileNames = mutableListOf<String>()
                     val entryBaseNames = mutableSetOf<String>()
                     reader.useEntries { seq ->
@@ -272,33 +215,12 @@ class ChapterContentReader(
                             if (!entry.isFile) return@forEach
                             entryBaseNames.add(entry.name.substringAfterLast('/'))
                             val name = entry.name.lowercase()
-                            if (name.endsWith(".html") ||
-                                name.endsWith(".htm") ||
-                                name.endsWith(".xhtml") ||
-                                name.endsWith(".txt")
-                            ) {
+                            if (name.isContentFile()) {
                                 contentFileNames.add(entry.name)
                             }
                         }
                     }
-
-                    // Second pass: read each file
-                    val entries = mutableListOf<Pair<String, String>>()
-                    contentFileNames.forEach { fileName ->
-                        try {
-                            reader.getInputStream(fileName)?.use { stream ->
-                                entries.add(fileName to stream.bufferedReader().readText())
-                            }
-                        } catch (e: Exception) {
-                            logcat(LogPriority.ERROR, e) { "CBZ: failed to read entry $fileName" }
-                        }
-                    }
-
-                    // Sort by name and concatenate
-                    entries.sortedBy { it.first }
-                        .joinToString("\n\n") { it.second }
-                        .ifEmpty { null }
-                        ?.let { rewriteAssetRefs(it, entryBaseNames::contains) }
+                    readContentFromArchive(reader, contentFileNames, entryBaseNames)
                 }
             }
         } catch (e: Exception) {
@@ -306,4 +228,68 @@ class ChapterContentReader(
             null
         }
     }
+
+    private fun readContentFromFiles(
+        allFiles: List<UniFile>,
+        fileExists: (String) -> Boolean,
+    ): String? {
+        val htmlFiles = allFiles.filter { it.isFile && it.name?.endsWith(".html") == true }.sortedBy { it.name }
+        val txtFiles = allFiles.filter { it.isFile && it.name?.endsWith(".txt") == true }.sortedBy { it.name }
+        val files = htmlFiles.ifEmpty { txtFiles }
+        if (files.isEmpty()) return null
+
+        val content = files.joinToString("\n\n") { file ->
+            context.contentResolver.openInputStream(file.uri)?.use { it.bufferedReader().readText() }.orEmpty()
+        }
+        return content.ifBlank { null }?.let { rewriteAssetRefs(it, fileExists) }
+    }
+
+    private fun readImagesFromFiles(allFiles: List<UniFile>): Map<String, ByteArray> {
+        return allFiles.asSequence()
+            .filter { it.isFile && it.name.isImageFile() }
+            .mapNotNull { file ->
+                val name = file.name ?: return@mapNotNull null
+                context.contentResolver.openInputStream(file.uri)?.use { name to it.readBytes() }
+            }
+            .toMap()
+    }
+
+    private fun readContentFromArchive(
+        reader: ArchiveReader,
+        contentFileNames: List<String>,
+        entryBaseNames: Set<String>,
+    ): String? {
+        val entries = contentFileNames.mapNotNull { fileName ->
+            try {
+                reader.getInputStream(fileName)?.use { fileName to it.bufferedReader().readText() }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "CBZ: failed to read entry $fileName" }
+                null
+            }
+        }
+        return entries.sortedBy { it.first }
+            .joinToString("\n\n") { it.second }
+            .ifEmpty { null }
+            ?.let { rewriteAssetRefs(it, entryBaseNames::contains) }
+    }
+
+    private fun readImagesFromArchive(reader: ArchiveReader, imageFileNames: List<String>): Map<String, ByteArray> {
+        return imageFileNames.asSequence().mapNotNull { fileName ->
+            try {
+                reader.getInputStream(fileName)?.use { fileName.substringAfterLast('/') to it.readBytes() }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "CBZ: failed to read image $fileName" }
+                null
+            }
+        }.toMap()
+    }
+
+    private fun String?.isArchiveFile(): Boolean =
+        this?.let { it.endsWith(".cbz") || it.endsWith(".zip") } == true
+
+    private fun String?.isImageFile(): Boolean =
+        this?.lowercase()?.let { name -> IMAGE_EXTENSIONS.any(name::endsWith) } == true
+
+    private fun String.isContentFile(): Boolean =
+        endsWith(".html") || endsWith(".htm") || endsWith(".xhtml") || endsWith(".txt")
 }

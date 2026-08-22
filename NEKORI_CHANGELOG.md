@@ -99,6 +99,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Inline error auto-dismiss starts when the error becomes visible, not when it is created.
 - The image modal hides when closed instead of leaving a broken-image icon.
 - A race when loading a chapter, one-shot chapter titles, chapter spacing, EPUB navigation and novel metadata.
+- EPUB export now streams chapters, reports chapter-level progress, keeps canonical source ordering, and honors the independent EPUB/ZIP compression settings.
 - Infinite scroll appends past a run of chapters shorter than the viewport.
 - Local novel reading, chapter images, and novel themes aligned with video styling.
 

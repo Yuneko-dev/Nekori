@@ -1,6 +1,7 @@
 package mihon.core.archive
 
 import org.jsoup.Jsoup
+import java.io.Closeable
 import java.io.OutputStream
 import java.util.UUID
 import java.util.zip.CRC32
@@ -45,6 +46,132 @@ class EpubWriter(
         val publisher: String? = null,
     )
 
+    /**
+     * A single-pass EPUB writer. Chapters are written as they arrive; only the small amount of
+     * metadata required for the navigation and package documents is retained until [finish].
+     *
+     * Call [finish] to commit the book. [close] aborts an unfinished session, so `use {}` never
+     * turns a failed append into a valid-looking partial EPUB.
+     */
+    class Session internal constructor(
+        private val writer: EpubWriter,
+        private val zip: ZipOutputStream,
+        private val metadata: Metadata,
+        private val coverImage: ByteArray?,
+        private val customCss: String?,
+        private val customJs: String?,
+    ) : Closeable {
+
+        private val chapters = mutableListOf<WrittenChapter>()
+        private var isOpen = true
+
+        init {
+            writer.writeMimetype(zip)
+            writer.writeContainerXml(zip)
+
+            if (coverImage != null) {
+                val (_, extension) = EpubWriter.detectImageType(coverImage)
+                writer.writeEntry(zip, "OEBPS/images/cover.$extension", coverImage)
+            }
+            customCss?.takeIf { it.isNotBlank() }?.let {
+                writer.writeEntry(zip, "OEBPS/$CUSTOM_CSS_PATH", it)
+            }
+            customJs?.takeIf { it.isNotBlank() }?.let {
+                writer.writeEntry(zip, "OEBPS/$CUSTOM_JS_PATH", it)
+            }
+        }
+
+        fun append(chapter: Chapter) {
+            check(isOpen) { "EPUB writer session is no longer open" }
+
+            val chapterIndex = chapters.size
+            val chapterPrefix = writer.chapterFilePrefix(chapterIndex)
+            chapter.images.forEach { image ->
+                writer.writeEntry(
+                    zip,
+                    "OEBPS/images/${writer.chapterImageFileName(chapterPrefix, image)}",
+                    image.bytes,
+                )
+            }
+            writer.writeChapter(
+                zip = zip,
+                index = chapterIndex,
+                chapter = chapter,
+                includeCustomCss = customCss?.isNotBlank() == true,
+                includeCustomJs = customJs?.isNotBlank() == true,
+            )
+            chapters += WrittenChapter(
+                title = chapter.title,
+                images = chapter.images.map {
+                    WrittenImage(id = it.id, mimeType = it.mimeType, extension = it.extension)
+                },
+            )
+        }
+
+        fun finish() {
+            check(isOpen) { "EPUB writer session is no longer open" }
+            try {
+                val (coverMimeType, coverExtension) = coverImage?.let(EpubWriter::detectImageType)
+                    ?: ("image/jpeg" to "jpg")
+                val bookId = UUID.randomUUID().toString()
+                writer.writeNavDocument(zip, chapters)
+                writer.writeNcxDocument(zip, metadata, chapters, bookId)
+                writer.writePackageDocument(
+                    zip = zip,
+                    metadata = metadata,
+                    chapters = chapters,
+                    hasCover = coverImage != null,
+                    bookId = bookId,
+                    coverFileName = "cover.$coverExtension",
+                    coverMimeType = coverMimeType,
+                    hasCustomCss = customCss?.isNotBlank() == true,
+                    hasCustomJs = customJs?.isNotBlank() == true,
+                )
+            } finally {
+                isOpen = false
+                zip.close()
+            }
+        }
+
+        fun abort() {
+            if (!isOpen) return
+            try {
+                zip.close()
+            } finally {
+                isOpen = false
+            }
+        }
+
+        override fun close() = abort()
+    }
+
+    private data class WrittenChapter(
+        val title: String,
+        val images: List<WrittenImage>,
+    )
+
+    private data class WrittenImage(
+        val id: String,
+        val mimeType: String,
+        val extension: String,
+    )
+
+    fun open(
+        outputStream: OutputStream,
+        metadata: Metadata,
+        coverImage: ByteArray? = null,
+        customCss: String? = null,
+        customJs: String? = null,
+    ): Session {
+        val zip = ZipOutputStream(outputStream).apply { setLevel(deflateLevel) }
+        return try {
+            Session(this, zip, metadata, coverImage, customCss, customJs)
+        } catch (error: Throwable) {
+            zip.close()
+            throw error
+        }
+    }
+
     fun write(
         outputStream: OutputStream,
         metadata: Metadata,
@@ -53,61 +180,13 @@ class EpubWriter(
         customCss: String? = null,
         customJs: String? = null,
     ) {
-        val bookId = UUID.randomUUID().toString()
-
-        val (coverMimeType, coverExtension) = if (coverImage !=
-            null
-        ) {
-            detectImageType(coverImage)
-        } else {
-            "image/jpeg" to "jpg"
-        }
-        val coverFileName = "cover.$coverExtension"
-
-        val cssBody = customCss?.takeIf { it.isNotBlank() }
-        val jsBody = customJs?.takeIf { it.isNotBlank() }
-
-        ZipOutputStream(outputStream).use { zip ->
-            zip.setLevel(deflateLevel)
-            writeMimetype(zip)
-            writeContainerXml(zip)
-
-            if (coverImage != null) {
-                writeEntry(zip, "OEBPS/images/$coverFileName", coverImage)
-            }
-
-            if (cssBody != null) {
-                writeEntry(zip, "OEBPS/$CUSTOM_CSS_PATH", cssBody)
-            }
-            if (jsBody != null) {
-                writeEntry(zip, "OEBPS/$CUSTOM_JS_PATH", jsBody)
-            }
-
-            chapters.forEachIndexed { chIdx, chapter ->
-                val chapterPrefix = chapterFilePrefix(chIdx)
-                chapter.images.forEach { img ->
-                    val epubFileName = chapterImageFileName(chapterPrefix, img)
-                    writeEntry(zip, "OEBPS/images/$epubFileName", img.bytes)
-                }
-            }
-
-            chapters.forEachIndexed { index, chapter ->
-                writeChapter(zip, index, chapter, includeCustomCss = cssBody != null, includeCustomJs = jsBody != null)
-            }
-
-            writeNavDocument(zip, chapters)
-            writeNcxDocument(zip, metadata, chapters, bookId)
-            writePackageDocument(
-                zip = zip,
-                metadata = metadata,
-                chapters = chapters,
-                hasCover = coverImage != null,
-                bookId = bookId,
-                coverFileName = coverFileName,
-                coverMimeType = coverMimeType,
-                hasCustomCss = cssBody != null,
-                hasCustomJs = jsBody != null,
-            )
+        val session = open(outputStream, metadata, coverImage, customCss, customJs)
+        try {
+            chapters.forEach(session::append)
+            session.finish()
+        } catch (error: Throwable) {
+            session.abort()
+            throw error
         }
     }
 
@@ -243,7 +322,7 @@ class EpubWriter(
         return doc.body().html()
     }
 
-    private fun writeNavDocument(zip: ZipOutputStream, chapters: List<Chapter>) {
+    private fun writeNavDocument(zip: ZipOutputStream, chapters: List<WrittenChapter>) {
         val tocItems = chapters.mapIndexed { index, chapter ->
             val filename = "${chapterFilePrefix(index)}.xhtml"
             """            <li><a href="$filename">${escapeXml(chapter.title)}</a></li>"""
@@ -271,7 +350,7 @@ $tocItems
     private fun writeNcxDocument(
         zip: ZipOutputStream,
         metadata: Metadata,
-        chapters: List<Chapter>,
+        chapters: List<WrittenChapter>,
         bookId: String,
     ) {
         val navPoints = chapters.mapIndexed { index, chapter ->
@@ -301,7 +380,7 @@ $navPoints
     private fun writePackageDocument(
         zip: ZipOutputStream,
         metadata: Metadata,
-        chapters: List<Chapter>,
+        chapters: List<WrittenChapter>,
         hasCover: Boolean,
         bookId: String,
         coverFileName: String,
@@ -405,9 +484,15 @@ $spineItems
 
     private fun chapterFilePrefix(index: Int) = "chapter${index.toString().padStart(4, '0')}"
 
-    private fun chapterImageFileName(chapterPrefix: String, img: EmbeddedImage): String {
-        val baseName = img.id.substringBeforeLast(".", img.id)
-        return "${chapterPrefix}_$baseName.${img.extension}"
+    private fun chapterImageFileName(chapterPrefix: String, img: EmbeddedImage): String =
+        chapterImageFileName(chapterPrefix, img.id, img.extension)
+
+    private fun chapterImageFileName(chapterPrefix: String, img: WrittenImage): String =
+        chapterImageFileName(chapterPrefix, img.id, img.extension)
+
+    private fun chapterImageFileName(chapterPrefix: String, imageId: String, extension: String): String {
+        val baseName = imageId.substringBeforeLast(".", imageId)
+        return "${chapterPrefix}_$baseName.$extension"
     }
 
     companion object {

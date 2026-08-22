@@ -9,6 +9,7 @@ import me.zhanghai.android.libarchive.ArchiveEntry
 import me.zhanghai.android.libarchive.ArchiveException
 import java.io.Closeable
 import java.nio.ByteBuffer
+import java.util.concurrent.CancellationException
 
 class ZipWriter(val context: Context, file: UniFile, compressionLevel: Int = 0) : Closeable {
     private val pfd = file.openFileDescriptor(context, "wt")
@@ -33,15 +34,26 @@ class ZipWriter(val context: Context, file: UniFile, compressionLevel: Int = 0) 
         }
     }
 
-    fun write(file: UniFile) {
+    /**
+     * Add [file] under [entryName]. The optional callback is checked before the header and every
+     * buffer write so callers can stop a large archive operation without depending on coroutines.
+     */
+    fun write(
+        file: UniFile,
+        entryName: String = file.name ?: error("Cannot archive an unnamed file"),
+        isCancelled: (() -> Boolean)? = null,
+    ) {
+        require(entryName.isNotBlank()) { "Archive entry name must not be blank" }
         file.openFileDescriptor(context, "r").use {
             val fd = it.fileDescriptor
             ArchiveEntry.clear(entry)
-            ArchiveEntry.setPathnameUtf8(entry, file.name)
+            ArchiveEntry.setPathnameUtf8(entry, entryName)
             val stat = Os.fstat(fd)
             ArchiveEntry.setStat(entry, stat.toArchiveStat())
+            checkCancelled(isCancelled)
             Archive.writeHeader(archive, entry)
             while (true) {
+                checkCancelled(isCancelled)
                 buffer.clear()
                 Os.read(fd, buffer)
                 if (buffer.position() == 0) break
@@ -49,6 +61,12 @@ class ZipWriter(val context: Context, file: UniFile, compressionLevel: Int = 0) 
                 Archive.writeData(archive, buffer)
             }
             Archive.writeFinishEntry(archive)
+        }
+    }
+
+    private fun checkCancelled(isCancelled: (() -> Boolean)?) {
+        if (isCancelled?.invoke() == true) {
+            throw CancellationException("Archive write cancelled")
         }
     }
 
