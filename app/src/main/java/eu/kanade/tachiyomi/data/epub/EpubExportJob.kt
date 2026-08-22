@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.net.toUri
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -85,6 +86,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         setOngoing(true)
         setOnlyAlertOnce(true)
     }
+    private var lastProgressNotificationAt = 0L
 
     private fun isRunOwner(): Boolean = synchronized(runLock) { activeRun?.id == id }
 
@@ -265,11 +267,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
                     for ((chapterIndex, chapter) in chapters.withIndex()) {
                         ensureActiveRun()
-                        updateProgress(
-                            chapterIndex + 1,
-                            chapters.size,
-                            "${manga.title}: ${chapter.name}",
-                        )
                         val isDownloaded = if (isLocalSource) {
                             true
                         } else {
@@ -415,12 +412,13 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                         }
                         val writtenChapters = mutableListOf<ChapterContent>()
                         try {
-                            candidates.forEach { candidate ->
+                            candidates.forEachIndexed { candidateIndex, candidate ->
                                 ensureActiveRun()
                                 updateProgress(
                                     candidate.order + 1,
                                     chapters.size,
                                     "${manga.title}: ${candidate.name}",
+                                    force = candidateIndex == candidates.lastIndex,
                                 )
                                 val outputChapter = if (writeOriginal) {
                                     readOriginalChapterForExport(
@@ -1178,8 +1176,11 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         }.getOrNull()
     }
 
-    private fun updateProgress(current: Int, total: Int, title: String) {
+    private fun updateProgress(current: Int, total: Int, title: String, force: Boolean) {
+        val now = SystemClock.elapsedRealtime()
         notifyIfRunOwner {
+            if (!shouldNotifyEpubProgress(now, lastProgressNotificationAt, force)) return@notifyIfRunOwner
+            lastProgressNotificationAt = now
             context.notify(
                 Notifications.ID_EPUB_EXPORT_PROGRESS,
                 notificationBuilder
@@ -1310,6 +1311,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         private const val KEY_INCLUDE_VOLUME_NUMBER = "include_volume_number"
         private const val KEY_INCLUDE_CUSTOM_CSS = "include_custom_css"
         private const val KEY_INCLUDE_CUSTOM_JS = "include_custom_js"
+        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 1000L
 
         private data class RunOwner(val id: UUID, val outputUri: Uri)
 
@@ -1319,6 +1321,9 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
         internal fun sortChaptersForEpubExport(chapters: List<Chapter>): List<Chapter> =
             chapters.sortedWith(compareByDescending<Chapter> { it.sourceOrder }.thenBy { it.id })
+
+        internal fun shouldNotifyEpubProgress(now: Long, lastNotifyAt: Long, force: Boolean): Boolean =
+            force || lastNotifyAt == 0L || now - lastNotifyAt >= PROGRESS_NOTIFICATION_INTERVAL_MS
 
         private fun claimRun(id: UUID, outputUri: Uri): Boolean = synchronized(runLock) {
             val current = activeRun
