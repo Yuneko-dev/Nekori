@@ -31,14 +31,15 @@ import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.core.archive.EpubWriter
-import mihon.core.archive.ZipWriter
 import mihon.core.archive.epubReader
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -64,6 +65,9 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URLDecoder
 import java.util.UUID
+import java.util.zip.CRC32
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class EpubExportJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
@@ -78,14 +82,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     private val localNovelFileSystem: LocalNovelSourceFileSystem = Injekt.get()
     private val readerPreferences: ReaderPreferences = Injekt.get()
 
-    private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
-        setSmallIcon(android.R.drawable.ic_menu_save)
-        setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-        setContentText(context.stringResource(TDMR.strings.notification_starting))
-        setProgress(0, 0, true)
-        setOngoing(true)
-        setOnlyAlertOnce(true)
-    }
+    private val notificationBuilder = progressNotificationBuilder(context, id)
     private var lastProgressNotificationAt = 0L
 
     private fun isRunOwner(): Boolean = synchronized(runLock) { activeRun?.id == id }
@@ -157,13 +154,26 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                 )
                 Result.success()
             } catch (e: CancellationException) {
+                cleanupFailedOutput(outputUri)
+                notifyIfRunOwner {
+                    context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
+                }
                 throw e
             } catch (e: Exception) {
+                cleanupFailedOutput(outputUri)
                 logcat(LogPriority.ERROR, e) { "EPUB export failed" }
                 showErrorNotification(
                     e.message ?: context.stringResource(MR.strings.unknown_error),
                 )
                 Result.failure()
+            }
+        }
+    }
+
+    private suspend fun cleanupFailedOutput(outputUri: Uri) {
+        withContext(NonCancellable) {
+            finalWriteMutex.withLock {
+                cleanupIncompleteOutput(outputUri)
             }
         }
     }
@@ -221,9 +231,15 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         val usedEntryNames = mutableSetOf<String>()
 
         try {
-            for (manga in mangaList) {
+            for ((mangaIndex, manga) in mangaList.withIndex()) {
                 val localEpubContexts = mutableMapOf<String, LocalEpubContext>()
                 try {
+                    updateProgress(
+                        current = mangaIndex + 1,
+                        total = totalCount,
+                        title = manga.title,
+                        force = true,
+                    )
                     val source = resolveExportSource(manga)
                     if (source == null || !source.isNovelSource()) {
                         logcat(LogPriority.WARN) { "${manga.title}: Not a novel source" }
@@ -415,9 +431,14 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                             candidates.forEachIndexed { candidateIndex, candidate ->
                                 ensureActiveRun()
                                 updateProgress(
-                                    candidate.order + 1,
-                                    chapters.size,
-                                    "${manga.title}: ${candidate.name}",
+                                    current = mangaIndex + 1,
+                                    total = totalCount,
+                                    title = epubChapterProgressTitle(
+                                        novelTitle = manga.title,
+                                        currentChapter = candidateIndex + 1,
+                                        totalChapters = candidates.size,
+                                        chapterTitle = candidate.name,
+                                    ),
                                     force = candidateIndex == candidates.lastIndex,
                                 )
                                 val outputChapter = if (writeOriginal) {
@@ -612,41 +633,55 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         shouldZipOutput: Boolean,
     ) {
         finalWriteMutex.withLock {
-            try {
-                ensureActiveRun()
-                if (shouldZipOutput) {
-                    val destination = UniFile.fromUri(context, outputUri)
-                        ?: error("Failed to access output URI: $outputUri")
-                    ZipWriter(context, destination, novelDownloadPreferences.zipCompressionLevel().get()).use { zip ->
+            ensureActiveRun()
+            if (shouldZipOutput) {
+                val compressionLevel = novelDownloadPreferences.zipCompressionLevel().get().coerceIn(0, 9)
+                context.contentResolver.openOutputStream(outputUri, "wt")?.use { output ->
+                    ZipOutputStream(output).use { zip ->
+                        if (compressionLevel > 0) zip.setLevel(compressionLevel)
                         artifacts.forEach { artifact ->
                             ensureActiveRun()
-                            zip.write(
-                                file = UniFile.fromFile(artifact.file)
-                                    ?: error("Failed to open staged EPUB: ${artifact.file}"),
-                                entryName = artifact.entryName,
-                                isCancelled = { isStopped || !isRunOwner() },
+                            val crc = if (compressionLevel == 0) {
+                                calculateEpubBundleCrc(artifact.file) { ensureActiveRun() }
+                            } else {
+                                null
+                            }
+                            zip.putNextEntry(
+                                createEpubBundleEntry(
+                                    entryName = artifact.entryName,
+                                    fileSize = artifact.file.length(),
+                                    crc = crc,
+                                    compressionLevel = compressionLevel,
+                                ),
                             )
+                            artifact.file.inputStream().use { input ->
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                while (true) {
+                                    ensureActiveRun()
+                                    val read = input.read(buffer)
+                                    if (read < 0) break
+                                    zip.write(buffer, 0, read)
+                                }
+                            }
+                            zip.closeEntry()
                         }
                     }
-                } else {
-                    val artifact = artifacts.single()
-                    context.contentResolver.openOutputStream(outputUri)?.use { output ->
-                        artifact.file.inputStream().use { input ->
-                            val buffer = ByteArray(8 * 1024)
-                            while (true) {
-                                ensureActiveRun()
-                                val read = input.read(buffer)
-                                if (read < 0) break
-                                output.write(buffer, 0, read)
-                            }
+                } ?: error("Failed to open output stream for URI: $outputUri")
+            } else {
+                val artifact = artifacts.single()
+                context.contentResolver.openOutputStream(outputUri, "wt")?.use { output ->
+                    artifact.file.inputStream().use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            ensureActiveRun()
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
                         }
-                    } ?: error("Failed to open output stream for URI: $outputUri")
-                }
-                ensureActiveRun()
-            } catch (e: CancellationException) {
-                cleanupIncompleteOutput(outputUri)
-                throw e
+                    }
+                } ?: error("Failed to open output stream for URI: $outputUri")
             }
+            ensureActiveRun()
         }
     }
 
@@ -654,10 +689,13 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         val replacementUsesSameUri = synchronized(runLock) {
             activeRun?.let { it.id != id && it.outputUri == outputUri } == true
         }
-        if (replacementUsesSameUri) {
-            runCatching { context.contentResolver.openOutputStream(outputUri, "wt")?.close() }
-        } else {
-            runCatching { context.contentResolver.delete(outputUri, null, null) }
+        if (!replacementUsesSameUri) {
+            val deleted = runCatching {
+                context.contentResolver.delete(outputUri, null, null) > 0
+            }.getOrDefault(false)
+            if (!deleted) {
+                runCatching { context.contentResolver.openOutputStream(outputUri, "wt")?.close() }
+            }
         }
     }
 
@@ -1311,7 +1349,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
         private const val KEY_INCLUDE_VOLUME_NUMBER = "include_volume_number"
         private const val KEY_INCLUDE_CUSTOM_CSS = "include_custom_css"
         private const val KEY_INCLUDE_CUSTOM_JS = "include_custom_js"
-        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 1000L
+        private const val PROGRESS_NOTIFICATION_INTERVAL_MS = 500L
 
         private data class RunOwner(val id: UUID, val outputUri: Uri)
 
@@ -1324,6 +1362,61 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
         internal fun shouldNotifyEpubProgress(now: Long, lastNotifyAt: Long, force: Boolean): Boolean =
             force || lastNotifyAt == 0L || now - lastNotifyAt >= PROGRESS_NOTIFICATION_INTERVAL_MS
+
+        internal fun epubChapterProgressTitle(
+            novelTitle: String,
+            currentChapter: Int,
+            totalChapters: Int,
+            chapterTitle: String,
+        ): String = "$novelTitle ($currentChapter/$totalChapters): $chapterTitle"
+
+        internal fun createEpubBundleEntry(
+            entryName: String,
+            fileSize: Long,
+            crc: Long?,
+            compressionLevel: Int,
+        ): ZipEntry = ZipEntry(entryName).apply {
+            if (compressionLevel == 0) {
+                method = ZipEntry.STORED
+                size = fileSize
+                compressedSize = fileSize
+                this.crc = requireNotNull(crc)
+            } else {
+                method = ZipEntry.DEFLATED
+            }
+        }
+
+        internal suspend fun calculateEpubBundleCrc(
+            file: File,
+            checkCancellation: suspend () -> Unit = {},
+        ): Long {
+            val crc = CRC32()
+            file.inputStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    checkCancellation()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    crc.update(buffer, 0, read)
+                }
+            }
+            return crc.value
+        }
+
+        private fun progressNotificationBuilder(context: Context, workerId: UUID) =
+            context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
+                setSmallIcon(android.R.drawable.ic_menu_save)
+                setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
+                setContentText(context.stringResource(TDMR.strings.notification_starting))
+                setProgress(0, 0, true)
+                setOngoing(true)
+                setOnlyAlertOnce(true)
+                addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    context.stringResource(MR.strings.action_cancel),
+                    context.workManager.createCancelPendingIntent(workerId),
+                )
+            }
 
         private fun claimRun(id: UUID, outputUri: Uri): Boolean = synchronized(runLock) {
             val current = activeRun
@@ -1372,20 +1465,12 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
             synchronized(runLock) {
                 activeRun = RunOwner(request.id, outputUri)
+                context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
                 context.notify(
                     Notifications.ID_EPUB_EXPORT_PROGRESS,
-                    context.notificationBuilder(Notifications.CHANNEL_EPUB_EXPORT) {
-                        setSmallIcon(android.R.drawable.ic_menu_save)
-                        setContentTitle(context.stringResource(TDMR.strings.epub_export_job_title))
-                        setContentText(context.stringResource(TDMR.strings.notification_starting))
-                        setProgress(0, 0, true)
-                        setOngoing(true)
-                        setOnlyAlertOnce(true)
-                    }.build(),
+                    progressNotificationBuilder(context, request.id).build(),
                 )
             }
-
-            context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
         }
     }
 }
