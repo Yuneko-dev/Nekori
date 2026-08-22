@@ -148,33 +148,43 @@ class ChapterContentReader(
     private fun readExportContentFromArchive(cbzFile: UniFile): ExportContent? {
         val descriptor = context.contentResolver.openFileDescriptor(cbzFile.uri, "r") ?: return null
         return descriptor.use {
-            ArchiveReader(it).use { reader ->
-                val contentFileNames = mutableListOf<String>()
-                val imageFileNames = mutableListOf<String>()
-                val entryBaseNames = mutableSetOf<String>()
-                reader.useEntries { entries ->
-                    entries.forEach { entry ->
-                        if (!entry.isFile) return@forEach
-                        entryBaseNames += entry.name.substringAfterLast('/')
-                        val name = entry.name.lowercase()
-                        if (name.isContentFile()) {
-                            contentFileNames += entry.name
-                        }
-                        if (name.isImageFile()) {
-                            imageFileNames += entry.name
-                        }
-                    }
-                }
+            ArchiveReader(it).use(::readExportContentFromArchive)
+        }
+    }
 
-                val content = readContentFromArchive(reader, contentFileNames, entryBaseNames) ?: return@use null
-                val images = if (content.contains(NOVEL_IMAGE_SCHEME)) {
-                    readImagesFromArchive(reader, imageFileNames)
-                } else {
-                    emptyMap()
+    internal fun readExportContentFromArchive(reader: ArchiveReader): ExportContent? {
+        val contentEntries = mutableListOf<Pair<String, String>>()
+        val images = linkedMapOf<String, ByteArray>()
+        val entryBaseNames = mutableSetOf<String>()
+
+        reader.forEachEntry { entry, input ->
+            if (!entry.isFile) return@forEachEntry
+
+            val baseName = entry.name.substringAfterLast('/')
+            entryBaseNames += baseName
+            try {
+                when {
+                    entry.name.lowercase().isContentFile() -> {
+                        contentEntries += entry.name to input.bufferedReader().readText()
+                    }
+                    baseName.isImageFile() -> images[baseName] = input.readBytes()
                 }
-                ExportContent(content, images)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to read archive entry ${entry.name}" }
             }
         }
+
+        val content = contentEntries
+            .sortedBy { it.first }
+            .joinToString("\n\n") { it.second }
+            .ifBlank { null }
+            ?.let { rewriteAssetRefs(it, entryBaseNames::contains) }
+            ?: return null
+
+        return ExportContent(
+            content = content,
+            images = images.takeIf { content.contains(NOVEL_IMAGE_SCHEME) }.orEmpty(),
+        )
     }
 
     private fun rewriteAssetRefs(text: String, fileExists: (String) -> Boolean): String =

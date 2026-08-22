@@ -7,11 +7,14 @@ import com.hippo.unifile.UniFile
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import mihon.core.archive.ArchiveEntry
+import mihon.core.archive.ArchiveReader
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
+import java.io.InputStream
 
 class ChapterContentReaderTest {
 
@@ -62,6 +65,26 @@ class ChapterContentReaderTest {
         verify(exactly = 0) { resolver.openInputStream(imageUri) }
     }
 
+    @Test
+    fun `export reader consumes a chapter archive in one pass`() {
+        val archive = mockk<ArchiveReader>()
+        every { archive.forEachEntry(any()) } answers {
+            val visit = firstArg<(ArchiveEntry, InputStream) -> Unit>()
+            visit(ArchiveEntry("002.html", true), stream("<p>Second</p>"))
+            visit(ArchiveEntry("images/cover.jpg", true), ByteArrayInputStream(byteArrayOf(1, 2, 3)))
+            visit(ArchiveEntry("001.html", true), stream("<p>First</p><img src=\"cover.jpg\">"))
+        }
+
+        val export = reader.readExportContentFromArchive(archive)
+
+        assertTrue(export!!.content.startsWith("<p>First</p>"))
+        assertTrue(export.content.endsWith("<p>Second</p>"))
+        assertTrue(export.content.contains("tsundoku-novel-image://cover.jpg"))
+        assertArrayEquals(byteArrayOf(1, 2, 3), export.images.getValue("cover.jpg"))
+        verify(exactly = 1) { archive.forEachEntry(any()) }
+        verify(exactly = 0) { archive.getInputStream(any()) }
+    }
+
     private fun directory(vararg files: UniFile): UniFile = mockk {
         every { isFile } returns false
         every { listFiles() } returns arrayOf(*files)
@@ -72,4 +95,6 @@ class ChapterContentReaderTest {
         every { isFile } returns true
         every { uri } returns fileUri
     }
+
+    private fun stream(content: String) = ByteArrayInputStream(content.encodeToByteArray())
 }

@@ -15,6 +15,11 @@ class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
         block(generateSequence { it.getNextEntry() })
     }
 
+    /** Visits every entry with the same archive stream. The callback must not close [InputStream]. */
+    fun forEachEntry(block: (ArchiveEntry, InputStream) -> Unit) = ArchiveInputStream(address, size).use { archive ->
+        generateSequence { archive.getNextEntry() }.forEach { block(it, archive) }
+    }
+
     fun getInputStream(entryName: String): InputStream? {
         val archive = ArchiveInputStream(address, size)
         try {
