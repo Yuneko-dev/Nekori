@@ -1,5 +1,6 @@
 package eu.kanade.presentation.reader.appbars
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -85,11 +86,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -985,13 +985,13 @@ private fun NovelProgressSlider(
     backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val sliderDragged by interactionSource.collectIsDraggedAsState()
 
     LaunchedEffect(currentProgress) {
         if (sliderDragged) {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         }
     }
 
@@ -1034,7 +1034,7 @@ private fun NovelVerticalProgressSlider(
     backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     var measuredTrackHeightPx by remember { mutableStateOf(0) }
 
     fun progressFromOffset(y: Float, totalHeight: Float): Int {
@@ -1102,7 +1102,7 @@ private fun NovelVerticalProgressSlider(
                                 if (newProgress != lastSentProgress) {
                                     onProgressChange(newProgress)
                                     lastSentProgress = newProgress
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             },
                             onVerticalDrag = { change, _ ->
@@ -1110,7 +1110,7 @@ private fun NovelVerticalProgressSlider(
                                 if (newProgress != lastSentProgress) {
                                     onProgressChange(newProgress)
                                     lastSentProgress = newProgress
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             },
                         )

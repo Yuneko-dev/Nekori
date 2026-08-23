@@ -25,9 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -91,7 +88,6 @@ private fun NotDownloadedIndicator(
             .size(IconButtonTokens.StateLayerSize)
             .commonClickable(
                 enabled = enabled,
-                hapticFeedback = LocalHapticFeedback.current,
                 onLongClick = { onClick(ChapterDownloadAction.START_NOW) },
                 onClick = { onClick(ChapterDownloadAction.START) },
             )
@@ -121,7 +117,6 @@ private fun DownloadingIndicator(
             .size(IconButtonTokens.StateLayerSize)
             .commonClickable(
                 enabled = enabled,
-                hapticFeedback = LocalHapticFeedback.current,
                 onLongClick = { onClick(ChapterDownloadAction.CANCEL) },
                 onClick = { isMenuExpanded = true },
             ),
@@ -199,7 +194,6 @@ private fun DownloadedIndicator(
             .size(IconButtonTokens.StateLayerSize)
             .commonClickable(
                 enabled = enabled,
-                hapticFeedback = LocalHapticFeedback.current,
                 onLongClick = { isMenuExpanded = true },
                 onClick = { isMenuExpanded = true },
             ),
@@ -234,7 +228,6 @@ private fun ErrorIndicator(
             .size(IconButtonTokens.StateLayerSize)
             .commonClickable(
                 enabled = enabled,
-                hapticFeedback = LocalHapticFeedback.current,
                 onLongClick = { onClick(ChapterDownloadAction.START) },
                 onClick = { onClick(ChapterDownloadAction.START) },
             ),
@@ -251,15 +244,11 @@ private fun ErrorIndicator(
 
 private fun Modifier.commonClickable(
     enabled: Boolean,
-    hapticFeedback: HapticFeedback,
     onLongClick: () -> Unit,
     onClick: () -> Unit,
 ) = this.combinedClickable(
     enabled = enabled,
-    onLongClick = {
-        onLongClick()
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-    },
+    onLongClick = onLongClick,
     onClick = onClick,
     role = Role.Button,
     interactionSource = null,

@@ -429,7 +429,7 @@ private fun YearPicker(selectedYear: Int, years: List<Int>, onSelect: (Int) -> U
     }
 }
 
-private data class HeatDay(
+internal data class HeatDay(
     val date: LocalDate,
     val inYear: Boolean,
     val future: Boolean,
@@ -438,8 +438,12 @@ private data class HeatDay(
     val duration = sessions.sumOf { it.readDuration }
 }
 
-private const val HEAT_LEVEL_COUNT = 5
-private const val HEAT_LEVEL_DURATION = 150 / HEAT_LEVEL_COUNT * 60_000L
+internal data class ReadingHeatmapScale(
+    val quartiles: List<Double>,
+    val maximum: Long,
+)
+
+private const val HEAT_ACTIVE_LEVEL_COUNT = 4
 private const val HEAT_MIN_INTENSITY = 0.3f
 
 @Composable
@@ -455,6 +459,7 @@ private fun Heatmap(days: List<HeatDay>, onSelectDay: (HeatDay) -> Unit) {
     val density = LocalDensity.current
     val weekdayLabels = shortWeekdayLabels()
     val monthLabels = shortMonthLabels()
+    val scale = remember(days) { readingHeatmapScale(eligibleHeatDurations(days)) }
     val monthStarts = remember(days) {
         (1..12).mapNotNull { month ->
             days.indexOfFirst { it.inYear && it.date.monthValue == month && it.date.dayOfMonth == 1 }
@@ -513,7 +518,7 @@ private fun Heatmap(days: List<HeatDay>, onSelectDay: (HeatDay) -> Unit) {
                                 modifier = Modifier
                                     .size(cellSize)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(heatColor(day))
+                                    .background(heatColor(day, scale))
                                     .semantics { contentDescription = description }
                                     .clickable(
                                         enabled = day.inYear && !day.future,
@@ -529,12 +534,12 @@ private fun Heatmap(days: List<HeatDay>, onSelectDay: (HeatDay) -> Unit) {
 }
 
 @Composable
-private fun heatColor(day: HeatDay): Color {
+private fun heatColor(day: HeatDay, scale: ReadingHeatmapScale): Color {
     if (!day.inYear) return Color.Transparent
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     val primary = MaterialTheme.colorScheme.primary
     if (day.future || day.duration == 0L) return empty
-    return lerp(empty, primary, heatIntensity(day.duration))
+    return lerp(empty, primary, heatIntensity(heatLevel(day.duration, scale)))
 }
 
 @Composable
@@ -546,18 +551,18 @@ private fun HeatLegend() {
         Row(
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            repeat(HEAT_LEVEL_COUNT) { level ->
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(empty),
+            )
+            repeat(HEAT_ACTIVE_LEVEL_COUNT) { level ->
                 Box(
                     modifier = Modifier
                         .size(10.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(
-                            lerp(
-                                empty,
-                                primary,
-                                heatIntensity((level + 1) * HEAT_LEVEL_DURATION),
-                            ),
-                        ),
+                        .background(lerp(empty, primary, heatIntensity(level + 1))),
                 )
             }
         }
@@ -565,10 +570,32 @@ private fun HeatLegend() {
     }
 }
 
-private fun heatIntensity(duration: Long): Float {
-    val level = ((duration - 1) / HEAT_LEVEL_DURATION).coerceAtMost((HEAT_LEVEL_COUNT - 1).toLong())
-    return HEAT_MIN_INTENSITY + level.toFloat() / (HEAT_LEVEL_COUNT - 1) * (1f - HEAT_MIN_INTENSITY)
+internal fun eligibleHeatDurations(days: List<HeatDay>): List<Long> = days
+    .filter { it.inYear && !it.future && it.duration > 0 }
+    .map { it.duration }
+
+internal fun readingHeatmapScale(durations: List<Long>): ReadingHeatmapScale {
+    val sorted = durations.sorted()
+    if (sorted.isEmpty()) return ReadingHeatmapScale(emptyList(), 0L)
+    val quartiles = listOf(0.25, 0.5, 0.75).map { percentile ->
+        val index = sorted.lastIndex * percentile
+        val lower = index.toInt()
+        val upper = minOf(lower + 1, sorted.lastIndex)
+        val fraction = index - lower
+        sorted[lower].toDouble() + (sorted[upper].toDouble() - sorted[lower]) * fraction
+    }
+    return ReadingHeatmapScale(quartiles, sorted.last())
 }
+
+internal fun heatLevel(duration: Long, scale: ReadingHeatmapScale): Int {
+    if (duration <= 0 || scale.maximum <= 0) return 0
+    if (duration >= scale.maximum) return HEAT_ACTIVE_LEVEL_COUNT
+    return scale.quartiles.indexOfFirst { duration <= it }
+        .let { index -> if (index < 0) HEAT_ACTIVE_LEVEL_COUNT else index + 1 }
+}
+
+internal fun heatIntensity(level: Int): Float =
+    HEAT_MIN_INTENSITY + (level - 1).toFloat() / (HEAT_ACTIVE_LEVEL_COUNT - 1) * (1f - HEAT_MIN_INTENSITY)
 
 @Composable
 private fun LazyItemScope.LibrarySection(state: StatsScreenState.Success) {

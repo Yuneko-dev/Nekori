@@ -16,6 +16,15 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changed
+- Reading heatmap intensity now scales relative to the selected year's activity.
+
+### Fixed
+- Sliders and wheel pickers now tick at each existing mark, and long-press actions no longer vibrate twice.
+
+
+## [v0.0.1] & [v0.0.2] - 2026-08-23
+
 ### Added
 
 #### JS plugin runtime

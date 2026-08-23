@@ -16,9 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.util.fastAll
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -92,7 +90,6 @@ data object NovelsTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val haptic = LocalHapticFeedback.current
 
         val libraryType = LibraryViewModel.LibraryType.Novel
         val viewModel = viewModel<LibraryViewModel>(
@@ -267,7 +264,6 @@ data object NovelsTab : Tab {
                         onToggleSelection = viewModel::toggleSelection,
                         onToggleRangeSelection = { category, manga ->
                             viewModel.toggleRangeSelection(category, manga)
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         },
                         onRefresh = { onGlobalUpdate(state.activeCategory) },
                         onGlobalSearchClicked = {

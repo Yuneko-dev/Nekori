@@ -39,11 +39,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
@@ -969,8 +967,6 @@ private fun LazyListScope.sharedChapterItems(
         },
         contentType = { MangaScreenItem.CHAPTER },
     ) { item ->
-        val haptic = LocalHapticFeedback.current
-
         when (item) {
             is ChapterList.MissingCount -> {
                 MissingChapterCountListItem(count = item.count)
@@ -1026,7 +1022,6 @@ private fun LazyListScope.sharedChapterItems(
                     chapterSwipeEndAction = chapterSwipeEndAction,
                     onLongClick = {
                         onChapterSelected(item, !item.selected, true)
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onClick = {
                         onChapterItemClick(

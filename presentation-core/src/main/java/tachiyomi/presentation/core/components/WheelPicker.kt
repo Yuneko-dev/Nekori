@@ -1,5 +1,6 @@
 package tachiyomi.presentation.core.components
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -34,8 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -113,7 +113,7 @@ private fun <T> WheelPicker(
     },
     itemContent: @Composable LazyItemScope.(item: T) -> Unit,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     val lazyListState = rememberLazyListState(startIndex)
 
     var internalIndex by remember { mutableIntStateOf(startIndex) }
@@ -127,7 +127,7 @@ private fun <T> WheelPicker(
             .map { calculateSnappedItemIndex(lazyListState) }
             .distinctUntilChanged()
             .collectLatest {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 internalOnSelectionChanged(it)
             }
     }

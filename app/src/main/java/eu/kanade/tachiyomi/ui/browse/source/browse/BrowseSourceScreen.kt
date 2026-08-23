@@ -54,11 +54,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -188,7 +186,6 @@ data class BrowseSourceScreen(
 
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
-        val haptic = LocalHapticFeedback.current
         val uriHandler = LocalUriHandler.current
         val snackbarHostState = remember { SnackbarHostState() }
         var showMassImportDialog by remember { mutableStateOf(false) }
@@ -597,7 +594,6 @@ data class BrowseSourceScreen(
                                 )
                                 else -> viewModel.addFavorite(manga)
                             }
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                     }
                 },

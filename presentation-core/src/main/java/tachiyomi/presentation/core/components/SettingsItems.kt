@@ -1,5 +1,6 @@
 package tachiyomi.presentation.core.components
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -51,8 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -370,7 +370,7 @@ fun BaseSliderItem(
     subtitleStyle: TextStyle = MaterialTheme.typography.bodySmall,
     pillColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,7 +405,7 @@ fun BaseSliderItem(
             onValueChange = f@{
                 if (it == value) return@f
                 onChange(it)
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             },
             valueRange = valueRange,
             steps = steps,
