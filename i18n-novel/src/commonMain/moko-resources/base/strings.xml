@@ -1320,7 +1320,6 @@
     <!-- History/Updates screens: list view toggle (wave 4) -->
     <string name="label_list_view">List View</string>
     <string name="history_action_last_only">Last only</string>
-    <string name="updates_action_group_by_novel">Group by Novel</string>
 
     <!-- Track search (wave 4) -->
     <string name="track_search_pick_alt_title">Pick alt title</string>

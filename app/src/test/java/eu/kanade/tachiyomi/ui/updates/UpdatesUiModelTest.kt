@@ -8,6 +8,8 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
@@ -42,26 +44,34 @@ class UpdatesUiModelTest {
     }
 
     @Test
-    fun `global novel groups remain separate from date list groups`() {
-        val newerDate = LocalDate(2026, 8, 24)
-        val olderDate = LocalDate(2026, 8, 23)
-        val state = UpdatesViewModel.State(
+    fun `date group exposes unread and complete selection state`() {
+        val date = LocalDate(2026, 8, 24)
+        val mixedGroup = UpdatesViewModel.State(
             items = listOf(
-                item(mangaId = 1, chapterId = 11, date = newerDate),
-                item(mangaId = 1, chapterId = 12, date = olderDate),
+                item(mangaId = 1, chapterId = 11, date = date, read = true, selected = true),
+                item(mangaId = 1, chapterId = 12, date = date),
             ),
-        )
+        ).getUiModel().filterIsInstance<UpdatesUiModel.Group>().single()
+        assertTrue(mixedGroup.hasUnread)
+        assertFalse(mixedGroup.allSelected)
 
-        val group = state.getNovelGroups().single()
+        val completedGroup = UpdatesViewModel.State(
+            items = listOf(
+                item(mangaId = 1, chapterId = 11, date = date, read = true, selected = true),
+                item(mangaId = 1, chapterId = 12, date = date, read = true, selected = true),
+            ),
+        ).getUiModel().filterIsInstance<UpdatesUiModel.Group>().single()
 
-        assertEquals(1L, group.mangaId)
-        assertEquals(listOf(11L, 12L), group.chapters.map { it.update.chapterId })
+        assertFalse(completedGroup.hasUnread)
+        assertTrue(completedGroup.allSelected)
     }
 
     private fun item(
         mangaId: Long,
         chapterId: Long,
         date: LocalDate,
+        read: Boolean = false,
+        selected: Boolean = false,
     ): UpdatesItem {
         val sourceId = 10L
         return UpdatesItem(
@@ -72,7 +82,7 @@ class UpdatesUiModelTest {
                 chapterName = "Chapter $chapterId",
                 scanlator = null,
                 chapterUrl = "/chapter-$chapterId",
-                read = false,
+                read = read,
                 bookmark = false,
                 lastPageRead = 0,
                 sourceId = sourceId,
@@ -89,6 +99,7 @@ class UpdatesUiModelTest {
             ),
             downloadStateProvider = { Download.State.NOT_DOWNLOADED },
             downloadProgressProvider = { 0 },
+            selected = selected,
             isNovel = true,
         )
     }

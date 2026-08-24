@@ -64,25 +64,6 @@ enum class UpdatesFilter {
     NOVELS,
 }
 
-/**
- * Represents a group of updates for a single novel.
- * Used when "group by novel" is enabled.
- */
-@Immutable
-data class UpdatesNovelGroup(
-    val mangaId: Long,
-    val mangaTitle: String,
-    val coverUrl: String?,
-    val sourceId: Long,
-    val latestChapterDate: Long,
-    val chapters: List<UpdatesItem>,
-    val isNovel: Boolean = false,
-) {
-    val chapterCount: Int get() = chapters.size
-    val hasUnreadChapters: Boolean get() = chapters.any { !it.update.read }
-    val hasDownloaded: Boolean get() = chapters.any { it.downloadStateProvider() == Download.State.DOWNLOADED }
-}
-
 class UpdatesViewModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
@@ -97,13 +78,7 @@ class UpdatesViewModel(
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
-) : StateViewModel<UpdatesViewModel.State>(
-    State(groupByNovel = Injekt.get<LibraryPreferences>().updatesGroupByNovel.get()),
-) {
-
-    companion object {
-        private const val GROUPED_NOVEL_TARGET = 30
-    }
+) : StateViewModel<UpdatesViewModel.State>(State()) {
 
     @Volatile
     private var latestUpdates: List<UpdatesWithRelations> = emptyList()
@@ -113,8 +88,6 @@ class UpdatesViewModel(
 
     val lastUpdated by libraryPreferences.lastUpdatedTimestamp.asState(viewModelScope)
 
-    // First and last selected index in list
-    private val selectedPositions: Array<Int> = arrayOf(-1, -1)
     private val selectedChapterIds: HashSet<Long> = HashSet()
 
     // DB-level pagination: start with one page, grow as user scrolls
@@ -170,17 +143,6 @@ class UpdatesViewModel(
                     _events.send(Event.InternalError)
                 }
                 .collectLatest { (updateItems, hasMore) ->
-                    val shouldPrefetchForGroupedView =
-                        state.value.groupByNovel &&
-                            hasMore &&
-                            updateItems.groupBy { it.update.mangaId }.size < GROUPED_NOVEL_TARGET
-
-                    if (shouldPrefetchForGroupedView) {
-                        mutableState.update { it.copy(isLoadingMore = true) }
-                        currentLimit.value += GetUpdates.PAGE_SIZE
-                        return@collectLatest
-                    }
-
                     mutableState.update {
                         it.copy(
                             isLoading = false,
@@ -427,77 +389,41 @@ class UpdatesViewModel(
     fun toggleSelection(
         item: UpdatesItem,
         selected: Boolean,
-        fromLongPress: Boolean = false,
+    ) = updateSelection(listOf(item), selected)
+
+    fun toggleGroupSelection(
+        items: List<UpdatesItem>,
+        selected: Boolean,
+    ) = updateSelection(items, selected)
+
+    private fun updateSelection(
+        items: List<UpdatesItem>,
+        selected: Boolean,
     ) {
+        val chapterIds = items.mapTo(HashSet(items.size)) { it.update.chapterId }
+        if (chapterIds.isEmpty()) return
+
         mutableState.update { state ->
-            val newItems = state.items.toMutableList().apply {
-                val selectedIndex = indexOfFirst { it.update.chapterId == item.update.chapterId }
-                if (selectedIndex < 0) return@apply
-
-                val selectedItem = get(selectedIndex)
-                if (selectedItem.selected == selected) return@apply
-
-                val firstSelection = none { it.selected }
-                set(selectedIndex, selectedItem.copy(selected = selected))
-                selectedChapterIds.addOrRemove(item.update.chapterId, selected)
-
-                if (selected && fromLongPress) {
-                    if (firstSelection) {
-                        selectedPositions[0] = selectedIndex
-                        selectedPositions[1] = selectedIndex
+            var changed = false
+            val newItems = state.items.map { current ->
+                if (current.update.chapterId !in chapterIds) {
+                    current
+                } else {
+                    selectedChapterIds.addOrRemove(current.update.chapterId, selected)
+                    if (current.selected == selected) {
+                        current
                     } else {
-                        // Try to select the items in-between when possible
-                        val range: IntRange
-                        if (selectedIndex < selectedPositions[0]) {
-                            range = selectedIndex + 1..<selectedPositions[0]
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            range = (selectedPositions[1] + 1)..<selectedIndex
-                            selectedPositions[1] = selectedIndex
-                        } else {
-                            // Just select itself
-                            range = IntRange.EMPTY
-                        }
-
-                        range.forEach {
-                            val inbetweenItem = get(it)
-                            if (!inbetweenItem.selected) {
-                                selectedChapterIds.add(inbetweenItem.update.chapterId)
-                                set(it, inbetweenItem.copy(selected = true))
-                            }
-                        }
-                    }
-                } else if (!fromLongPress) {
-                    if (!selected) {
-                        if (selectedIndex == selectedPositions[0]) {
-                            selectedPositions[0] = indexOfFirst { it.selected }
-                        } else if (selectedIndex == selectedPositions[1]) {
-                            selectedPositions[1] = indexOfLast { it.selected }
-                        }
-                    } else {
-                        if (selectedIndex < selectedPositions[0]) {
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            selectedPositions[1] = selectedIndex
-                        }
+                        changed = true
+                        current.copy(selected = selected)
                     }
                 }
             }
-            state.copy(items = newItems)
+            if (changed) state.copy(items = newItems) else state
         }
     }
 
     fun toggleAllSelection(selected: Boolean) {
-        mutableState.update { state ->
-            val newItems = state.items.map {
-                selectedChapterIds.addOrRemove(it.update.chapterId, selected)
-                it.copy(selected = selected)
-            }
-            state.copy(items = newItems)
-        }
-
-        selectedPositions[0] = -1
-        selectedPositions[1] = -1
+        updateSelection(state.value.items, selected)
     }
 
     fun invertSelection() {
@@ -508,8 +434,6 @@ class UpdatesViewModel(
             }
             state.copy(items = newItems)
         }
-        selectedPositions[0] = -1
-        selectedPositions[1] = -1
     }
 
     fun setDialog(dialog: Dialog?) {
@@ -518,12 +442,6 @@ class UpdatesViewModel(
 
     fun resetNewUpdatesCount() {
         libraryPreferences.newUpdatesCount.set(0)
-    }
-
-    fun toggleGroupByNovel() {
-        val newValue = !state.value.groupByNovel
-        mutableState.update { it.copy(groupByNovel = newValue) }
-        libraryPreferences.updatesGroupByNovel.set(newValue)
     }
 
     /**
@@ -581,34 +499,11 @@ class UpdatesViewModel(
         val items: List<UpdatesItem> = listOf(),
         val dialog: Dialog? = null,
         val filter: UpdatesFilter = UpdatesFilter.NOVELS,
-        val groupByNovel: Boolean = false,
         val hasMorePages: Boolean = true,
         val isLoadingMore: Boolean = false,
     ) {
         val selected = items.filter { it.selected }
         val selectionMode = selected.isNotEmpty()
-
-        /**
-         * Groups updates by novel when groupByNovel is enabled.
-         * Each group shows the novel with count of new chapters.
-         */
-        fun getNovelGroups(): List<UpdatesNovelGroup> {
-            return items
-                .groupBy { it.update.mangaId }
-                .map { (mangaId, chapters) ->
-                    val firstChapter = chapters.first()
-                    UpdatesNovelGroup(
-                        mangaId = mangaId,
-                        mangaTitle = firstChapter.update.mangaTitle,
-                        coverUrl = firstChapter.update.coverData.url,
-                        sourceId = firstChapter.update.sourceId,
-                        latestChapterDate = chapters.maxOf { it.update.dateFetch },
-                        chapters = chapters,
-                        isNovel = firstChapter.isNovel,
-                    )
-                }
-                .sortedByDescending { it.latestChapterDate }
-        }
 
         fun getUiModel(): List<UpdatesUiModel> {
             return buildList {

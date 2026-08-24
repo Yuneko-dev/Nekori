@@ -2,8 +2,8 @@
 
 package eu.kanade.presentation.updates
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,13 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,7 +43,6 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
-import eu.kanade.tachiyomi.ui.updates.UpdatesNovelGroup
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -76,7 +75,8 @@ internal fun LazyListScope.updatesUiItems(
     isGroupExpanded: (UpdatesUiModel.GroupKey) -> Boolean,
     onToggleGroup: (UpdatesUiModel.GroupKey) -> Unit,
     selectionMode: Boolean,
-    onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
+    onUpdateSelected: (UpdatesItem, Boolean) -> Unit,
+    onUpdateGroupSelected: (List<UpdatesItem>, Boolean) -> Unit,
     onClickCover: (UpdatesItem) -> Unit,
     onClickUpdate: (UpdatesItem) -> Unit,
     onDownloadChapter: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
@@ -109,8 +109,18 @@ internal fun LazyListScope.updatesUiItems(
                     UpdatesPerDayNovelGroupItem(
                         item = model.items.first(),
                         chapterCount = model.items.size,
+                        hasUnread = model.hasUnread,
+                        selected = model.allSelected,
                         expanded = expanded,
                         onClickCover = { onClickCover(model.items.first()) }.takeIf { !selectionMode },
+                        onClick = {
+                            if (selectionMode) {
+                                onUpdateGroupSelected(model.items, !model.allSelected)
+                            } else {
+                                onToggleGroup(model.key)
+                            }
+                        },
+                        onLongClick = { onUpdateGroupSelected(model.items, true) },
                         onToggle = { onToggleGroup(model.key) },
                         modifier = Modifier.animateItem(),
                     )
@@ -135,7 +145,7 @@ internal fun LazyListScope.updatesUiItems(
 private fun LazyListScope.updatesChapterItem(
     updatesItem: UpdatesItem,
     selectionMode: Boolean,
-    onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
+    onUpdateSelected: (UpdatesItem, Boolean) -> Unit,
     onClickCover: (UpdatesItem) -> Unit,
     onClickUpdate: (UpdatesItem) -> Unit,
     onDownloadChapter: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
@@ -157,11 +167,10 @@ private fun LazyListScope.updatesChapterItem(
                         stringResource(MR.strings.chapter_progress, it + 1)
                     }
                 },
-            // Date grouping can reorder chapters, so range selection must not use backing-list positions.
-            onLongClick = { onUpdateSelected(updatesItem, !updatesItem.selected, false) },
+            onLongClick = { onUpdateSelected(updatesItem, !updatesItem.selected) },
             onClick = {
                 if (selectionMode) {
-                    onUpdateSelected(updatesItem, !updatesItem.selected, false)
+                    onUpdateSelected(updatesItem, !updatesItem.selected)
                 } else {
                     onClickUpdate(updatesItem)
                 }
@@ -180,16 +189,20 @@ private fun LazyListScope.updatesChapterItem(
 private fun UpdatesPerDayNovelGroupItem(
     item: UpdatesItem,
     chapterCount: Int,
+    hasUnread: Boolean,
+    selected: Boolean,
     expanded: Boolean,
     onClickCover: (() -> Unit)?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
-            .clickable(onClick = onToggle)
+            .selectedBackground(selected)
             .height(56.dp)
-            .padding(horizontal = MaterialTheme.padding.medium),
+            .padding(start = MaterialTheme.padding.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MangaCover.Square(
@@ -202,32 +215,54 @@ private fun UpdatesPerDayNovelGroupItem(
         )
         Column(
             modifier = Modifier
-                .padding(horizontal = MaterialTheme.padding.medium)
-                .weight(1f),
+                .weight(1f)
+                .fillMaxHeight()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+                .padding(horizontal = MaterialTheme.padding.medium),
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = item.update.mangaTitle,
                 maxLines = 1,
                 style = MaterialTheme.typography.bodyMedium,
+                color = LocalContentColor.current.copy(alpha = if (hasUnread) 1f else DISABLED_ALPHA),
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = pluralStringResource(
-                    MR.plurals.notification_chapters_generic,
-                    count = chapterCount,
-                    chapterCount,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (hasUnread) {
+                    Icon(
+                        imageVector = Icons.Filled.Circle,
+                        contentDescription = stringResource(MR.strings.unread),
+                        modifier = Modifier
+                            .height(8.dp)
+                            .padding(end = 4.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    text = pluralStringResource(
+                        MR.plurals.notification_chapters_generic,
+                        count = chapterCount,
+                        chapterCount,
+                    ),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalContentColor.current.copy(alpha = if (hasUnread) 1f else DISABLED_ALPHA),
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(onClick = onToggle) {
+            Icon(
+                imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                contentDescription = stringResource(
+                    if (expanded) TDMR.strings.action_collapse else TDMR.strings.action_expand,
                 ),
-                maxLines = 1,
-                style = MaterialTheme.typography.bodySmall,
-                overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(
-            imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-            contentDescription = stringResource(
-                if (expanded) TDMR.strings.action_collapse else TDMR.strings.action_expand,
-            ),
-        )
     }
 }
 
@@ -330,77 +365,5 @@ private fun UpdatesUiItem(
             downloadProgressProvider = downloadProgressProvider,
             onClick = { onDownloadChapter?.invoke(it) },
         )
-    }
-}
-
-/**
- * Composable for showing updates grouped by novel.
- * Shows novel title with count of new chapters.
- */
-internal fun LazyListScope.updatesNovelGroups(
-    groups: List<UpdatesNovelGroup>,
-    onClickGroup: (Long) -> Unit,
-) {
-    items(
-        items = groups,
-        key = { "novel-group-${it.mangaId}" },
-    ) { group ->
-        UpdatesNovelGroupItem(
-            group = group,
-            onClick = { onClickGroup(group.mangaId) },
-        )
-    }
-}
-
-@Composable
-private fun UpdatesNovelGroupItem(
-    group: UpdatesNovelGroup,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .combinedClickable(onClick = onClick)
-            .height(56.dp)
-            .padding(horizontal = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MangaCover.Square(
-            modifier = Modifier
-                .padding(vertical = 6.dp)
-                .fillMaxHeight(),
-            data = group.coverUrl,
-        )
-        Column(
-            modifier = Modifier
-                .padding(horizontal = MaterialTheme.padding.medium)
-                .weight(1f),
-        ) {
-            Text(
-                text = group.mangaTitle,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (group.hasUnreadChapters) {
-                    Icon(
-                        imageVector = Icons.Filled.Circle,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(8.dp)
-                            .padding(end = 4.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Text(
-                    text = "${group.chapterCount} new chapter${if (group.chapterCount > 1) "s" else ""}",
-                    maxLines = 1,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalContentColor.current.copy(alpha = if (group.hasUnreadChapters) 1f else DISABLED_ALPHA),
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
     }
 }

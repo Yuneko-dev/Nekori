@@ -215,12 +215,6 @@ class LibraryPreferences(
 
     // endregion
 
-    // region Updates
-
-    val updatesGroupByNovel: Preference<Boolean> = preferenceStore.getBoolean("updates_group_by_novel", true)
-
-    // endregion
-
     // region Category
 
     val defaultCategory: Preference<Int> = preferenceStore.getInt(DEFAULT_CATEGORY_PREF_KEY, -1)

@@ -71,6 +71,7 @@ data object UpdatesTab : Tab {
             onMultiMarkAsReadClicked = screenModel::markUpdatesRead,
             onMultiDeleteClicked = screenModel::showConfirmDeleteChapters,
             onUpdateSelected = screenModel::toggleSelection,
+            onUpdateGroupSelected = screenModel::toggleGroupSelection,
             onOpenChapter = {
                 val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
                 context.startActivity(intent)
@@ -78,8 +79,6 @@ data object UpdatesTab : Tab {
             onCalendarClicked = { navigator.push(UpcomingScreen()) },
             onFilterClicked = screenModel::showFilterDialog,
             hasActiveFilters = state.hasActiveFilters,
-            onToggleGroupByNovel = screenModel::toggleGroupByNovel,
-            onClickNovelGroup = { mangaId -> navigator.push(MangaScreen(mangaId)) },
             onLoadMore = screenModel::loadMore,
         )
 

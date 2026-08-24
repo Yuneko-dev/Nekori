@@ -1186,7 +1186,6 @@
     <!-- History/Updates screens: list view toggle (wave 4) -->
     <string name="label_list_view">Chế độ danh sách</string>
     <string name="history_action_last_only">Chỉ mới nhất</string>
-    <string name="updates_action_group_by_novel">Nhóm theo tiểu thuyết</string>
 
     <!-- Track search (wave 4) -->
     <string name="track_search_pick_alt_title">Chọn tên khác</string>

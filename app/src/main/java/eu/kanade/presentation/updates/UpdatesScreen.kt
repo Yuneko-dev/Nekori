@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.LocalContentColor
@@ -42,7 +40,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -65,12 +62,11 @@ fun UpdateScreen(
     onMultiBookmarkClicked: (List<UpdatesItem>, bookmark: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<UpdatesItem>, read: Boolean) -> Unit,
     onMultiDeleteClicked: (List<UpdatesItem>) -> Unit,
-    onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
+    onUpdateSelected: (UpdatesItem, Boolean) -> Unit,
+    onUpdateGroupSelected: (List<UpdatesItem>, Boolean) -> Unit,
     onOpenChapter: (UpdatesItem) -> Unit,
     onFilterClicked: () -> Unit,
     hasActiveFilters: Boolean,
-    onToggleGroupByNovel: () -> Unit = {},
-    onClickNovelGroup: (Long) -> Unit = {},
     onLoadMore: () -> Unit = {},
 ) {
     val expandedGroups = remember { mutableStateMapOf<UpdatesUiModel.GroupKey, Unit>() }
@@ -84,8 +80,6 @@ fun UpdateScreen(
             UpdatesAppBar(
                 onCalendarClicked = { onCalendarClicked() },
                 onUpdateLibrary = { onUpdateLibrary() },
-                onToggleGroupByNovel = onToggleGroupByNovel,
-                groupByNovel = state.groupByNovel,
                 onFilterClicked = { onFilterClicked() },
                 hasFilters = hasActiveFilters,
                 actionModeCounter = state.selected.size,
@@ -165,14 +159,7 @@ fun UpdateScreen(
                                     )
                                 }
                             }
-                        } else if (state.groupByNovel) {
-                            // Show updates grouped by novel
-                            updatesNovelGroups(
-                                groups = state.getNovelGroups(),
-                                onClickGroup = onClickNovelGroup,
-                            )
                         } else {
-                            // Show individual chapter updates
                             updatesUiItems(
                                 uiModels = state.getUiModel(),
                                 isGroupExpanded = { it in expandedGroups },
@@ -183,6 +170,7 @@ fun UpdateScreen(
                                 },
                                 selectionMode = state.selectionMode,
                                 onUpdateSelected = onUpdateSelected,
+                                onUpdateGroupSelected = onUpdateGroupSelected,
                                 onClickCover = onClickCover,
                                 onClickUpdate = onOpenChapter,
                                 onDownloadChapter = onDownloadChapter,
@@ -199,8 +187,6 @@ fun UpdateScreen(
 private fun UpdatesAppBar(
     onCalendarClicked: () -> Unit,
     onUpdateLibrary: () -> Unit,
-    onToggleGroupByNovel: () -> Unit,
-    groupByNovel: Boolean,
     onFilterClicked: () -> Unit,
     hasFilters: Boolean,
     // For action mode
@@ -222,15 +208,6 @@ private fun UpdatesAppBar(
                         icon = Icons.Outlined.FilterList,
                         iconTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current,
                         onClick = onFilterClicked,
-                    ),
-                    AppBar.Action(
-                        title = if (groupByNovel) {
-                            stringResource(TDMR.strings.label_list_view)
-                        } else {
-                            stringResource(TDMR.strings.updates_action_group_by_novel)
-                        },
-                        icon = if (groupByNovel) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.GridView,
-                        onClick = onToggleGroupByNovel,
                     ),
                     AppBar.Action(
                         title = stringResource(MR.strings.action_view_upcoming),
@@ -304,6 +281,9 @@ private fun UpdatesBottomBar(
 sealed interface UpdatesUiModel {
     data class Header(val date: LocalDate) : UpdatesUiModel
     data class Item(val item: UpdatesItem) : UpdatesUiModel
-    data class Group(val key: GroupKey, val items: List<UpdatesItem>) : UpdatesUiModel
+    data class Group(val key: GroupKey, val items: List<UpdatesItem>) : UpdatesUiModel {
+        val hasUnread: Boolean get() = items.any { !it.update.read }
+        val allSelected: Boolean get() = items.all { it.selected }
+    }
     data class GroupKey(val date: LocalDate, val mangaId: Long)
 }

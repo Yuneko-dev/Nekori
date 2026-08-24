@@ -17,9 +17,12 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Changed
-- The Updates screen now collapses multiple chapters from the same novel and day into an expandable group.
+- The Updates screen now collapses multiple chapters from the same novel and day into an expandable, selectable group with unread feedback.
 - Reading heatmap intensity now scales relative to the selected year's activity.
 - The headless JS plugin runtime now uses React Native 0.87 and its bundled Hermes compiler.
+
+### Removed
+- The redundant cross-date novel grouping mode and its Updates toolbar toggle.
 
 ### Fixed
 - Sliders and wheel pickers now tick at each existing mark, and long-press actions no longer vibrate twice.
