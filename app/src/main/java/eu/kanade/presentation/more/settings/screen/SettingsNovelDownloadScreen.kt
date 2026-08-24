@@ -461,7 +461,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     valueString = if (prefs.skipSourceIfFailedXTimes().collectAsState().value ==
                         0
                     ) {
-                        "Disabled"
+                        stringResource(MR.strings.disabled)
                     } else {
                         "After ${prefs.skipSourceIfFailedXTimes().collectAsState().value} errors"
                     },

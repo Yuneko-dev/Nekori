@@ -64,7 +64,7 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(TDMR.strings.settings_browse_confirm_back_after_pages),
                         subtitle = stringResource(TDMR.strings.settings_browse_confirm_back_after_pages_summary),
                         entries = mapOf(
-                            0 to "Disabled",
+                            0 to stringResource(MR.strings.disabled),
                             3 to "3 pages",
                             5 to "5 pages",
                             10 to "10 pages",
