@@ -5,6 +5,7 @@ package tachiyomi.data.manga
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -1080,6 +1081,7 @@ class MangaRepositoryImpl(
         return result
     }
 
+    @OptIn(FlowPreview::class)
     override fun getLibraryMangaAsFlow(): Flow<List<LibraryManga>> {
         logcat(LogPriority.INFO) { "MangaRepositoryImpl.getLibraryMangaAsFlow: Creating new Flow subscription" }
         logcat(LogPriority.INFO) { "MangaRepositoryImpl.getLibraryMangaAsFlow: Executing libraryGrid query" }
@@ -1290,10 +1292,8 @@ class MangaRepositoryImpl(
     override suspend fun findDuplicatesExact(includeBlank: Boolean): List<DuplicateGroup> {
         return database.mangasQueries.findDuplicatesExact(includeBlank) { normalizedTitle, ids, count ->
             DuplicateGroup(
-                normalizedTitle = normalizedTitle ?: "",
-                ids =
-                ids?.let { idString -> idString.split(",").mapNotNull { id -> id.toLongOrNull() } }
-                    ?: emptyList(),
+                normalizedTitle = normalizedTitle,
+                ids = ids.split(",").mapNotNull { id -> id.toLongOrNull() },
                 count = count.toInt(),
             )
         }.awaitAsList()

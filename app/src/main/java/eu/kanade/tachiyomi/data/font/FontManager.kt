@@ -109,7 +109,7 @@ class FontManager(
 
             // Copy file
             context.contentResolver.openInputStream(uri)?.use { input ->
-                targetFile.openOutputStream()?.use { output ->
+                targetFile.openOutputStream().use { output ->
                     input.copyTo(output)
                 }
             } ?: return@withContext Result.failure(Exception("Cannot read source file"))
@@ -203,7 +203,7 @@ class FontManager(
                 .build()
 
             val response = networkHelper.client.rateLimitExempt().newCall(request).execute()
-            val css = response.use { it.body?.string() } ?: throw Exception("Empty response")
+            val css = response.use { it.body.string() }
 
             // Parse font URLs from CSS
             val urlRegex = """url\((https://fonts\.gstatic\.com/[^)]+\.(?:ttf|woff2?))\)""".toRegex()
@@ -224,8 +224,7 @@ class FontManager(
                 .build()
 
             val fontResponse = networkHelper.client.rateLimitExempt().newCall(fontRequest).execute()
-            val fontBytes = fontResponse.use { it.body?.bytes() }
-                ?: throw Exception("Failed to download font")
+            val fontBytes = fontResponse.use { it.body.bytes() }
 
             emit(FontDownloadState.Downloading(75))
 
@@ -245,9 +244,9 @@ class FontManager(
             val targetFile = fontsDir.createFile(fileName)
                 ?: throw Exception("Cannot create font file")
 
-            targetFile.openOutputStream()?.use { output ->
+            targetFile.openOutputStream().use { output ->
                 output.write(fontBytes)
-            } ?: throw Exception("Cannot write font file")
+            }
 
             emit(FontDownloadState.Downloading(100))
 

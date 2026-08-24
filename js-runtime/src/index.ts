@@ -107,11 +107,12 @@ registerHandler('plugin.load', async args => {
     validateId?: boolean;
   };
   const plugin = await initPlugin(id, code, key, validateId);
+  const site = plugin.site;
   return {
     id: plugin.id,
     name: plugin.name,
     version: plugin.version,
-    site: plugin.site,
+    site: typeof site === 'string' && site.trim() ? site : 'about:blank',
     contentWarning: plugin.contentWarning ?? PluginContentWarning.UNSPECIFIED,
     contentType: plugin.contentType ?? PluginContentType.NOVEL,
     webStorageUtilized: plugin.webStorageUtilized === true,

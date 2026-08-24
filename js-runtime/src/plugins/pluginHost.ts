@@ -72,7 +72,6 @@ const normalizePluginContentType = (
 };
 
 const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
-  plugin.site = typeof plugin.site === 'string' ? plugin.site : 'about:blank';
   plugin.contentWarning = normalizePluginContentWarning(plugin.contentWarning);
   plugin.contentType = normalizePluginContentType(plugin.contentType);
   return plugin;

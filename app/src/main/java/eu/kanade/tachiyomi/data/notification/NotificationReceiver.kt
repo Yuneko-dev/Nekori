@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.util.system.getParcelableExtraCompat
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
@@ -204,6 +205,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param chapterUrls URLs of chapter to mark as read
      * @param mangaId id of manga
      */
+    @OptIn(DelicateCoroutinesApi::class)
     private fun markAsRead(chapterUrls: Array<String>, mangaId: Long) {
         val downloadPreferences: NovelDownloadPreferences = Injekt.get()
         val sourceManager: SourceManager = Injekt.get()
@@ -240,6 +242,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param chapterUrls URLs of chapter to download
      * @param mangaId id of manga
      */
+    @OptIn(DelicateCoroutinesApi::class)
     private fun downloadChapters(chapterUrls: Array<String>, mangaId: Long) {
         launchIO {
             val manga = getManga.await(mangaId) ?: return@launchIO

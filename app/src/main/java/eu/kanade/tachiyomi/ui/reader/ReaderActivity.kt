@@ -1178,9 +1178,7 @@ class ReaderActivity : BaseActivity() {
                 onRetranslate = if (state.isTranslating) viewModel::retranslateCurrentChapter else null,
                 // Only the WebView viewer can host the card, so the action is absent elsewhere
                 // rather than present and inert.
-                onSummarizeChapter = (state.viewer as? NovelWebViewViewer)?.let {
-                    { it.requestChapterSummary() }
-                },
+                onSummarizeChapter = { novelViewer.requestChapterSummary() },
                 isTtsActive = isTtsActive,
                 isTtsPaused = isTtsPaused,
                 ttsEnabled = ttsEnabled,

@@ -199,14 +199,14 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
-    fun pluginWithUnconfiguredDynamicSiteReportsAnEmptySite() = runBlocking {
+    fun pluginWithEmptySiteReportsAboutBlank() = runBlocking {
         val runtime = createRuntime()
         val code = """
             exports.default = {
               id: 'dynamic-site.test',
               name: 'Dynamic site test',
               version: '1',
-              site: undefined,
+              site: '',
             };
         """.trimIndent()
 

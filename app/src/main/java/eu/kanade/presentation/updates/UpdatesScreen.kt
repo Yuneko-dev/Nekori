@@ -5,13 +5,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -220,7 +220,7 @@ private fun UpdatesAppBar(
                         } else {
                             stringResource(TDMR.strings.updates_action_group_by_novel)
                         },
-                        icon = if (groupByNovel) Icons.Outlined.ViewList else Icons.Outlined.GridView,
+                        icon = if (groupByNovel) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.GridView,
                         onClick = onToggleGroupByNovel,
                     ),
                     AppBar.Action(

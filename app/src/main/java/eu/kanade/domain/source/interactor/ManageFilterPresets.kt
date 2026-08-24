@@ -140,7 +140,6 @@ class ManageFilterPresets(
                     )
                     is eu.kanade.tachiyomi.source.model.Filter.Header -> JsonNull
                     is eu.kanade.tachiyomi.source.model.Filter.Separator -> JsonNull
-                    else -> JsonNull
                 }
                 JsonObject(
                     mapOf(
@@ -213,7 +212,6 @@ class ManageFilterPresets(
                         }
                         is eu.kanade.tachiyomi.source.model.Filter.Header -> Unit // No state to restore
                         is eu.kanade.tachiyomi.source.model.Filter.Separator -> Unit // No state to restore
-                        else -> Unit
                     }
                 }
             } catch (e: Exception) {

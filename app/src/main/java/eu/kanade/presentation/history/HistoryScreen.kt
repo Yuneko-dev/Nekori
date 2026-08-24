@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -60,7 +60,11 @@ fun HistoryScreen(
                                 } else {
                                     stringResource(TDMR.strings.history_action_last_only)
                                 },
-                                icon = if (state.groupByNovel) Icons.Outlined.ViewList else Icons.Outlined.GridView,
+                                icon = if (state.groupByNovel) {
+                                    Icons.AutoMirrored.Outlined.ViewList
+                                } else {
+                                    Icons.Outlined.GridView
+                                },
                                 onClick = { onGroupByNovelChanged(!state.groupByNovel) },
                             ),
                             AppBar.Action(

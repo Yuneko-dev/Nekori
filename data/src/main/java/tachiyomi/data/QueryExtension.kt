@@ -29,6 +29,7 @@ fun <T : Any> Query<T>.subscribeToOneOrNull(
  * after [window] of quiet, preventing cascading re-fires when triggers cause multiple table
  * writes. The first emission is immediate (zero debounce).
  */
+@OptIn(kotlinx.coroutines.FlowPreview::class)
 fun <T : Any> Query<T>.subscribeToDebouncedList(
     window: Duration,
     context: CoroutineContext = EmptyCoroutineContext,

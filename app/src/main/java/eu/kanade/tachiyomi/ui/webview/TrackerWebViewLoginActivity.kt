@@ -238,6 +238,7 @@ private fun TrackerWebViewLoginScreen(
                     WebView(context).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        @Suppress("DEPRECATION")
                         settings.databaseEnabled = true
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                         setUserAgent(configuredUserAgent)

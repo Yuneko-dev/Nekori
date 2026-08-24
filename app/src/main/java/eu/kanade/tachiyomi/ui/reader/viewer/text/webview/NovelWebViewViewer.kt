@@ -3553,7 +3553,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             })();
         """.trimIndent()
         evaluateJavascriptSafe(js) { result ->
-            val index = result?.trim()?.trim('"')?.toIntOrNull() ?: -1
+            val index = result.trim().trim('"').toIntOrNull() ?: -1
             if (index >= 0) startTtsAtParagraph(index)
         }
     }

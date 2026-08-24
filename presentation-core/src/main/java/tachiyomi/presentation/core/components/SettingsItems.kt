@@ -303,7 +303,7 @@ private fun StepperInputDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { if (isValid) onConfirm(parsed!!) },
+                onClick = { if (isValid) onConfirm(parsed) },
                 enabled = isValid,
             ) {
                 Text("OK")

@@ -124,7 +124,7 @@ class MassImport(
         }
 
         if (matchingSources.isEmpty()) {
-            if (urlHost == null || missingSourceHostLogCache.putIfAbsent(urlHost, true) == null) {
+            if (missingSourceHostLogCache.putIfAbsent(urlHost, true) == null) {
                 logcat(LogPriority.WARN) { "MassImport: No source match for $url host=$urlHost" }
             }
             return null

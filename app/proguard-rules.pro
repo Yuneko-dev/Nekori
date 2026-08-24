@@ -87,6 +87,10 @@
 
 # XmlUtil
 -keep public enum nl.adaptivity.xmlutil.EventType { *; }
+# XmlUtil 1.0.1 ships stale service entries for provider types absent from Android.
+-dontwarn nl.adaptivity.xmlutil.serialization.KotlinxSerializationProvider
+-dontwarn nl.adaptivity.xmlutil.util.DefaultSerializationProvider
+-dontwarn nl.adaptivity.xmlutil.util.SerializationProvider
 
 # Firebase
 -keep class com.google.firebase.installations.** { *; }

@@ -1149,7 +1149,7 @@ class ReaderViewModel @JvmOverloads constructor(
             )
 
             chaptersToDownload.forEach { chapter ->
-                val chapterId = chapter.id ?: return@forEach
+                val chapterId = chapter.id
                 val isAlreadyDownloaded = downloadManager.isChapterDownloaded(
                     chapter.name,
                     chapter.scanlator,
@@ -1891,7 +1891,7 @@ class ReaderViewModel @JvmOverloads constructor(
                 if (existingDir.isFile) {
                     existingDir.archiveReader(context).use { archiveReader ->
                         archiveReader.useEntries { entries ->
-                            entries.filter { it.isFile && it.name?.endsWith(".html") == false }.forEach { entry ->
+                            entries.filter { it.isFile && !it.name.endsWith(".html") }.forEach { entry ->
                                 tmpDir.createFile(entry.name)?.openOutputStream()?.use { os ->
                                     archiveReader.getInputStream(entry.name)?.use { it.copyTo(os) }
                                 }

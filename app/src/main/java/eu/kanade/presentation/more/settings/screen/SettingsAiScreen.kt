@@ -129,20 +129,14 @@ object SettingsAiScreen : SearchableSettings {
                     // lookup names no provider while the task is quietly using one.
                     subtitle = providers.resolve(providerId)?.alias
                         ?: stringResource(TDMR.strings.pref_ai_no_active_provider),
-                    onValueChanged = {
-                        providerPreference.set(it)
-                        true
-                    },
+                    onValueChanged = { providerPreference.set(it) },
                 ),
                 Preference.PreferenceItem.BasicListPreference(
                     value = guidelinesId,
                     entries = guidelines.associate { it.id to it.name },
                     title = stringResource(TDMR.strings.pref_ai_user_guidelines),
                     subtitle = guidelines.resolve(guidelinesId).name,
-                    onValueChanged = {
-                        guidelinesPreference.set(it)
-                        true
-                    },
+                    onValueChanged = { guidelinesPreference.set(it) },
                 ),
             ) + extraItems,
         )

@@ -320,8 +320,10 @@ class JsPluginManager(
             if (!resp.isSuccessful) {
                 throw IllegalStateException("Repository request failed with HTTP ${resp.code}")
             }
-            val body = resp.body?.string()
-                ?: throw IllegalStateException("Repository response body is empty")
+            val body = resp.body.string()
+            if (body.isBlank()) {
+                throw IllegalStateException("Repository response body is empty")
+            }
             decodeRepositoryManifest(body, allowEmpty)
         }
     }
@@ -757,7 +759,7 @@ class JsPluginManager(
                                 val response = client.newCall(GET(downloadUrl)).execute()
                                 response.use { resp ->
                                     if (resp.isSuccessful) {
-                                        val fresh = resp.body?.string().orEmpty()
+                                        val fresh = resp.body.string()
                                         if (fresh.isNotBlank() && fresh.contains("exports.default")) {
                                             dir.replaceFile("$nameWithoutExtension.js")?.writeUtf8(fresh)
                                             code = fresh
@@ -1003,7 +1005,7 @@ class JsPluginManager(
                 val response = client.newCall(GET(plugin.iconUrl)).execute()
                 response.use { resp ->
                     if (resp.isSuccessful) {
-                        resp.body?.byteStream()?.use { input ->
+                        resp.body.byteStream().use { input ->
                             iconFile.outputStream().use { output ->
                                 input.copyTo(output)
                             }
