@@ -32,7 +32,7 @@
     "htmlparser2": "^8.0.2",
     "protobufjs": "^8.7.1",
     "react": "19.2.8",
-    "react-native": "0.86.0",
+    "react-native": "0.87.0",
     "stream-browserify": "^3.0.0",
     "urlencode": "^2.0.0"
   },
@@ -40,7 +40,7 @@
     "Transitive dependency of react-native, promoted to a direct one because pnpm's isolated",
     "node_modules only symlinks direct deps and the React Native Gradle plugin looks for hermesc at",
     "the literal path node_modules/hermes-compiler/hermesc/%OS-BIN%/ (PathUtils.kt:243).",
-    "The version MUST equal HERMES_V1_VERSION_NAME in",
+    "The version MUST equal HERMES_VERSION_NAME in",
     "node_modules/react-native/sdks/hermes-engine/version.properties — js-runtime/build.gradle.kts",
     "fails the build if they diverge."
   ],
@@ -48,12 +48,12 @@
     "@babel/plugin-transform-export-namespace-from": "8.0.1",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
-    "@react-native/babel-preset": "0.86.0",
-    "@react-native/codegen": "0.86.0",
-    "@react-native/eslint-config": "0.86.0",
-    "@react-native/gradle-plugin": "0.86.0",
-    "@react-native/metro-config": "0.86.0",
-    "@react-native/typescript-config": "0.86.0",
+    "@react-native/babel-preset": "0.87.0",
+    "@react-native/codegen": "0.87.0",
+    "@react-native/eslint-config": "0.87.0",
+    "@react-native/gradle-plugin": "0.87.0",
+    "@react-native/metro-config": "0.87.0",
+    "@react-native/typescript-config": "0.87.0",
     "@types/node": "^26.1.1",
     "@types/react": "19.2.17",
     "@typescript-eslint/eslint-plugin": "8.58.0",
@@ -62,8 +62,8 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-simple-import-sort": "12.1.1",
     "eslint-plugin-unused-imports": "4.3.0",
-    "hermes-compiler": "250829098.0.14",
+    "hermes-compiler": "250829098.0.16",
     "prettier": "2.8.8",
-    "typescript": "5.9.2"
+    "typescript": "^6.0.3"
   }
 }

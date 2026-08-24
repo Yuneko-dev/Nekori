@@ -18,6 +18,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Changed
 - Reading heatmap intensity now scales relative to the selected year's activity.
+- The headless JS plugin runtime now uses React Native 0.87 and its bundled Hermes compiler.
 
 ### Fixed
 - Sliders and wheel pickers now tick at each existing mark, and long-press actions no longer vibrate twice.

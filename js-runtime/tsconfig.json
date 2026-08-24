@@ -3,6 +3,7 @@
   "include": ["src/**/*.ts", "specs/**/*.ts"],
   "exclude": ["node_modules", "build", "patches"],
   "compilerOptions": {
+    "customConditions": ["react-native", "react-native-legacy-deep-imports"],
     "noUnusedLocals": true,
     "skipLibCheck": true,
     "module": "ES2022",

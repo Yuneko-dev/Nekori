@@ -12,7 +12,7 @@ android {
 /**
  * React Native's Android artifacts are versioned by the installed npm package, not by anything in
  * the Gradle catalog, and Hermes uses a separate group and its own version scheme entirely
- * (`com.facebook.hermes:hermes-android:250829098.0.14` for React Native 0.86.0). `react-android`
+ * (`com.facebook.hermes:hermes-android:250829098.0.16` for React Native 0.87.0). `react-android`
  * does not pull Hermes transitively.
  *
  * Read both from node_modules so a `pnpm up` in js-runtime/ cannot silently leave Gradle behind.
@@ -25,7 +25,7 @@ fun npmProperty(path: String, key: String): String {
 }
 
 val reactNativeVersion = npmProperty("ReactAndroid/gradle.properties", "VERSION_NAME")
-val hermesVersion = npmProperty("sdks/hermes-engine/version.properties", "HERMES_V1_VERSION_NAME")
+val hermesVersion = npmProperty("sdks/hermes-engine/version.properties", "HERMES_VERSION_NAME")
 
 // `hermes-compiler` is a transitive dependency of react-native, but pnpm's isolated node_modules
 // only symlinks direct dependencies and the React Native Gradle plugin looks for `hermesc` at the

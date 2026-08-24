@@ -6,11 +6,11 @@
  */
 
 // MUST be first. React Native's polyfills — `setImmediate`, timers, `console`, error handling — are
-// installed by InitializeCore, and `react-native/index.js` does NOT pull it in. A React Native app
+// installed by setup-env, and `react-native/index.js` does NOT pull it in. A React Native app
 // gets it because Metro's `getModulesRunBeforeMainModule` prepends it for the standard entry point;
 // a bare headless bundle has to ask. Without it `setImmediate` is undefined, `startBridge()` throws
 // during bundle evaluation, and the only symptom is that `ready()` never arrives.
-import 'react-native/Libraries/Core/InitializeCore';
+import 'react-native/setup-env';
 import './polyfills/secureRandom';
 import './polyfills/nodeGlobals';
 import './polyfills/textEncoding';
