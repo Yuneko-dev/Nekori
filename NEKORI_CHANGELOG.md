@@ -16,6 +16,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.0.4] - 2026-08-25
+
 ### Added
 - Optional in-app progress banners for library updates and backup restores, including LNReader imports.
 
@@ -32,7 +34,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Default missing plugin site to about:blank
 
 
-## [v0.0.1] & [v0.0.2] - 2026-08-23
+## [v0.0.1] & [v0.0.2] & [v0.0.3] - 2026-08-23
 
 ### Added
 
