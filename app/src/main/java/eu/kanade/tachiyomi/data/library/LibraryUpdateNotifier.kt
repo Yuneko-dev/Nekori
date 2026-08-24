@@ -17,6 +17,7 @@ import coil3.transform.CircleCropTransformation
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.LibraryUpdateStatus
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -47,6 +48,7 @@ class LibraryUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
+    private val libraryUpdateStatus: LibraryUpdateStatus = Injekt.get(),
 ) {
 
     private val percentFormatter = NumberFormat.getPercentInstance().apply {
@@ -92,6 +94,7 @@ class LibraryUpdateNotifier(
      * an otherwise-invisible rate-limit wait so the notification doesn't look stalled.
      */
     fun showProgressNotification(manga: List<Manga>, current: Int, total: Int, waitingMessage: String? = null) {
+        libraryUpdateStatus.updateProgress(current, total)
         progressNotificationBuilder
             .setContentTitle(
                 context.stringResource(

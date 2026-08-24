@@ -56,9 +56,13 @@ import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
+import eu.kanade.presentation.components.RestoringBannerBackgroundColor
+import eu.kanade.presentation.components.UpdatingBannerBackgroundColor
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
+import eu.kanade.tachiyomi.data.BackupRestoreStatus
+import eu.kanade.tachiyomi.data.LibraryUpdateStatus
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -92,6 +96,7 @@ import mihon.core.migration.Migrator
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -103,12 +108,15 @@ import uy.kohesive.injekt.injectLazy
 class MainActivity : BaseActivity() {
 
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val backupPreferences: BackupPreferences by injectLazy()
     private val preferences: BasePreferences by injectLazy()
 
     private val downloadCache: DownloadCache by injectLazy()
     private val chapterCache: ChapterCache by injectLazy()
 
     private val getIncognitoState: GetIncognitoState by injectLazy()
+    private val backupRestoreStatus: BackupRestoreStatus by injectLazy()
+    private val libraryUpdateStatus: LibraryUpdateStatus by injectLazy()
 
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
@@ -142,9 +150,19 @@ class MainActivity : BaseActivity() {
             var incognito by remember { mutableStateOf(getIncognitoState.await(null)) }
             val downloadOnly by preferences.downloadedOnly.collectAsState()
             val indexing by downloadCache.isInitializing.collectAsState()
+            val restoringState by backupRestoreStatus.isRunning.collectAsState(initial = false)
+            val updatingState by libraryUpdateStatus.isRunning.collectAsState(initial = false)
+            val restoringEnabled by backupPreferences.showRestoringProgressBanner.collectAsState()
+            val updatingEnabled by libraryPreferences.showUpdatingProgressBanner.collectAsState()
+            val restoring = restoringState && restoringEnabled
+            val updating = updatingState && updatingEnabled
+            val restoringProgress by backupRestoreStatus.progress.collectAsState()
+            val updatingProgress by libraryUpdateStatus.progress.collectAsState()
 
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val statusBarBackgroundColor = when {
+                updating -> UpdatingBannerBackgroundColor
+                restoring -> RestoringBannerBackgroundColor
                 indexing -> IndexingBannerBackgroundColor
                 downloadOnly -> DownloadedOnlyBannerBackgroundColor
                 incognito -> IncognitoModeBannerBackgroundColor
@@ -192,6 +210,10 @@ class MainActivity : BaseActivity() {
                             downloadedOnlyMode = downloadOnly,
                             incognitoMode = incognito,
                             indexing = indexing,
+                            restoring = restoring,
+                            updating = updating,
+                            progress = updatingProgress.takeIf { updating }
+                                ?: restoringProgress.takeIf { restoring },
                             modifier = Modifier.windowInsetsPadding(scaffoldInsets),
                         )
                     },

@@ -11,6 +11,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -22,11 +23,14 @@ import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 class BackupRestoreJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val notifier = BackupNotifier(context)
+    private val backupRestoreStatus: BackupRestoreStatus = Injekt.get()
 
     override suspend fun doWork(): Result {
         val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
@@ -38,9 +42,12 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
 
         val isSync = inputData.getBoolean(SYNC_KEY, false)
 
-        setForegroundSafely()
+        if (!isSync) {
+            backupRestoreStatus.start()
+        }
 
         return try {
+            setForegroundSafely()
             BackupRestorer(context, notifier, isSync).restore(uri, options)
             Result.success()
         } catch (e: Exception) {
@@ -54,6 +61,9 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
             }
         } finally {
             context.cancelNotification(Notifications.ID_RESTORE_PROGRESS)
+            if (!isSync) {
+                backupRestoreStatus.stop()
+            }
         }
     }
 

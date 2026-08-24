@@ -16,6 +16,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Optional in-app progress banners for library updates and backup restores, including LNReader imports.
+
 ### Changed
 - The Updates screen now collapses multiple chapters from the same novel and day into an expandable, selectable group with unread feedback.
 - Reading heatmap intensity now scales relative to the selected year's activity.

@@ -1349,4 +1349,6 @@
     <!-- Cài đặt nâng cao: khởi động lại ứng dụng -->
     <string name="pref_restart_app">Khởi động lại ứng dụng</string>
     <string name="pref_restart_app_summary">Khởi động lại ứng dụng để khắc phục JS Engine bị treo hoặc không phản hồi</string>
+    <string name="pref_show_updating_progress_banner">Hiển thị biểu ngữ tiến trình cập nhật</string>
+    <string name="pref_show_restoring_progress_banner">Hiển thị biểu ngữ tiến trình khôi phục</string>
 </resources>

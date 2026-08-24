@@ -19,6 +19,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import eu.kanade.domain.manga.model.toSManga
+import eu.kanade.tachiyomi.data.LibraryUpdateStatus
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.network.interceptor.BackgroundRateLimitGuard
@@ -100,6 +101,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get()
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get()
     private val novelDownloadPreferences: NovelDownloadPreferences = Injekt.get()
+    private val libraryUpdateStatus: LibraryUpdateStatus = Injekt.get()
 
     private val notifier = LibraryUpdateNotifier(context)
 
@@ -148,6 +150,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             addMangaToQueue(categoryId)
         }
 
+        libraryUpdateStatus.start()
         return withIOContext {
             try {
                 updateChapterList()
@@ -162,6 +165,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                 }
             } finally {
                 notifier.cancelProgressNotification()
+                libraryUpdateStatus.stop()
             }
         }
     }

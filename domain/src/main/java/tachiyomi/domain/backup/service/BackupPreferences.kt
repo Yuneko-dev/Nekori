@@ -13,4 +13,9 @@ class BackupPreferences(
         Preference.appStateKey("last_auto_backup_timestamp"),
         0L,
     )
+
+    val showRestoringProgressBanner: Preference<Boolean> = preferenceStore.getBoolean(
+        Preference.appStateKey("pref_show_restoring_progress_banner_key"),
+        true,
+    )
 }

@@ -44,6 +44,11 @@ class LibraryPreferences(
     )
     val autoUpdateInterval: Preference<Int> = preferenceStore.getInt("pref_library_update_interval_key", 0)
 
+    val showUpdatingProgressBanner: Preference<Boolean> = preferenceStore.getBoolean(
+        Preference.appStateKey("pref_show_updating_progress_banner_key"),
+        true,
+    )
+
     val autoUpdateDeviceRestrictions: Preference<Set<String>> = preferenceStore.getStringSet(
         "library_update_restriction",
         setOf(

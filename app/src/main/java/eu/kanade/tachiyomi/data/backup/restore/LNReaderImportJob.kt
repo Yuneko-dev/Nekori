@@ -11,6 +11,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
@@ -24,18 +25,22 @@ import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 class LNReaderImportJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val notifier = BackupNotifier(context)
+    private val backupRestoreStatus: BackupRestoreStatus = Injekt.get()
 
     override suspend fun doWork(): Result {
         val uri = inputData.getString(LOCATION_URI_KEY)?.toUri() ?: return Result.failure()
 
-        setForegroundSafely()
+        backupRestoreStatus.start()
 
         return try {
+            setForegroundSafely()
             logcat(LogPriority.INFO) { "LNReaderImport: Worker started" }
             val importer = LNReaderBackupImporter(context, notifier)
             val options = LNReaderBackupImporter.ImportOptions(
@@ -94,6 +99,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
         } finally {
             logcat(LogPriority.INFO) { "LNReaderImport: Worker finished" }
             context.cancelNotification(Notifications.ID_RESTORE_PROGRESS)
+            backupRestoreStatus.stop()
         }
     }
 

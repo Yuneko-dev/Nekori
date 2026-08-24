@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -26,6 +27,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class BackupNotifier(private val context: Context) {
 
     private val preferences: SecurityPreferences by injectLazy()
+    private val backupRestoreStatus: BackupRestoreStatus by injectLazy()
 
     private val progressNotificationBuilder = context.notificationBuilder(
         Notifications.CHANNEL_BACKUP_RESTORE_PROGRESS,
@@ -96,6 +98,9 @@ class BackupNotifier(private val context: Context) {
         maxAmount: Int = 100,
         sync: Boolean = false,
     ): NotificationCompat.Builder {
+        if (!sync) {
+            backupRestoreStatus.updateProgress(progress, maxAmount)
+        }
         val builder = with(progressNotificationBuilder) {
             val contentTitle = if (sync) {
                 context.stringResource(MR.strings.syncing_library)
