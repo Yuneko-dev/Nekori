@@ -1,3 +1,11 @@
+/*
+ * Kotlin port of the original TypeScript project:
+ * https://github.com/aiko-chan-ai/Discord-OAuth2-RPC
+ *
+ * Copyright (c) 2026 Elysia
+ * SPDX-License-Identifier: MIT
+ */
+
 package eu.kanade.tachiyomi.discord
 
 import kotlinx.serialization.SerialName
