@@ -199,6 +199,26 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun pluginWithUnconfiguredDynamicSiteReportsAnEmptySite() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'dynamic-site.test',
+              name: 'Dynamic site test',
+              version: '1',
+              site: undefined,
+            };
+        """.trimIndent()
+
+        val loaded = runtime.call(
+            "plugin.load",
+            """{"id":"dynamic-site.test","code":${quote(code)}}""",
+        )
+
+        assertEquals("about:blank", Json.parseToJsonElement(loaded).jsonObject["site"]?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun missingParsePageFailsWithTheOptionalMethodContract() = runBlocking {
         val runtime = createRuntime()
         val code = """
