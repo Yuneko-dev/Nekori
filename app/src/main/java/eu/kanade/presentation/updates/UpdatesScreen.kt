@@ -21,6 +21,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,6 +73,8 @@ fun UpdateScreen(
     onClickNovelGroup: (Long) -> Unit = {},
     onLoadMore: () -> Unit = {},
 ) {
+    val expandedGroups = remember { mutableStateMapOf<UpdatesUiModel.GroupKey, Unit>() }
+
     BackHandler(enabled = state.selectionMode) {
         onSelectAll(false)
     }
@@ -127,7 +130,7 @@ fun UpdateScreen(
                     val lazyListState = rememberLazyListState()
 
                     // Trigger loadMore when near end of list
-                    LaunchedEffect(lazyListState) {
+                    LaunchedEffect(lazyListState, state.items.size) {
                         snapshotFlow {
                             val layoutInfo = lazyListState.layoutInfo
                             val totalItems = layoutInfo.totalItemsCount
@@ -172,6 +175,12 @@ fun UpdateScreen(
                             // Show individual chapter updates
                             updatesUiItems(
                                 uiModels = state.getUiModel(),
+                                isGroupExpanded = { it in expandedGroups },
+                                onToggleGroup = { key ->
+                                    if (expandedGroups.remove(key) == null) {
+                                        expandedGroups[key] = Unit
+                                    }
+                                },
                                 selectionMode = state.selectionMode,
                                 onUpdateSelected = onUpdateSelected,
                                 onClickCover = onClickCover,
@@ -295,4 +304,6 @@ private fun UpdatesBottomBar(
 sealed interface UpdatesUiModel {
     data class Header(val date: LocalDate) : UpdatesUiModel
     data class Item(val item: UpdatesItem) : UpdatesUiModel
+    data class Group(val key: GroupKey, val items: List<UpdatesItem>) : UpdatesUiModel
+    data class GroupKey(val date: LocalDate, val mangaId: Long)
 }

@@ -2,6 +2,7 @@
 
 package eu.kanade.presentation.updates
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +50,7 @@ import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
 
@@ -69,74 +73,161 @@ internal fun LazyListScope.updatesLastUpdatedItem(
 
 internal fun LazyListScope.updatesUiItems(
     uiModels: List<UpdatesUiModel>,
+    isGroupExpanded: (UpdatesUiModel.GroupKey) -> Boolean,
+    onToggleGroup: (UpdatesUiModel.GroupKey) -> Unit,
     selectionMode: Boolean,
     onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
     onClickCover: (UpdatesItem) -> Unit,
     onClickUpdate: (UpdatesItem) -> Unit,
     onDownloadChapter: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
 ) {
-    items(
-        items = uiModels,
-        contentType = {
-            when (it) {
-                is UpdatesUiModel.Header -> "header"
-                is UpdatesUiModel.Item -> "item"
-            }
-        },
-        key = {
-            when (it) {
-                is UpdatesUiModel.Header -> "updatesHeader-${it.hashCode()}"
-                is UpdatesUiModel.Item -> "updates-${it.item.update.mangaId}-${it.item.update.chapterId}-${it.item.update.dateFetch}"
-            }
-        },
-    ) { item ->
-        when (item) {
-            is UpdatesUiModel.Header -> {
+    uiModels.forEach { model ->
+        when (model) {
+            is UpdatesUiModel.Header -> item(
+                key = "updates-header-${model.date}",
+                contentType = "header",
+            ) {
                 ListGroupHeader(
                     modifier = Modifier.animateItem(),
-                    text = relativeDateText(item.date),
+                    text = relativeDateText(model.date),
                 )
             }
-            is UpdatesUiModel.Item -> {
-                val updatesItem = item.item
-                UpdatesUiItem(
-                    modifier = Modifier.animateItem(),
-                    update = updatesItem.update,
-                    selected = updatesItem.selected,
-                    readProgress = updatesItem.update.lastPageRead
-                        .takeIf { !updatesItem.update.read && it > 0L }
-                        ?.let {
-                            if (updatesItem.isNovel) {
-                                // For novels, lastPageRead stores progress percentage (0-100)
-                                stringResource(
-                                    TDMR.strings.chapter_progress_novel,
-                                    it.toInt(),
-                                )
-                            } else {
-                                stringResource(
-                                    MR.strings.chapter_progress,
-                                    it + 1,
-                                )
-                            }
-                        },
-                    onLongClick = {
-                        onUpdateSelected(updatesItem, !updatesItem.selected, true)
-                    },
-                    onClick = {
-                        when {
-                            selectionMode -> onUpdateSelected(updatesItem, !updatesItem.selected, false)
-                            else -> onClickUpdate(updatesItem)
-                        }
-                    },
-                    onClickCover = { onClickCover(updatesItem) }.takeIf { !selectionMode },
-                    onDownloadChapter = { action: ChapterDownloadAction ->
-                        onDownloadChapter(listOf(updatesItem), action)
-                    }.takeIf { !selectionMode },
-                    downloadStateProvider = updatesItem.downloadStateProvider,
-                    downloadProgressProvider = updatesItem.downloadProgressProvider,
-                )
+            is UpdatesUiModel.Item -> updatesChapterItem(
+                updatesItem = model.item,
+                selectionMode = selectionMode,
+                onUpdateSelected = onUpdateSelected,
+                onClickCover = onClickCover,
+                onClickUpdate = onClickUpdate,
+                onDownloadChapter = onDownloadChapter,
+            )
+            is UpdatesUiModel.Group -> {
+                val expanded = isGroupExpanded(model.key)
+                item(
+                    key = "updates-group-${model.key.date}-${model.key.mangaId}",
+                    contentType = "group",
+                ) {
+                    UpdatesPerDayNovelGroupItem(
+                        item = model.items.first(),
+                        chapterCount = model.items.size,
+                        expanded = expanded,
+                        onClickCover = { onClickCover(model.items.first()) }.takeIf { !selectionMode },
+                        onToggle = { onToggleGroup(model.key) },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+                if (expanded) {
+                    model.items.forEach { updatesItem ->
+                        updatesChapterItem(
+                            updatesItem = updatesItem,
+                            selectionMode = selectionMode,
+                            onUpdateSelected = onUpdateSelected,
+                            onClickCover = onClickCover,
+                            onClickUpdate = onClickUpdate,
+                            onDownloadChapter = onDownloadChapter,
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+private fun LazyListScope.updatesChapterItem(
+    updatesItem: UpdatesItem,
+    selectionMode: Boolean,
+    onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
+    onClickCover: (UpdatesItem) -> Unit,
+    onClickUpdate: (UpdatesItem) -> Unit,
+    onDownloadChapter: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
+) {
+    item(
+        key = "updates-${updatesItem.update.mangaId}-${updatesItem.update.chapterId}-${updatesItem.update.dateFetch}",
+        contentType = "item",
+    ) {
+        UpdatesUiItem(
+            modifier = Modifier.animateItem(),
+            update = updatesItem.update,
+            selected = updatesItem.selected,
+            readProgress = updatesItem.update.lastPageRead
+                .takeIf { !updatesItem.update.read && it > 0L }
+                ?.let {
+                    if (updatesItem.isNovel) {
+                        stringResource(TDMR.strings.chapter_progress_novel, it.toInt())
+                    } else {
+                        stringResource(MR.strings.chapter_progress, it + 1)
+                    }
+                },
+            // Date grouping can reorder chapters, so range selection must not use backing-list positions.
+            onLongClick = { onUpdateSelected(updatesItem, !updatesItem.selected, false) },
+            onClick = {
+                if (selectionMode) {
+                    onUpdateSelected(updatesItem, !updatesItem.selected, false)
+                } else {
+                    onClickUpdate(updatesItem)
+                }
+            },
+            onClickCover = { onClickCover(updatesItem) }.takeIf { !selectionMode },
+            onDownloadChapter = { action: ChapterDownloadAction ->
+                onDownloadChapter(listOf(updatesItem), action)
+            }.takeIf { !selectionMode },
+            downloadStateProvider = updatesItem.downloadStateProvider,
+            downloadProgressProvider = updatesItem.downloadProgressProvider,
+        )
+    }
+}
+
+@Composable
+private fun UpdatesPerDayNovelGroupItem(
+    item: UpdatesItem,
+    chapterCount: Int,
+    expanded: Boolean,
+    onClickCover: (() -> Unit)?,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clickable(onClick = onToggle)
+            .height(56.dp)
+            .padding(horizontal = MaterialTheme.padding.medium),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MangaCover.Square(
+            modifier = Modifier
+                .padding(vertical = 6.dp)
+                .fillMaxHeight(),
+            data = item.update.coverData,
+            contentDescription = item.update.mangaTitle,
+            onClick = onClickCover,
+        )
+        Column(
+            modifier = Modifier
+                .padding(horizontal = MaterialTheme.padding.medium)
+                .weight(1f),
+        ) {
+            Text(
+                text = item.update.mangaTitle,
+                maxLines = 1,
+                style = MaterialTheme.typography.bodyMedium,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = pluralStringResource(
+                    MR.plurals.notification_chapters_generic,
+                    count = chapterCount,
+                    chapterCount,
+                ),
+                maxLines = 1,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+            contentDescription = stringResource(
+                if (expanded) TDMR.strings.action_collapse else TDMR.strings.action_expand,
+            ),
+        )
     }
 }
 

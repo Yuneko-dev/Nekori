@@ -8,7 +8,6 @@ import androidx.compose.ui.util.fastFilter
 import androidx.lifecycle.viewModelScope
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.addOrRemove
-import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.updates.UpdatesUiModel
@@ -612,17 +611,27 @@ class UpdatesViewModel(
         }
 
         fun getUiModel(): List<UpdatesUiModel> {
-            return items
-                .map { UpdatesUiModel.Item(it) }
-                .insertSeparators { before, after ->
-                    val beforeDate = before?.item?.update?.dateFetch?.toLocalDate()
-                    val afterDate = after?.item?.update?.dateFetch?.toLocalDate()
-                    when {
-                        beforeDate != afterDate && afterDate != null -> UpdatesUiModel.Header(afterDate)
-                        // Return null to avoid adding a separator between two items.
-                        else -> null
+            return buildList {
+                items
+                    .groupBy { it.update.dateFetch.toLocalDate() }
+                    .forEach { (date, dateItems) ->
+                        add(UpdatesUiModel.Header(date))
+                        dateItems
+                            .groupBy { it.update.mangaId }
+                            .forEach { (mangaId, mangaItems) ->
+                                add(
+                                    if (mangaItems.size == 1) {
+                                        UpdatesUiModel.Item(mangaItems.single())
+                                    } else {
+                                        UpdatesUiModel.Group(
+                                            key = UpdatesUiModel.GroupKey(date, mangaId),
+                                            items = mangaItems,
+                                        )
+                                    },
+                                )
+                            }
                     }
-                }
+            }
         }
     }
 
