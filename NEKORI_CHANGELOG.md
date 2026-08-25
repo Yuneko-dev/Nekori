@@ -19,6 +19,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Changed
 - Progress bars in the Most read list now compare each novel's reading time with the top-ranked novel instead of
   showing chapter completion.
+- Storage statistics now appear below tracking statistics.
 
 ### Fixed
 - Infinite scrolling now keeps the title, current chapter and chapter summaries aligned with the visible content

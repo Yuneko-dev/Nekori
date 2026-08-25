@@ -120,6 +120,13 @@ fun AdvancedStatsScreenContent(
             )
         }
         item { LibrarySection(state) }
+        item { PublicationStatusSection(state.titles.publicationStatusCounts) }
+        item {
+            MostReadSection(advanced.mostReadManga) { rank, manga ->
+                selectedManga = rank to manga
+            }
+        }
+        item { TrackerStats(state.trackers) }
         if (state.storage != null || state.storageLoading || state.storageError) {
             item {
                 StorageSection(
@@ -130,13 +137,6 @@ fun AdvancedStatsScreenContent(
                 )
             }
         }
-        item { PublicationStatusSection(state.titles.publicationStatusCounts) }
-        item {
-            MostReadSection(advanced.mostReadManga) { rank, manga ->
-                selectedManga = rank to manga
-            }
-        }
-        item { TrackerStats(state.trackers) }
     }
 
     selectedDay?.let { day ->
