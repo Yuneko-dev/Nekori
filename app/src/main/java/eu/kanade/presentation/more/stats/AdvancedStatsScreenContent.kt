@@ -849,6 +849,7 @@ private fun LazyItemScope.MostReadSection(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val visibleItems = if (expanded) items else items.take(3)
+    val topReadDuration = items.firstOrNull()?.readDuration ?: 0L
 
     Row(
         modifier = Modifier
@@ -869,10 +870,10 @@ private fun LazyItemScope.MostReadSection(
     }
     SectionCard {
         visibleItems.forEachIndexed { index, item ->
-            val progress = if (item.totalChapterCount == 0L) {
+            val progress = if (topReadDuration <= 0L) {
                 0f
             } else {
-                (item.readChapterCount.toFloat() / item.totalChapterCount).coerceIn(0f, 1f)
+                (item.readDuration.toFloat() / topReadDuration).coerceIn(0f, 1f)
             }
             Row(
                 modifier = Modifier
