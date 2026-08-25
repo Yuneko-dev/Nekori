@@ -7,6 +7,7 @@ data class ReadingSessionWithRelations(
     val chapterId: Long,
     val mangaId: Long,
     val mangaTitle: String,
+    val coverData: MangaCover,
     val chapterName: String,
     val startedAt: Long,
     val endedAt: Long,

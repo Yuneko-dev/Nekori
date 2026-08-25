@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.history.model.ReadingSessionWithRelations
+import tachiyomi.domain.manga.model.MangaCover
 import java.time.LocalDate
 
 class ReadingHeatmapScaleTest {
@@ -75,6 +76,7 @@ class ReadingHeatmapScaleTest {
         chapterId = 1,
         mangaId = 1,
         mangaTitle = "Novel",
+        coverData = MangaCover(1, 1, true, null, 0),
         chapterName = "Chapter",
         startedAt = 0,
         endedAt = duration,

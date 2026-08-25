@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -20,6 +21,7 @@ import eu.kanade.presentation.more.stats.StatsScreenContent
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -33,6 +35,7 @@ class StatsScreen : Screen() {
 
     @Composable
     override fun Content() {
+        val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
         val viewModel = viewModel<StatsViewModel>()
@@ -80,6 +83,9 @@ class StatsScreen : Screen() {
                         paddingValues = contentPadding,
                         onSelectYear = viewModel::selectYear,
                         onOpenManga = { navigator.push(MangaScreen(it)) },
+                        onOpenChapter = { mangaId, chapterId ->
+                            context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
+                        },
                         onRefreshStorage = viewModel::refreshStorageStats,
                     )
                 }

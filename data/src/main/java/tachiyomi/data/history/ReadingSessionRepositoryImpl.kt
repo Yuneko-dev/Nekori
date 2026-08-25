@@ -7,6 +7,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.domain.history.model.ReadingSessionWithRelations
 import tachiyomi.domain.history.repository.ReadingSessionRepository
+import tachiyomi.domain.manga.model.MangaCover
 
 class ReadingSessionRepositoryImpl(
     private val database: Database,
@@ -42,6 +43,10 @@ class ReadingSessionRepositoryImpl(
                 chapterId,
                 mangaId,
                 title,
+                thumbnailUrl,
+                source,
+                favorite,
+                coverLastModified,
                 chapterName,
                 startedAt,
                 endedAt,
@@ -52,6 +57,7 @@ class ReadingSessionRepositoryImpl(
                 chapterId = chapterId,
                 mangaId = mangaId,
                 mangaTitle = title,
+                coverData = MangaCover(mangaId, source, favorite, thumbnailUrl, coverLastModified),
                 chapterName = chapterName,
                 startedAt = startedAt,
                 endedAt = endedAt,

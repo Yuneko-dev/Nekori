@@ -100,6 +100,7 @@ fun AdvancedStatsScreenContent(
     paddingValues: PaddingValues,
     onSelectYear: (Int) -> Unit,
     onOpenManga: (Long) -> Unit,
+    onOpenChapter: (Long, Long) -> Unit,
     onRefreshStorage: () -> Unit,
 ) {
     val advanced = state.advanced ?: return
@@ -140,7 +141,18 @@ fun AdvancedStatsScreenContent(
     }
 
     selectedDay?.let { day ->
-        DayDetailsSheet(day = day, onDismiss = { selectedDay = null })
+        DayDetailsSheet(
+            day = day,
+            onOpenManga = { mangaId ->
+                selectedDay = null
+                onOpenManga(mangaId)
+            },
+            onOpenChapter = { mangaId, chapterId ->
+                selectedDay = null
+                onOpenChapter(mangaId, chapterId)
+            },
+            onDismiss = { selectedDay = null },
+        )
     }
     selectedManga?.let { (rank, manga) ->
         MostReadDetailsSheet(
@@ -936,7 +948,12 @@ private fun LazyItemScope.MostReadSection(
 }
 
 @Composable
-private fun DayDetailsSheet(day: HeatDay, onDismiss: () -> Unit) {
+private fun DayDetailsSheet(
+    day: HeatDay,
+    onOpenManga: (Long) -> Unit,
+    onOpenChapter: (Long, Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
         enabledValues = setOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded),
@@ -1022,6 +1039,8 @@ private fun DayDetailsSheet(day: HeatDay, onDismiss: () -> Unit) {
                         timeFormatter = timeFormatter,
                         zone = zone,
                         isLast = session.id == day.sessions.last().id,
+                        onOpenManga = { onOpenManga(session.mangaId) },
+                        onOpenChapter = { onOpenChapter(session.mangaId, session.chapterId) },
                     )
                 }
             }
@@ -1058,6 +1077,8 @@ private fun ReadingSessionTimelineItem(
     timeFormatter: DateTimeFormatter,
     zone: ZoneId,
     isLast: Boolean,
+    onOpenManga: () -> Unit,
+    onOpenChapter: () -> Unit,
 ) {
     val start = remember(session.startedAt, zone) { Instant.ofEpochMilli(session.startedAt).atZone(zone) }
     val end = remember(session.endedAt, zone) { Instant.ofEpochMilli(session.endedAt).atZone(zone) }
@@ -1090,42 +1111,53 @@ private fun ReadingSessionTimelineItem(
                 )
             }
         }
-        Column(
+        Row(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = MaterialTheme.padding.small, bottom = MaterialTheme.padding.large),
+                .padding(start = MaterialTheme.padding.small, bottom = MaterialTheme.padding.large)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(onClick = onOpenChapter),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            MangaCover.Book(
+                data = session.coverData,
+                modifier = Modifier.width(44.dp),
+                contentDescription = session.mangaTitle,
+                onClick = onOpenManga,
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = MaterialTheme.padding.medium)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${timeFormatter.format(start)} – ${timeFormatter.format(end)}",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Text(
+                            text = sessionDuration(session.readDuration),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
                 Text(
-                    text = "${timeFormatter.format(start)} – ${timeFormatter.format(end)}",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
+                    text = session.mangaTitle,
+                    modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = session.chapterName,
+                    modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Text(
-                        text = sessionDuration(session.readDuration),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
             }
-            Text(
-                text = session.mangaTitle,
-                modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = session.chapterName,
-                modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

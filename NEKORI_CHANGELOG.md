@@ -16,6 +16,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Daily reading-session details now show novel covers; covers open novel details and session rows reopen the
+  recorded chapter.
+
 ### Changed
 - Progress bars in the Most read list now compare each novel's reading time with the top-ranked novel instead of
   showing chapter completion.
