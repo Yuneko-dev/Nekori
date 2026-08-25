@@ -772,7 +772,6 @@
     <string name="stats_chapters_progress">%1$s / %2$s chương</string>
     <string name="stats_chapters_remaining">Còn %1$s chương chưa đọc</string>
     <string name="stats_most_read">Đọc nhiều nhất</string>
-    <string name="stats_top_20">Top 20</string>
     <string name="stats_collapse">Thu gọn</string>
     <string name="stats_chapters_count">%1$s chương</string>
     <string name="stats_day_details">Chi tiết trong ngày</string>

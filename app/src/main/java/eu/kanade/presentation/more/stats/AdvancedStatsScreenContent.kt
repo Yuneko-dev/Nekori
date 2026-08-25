@@ -864,7 +864,7 @@ private fun LazyItemScope.MostReadSection(
         )
         if (items.size > 3) {
             TextButton(onClick = { expanded = !expanded }) {
-                Text(stringResource(if (expanded) TDMR.strings.stats_collapse else TDMR.strings.stats_top_20))
+                Text(stringResource(if (expanded) TDMR.strings.stats_collapse else MR.strings.all))
             }
         }
     }

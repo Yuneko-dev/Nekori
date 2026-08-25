@@ -5,5 +5,5 @@ import tachiyomi.domain.history.repository.HistoryRepository
 class GetMostReadManga(
     private val repository: HistoryRepository,
 ) {
-    suspend fun await(limit: Long = 20) = repository.getMostReadManga(limit)
+    suspend fun await(limit: Long = Long.MAX_VALUE) = repository.getMostReadManga(limit)
 }
