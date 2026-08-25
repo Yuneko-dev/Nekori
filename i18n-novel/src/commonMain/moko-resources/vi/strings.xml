@@ -475,7 +475,7 @@
     <string name="pref_translation_retry_count">Số lần thử lại sau lỗi</string>
     <string name="pref_ai_rpm_limit">Số yêu cầu mỗi phút</string>
     <string name="pref_ai_rpm_limit_summary">Trần dùng chung cho mọi tác vụ AI, cả dịch lẫn tóm tắt</string>
-    <string name="pref_ai_rpm_unlimited">Chỉ theo giới hạn của nhà cung cấp</string>
+    <string name="pref_ai_rpm_unlimited">Không giới hạn</string>
     <string name="action_translation_settings">Cài đặt dịch</string>
     <string name="pref_translation_engine">Công cụ dịch</string>
     <string name="pref_translation_purpose_chapter">Nội dung chương</string>

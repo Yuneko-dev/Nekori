@@ -485,7 +485,7 @@
     <string name="pref_translation_retry_count">Retries after an error</string>
     <string name="pref_ai_rpm_limit">Requests per minute</string>
     <string name="pref_ai_rpm_limit_summary">Ceiling shared by every AI task, translation and summaries alike</string>
-    <string name="pref_ai_rpm_unlimited">Provider limit only</string>
+    <string name="pref_ai_rpm_unlimited">Unlimited</string>
     <string name="action_translation_settings">Translation settings</string>
     <string name="pref_translation_engine">Translation engine</string>
     <string name="pref_translation_purpose_chapter">Chapter text</string>
