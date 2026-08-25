@@ -36,7 +36,11 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -83,17 +87,26 @@ fun LibrarySettingsDialog(
     viewModel: LibrarySettingsViewModel,
     category: Category?,
 ) {
+    val tagFilterEnabled by viewModel.libraryPreferences.tagFilterEnabled.collectAsState()
+    val extensionFilterEnabled by viewModel.libraryPreferences.extensionFilterEnabled.collectAsState()
+    val pages = buildList {
+        add(LibrarySettingsPage.Filter to stringResource(MR.strings.action_filter))
+        add(LibrarySettingsPage.Sort to stringResource(MR.strings.action_sort))
+        add(LibrarySettingsPage.Display to stringResource(MR.strings.action_display))
+        if (tagFilterEnabled) {
+            add(LibrarySettingsPage.Tags to stringResource(TDMR.strings.edit_label_tags))
+        }
+        if (extensionFilterEnabled) {
+            add(LibrarySettingsPage.Extensions to stringResource(MR.strings.label_extensions))
+        }
+    }
+
     TabbedDialog(
         onDismissRequest = onDismissRequest,
-        tabTitles = listOf(
-            stringResource(MR.strings.action_filter),
-            stringResource(MR.strings.action_sort),
-            stringResource(MR.strings.action_display),
-            stringResource(TDMR.strings.edit_label_tags),
-            stringResource(MR.strings.label_extensions),
-        ).toTabTitles(),
+        tabTitles = pages.map { it.second }.toTabTitles(),
     ) { page ->
-        if (page == 3) {
+        val selectedPage = pages[page].first
+        if (selectedPage == LibrarySettingsPage.Tags) {
             Column(
                 modifier = Modifier
                     .padding(vertical = TabbedDialogPaddings.Vertical),
@@ -106,27 +119,35 @@ fun LibrarySettingsDialog(
                     .padding(vertical = TabbedDialogPaddings.Vertical)
                     .verticalScroll(rememberScrollState()),
             ) {
-                when (page) {
-                    0 -> FilterPage(
+                when (selectedPage) {
+                    LibrarySettingsPage.Filter -> FilterPage(
                         viewModel = viewModel,
                     )
-                    1 -> SortPage(
+                    LibrarySettingsPage.Sort -> SortPage(
                         category = category,
                         viewModel = viewModel,
                     )
-                    2 -> DisplayPage(
+                    LibrarySettingsPage.Display -> DisplayPage(
                         viewModel = viewModel,
                     )
-                    3 -> TagsPage(
+                    LibrarySettingsPage.Tags -> TagsPage(
                         viewModel = viewModel,
                     )
-                    4 -> ExtensionsPage(
+                    LibrarySettingsPage.Extensions -> ExtensionsPage(
                         viewModel = viewModel,
                     )
                 }
             }
         }
     }
+}
+
+private enum class LibrarySettingsPage {
+    Filter,
+    Sort,
+    Display,
+    Tags,
+    Extensions,
 }
 
 @Composable
@@ -206,6 +227,14 @@ private fun ColumnScope.FilterPage(
             keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
     }
+    CheckboxItem(
+        label = stringResource(TDMR.strings.edit_label_tags),
+        pref = viewModel.libraryPreferences.tagFilterEnabled,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.label_extensions),
+        pref = viewModel.libraryPreferences.extensionFilterEnabled,
+    )
 
     // TODO: re-enable when custom intervals are ready for stable
     if ((!isReleaseBuildType) && LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in autoUpdateMangaRestrictions) {
@@ -530,119 +559,36 @@ private fun ColumnScope.TagsPage(
     // Collapsible options section
     if (optionsExpanded) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            // Include mode toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(TDMR.strings.library_settings_tags_include_mode_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row {
-                    FilterChip(
-                        selected = !tagIncludeModeAnd,
-                        onClick = { viewModel.libraryPreferences.tagIncludeMode.set(false) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_or)) },
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(
-                        selected = tagIncludeModeAnd,
-                        onClick = { viewModel.libraryPreferences.tagIncludeMode.set(true) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_and)) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Exclude mode toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(TDMR.strings.library_settings_tags_exclude_mode_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row {
-                    FilterChip(
-                        selected = !tagExcludeModeAnd,
-                        onClick = { viewModel.libraryPreferences.tagExcludeMode.set(false) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_or)) },
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(
-                        selected = tagExcludeModeAnd,
-                        onClick = { viewModel.libraryPreferences.tagExcludeMode.set(true) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tag_mode_and)) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Sort options
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(TDMR.strings.library_settings_tags_sort_by_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row {
-                    FilterChip(
-                        selected = !tagSortByName,
-                        onClick = { viewModel.libraryPreferences.tagSortByName.set(false) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_count)) },
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(
-                        selected = tagSortByName,
-                        onClick = { viewModel.libraryPreferences.tagSortByName.set(true) },
-                        label = { Text(stringResource(MR.strings.name)) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Sort direction
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(TDMR.strings.library_settings_tags_sort_order_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row {
-                    FilterChip(
-                        selected = !tagSortAscending,
-                        onClick = { viewModel.libraryPreferences.tagSortAscending.set(false) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_desc)) },
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(
-                        selected = tagSortAscending,
-                        onClick = { viewModel.libraryPreferences.tagSortAscending.set(true) },
-                        label = { Text(stringResource(TDMR.strings.library_settings_tags_sort_asc)) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Case sensitivity toggle
+            TagOptionRow(
+                label = stringResource(TDMR.strings.library_settings_tags_include_mode_label),
+                firstLabel = stringResource(TDMR.strings.library_settings_tag_mode_or),
+                secondLabel = stringResource(TDMR.strings.library_settings_tag_mode_and),
+                secondSelected = tagIncludeModeAnd,
+                onSelect = viewModel.libraryPreferences.tagIncludeMode::set,
+            )
+            TagOptionRow(
+                label = stringResource(TDMR.strings.library_settings_tags_exclude_mode_label),
+                firstLabel = stringResource(TDMR.strings.library_settings_tag_mode_or),
+                secondLabel = stringResource(TDMR.strings.library_settings_tag_mode_and),
+                secondSelected = tagExcludeModeAnd,
+                onSelect = viewModel.libraryPreferences.tagExcludeMode::set,
+            )
+            TagOptionRow(
+                label = stringResource(TDMR.strings.library_settings_tags_sort_by_label),
+                firstLabel = stringResource(TDMR.strings.library_settings_tags_sort_count),
+                secondLabel = stringResource(MR.strings.name),
+                secondSelected = tagSortByName,
+                onSelect = viewModel.libraryPreferences.tagSortByName::set,
+            )
+            TagOptionRow(
+                label = stringResource(TDMR.strings.library_settings_tags_sort_order_label),
+                firstLabel = stringResource(TDMR.strings.library_settings_tags_sort_desc),
+                secondLabel = stringResource(TDMR.strings.library_settings_tags_sort_asc),
+                secondSelected = tagSortAscending,
+                onSelect = viewModel.libraryPreferences.tagSortAscending::set,
+            )
             CheckboxItem(
                 label = stringResource(TDMR.strings.label_case_sensitive_matching),
                 pref = viewModel.libraryPreferences.tagCaseSensitive,
@@ -650,11 +596,20 @@ private fun ColumnScope.TagsPage(
         }
     }
 
-    // Clear All button
+    TagFilterChip(
+        label = stringResource(TDMR.strings.library_settings_tags_no_tags_count, noTagsCount),
+        isIncluded = filterNoTags == TriState.ENABLED_IS,
+        isExcluded = filterNoTags == TriState.ENABLED_NOT,
+        onClick = viewModel::toggleNoTagsFilter,
+        modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal),
+    )
+
     if (includedTags.isNotEmpty() || excludedTags.isNotEmpty() || filterNoTags != TriState.DISABLED) {
-        TextButton(
+        OutlinedButton(
             onClick = { viewModel.clearAllTagFilters() },
-            modifier = Modifier.padding(horizontal = TabbedDialogPaddings.Horizontal),
+            modifier = Modifier
+                .padding(horizontal = TabbedDialogPaddings.Horizontal)
+                .fillMaxWidth(),
         ) {
             Icon(
                 Icons.Default.Clear,
@@ -664,13 +619,6 @@ private fun ColumnScope.TagsPage(
             Text(stringResource(TDMR.strings.library_settings_tags_clear_all_filters))
         }
     }
-
-    // No tags filter
-    TriStateItem(
-        label = stringResource(TDMR.strings.library_settings_tags_no_tags_count, noTagsCount),
-        state = filterNoTags,
-        onClick = { viewModel.toggleNoTagsFilter() },
-    )
 
     // Tag search input
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -806,41 +754,94 @@ private fun ColumnScope.TagsPage(
                 val isIncluded = tag in includedTags
                 val isExcluded = tag in excludedTags
 
-                FilterChip(
-                    selected = isIncluded || isExcluded,
+                TagFilterChip(
+                    label = "$tag ($count)",
+                    isIncluded = isIncluded,
+                    isExcluded = isExcluded,
                     onClick = { viewModel.toggleTagIncluded(tag) },
-                    label = { Text("$tag ($count)") },
-                    leadingIcon = {
-                        when {
-                            isIncluded -> Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize),
-                            )
-
-                            isExcluded -> Icon(
-                                imageVector = Icons.Filled.Clear,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize),
-                            )
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = if (isExcluded) {
-                            MaterialTheme.colorScheme.errorContainer
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer
-                        },
-                        selectedLabelColor = if (isExcluded) {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        },
-                    ),
                 )
             }
         }
     }
+}
+
+@Composable
+private fun TagOptionRow(
+    label: String,
+    firstLabel: String,
+    secondLabel: String,
+    secondSelected: Boolean,
+    onSelect: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = TabbedDialogPaddings.Horizontal, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        SingleChoiceSegmentedButtonRow {
+            listOf(firstLabel, secondLabel).forEachIndexed { index, text ->
+                SegmentedButton(
+                    selected = secondSelected == (index == 1),
+                    onClick = { onSelect(index == 1) },
+                    shape = SegmentedButtonDefaults.itemShape(index, 2),
+                    icon = {},
+                ) {
+                    Text(text)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagFilterChip(
+    label: String,
+    isIncluded: Boolean,
+    isExcluded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilterChip(
+        selected = isIncluded || isExcluded,
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = if (isIncluded || isExcluded) {
+            {
+                Icon(
+                    imageVector = if (isIncluded) Icons.Filled.Check else Icons.Filled.Clear,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                )
+            }
+        } else {
+            null
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = if (isExcluded) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.primaryContainer
+            },
+            selectedLabelColor = if (isExcluded) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            },
+            selectedLeadingIconColor = if (isExcluded) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            },
+        ),
+        modifier = modifier,
+    )
 }
 
 @Composable

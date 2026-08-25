@@ -19,8 +19,11 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Added
 - Daily reading-session details now show novel covers; covers open novel details and session rows reopen the
   recorded chapter.
+- Library filters can now hide and disable the Tags and Extensions filter tabs independently, while preserving
+  their selections for the next time each filter is enabled.
 
 ### Changed
+- The library Tags filter now uses balanced Material 3 segmented controls, chips and actions.
 - Progress bars in the Most read list now compare each novel's reading time with the top-ranked novel instead of
   showing chapter completion.
 - The Most read list can now expand to every title with recorded reading time instead of stopping at the top 20.

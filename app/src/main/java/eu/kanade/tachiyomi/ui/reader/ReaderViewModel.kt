@@ -1046,7 +1046,6 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /** Saves progress when infinite scroll retained the chapter identity but recycled its page. */
     fun saveNovelProgress(selectedChapter: ReaderChapter, progressPercentage: Int) {
-
         if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source)) return
 
         viewModelScope.launchNonCancellable {

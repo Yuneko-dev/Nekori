@@ -869,6 +869,7 @@ class DuplicateDetectionViewModel(
     }
 
     private fun captureLibraryFilterSnapshot(): LibraryFilterSnapshot {
+        val tagFilterEnabled = libraryPreferences.tagFilterEnabled.get()
         val snapshot = LibraryFilterSnapshot(
             filterDownloaded = libraryPreferences.filterDownloaded.get(),
             filterUnread = libraryPreferences.filterUnread.get(),
@@ -876,14 +877,16 @@ class DuplicateDetectionViewModel(
             filterCompleted = libraryPreferences.filterCompleted.get(),
             filterChapterCount = libraryPreferences.filterChapterCount().get(),
             filterChapterCountThreshold = libraryPreferences.filterChapterCountThreshold.get(),
-            includedTags = libraryPreferences.includedTags.get(),
-            excludedTags = libraryPreferences.excludedTags.get(),
-            filterNoTags = libraryPreferences.filterNoTags().get(),
+            includedTags = if (tagFilterEnabled) libraryPreferences.includedTags.get() else emptySet(),
+            excludedTags = if (tagFilterEnabled) libraryPreferences.excludedTags.get() else emptySet(),
+            filterNoTags = if (tagFilterEnabled) libraryPreferences.filterNoTags().get() else TriState.DISABLED,
             tagIncludeModeAnd = libraryPreferences.tagIncludeMode.get(),
             tagExcludeModeAnd = libraryPreferences.tagExcludeMode.get(),
             tagCaseSensitive = libraryPreferences.tagCaseSensitive.get(),
-            excludedExtensions = libraryPreferences.excludedExtensions.get().mapNotNullTo(HashSet()) {
-                it.toLongOrNull()
+            excludedExtensions = if (libraryPreferences.extensionFilterEnabled.get()) {
+                libraryPreferences.excludedExtensions.get().mapNotNullTo(HashSet()) { it.toLongOrNull() }
+            } else {
+                emptySet()
             },
         )
         return snapshot

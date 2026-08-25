@@ -128,6 +128,10 @@ class LibraryPreferences(
         "pref_excluded_library_extensions",
         emptySet(),
     )
+    val extensionFilterEnabled: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_filter_library_extensions_enabled",
+        false,
+    )
 
     // Stores source IDs that should have their chapter list reversed
     val reversedChapterSources: Preference<Set<String>> = preferenceStore.getStringSet(
@@ -145,6 +149,10 @@ class LibraryPreferences(
         emptySet(),
     )
     fun filterNoTags() = preferenceStore.getEnum("pref_filter_library_no_tags", TriState.DISABLED)
+    val tagFilterEnabled: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_filter_library_tags_enabled",
+        false,
+    )
 
     // Tag filter logic modes (true = AND, false = OR)
     val tagIncludeMode: Preference<Boolean> = preferenceStore.getBoolean(

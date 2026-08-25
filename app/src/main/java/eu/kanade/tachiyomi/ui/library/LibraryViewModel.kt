@@ -382,6 +382,7 @@ class LibraryViewModel(
                 *trackFilters.values.toTypedArray(),
             )
                 .any { it != TriState.DISABLED } ||
+                prefs.excludedExtensions.isNotEmpty() ||
                 prefs.includedTags.isNotEmpty() ||
                 prefs.excludedTags.isNotEmpty()
         }
@@ -702,6 +703,7 @@ class LibraryViewModel(
                 libraryPreferences.filterCompleted.changes(),
                 libraryPreferences.filterIntervalCustom().changes(),
                 libraryPreferences.excludedExtensions.changes(),
+                libraryPreferences.extensionFilterEnabled.changes(),
             ) { arr -> arr },
             combine(
                 libraryPreferences.includedTags.changes(),
@@ -712,8 +714,11 @@ class LibraryViewModel(
                 libraryPreferences.tagCaseSensitive.changes(),
                 libraryPreferences.filterChapterCount().changes(),
                 libraryPreferences.filterChapterCountThreshold.changes(),
+                libraryPreferences.tagFilterEnabled.changes(),
             ) { arr -> arr },
         ) { first, second, third ->
+            val extensionFilterEnabled = second[7] as Boolean
+            val tagFilterEnabled = third[8] as Boolean
             ItemPreferences(
                 downloadBadge = first[0] as Boolean,
                 unreadBadge = first[1] as Boolean,
@@ -727,10 +732,25 @@ class LibraryViewModel(
                 filterBookmarked = second[3] as TriState,
                 filterCompleted = second[4] as TriState,
                 filterIntervalCustom = second[5] as TriState,
-                excludedExtensions = @Suppress("UNCHECKED_CAST") (second[6] as Set<String>),
-                includedTags = @Suppress("UNCHECKED_CAST") (third[0] as Set<String>),
-                excludedTags = @Suppress("UNCHECKED_CAST") (third[1] as Set<String>),
-                filterNoTags = third[2] as TriState,
+                excludedExtensions = if (extensionFilterEnabled) {
+                    @Suppress("UNCHECKED_CAST")
+                    second[6] as Set<String>
+                } else {
+                    emptySet()
+                },
+                includedTags = if (tagFilterEnabled) {
+                    @Suppress("UNCHECKED_CAST")
+                    third[0] as Set<String>
+                } else {
+                    emptySet()
+                },
+                excludedTags = if (tagFilterEnabled) {
+                    @Suppress("UNCHECKED_CAST")
+                    third[1] as Set<String>
+                } else {
+                    emptySet()
+                },
+                filterNoTags = if (tagFilterEnabled) third[2] as TriState else TriState.DISABLED,
                 tagIncludeModeAnd = third[3] as Boolean,
                 tagExcludeModeAnd = third[4] as Boolean,
                 tagCaseSensitive = third[5] as Boolean,
