@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.reader
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+
 enum class ReaderNavigationSource {
     USER,
     AUTOMATIC,
@@ -12,6 +15,7 @@ class ReaderNavigationGuard {
     private var nextId = 0L
     private var currentId: Long? = null
     private var manualInFlightId: Long? = null
+    private val manualIdle = MutableStateFlow(true)
 
     @Synchronized
     fun begin(source: ReaderNavigationSource): ReaderNavigationRequest? {
@@ -23,8 +27,16 @@ class ReaderNavigationGuard {
         currentId = request.id
         if (source == ReaderNavigationSource.USER) {
             manualInFlightId = request.id
+            manualIdle.value = false
         }
         return request
+    }
+
+    suspend fun beginAutomaticWhenIdle(): ReaderNavigationRequest {
+        while (true) {
+            manualIdle.first { it }
+            begin(ReaderNavigationSource.AUTOMATIC)?.let { return it }
+        }
     }
 
     @Synchronized
@@ -37,6 +49,7 @@ class ReaderNavigationGuard {
         }
         if (manualInFlightId == request.id) {
             manualInFlightId = null
+            manualIdle.value = true
         }
     }
 }

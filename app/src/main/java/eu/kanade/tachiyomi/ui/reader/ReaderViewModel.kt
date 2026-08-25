@@ -339,6 +339,9 @@ class ReaderViewModel @JvmOverloads constructor(
     fun beginChapterNavigation(source: ReaderNavigationSource): ReaderNavigationRequest? =
         navigationGuard.begin(source)
 
+    suspend fun beginAutomaticChapterNavigation(): ReaderNavigationRequest =
+        navigationGuard.beginAutomaticWhenIdle()
+
     fun finishChapterNavigation(request: ReaderNavigationRequest) {
         navigationGuard.finish(request)
     }
@@ -1038,8 +1041,11 @@ class ReaderViewModel @JvmOverloads constructor(
      * Saves reading progress for novel chapters using percentage (0-100).
      * Used by NovelWebViewViewer to save scroll position.
      */
-    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
-        val selectedChapter = page.chapter
+    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) =
+        saveNovelProgress(page.chapter, progressPercentage)
+
+    /** Saves progress when infinite scroll retained the chapter identity but recycled its page. */
+    fun saveNovelProgress(selectedChapter: ReaderChapter, progressPercentage: Int) {
 
         if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source)) return
 
@@ -1355,11 +1361,18 @@ class ReaderViewModel @JvmOverloads constructor(
         navigationRequest: ReaderNavigationRequest,
     ): Boolean {
         val chapter = chapterList.firstOrNull { it.chapter.id == chapterId } ?: return false
-        return loadAdjacent(
-            chapter = chapter,
-            navigationRequest = navigationRequest,
-            flushHistoryBeforeCommit = true,
-        )
+        chapter.ref()
+        return try {
+            loadAdjacent(
+                chapter = chapter,
+                navigationRequest = navigationRequest,
+                flushHistoryBeforeCommit = true,
+            )
+        } finally {
+            // A successful commit already owns the active ViewerChapters. On failure, cancellation,
+            // or a stale navigation request this releases any partially-created loader/pages.
+            chapter.unref()
+        }
     }
 
     fun findChapterIdByUrl(url: String): Long? {

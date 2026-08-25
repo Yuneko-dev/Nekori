@@ -46,6 +46,7 @@ import eu.kanade.tachiyomi.jsplugin.source.applyJsImageRequestInit
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.ReaderNavigationRequest
 import eu.kanade.tachiyomi.ui.reader.ReaderNavigationSource
 import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
@@ -242,6 +243,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var loadJob: Job? = null
     private var contentJob: Job? = null
     private var appendJob: Job? = null
+    private var chapterRecoveryJob: Job? = null
+    private var chapterRecoveryId: Long? = null
+    private var chapterRecoveryRequest: ReaderNavigationRequest? = null
+    private var pendingChapterRecoveryId: Long? = null
     private var attachListener: View.OnAttachStateChangeListener? = null
     private var currentPage: ReaderPage? = null
     private var currentChapters: ViewerChapters? = null
@@ -1115,7 +1120,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun restoreScrollPosition() {
         val page = currentPage ?: run {
-            isRestoringScroll = false
+            liftRestoreGuard(scrollRestoreToken)
             return
         }
         val savedProgress = page.chapter.chapter.last_page_read
@@ -1813,6 +1818,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         webView.setBackgroundColor(stylePayload.backgroundColor)
         container.setBackgroundColor(stylePayload.backgroundColor)
 
+        invalidateChapterRecovery()
         chapterQueue.clear()
         currentChapterIndex = 0
         currentDocumentIsVideo = directives.isVideo
@@ -2051,6 +2057,83 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         summaryController.request(chapterId)
     }
 
+    private fun requestChapterRecovery(chapterId: Long) {
+        if (isDestroyed) return
+        if (chapterRecoveryJob != null) {
+            if (chapterRecoveryId == chapterId) {
+                // A non-null pending ID means this load was invalidated while another chapter was
+                // visible. If the user came back, rerun it after the stale load releases its ref.
+                if (pendingChapterRecoveryId != null) pendingChapterRecoveryId = chapterId
+                return
+            }
+            pendingChapterRecoveryId = chapterId
+            chapterRecoveryRequest?.let(activity.viewModel::finishChapterNavigation)
+            chapterRecoveryId = null
+            chapterRecoveryJob?.cancel()
+            return
+        }
+        startChapterRecovery(chapterId)
+    }
+
+    private fun startChapterRecovery(chapterId: Long) {
+        pendingChapterRecoveryId = null
+        chapterRecoveryId = chapterId
+        chapterRecoveryJob = scope.launch {
+            var request: ReaderNavigationRequest? = null
+            try {
+                request = activity.viewModel.beginAutomaticChapterNavigation()
+                chapterRecoveryRequest = request
+                val stillVisible = getCurrentTsundokuChapter()?.chapter?.id == chapterId
+                val stillMissingPage = loadedChapters
+                    .firstOrNull { it.chapter.id == chapterId }
+                    ?.pages
+                    ?.firstOrNull() == null
+                if (chapterRecoveryId != chapterId || !stillVisible || !stillMissingPage) return@launch
+                val loaded = activity.viewModel.loadChapterById(chapterId, request)
+                if (loaded) resetChapterTracking()
+            } finally {
+                request?.let(activity.viewModel::finishChapterNavigation)
+                if (chapterRecoveryRequest === request) {
+                    chapterRecoveryJob = null
+                    chapterRecoveryId = null
+                    chapterRecoveryRequest = null
+                    val pendingId = pendingChapterRecoveryId
+                    pendingChapterRecoveryId = null
+                    val pendingNeedsPage = loadedChapters
+                        .firstOrNull { it.chapter.id == pendingId }
+                        ?.pages
+                        ?.firstOrNull() == null
+                    if (
+                        scope.isActive &&
+                        pendingId != null &&
+                        getCurrentTsundokuChapter()?.chapter?.id == pendingId &&
+                        pendingNeedsPage
+                    ) {
+                        startChapterRecovery(pendingId)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun keepOnlyRelevantChapterRecovery(chapterId: Long) {
+        if (chapterRecoveryJob != null && chapterRecoveryId != chapterId) {
+            chapterRecoveryRequest?.let(activity.viewModel::finishChapterNavigation)
+            chapterRecoveryId = null
+            chapterRecoveryJob?.cancel()
+            pendingChapterRecoveryId = chapterId
+        } else if (chapterRecoveryJob == null) {
+            pendingChapterRecoveryId = null
+        }
+    }
+
+    private fun invalidateChapterRecovery() {
+        chapterRecoveryRequest?.let(activity.viewModel::finishChapterNavigation)
+        chapterRecoveryJob?.cancel()
+        chapterRecoveryId = null
+        pendingChapterRecoveryId = null
+    }
+
     /**
      * The chapter's source HTML, loading it first if `noCache` dropped it.
      *
@@ -2061,7 +2144,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val chapter = loadedChapters.firstOrNull { it.chapter.id == chapterId }
             ?: currentChapters?.currChapter?.takeIf { it.chapter.id == chapterId }
             ?: return null
-        val page = chapter.pages?.firstOrNull() ?: return null
+        val page = chapter.pages?.firstOrNull() ?: awaitRecoveredChapterPage(chapterId, chapter) ?: return null
         val loader = page.chapter.pageLoader
         if (page.text.isNullOrBlank() && loader != null) {
             awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
@@ -2071,6 +2154,21 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             page.text = null
         }
         return html
+    }
+
+    private suspend fun awaitRecoveredChapterPage(chapterId: Long, chapter: ReaderChapter): ReaderPage? {
+        if (getCurrentTsundokuChapter()?.chapter?.id != chapterId) return null
+        requestChapterRecovery(chapterId)
+        var recovery = chapterRecoveryJob
+        while (recovery != null) {
+            recovery.join()
+            chapter.pages?.firstOrNull()?.let { return it }
+            if (getCurrentTsundokuChapter()?.chapter?.id != chapterId) return null
+            val nextRecovery = chapterRecoveryJob
+            if (nextRecovery == null || nextRecovery === recovery) return null
+            recovery = nextRecovery
+        }
+        return null
     }
 
     private fun updateChapterMetaJs() {
@@ -2448,13 +2546,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     })();
                     """.trimIndent(),
                 )
-                isRestoringScroll = false
+                liftRestoreGuard(token)
             }, 220)
         } else {
             // Invalidate a pending entry-side restore callback so it can't fire after we've
             // already left edit mode.
-            ++scrollRestoreToken
-            isRestoringScroll = false
+            isRestoringScroll = true
+            val token = ++scrollRestoreToken
             webView.evaluateJavascript(
                 "(function() { window.getSelection().removeAllRanges(); document.activeElement.blur(); })();",
                 null,
@@ -2462,6 +2560,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             webView.clearFocus()
             val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+            liftRestoreGuard(token)
         }
 
         val script = """
@@ -2639,44 +2738,59 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
 
         @JavascriptInterface
-        fun onChapterScrollUpdate(chapterId: String, @Suppress("UNUSED_PARAMETER") progress: Float) {
+        fun onChapterScrollUpdate(chapterId: String, progress: Float) {
             activity.runOnUiThread {
                 if (isRestoringScroll) return@runOnUiThread
                 // Fired edge-triggered by the JS (only on a real change). Resolve by stable chapter
                 // id, not index: DOM boundaries and chapterQueue briefly disagree after a prepend.
                 val id = chapterId.toLongOrNull() ?: return@runOnUiThread
                 val chapterIndex = loadedChapters.indexOfFirst { it.chapter.id == id }
-                if (chapterIndex != currentChapterIndex && chapterIndex >= 0) {
-                    // Skip if the target has no page yet: advancing the index without currentPage
-                    // would persist the new chapter's progress against the old page.
-                    val newPage = loadedChapters.getOrNull(chapterIndex)?.pages?.firstOrNull() ?: return@runOnUiThread
-                    val oldIndex = currentChapterIndex
-                    currentChapterIndex = chapterIndex
+                val chapter = loadedChapters.getOrNull(chapterIndex) ?: return@runOnUiThread
+                val newPage = chapter.pages?.firstOrNull()
+                val oldIndex = currentChapterIndex
+                val identityChanged = chapterIndex != oldIndex
+                val pageChanged = currentPage?.chapter?.chapter?.id != id
+                val titleChanged = activity.viewModel.state.value.novelVisibleChapter?.id != id
 
+                if (identityChanged) {
                     // Moving forward marks the outgoing chapter (and any skipped) read, per-chapter
                     // progress never snaps to 100 in the DOM so onScrollProgress can't.
                     NovelProgress.forwardChaptersToMarkRead(oldIndex, chapterIndex, loadedChapters.size)
                         .forEach { idx ->
-                            loadedChapters.getOrNull(idx)?.pages?.firstOrNull()?.let { page ->
-                                activity.saveNovelProgress(page, 100)
+                            loadedChapters.getOrNull(idx)?.let { completedChapter ->
+                                activity.viewModel.saveNovelProgress(completedChapter, 100)
                                 logcat(LogPriority.DEBUG) {
                                     "NovelWebViewViewer: Marking chapter index $idx as 100% (moved forward)"
                                 }
                             }
                         }
+                    currentChapterIndex = chapterIndex
+                }
 
-                    activity.viewModel.setNovelVisibleChapter(loadedChapters.getOrNull(chapterIndex)?.chapter)
+                if (identityChanged || titleChanged) {
+                    activity.viewModel.setNovelVisibleChapter(chapter.chapter)
+                    updateChapterMetaJs()
+                }
 
-                    currentPage = newPage
-                    activity.onPageSelected(newPage)
-
-                    // Directional baseline so a flush before the next scroll event isn't wrong.
-                    // The next onScrollUpdate replaces it with the real position.
+                if (newPage == null) {
+                    // The DOM can outlive ViewerChapters' curr/prev/next reference window. Never
+                    // keep the previous page under the new visible ID: progress and summaries
+                    // would then be attributed to the wrong chapter while this one is reloaded.
+                    currentPage = null
                     lastSavedProgress = if (chapterIndex > oldIndex) 0f else 1f
                     lastPersistedPercent = -1
                     awaitingFirstScrollSample = true
+                    requestChapterRecovery(id)
+                    return@runOnUiThread
+                }
 
-                    updateChapterMetaJs()
+                keepOnlyRelevantChapterRecovery(id)
+                if (identityChanged || pageChanged) {
+                    currentPage = newPage
+                    activity.onPageSelected(newPage)
+                    lastSavedProgress = progress.coerceIn(0f, 1f)
+                    lastPersistedPercent = -1
+                    awaitingFirstScrollSample = false
                 }
             }
         }
@@ -2914,6 +3028,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun liftRestoreGuard(token: Int) {
         if (token != scrollRestoreToken) return
         isRestoringScroll = false
+        resetChapterTracking()
+    }
+
+    private fun resetChapterTracking() {
         evaluateJavascriptSafe(
             "(function(){ if (window.$TSUNDOKU_OBJECT_NAME && window.$TSUNDOKU_OBJECT_NAME.runtime && window.$TSUNDOKU_OBJECT_NAME.runtime.resetChapterTracking) window.$TSUNDOKU_OBJECT_NAME.runtime.resetChapterTracking(); })();",
             null,

@@ -43,11 +43,16 @@
     };
     runtime.noMoreChapters = runtime.noMoreChapters || false;
     runtime.setNoMoreChapters = function (v) { runtime.noMoreChapters = !!v; };
-    runtime.lastChapterIdxSeen = (typeof runtime.lastChapterIdxSeen === 'number') ? runtime.lastChapterIdxSeen : -1;
+    runtime.lastChapterIdSeen = runtime.lastChapterIdSeen == null
+        ? null
+        : String(runtime.lastChapterIdSeen);
     // Forces the next scroll frame to re-emit onChapterScrollUpdate. Called by the Android side when
     // it lifts the scroll-restore guard, so a chapter switch dropped while the guard was up (this
-    // callback is edge-triggered and won't otherwise re-fire for the same idx) is re-reported.
-    runtime.resetChapterTracking = function () { runtime.lastChapterIdxSeen = -1; };
+    // callback is edge-triggered and won't otherwise re-fire for the same chapter) is re-reported.
+    runtime.resetChapterTracking = function () {
+        runtime.lastChapterIdSeen = null;
+        onScroll();
+    };
 
     window.chapterBoundaries = window.chapterBoundaries || [];
     runtime.knownDividerCount = runtime.knownDividerCount || 0;
@@ -142,9 +147,10 @@
         var s = computeState();
         publishProgress(s);
 
-        if (infiniteScrollEnabled && s.idx !== runtime.lastChapterIdxSeen && s.chapterId != null) {
-            runtime.lastChapterIdxSeen = s.idx;
-            Android.onChapterScrollUpdate(String(s.chapterId), s.chapterProgress);
+        var chapterId = s.chapterId == null ? null : String(s.chapterId);
+        if (infiniteScrollEnabled && chapterId !== runtime.lastChapterIdSeen && chapterId != null) {
+            runtime.lastChapterIdSeen = chapterId;
+            Android.onChapterScrollUpdate(chapterId, s.chapterProgress);
         }
 
         // Throttle slider bridge (50ms + 0.01 delta); 100% persist exempt so completion isn't dropped.

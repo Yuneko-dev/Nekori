@@ -17,6 +17,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Fixed
+- Infinite scrolling now keeps the title, current chapter and chapter summaries aligned with the visible content
+  in both directions, even after native page state has been recycled.
 - Expand/collapse arrows in Updates groups now line up with chapter download buttons.
 
 ## [v0.0.4] - 2026-08-25
