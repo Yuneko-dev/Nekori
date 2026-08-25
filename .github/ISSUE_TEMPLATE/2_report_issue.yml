@@ -52,7 +52,7 @@ body:
       label: Nekori version
       description: You can find your Nekori version in **More → About**.
       placeholder: |
-        Example: "0.0.4"
+        Example: "0.0.5"
     validations:
       required: true
 
@@ -95,7 +95,7 @@ body:
           required: true
         - label: I have gone through the [FAQ](https://tsundoku-otaku.github.io/docs/faq/general) and [troubleshooting guide](https://tsundoku-otaku.github.io/docs/guides/troubleshooting/).
           required: true
-        - label: I have updated the app to version **[0.0.4](https://github.com/Yuneko-dev/Nekori/releases/latest)**.
+        - label: I have updated the app to version **[0.0.5](https://github.com/Yuneko-dev/Nekori/releases/latest)**.
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true

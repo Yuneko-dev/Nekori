@@ -16,6 +16,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.0.5] - 2026-08-26
+
 ### Added
 - Novel details and all-local Library selections now expose an explicit local-novel file-deletion option that
   also removes each successfully deleted entry from the Library.
