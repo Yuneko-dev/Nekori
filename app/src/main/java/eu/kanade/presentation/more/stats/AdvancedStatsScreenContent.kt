@@ -860,8 +860,9 @@ private fun LazyItemScope.MostReadSection(
     onSelectManga: (Int, MangaReadStats) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val visibleItems = if (expanded) items else items.take(3)
-    val topReadDuration = items.firstOrNull()?.readDuration ?: 0L
+    val rows = remember(items) { buildMostReadRows(items) }
+    val visibleItems = if (expanded) rows else rows.take(3)
+    val topReadDuration = rows.firstOrNull()?.readDuration ?: 0L
 
     Row(
         modifier = Modifier
@@ -874,24 +875,32 @@ private fun LazyItemScope.MostReadSection(
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleSmall,
         )
-        if (items.size > 3) {
+        if (rows.size > 3) {
             TextButton(onClick = { expanded = !expanded }) {
                 Text(stringResource(if (expanded) TDMR.strings.stats_collapse else MR.strings.all))
             }
         }
     }
     SectionCard {
-        visibleItems.forEachIndexed { index, item ->
+        visibleItems.forEachIndexed { index, row ->
+            val item = row.manga
+            val title = item?.title ?: stringResource(TDMR.strings.stats_not_in_library)
             val progress = if (topReadDuration <= 0L) {
                 0f
             } else {
-                (item.readDuration.toFloat() / topReadDuration).coerceIn(0f, 1f)
+                (row.readDuration.toFloat() / topReadDuration).coerceIn(0f, 1f)
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.large)
-                    .clickable { onSelectManga(index + 1, item) }
+                    .then(
+                        if (item != null) {
+                            Modifier.clickable { onSelectManga(index + 1, item) }
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -903,9 +912,9 @@ private fun LazyItemScope.MostReadSection(
                     textAlign = TextAlign.Center,
                 )
                 MangaCover.Book(
-                    data = item.coverData,
+                    data = item?.coverData,
                     modifier = Modifier.width(44.dp),
-                    contentDescription = item.title,
+                    contentDescription = title,
                 )
                 Column(
                     modifier = Modifier
@@ -913,17 +922,21 @@ private fun LazyItemScope.MostReadSection(
                         .padding(horizontal = MaterialTheme.padding.medium),
                 ) {
                     Text(
-                        text = item.title,
+                        text = title,
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "${exactDuration(item.readDuration)} · " +
-                            stringResource(
-                                TDMR.strings.stats_chapters_count,
-                                formatCount(item.chapterCount),
-                            ),
+                        text = if (item == null) {
+                            exactDuration(row.readDuration)
+                        } else {
+                            "${exactDuration(row.readDuration)} · " +
+                                stringResource(
+                                    TDMR.strings.stats_chapters_count,
+                                    formatCount(item.chapterCount),
+                                )
+                        },
                         modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -938,13 +951,34 @@ private fun LazyItemScope.MostReadSection(
                         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     )
                 }
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                if (item != null) {
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                }
             }
             if (index != visibleItems.lastIndex) {
                 HorizontalDivider(modifier = Modifier.padding(start = 84.dp))
             }
         }
     }
+}
+
+internal data class MostReadRow(
+    val manga: MangaReadStats?,
+    val readDuration: Long,
+)
+
+internal fun buildMostReadRows(items: List<MangaReadStats>): List<MostReadRow> {
+    var removedDuration = 0L
+    return buildList(items.size + 1) {
+        items.forEach { item ->
+            if (item.coverData.isMangaFavorite) {
+                add(MostReadRow(item, item.readDuration))
+            } else {
+                removedDuration += item.readDuration
+            }
+        }
+        if (removedDuration > 0L) add(MostReadRow(null, removedDuration))
+    }.sortedByDescending { it.readDuration }
 }
 
 @Composable

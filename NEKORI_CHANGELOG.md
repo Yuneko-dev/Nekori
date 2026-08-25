@@ -16,6 +16,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changed
+- Most read now keeps library novels as individual entries and combines removed novels into one non-interactive
+  placeholder with their total reading time.
+
 ## [v0.0.5] - 2026-08-26
 
 ### Added

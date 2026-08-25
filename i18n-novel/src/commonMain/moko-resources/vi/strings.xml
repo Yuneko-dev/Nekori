@@ -773,6 +773,7 @@
     <string name="stats_chapters_remaining">Còn %1$s chương chưa đọc</string>
     <string name="stats_most_read">Đọc nhiều nhất</string>
     <string name="stats_collapse">Thu gọn</string>
+    <string name="stats_not_in_library">Không có trong thư viện</string>
     <string name="stats_chapters_count">%1$s chương</string>
     <string name="stats_day_details">Chi tiết trong ngày</string>
     <string name="stats_no_sessions_day">Không có phiên đọc chi tiết trong ngày này</string>
