@@ -16,22 +16,30 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+- Expand/collapse arrows in Updates groups now line up with chapter download buttons.
+
 ## [v0.0.4] - 2026-08-25
 
 ### Added
-- Optional in-app progress banners for library updates and backup restores, including LNReader imports.
+- Optional progress banners show library updates and backup restores in the app, including LNReader imports.
 
 ### Changed
-- The Updates screen now collapses multiple chapters from the same novel and day into an expandable, selectable group with unread feedback.
-- Reading heatmap intensity now scales relative to the selected year's activity.
-- The headless JS plugin runtime now uses React Native 0.87 and its bundled Hermes compiler.
+- Updates stay organized by date. Multiple chapters from the same novel and day collapse into one expandable
+  row with unread feedback and group selection; single-chapter updates remain regular rows.
+- Reading heatmap colors now scale against the busiest day in the selected year, making activity differences
+  easier to see.
+- The headless plugin runtime now uses React Native 0.87 and its bundled Hermes compiler.
 
 ### Removed
-- The redundant cross-date novel grouping mode and its Updates toolbar toggle.
+- The separate cross-date "Group by novel" view and its Updates toolbar toggle; the date view now handles
+  repeated novel updates directly.
 
 ### Fixed
-- Sliders and wheel pickers now tick at each existing mark, and long-press actions no longer vibrate twice.
-- Default missing plugin site to about:blank
+- Expand/collapse arrows in Updates groups now line up with chapter download buttons.
+- Sliders and wheel pickers now provide a haptic tick at every available mark.
+- Long-press actions now vibrate once instead of twice.
+- Plugins without a site value now fall back to `about:blank` instead of an invalid empty address.
 
 
 ## [v0.0.1] & [v0.0.2] & [v0.0.3] - 2026-08-23

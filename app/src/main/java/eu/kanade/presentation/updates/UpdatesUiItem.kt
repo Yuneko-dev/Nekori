@@ -202,7 +202,10 @@ private fun UpdatesPerDayNovelGroupItem(
         modifier = modifier
             .selectedBackground(selected)
             .height(56.dp)
-            .padding(start = MaterialTheme.padding.medium),
+            .padding(
+                start = MaterialTheme.padding.medium,
+                end = MaterialTheme.padding.small + MaterialTheme.padding.extraSmall,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MangaCover.Square(
