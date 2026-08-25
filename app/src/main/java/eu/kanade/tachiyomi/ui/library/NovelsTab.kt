@@ -65,6 +65,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.source.local.allLocalNovels
 import tachiyomi.source.local.isLocal
 
 data object NovelsTab : Tab {
@@ -324,6 +325,7 @@ data object NovelsTab : Tab {
             is LibraryViewModel.Dialog.DeleteManga -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = dialog.manga.any(Manga::isLocal),
+                    showDeleteLocalNovel = dialog.manga.allLocalNovels(),
                     onDismissRequest = onDismissRequest,
                     onConfirm = {
                             deleteManga,
@@ -333,6 +335,7 @@ data object NovelsTab : Tab {
                             clearCovers,
                             clearDescriptions,
                             clearTags,
+                            deleteLocalNovel,
                         ->
                         viewModel.removeMangas(
                             dialog.manga,
@@ -343,6 +346,7 @@ data object NovelsTab : Tab {
                             clearCovers,
                             clearDescriptions,
                             clearTags,
+                            deleteLocalNovel,
                         )
                         viewModel.clearSelection()
                     },
@@ -361,6 +365,7 @@ data object NovelsTab : Tab {
                             clearCovers,
                             clearDescriptions,
                             clearTags,
+                            _,
                         ->
                         viewModel.removeCategoryMangas(
                             categoryId = dialog.category.id,

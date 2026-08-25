@@ -898,7 +898,7 @@ class BrowseSourceViewModel(
             var failed = 0
             mangas.forEach { manga ->
                 try {
-                    localSource.deleteNovelDirectory(manga.url)
+                    localSource.deleteNovel(manga.url)
                     updateManga.await(MangaUpdate(id = manga.id, favorite = false))
                     manga.removeCovers(coverCache)
                     deleted++

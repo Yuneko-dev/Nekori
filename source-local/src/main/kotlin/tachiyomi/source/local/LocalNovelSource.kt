@@ -33,7 +33,6 @@ import tachiyomi.core.metadata.tachiyomi.MangaDetails
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.filter.OrderBy
 import tachiyomi.source.local.image.LocalNovelCoverManager
 import tachiyomi.source.local.io.Archive
@@ -62,7 +61,7 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
     @Suppress("PrivatePropertyName")
     private val LatestFilters = FilterList(OrderBy.Latest(context))
 
-    override val name: String = context.stringResource(TDMR.strings.local_novel_source)
+    override val name: String = context.stringResource(MR.strings.local_source)
 
     override val id: Long = ID
 
@@ -527,8 +526,8 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
 
     fun getLocalSourceDir(): android.net.Uri? = fileSystem.getBaseDirectory()?.uri
 
-    fun deleteNovelDirectory(mangaUrl: String): Boolean =
-        fileSystem.getNovelDirectory(mangaUrl)?.delete() == true
+    fun deleteNovel(mangaUrl: String): Boolean =
+        fileSystem.deleteNovel(mangaUrl)
 
     companion object {
         const val ID = 1L // Different from LocalSource ID (0L)
@@ -557,11 +556,7 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
     }
 
     private fun resolveNovelEntry(url: String): UniFile? {
-        val base = fileSystem.getBaseDirectory() ?: return null
-        return base.findFile(url)
-            ?: base.listFiles().orEmpty().firstOrNull {
-                !it.isDirectory && it.nameWithoutExtension.orEmpty().equals(url, ignoreCase = true)
-            }
+        return fileSystem.getNovelEntry(url)
     }
 
     private fun resolveChapterFile(filePath: String): UniFile? {
@@ -597,6 +592,8 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
 }
 
 fun Manga.isLocalNovel(): Boolean = source == LocalNovelSource.ID
+
+fun Collection<Manga>.allLocalNovels(): Boolean = isNotEmpty() && all(Manga::isLocalNovel)
 
 fun DomainSource.isLocalNovel(): Boolean = id == LocalNovelSource.ID
 

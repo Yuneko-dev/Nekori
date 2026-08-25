@@ -31,6 +31,7 @@ import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.NavigatorAdaptiveSheet
+import eu.kanade.presentation.library.DeleteLibraryMangaDialog
 import eu.kanade.presentation.manga.ChapterSettingsDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.manga.EditCoverAction
@@ -78,6 +79,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.source.local.isLocalNovel
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -210,6 +212,7 @@ class MangaScreen(
             }.takeIf { hasWebViewSupport },
             onDownloadActionClicked = viewModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
             onEditCategoryClicked = viewModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
+            onRemoveClicked = viewModel::showRemoveMangaDialog.takeIf { successState.manga.favorite },
             onEditFetchIntervalClicked = viewModel::showSetFetchIntervalDialog.takeIf {
                 successState.manga.favorite
             },
@@ -302,6 +305,15 @@ class MangaScreen(
                         viewModel.toggleAllSelection(false)
                         viewModel.removeChaptersFromDb(dialog.chapters)
                     },
+                )
+            }
+            MangaViewModel.Dialog.RemoveManga -> {
+                val isLocalNovel = successState.manga.isLocalNovel()
+                DeleteLibraryMangaDialog(
+                    containsLocalManga = isLocalNovel,
+                    showDeleteLocalNovel = isLocalNovel,
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = viewModel::removeManga,
                 )
             }
 

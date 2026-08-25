@@ -92,6 +92,8 @@ import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.source.local.LocalNovelSource
+import tachiyomi.source.local.allLocalNovels
 import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.isLocalNovel
 import uy.kohesive.injekt.Injekt
@@ -1018,10 +1020,29 @@ class LibraryViewModel(
         clearCovers: Boolean = false,
         clearDescriptions: Boolean = false,
         clearTags: Boolean = false,
+        deleteLocalNovel: Boolean = false,
     ) {
         viewModelScope.launchNonCancellable {
-            if (deleteFromLibrary) {
-                val toDelete = mangas.map {
+            val mangasToRemove = when {
+                deleteLocalNovel && mangas.allLocalNovels() -> {
+                    val localSource = sourceManager.get(LocalNovelSource.ID) as? LocalNovelSource
+                    mangas.filter { manga ->
+                        try {
+                            localSource?.deleteNovel(manga.url) == true
+                        } catch (e: Exception) {
+                            logcat(LogPriority.ERROR, e) { "Failed to delete local novel ${manga.id}" }
+                            false
+                        }
+                    }
+                }
+                deleteLocalNovel -> emptyList()
+                deleteFromLibrary -> mangas
+                else -> emptyList()
+            }
+            val failedLocalNovelDeletes = if (deleteLocalNovel) mangas.size - mangasToRemove.size else 0
+
+            if (mangasToRemove.isNotEmpty()) {
+                val toDelete = mangasToRemove.map {
                     it.removeCovers(coverCache)
                     MangaUpdate(
                         favorite = false,
@@ -1029,6 +1050,16 @@ class LibraryViewModel(
                     )
                 }
                 updateManga.awaitAll(toDelete)
+            }
+
+            val context = Injekt.get<android.app.Application>()
+            if (failedLocalNovelDeletes > 0) {
+                snackbarHostState.showSnackbar(
+                    context.stringResource(
+                        TDMR.strings.local_novel_source_delete_failed,
+                        failedLocalNovelDeletes,
+                    ),
+                )
             }
 
             if (deleteChapters) {
@@ -1051,10 +1082,10 @@ class LibraryViewModel(
                 if (clearTags) add(LibraryClearJob.OP_CLEAR_TAGS)
             }
             if (clearOperations.isNotEmpty()) {
-                LibraryClearJob.start(Injekt.get<android.app.Application>(), mangas.map { it.id }, clearOperations)
+                LibraryClearJob.start(context, mangas.map { it.id }, clearOperations)
             }
 
-            if (!deleteFromLibrary && (deleteChapters || deleteTranslations)) {
+            if ((!deleteFromLibrary || failedLocalNovelDeletes > 0) && (deleteChapters || deleteTranslations)) {
                 getLibraryManga.notifyChanged()
             }
         }

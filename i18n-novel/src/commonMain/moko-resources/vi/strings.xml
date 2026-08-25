@@ -40,10 +40,10 @@
     <!-- Library -->
     <string name="chapters_from_database">Các chương trong cơ sở dữ liệu</string>
     <!-- Browse Source -->
-    <string name="local_novel_source">Tiểu thuyết cục bộ</string>
     <string name="local_novel_source_open_folder">Mở thư mục</string>
     <string name="local_novel_source_refresh_covers">Làm mới bìa</string>
     <string name="local_novel_source_delete_title">Xóa tiểu thuyết?</string>
+    <string name="local_novel_source_delete">Xóa tiểu thuyết</string>
     <string name="local_novel_source_delete_message">Thao tác này sẽ xóa vĩnh viễn thư mục và mọi tệp của từng tiểu thuyết đã chọn, đồng thời xóa chúng khỏi thư viện. Không thể hoàn tác.</string>
     <string name="local_novel_source_covers_refreshed">Đã làm mới bìa cho %d tiểu thuyết</string>
     <string name="local_novel_source_select_category">Chọn danh mục</string>

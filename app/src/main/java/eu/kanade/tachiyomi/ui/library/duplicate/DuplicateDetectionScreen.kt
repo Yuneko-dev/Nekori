@@ -270,6 +270,7 @@ class DuplicateDetectionScreen : Screen {
                         clearCovers,
                         clearDescriptions,
                         clearTags,
+                        _,
                     ->
                     val count = state.selection.size
                     scope.launch {

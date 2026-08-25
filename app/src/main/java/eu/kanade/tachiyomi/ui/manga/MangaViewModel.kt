@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.epub.EpubExportJob
+import eu.kanade.tachiyomi.data.library.LibraryClearJob
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.translation.TranslationJob
@@ -104,6 +105,7 @@ import tachiyomi.domain.translation.repository.TranslatedChapterRepository
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.source.local.LocalNovelSource
 import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.isLocalNovel
 import uy.kohesive.injekt.Injekt
@@ -570,11 +572,7 @@ class MangaViewModel(
 
             if (isFavorited) {
                 // Remove from library
-                if (updateManga.awaitUpdateFavorite(manga.id, false)) {
-                    // Remove covers and update last modified in db
-                    if (manga.removeCovers() != manga) {
-                        updateManga.awaitUpdateCoverLastModified(manga.id)
-                    }
+                if (removeFromLibrary(manga)) {
                     withUIContext { onRemoved() }
                 }
             } else {
@@ -695,17 +693,67 @@ class MangaViewModel(
         downloadManager.deleteManga(state.manga, state.source)
     }
 
-    private fun deleteLocalNovelFiles() {
-        val state = successState ?: return
-        val localNovelDir = storageManager.getLocalNovelSourceDirectory()
-        val deleted = localNovelDir
-            ?.findFile(state.manga.url)
-            ?.delete()
-            ?: false
+    private fun deleteLocalNovelFiles(): Boolean {
+        val state = successState ?: return false
+        val deleted = (state.source as? LocalNovelSource)
+            ?.deleteNovel(state.manga.url) == true
 
         if (!deleted) {
             logcat(LogPriority.WARN) {
                 "Failed to delete local novel files for ${state.manga.title} (${state.manga.url})"
+            }
+        }
+        return deleted
+    }
+
+    private suspend fun removeFromLibrary(manga: Manga): Boolean {
+        if (!updateManga.awaitUpdateFavorite(manga.id, false)) return false
+        if (manga.removeCovers() != manga) {
+            updateManga.awaitUpdateCoverLastModified(manga.id)
+        }
+        return true
+    }
+
+    fun removeManga(
+        removeFromLibrary: Boolean,
+        deleteDownloads: Boolean,
+        clearChaptersFromDb: Boolean,
+        deleteTranslations: Boolean,
+        clearCovers: Boolean,
+        clearDescriptions: Boolean,
+        clearTags: Boolean,
+        deleteLocalNovel: Boolean,
+    ) {
+        val state = successState ?: return
+        viewModelScope.launchNonCancellable {
+            val shouldRemoveFromLibrary = removeFromLibrary || deleteLocalNovel
+            if (deleteLocalNovel && !deleteLocalNovelFiles()) {
+                withUIContext {
+                    snackbarHostState.showSnackbar(
+                        context.stringResource(TDMR.strings.local_novel_source_delete_failed, 1),
+                    )
+                }
+                return@launchNonCancellable
+            }
+            if (shouldRemoveFromLibrary && !removeFromLibrary(state.manga)) return@launchNonCancellable
+            if (deleteDownloads) deleteDownloads()
+            if (deleteTranslations) {
+                translatedChapterRepository.deleteAllForManga(
+                    sourceManager.getOrStub(state.manga.source).toString(),
+                    state.manga.title,
+                )
+            }
+
+            val clearOperations = buildList {
+                if (clearChaptersFromDb) add(LibraryClearJob.OP_CLEAR_CHAPTERS)
+                if (clearCovers) add(LibraryClearJob.OP_CLEAR_COVERS)
+                if (clearDescriptions) add(LibraryClearJob.OP_CLEAR_DESCRIPTIONS)
+                if (clearTags) add(LibraryClearJob.OP_CLEAR_TAGS)
+            }
+            LibraryClearJob.start(context, listOf(state.manga.id), clearOperations)
+
+            if (!shouldRemoveFromLibrary && (deleteDownloads || deleteTranslations)) {
+                getLibraryManga.notifyChanged()
             }
         }
     }
@@ -1472,6 +1520,7 @@ class MangaViewModel(
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
         data class RemoveChaptersFromDb(val chapters: List<Chapter>) : Dialog
+        data object RemoveManga : Dialog
         data class DuplicateManga(
             val manga: Manga,
             val duplicates: List<MangaWithChapterCount>,
@@ -1503,6 +1552,10 @@ class MangaViewModel(
 
     fun showRemoveChaptersFromDbDialog(chapters: List<Chapter>) {
         updateSuccessState { it.copy(dialog = Dialog.RemoveChaptersFromDb(chapters)) }
+    }
+
+    fun showRemoveMangaDialog() {
+        updateSuccessState { it.copy(dialog = Dialog.RemoveManga) }
     }
 
     fun removeChaptersFromDb(chapters: List<Chapter>) {

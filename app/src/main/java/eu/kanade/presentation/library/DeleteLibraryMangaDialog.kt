@@ -19,6 +19,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun DeleteLibraryMangaDialog(
     containsLocalManga: Boolean,
+    showDeleteLocalNovel: Boolean = false,
     isCategoryAction: Boolean = false,
     onDismissRequest: () -> Unit,
     onConfirm: (
@@ -29,6 +30,7 @@ fun DeleteLibraryMangaDialog(
         clearCovers: Boolean,
         clearDescriptions: Boolean,
         clearTags: Boolean,
+        deleteLocalNovel: Boolean,
     ) -> Unit,
 ) {
     var removeFromLibrary by remember { mutableStateOf(false) }
@@ -38,6 +40,7 @@ fun DeleteLibraryMangaDialog(
     var clearCovers by remember { mutableStateOf(false) }
     var clearDescriptions by remember { mutableStateOf(false) }
     var clearTags by remember { mutableStateOf(false) }
+    var deleteLocalNovel by remember { mutableStateOf(false) }
 
     data class CheckboxItem(
         val label: StringResource,
@@ -48,6 +51,7 @@ fun DeleteLibraryMangaDialog(
 
     val checkboxItems = remember(
         containsLocalManga,
+        showDeleteLocalNovel,
         removeFromLibrary,
         deleteDownloads,
         clearChaptersFromDb,
@@ -55,9 +59,17 @@ fun DeleteLibraryMangaDialog(
         clearCovers,
         clearDescriptions,
         clearTags,
+        deleteLocalNovel,
     ) {
         buildList {
-            add(CheckboxItem(MR.strings.manga_from_library, removeFromLibrary, { removeFromLibrary = it }))
+            add(
+                CheckboxItem(
+                    MR.strings.manga_from_library,
+                    removeFromLibrary,
+                    { removeFromLibrary = it || deleteLocalNovel },
+                    enabled = !deleteLocalNovel,
+                ),
+            )
             if (!containsLocalManga) {
                 add(CheckboxItem(MR.strings.downloaded_chapters, deleteDownloads, { deleteDownloads = it }))
             }
@@ -66,11 +78,23 @@ fun DeleteLibraryMangaDialog(
             add(CheckboxItem(TDMR.strings.action_clear_covers, clearCovers, { clearCovers = it }))
             add(CheckboxItem(TDMR.strings.action_clear_descriptions, clearDescriptions, { clearDescriptions = it }))
             add(CheckboxItem(TDMR.strings.action_clear_tags, clearTags, { clearTags = it }))
+            if (showDeleteLocalNovel) {
+                add(
+                    CheckboxItem(
+                        TDMR.strings.local_novel_source_delete,
+                        deleteLocalNovel,
+                        {
+                            deleteLocalNovel = it
+                            if (it) removeFromLibrary = true
+                        },
+                    ),
+                )
+            }
         }
     }
 
     val anyChecked = removeFromLibrary || deleteDownloads || clearChaptersFromDb ||
-        deleteTranslations || clearCovers || clearDescriptions || clearTags
+        deleteTranslations || clearCovers || clearDescriptions || clearTags || deleteLocalNovel
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -85,13 +109,14 @@ fun DeleteLibraryMangaDialog(
                 onClick = {
                     onDismissRequest()
                     onConfirm(
-                        removeFromLibrary,
+                        removeFromLibrary || deleteLocalNovel,
                         deleteDownloads && !containsLocalManga,
                         clearChaptersFromDb,
                         deleteTranslations,
                         clearCovers,
                         clearDescriptions,
                         clearTags,
+                        deleteLocalNovel,
                     )
                 },
             ) {

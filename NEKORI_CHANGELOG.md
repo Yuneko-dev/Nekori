@@ -17,6 +17,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Novel details and all-local Library selections now expose an explicit local-novel file-deletion option that
+  also removes each successfully deleted entry from the Library.
 - Daily reading-session details now show novel covers; covers open novel details and session rows reopen the
   recorded chapter.
 - Library filters can now hide and disable the Tags and Extensions filter tabs independently, while preserving
@@ -30,6 +32,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Storage statistics now appear below tracking statistics.
 
 ### Fixed
+- Deleting a single-file local novel now removes its actual file instead of failing because deletion only
+  looked for a directory.
 - Infinite scrolling now keeps the title, current chapter and chapter summaries aligned with the visible content
   in both directions, even after native page state has been recycled.
 - Expand/collapse arrows in Updates groups now line up with chapter download buttons.
