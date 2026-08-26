@@ -19,6 +19,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Changed
 - Most read now keeps library novels as individual entries and combines removed novels into one non-interactive
   placeholder with their total reading time.
+- Discord Rich Presence now uses the shared Settings layout and controls while retaining its profile banner,
+  avatar card and logged-out empty state.
 
 ### Fixed
 - JS plugin repositories are now checked when the app opens, and newer installed plugins trigger an extension

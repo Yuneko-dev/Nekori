@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,22 +11,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -41,8 +36,9 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
-import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.discord.DiscordAuth
 import eu.kanade.tachiyomi.discord.DiscordAuthState
 import eu.kanade.tachiyomi.discord.DiscordPreferences
@@ -57,23 +53,23 @@ import tachiyomi.presentation.core.screens.EmptyScreenAction
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-object SettingsDiscordScreen : Screen() {
+object SettingsDiscordScreen : SearchableSettings {
+
+    @ReadOnlyComposable
+    @Composable
+    override fun getTitleRes() = TDMR.strings.pref_category_discord
+
     @Composable
     override fun Content() {
-        val backPress = LocalBackPress.currentOrThrow
-        val topBarState = rememberTopAppBarState()
         val auth = remember { Injekt.get<DiscordAuth>() }
-        val rpc = remember { Injekt.get<DiscordRpcManager>() }
-        val preferences = remember { Injekt.get<DiscordPreferences>() }
         val authState by auth.state.collectAsState()
-        val enabled by preferences.enabled.changes().collectAsState(preferences.enabled.get())
-        val showApp by preferences.showAppAndLibrary.changes().collectAsState(preferences.showAppAndLibrary.get())
-        val showBrowsing by preferences.showBrowsing.changes().collectAsState(preferences.showBrowsing.get())
-        val showReading by preferences.showReading.changes().collectAsState(preferences.showReading.get())
-        val scope = rememberCoroutineScope()
+        if (authState is DiscordAuthState.Connected) {
+            super<SearchableSettings>.Content()
+            return
+        }
 
+        val backPress = LocalBackPress.currentOrThrow
         Scaffold(
-            topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState),
             topBar = { scrollBehavior ->
                 AppBar(
                     title = stringResource(TDMR.strings.pref_category_discord),
@@ -95,38 +91,88 @@ object SettingsDiscordScreen : Screen() {
                     padding = padding,
                     message = stringResource(TDMR.strings.discord_authorizing),
                 )
-                is DiscordAuthState.Connected -> LoggedInContent(
-                    padding = padding,
-                    profile = state.profile,
-                    enabled = enabled,
-                    showApp = showApp,
-                    showBrowsing = showBrowsing,
-                    showReading = showReading,
-                    onEnabledChange = {
-                        preferences.enabled.set(it)
-                        if (it) {
-                            rpc.connect()
-                            rpc.showApp()
-                        } else {
-                            rpc.clearActivity()
-                            rpc.disconnect()
-                        }
-                    },
-                    onShowAppChange = {
-                        preferences.showAppAndLibrary.set(it)
-                        if (it) rpc.showApp() else rpc.clearActivity()
-                    },
-                    onShowBrowsingChange = preferences.showBrowsing::set,
-                    onShowReadingChange = preferences.showReading::set,
-                    onLogout = {
+                is DiscordAuthState.Connected -> Unit
+            }
+        }
+    }
+
+    @Composable
+    override fun getPreferences(): List<Preference> {
+        val auth = remember { Injekt.get<DiscordAuth>() }
+        val authState by auth.state.collectAsState()
+        val profile = (authState as? DiscordAuthState.Connected)?.profile ?: return emptyList()
+        val rpc = remember { Injekt.get<DiscordRpcManager>() }
+        val preferences = remember { Injekt.get<DiscordPreferences>() }
+        val enabled by preferences.enabled.changes().collectAsState(preferences.enabled.get())
+        val showApp by preferences.showAppAndLibrary.changes().collectAsState(preferences.showAppAndLibrary.get())
+        val showBrowsing by preferences.showBrowsing.changes().collectAsState(preferences.showBrowsing.get())
+        val showReading by preferences.showReading.changes().collectAsState(preferences.showReading.get())
+        val scope = rememberCoroutineScope()
+
+        return listOf(
+            Preference.PreferenceItem.CustomPreference(
+                title = stringResource(TDMR.strings.discord_connected_as, "@${profile.username}"),
+                content = {
+                    ProfileCard(profile) {
                         scope.launch {
                             rpc.disconnect(clearActivity = true)
                             auth.logout()
                         }
-                    },
-                )
-            }
-        }
+                    }
+                },
+            ),
+            Preference.PreferenceGroup(
+                title = stringResource(TDMR.strings.discord_rpc_settings),
+                preferenceItems = buildList {
+                    add(
+                        discordSwitchPreference(
+                            title = stringResource(TDMR.strings.discord_enable_rpc),
+                            subtitle = stringResource(TDMR.strings.discord_enable_rpc_summary),
+                            checked = enabled,
+                            onCheckedChanged = {
+                                preferences.enabled.set(it)
+                                if (it) {
+                                    rpc.connect()
+                                    rpc.showApp()
+                                } else {
+                                    rpc.clearActivity()
+                                    rpc.disconnect()
+                                }
+                            },
+                        ),
+                    )
+                    if (enabled) {
+                        add(
+                            discordSwitchPreference(
+                                title = stringResource(TDMR.strings.discord_show_app),
+                                subtitle = stringResource(TDMR.strings.discord_show_app_summary),
+                                checked = showApp,
+                                onCheckedChanged = {
+                                    preferences.showAppAndLibrary.set(it)
+                                    if (it) rpc.showApp() else rpc.clearActivity()
+                                },
+                            ),
+                        )
+                        add(
+                            discordSwitchPreference(
+                                title = stringResource(TDMR.strings.discord_show_browsing),
+                                subtitle = stringResource(TDMR.strings.discord_show_browsing_summary),
+                                checked = showBrowsing,
+                                onCheckedChanged = preferences.showBrowsing::set,
+                            ),
+                        )
+                        add(
+                            discordSwitchPreference(
+                                title = stringResource(TDMR.strings.discord_show_reading),
+                                subtitle = stringResource(TDMR.strings.discord_show_reading_summary),
+                                checked = showReading,
+                                onCheckedChanged = preferences.showReading::set,
+                            ),
+                        )
+                    }
+                },
+            ),
+        )
     }
 }
 
@@ -175,72 +221,6 @@ private fun LoggedOutContent(
             ),
         ),
     )
-}
-
-@Composable
-private fun LoggedInContent(
-    padding: PaddingValues,
-    profile: DiscordProfile,
-    enabled: Boolean,
-    showApp: Boolean,
-    showBrowsing: Boolean,
-    showReading: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    onShowAppChange: (Boolean) -> Unit,
-    onShowBrowsingChange: (Boolean) -> Unit,
-    onShowReadingChange: (Boolean) -> Unit,
-    onLogout: () -> Unit,
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = padding,
-    ) {
-        item {
-            ProfileCard(profile, onLogout)
-        }
-        item {
-            Text(
-                text = stringResource(TDMR.strings.discord_rpc_settings),
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleSmall,
-            )
-        }
-        item {
-            DiscordSwitch(
-                title = stringResource(TDMR.strings.discord_enable_rpc),
-                summary = stringResource(TDMR.strings.discord_enable_rpc_summary),
-                checked = enabled,
-                onCheckedChange = onEnabledChange,
-            )
-        }
-        if (enabled) {
-            item {
-                DiscordSwitch(
-                    title = stringResource(TDMR.strings.discord_show_app),
-                    summary = stringResource(TDMR.strings.discord_show_app_summary),
-                    checked = showApp,
-                    onCheckedChange = onShowAppChange,
-                )
-            }
-            item {
-                DiscordSwitch(
-                    title = stringResource(TDMR.strings.discord_show_browsing),
-                    summary = stringResource(TDMR.strings.discord_show_browsing_summary),
-                    checked = showBrowsing,
-                    onCheckedChange = onShowBrowsingChange,
-                )
-            }
-            item {
-                DiscordSwitch(
-                    title = stringResource(TDMR.strings.discord_show_reading),
-                    summary = stringResource(TDMR.strings.discord_show_reading_summary),
-                    checked = showReading,
-                    onCheckedChange = onShowReadingChange,
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -303,28 +283,16 @@ private fun ProfileCard(profile: DiscordProfile, onLogout: () -> Unit) {
     }
 }
 
-@Composable
-private fun DiscordSwitch(
+private fun discordSwitchPreference(
     title: String,
-    summary: String,
+    subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                summary,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-    HorizontalDivider(modifier = Modifier.padding(start = 24.dp))
+    onCheckedChanged: (Boolean) -> Unit,
+) = Preference.PreferenceItem.CustomPreference(title) {
+    SwitchPreferenceWidget(
+        title = title,
+        subtitle = subtitle,
+        checked = checked,
+        onCheckedChanged = onCheckedChanged,
+    )
 }
