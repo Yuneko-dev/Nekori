@@ -145,7 +145,11 @@ jobs:
           tag_name: r${{ env.COMMIT_COUNT }}
           name: Nekori Nightly r${{ env.COMMIT_COUNT }}
           body: |
-            Here are the latest nightly builds of Nekori. These builds are automatically generated from the main branch and may contain new features or bug fixes that are not yet available in the stable release.
+            Here are the latest nightly builds of Nekori.
+
+            These builds are automatically generated from the main branch and may contain new features or bug fixes that are not yet available in the stable release.
+
+            ![img](https://media.discordapp.net/stickers/1489239313173450763.png?size=512&quality=lossless)
 
             <!-->
             > [!TIP]
