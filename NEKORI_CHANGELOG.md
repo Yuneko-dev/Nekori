@@ -24,6 +24,11 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - JS plugin repositories are now checked when the app opens, and newer installed plugins trigger an extension
   update notification without treating repository downgrades as updates.
 
+### Other
+- Synced Tsundoku through commit `2a4ce852f`, adopting upstream memo preservation for download/batch fetch
+  while retaining Nekori's unified AI provider, UserGuidelines and LlmGenerator architecture instead of
+  restoring obsolete per-engine prompt settings.
+
 ## [v0.0.5] - 2026-08-26
 
 ### Added
@@ -202,6 +207,6 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## Upstream Sync
 
-Nekori is based on Tsundoku v0.3.1 (as of August 2026).
+Nekori tracks Tsundoku through commit `2a4ce852f` as of 2026-08-26.
 
 Upstream changes from Tsundoku are tracked in [CHANGELOG.md](./CHANGELOG.md).
