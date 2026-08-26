@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -136,6 +137,9 @@ class JsPluginManager(
                     }
                 }
         }
+
+        internal fun isNewerVersion(available: String, installed: String): Boolean =
+            compareVersions(available, installed) > 0
 
         private fun compareVersions(left: String, right: String): Int {
             val leftParts = left.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
@@ -455,7 +459,13 @@ class JsPluginManager(
      */
     fun hasUpdate(installedPlugin: InstalledJsPlugin): Boolean {
         val available = _availablePlugins.value.find { it.id == installedPlugin.plugin.id }
-        return available != null && available.version != installedPlugin.installedVersion
+        return available != null && isNewerVersion(available.version, installedPlugin.installedVersion)
+    }
+
+    suspend fun findAvailableUpdates(): List<InstalledJsPlugin> {
+        isInitialized.first { it }
+        refreshAvailablePlugins(forceRefresh = true)
+        return _installedPlugins.value.filter(::hasUpdate)
     }
 
     suspend fun installPluginFromBackup(

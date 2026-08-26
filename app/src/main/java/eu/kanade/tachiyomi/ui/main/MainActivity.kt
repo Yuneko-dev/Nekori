@@ -68,6 +68,8 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.discord.DiscordAuth
+import eu.kanade.tachiyomi.extension.api.ExtensionUpdateNotifier
+import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionReposScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
@@ -83,6 +85,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -117,6 +120,7 @@ class MainActivity : BaseActivity() {
     private val getIncognitoState: GetIncognitoState by injectLazy()
     private val backupRestoreStatus: BackupRestoreStatus by injectLazy()
     private val libraryUpdateStatus: LibraryUpdateStatus by injectLazy()
+    private val jsPluginManager: JsPluginManager by injectLazy()
 
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
@@ -277,6 +281,22 @@ class MainActivity : BaseActivity() {
         if (isLaunch && libraryPreferences.autoClearChapterCache.get()) {
             lifecycleScope.launchIO {
                 chapterCache.clear()
+            }
+        }
+
+        if (isLaunch) {
+            lifecycleScope.launchIO {
+                try {
+                    val updates = jsPluginManager.findAvailableUpdates()
+                    if (updates.isNotEmpty()) {
+                        ExtensionUpdateNotifier(applicationContext)
+                            .promptUpdates(updates.map { it.plugin.displayName() })
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to check for JS plugin updates" }
+                }
             }
         }
     }

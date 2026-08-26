@@ -168,7 +168,6 @@ class NovelExtensionsViewModel(
 
 internal fun JsPlugin.toExtension(installed: InstalledJsPlugin?, iconUrl: String): Extension.JsPlugin {
     val availableVersion = version.toVersionCode()
-    val installedVersion = installed?.plugin?.version?.toVersionCode() ?: 0L
     val langCode = langCode()
     return Extension.JsPlugin(
         name = displayName(),
@@ -190,7 +189,7 @@ internal fun JsPlugin.toExtension(installed: InstalledJsPlugin?, iconUrl: String
         iconUrl = iconUrl,
         repoUrl = repositoryUrl ?: installed?.repositoryUrl.orEmpty(),
         isInstalled = installed != null,
-        hasUpdate = installed != null && availableVersion > installedVersion,
+        hasUpdate = installed != null && JsPluginManager.isNewerVersion(version, installed.installedVersion),
     )
 }
 

@@ -86,6 +86,14 @@ class JsPluginManagerTest {
     }
 
     @Test
+    fun `plugin updates require a newer numeric version`() {
+        assertTrue(JsPluginManager.isNewerVersion("1.10.0", "1.9.9"))
+        assertTrue(JsPluginManager.isNewerVersion("2.0.0-beta", "1.9.9"))
+        assertFalse(JsPluginManager.isNewerVersion("1.9.9", "1.10.0"))
+        assertFalse(JsPluginManager.isNewerVersion("1.0.0-beta", "1.0.0"))
+    }
+
+    @Test
     fun `repository URL validation accepts HTTP(S) and rejects unsupported schemes`() {
         assertEquals(
             "https://example.com/plugins.json",
