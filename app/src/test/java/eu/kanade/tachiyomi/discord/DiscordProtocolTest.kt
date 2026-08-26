@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import tachiyomi.source.local.metadata.DEFAULT_EPUB_COVER_URL
 
 class DiscordProtocolTest {
 
@@ -108,6 +109,21 @@ class DiscordProtocolTest {
         assertFalse(isHttpUrl("not a url"))
         assertEquals("mp:external/cover", normalizeDiscordImage("external/cover"))
         assertEquals(DiscordProtocol.APP_LOGO_ASSET_ID, normalizeDiscordImage(DiscordProtocol.APP_LOGO_ASSET_ID))
+    }
+
+    @Test
+    fun `Discord covers use online URLs or the default EPUB cover`() {
+        assertEquals("https://example.com/cover.webp", discordCoverUrl("https://example.com/cover.webp"))
+        assertEquals(DEFAULT_EPUB_COVER_URL, discordCoverUrl(null))
+        assertEquals(DEFAULT_EPUB_COVER_URL, discordCoverUrl("file:///private/cover.webp"))
+        assertEquals(DEFAULT_EPUB_COVER_URL, discordCoverUrl("content://novels/cover.webp"))
+    }
+
+    @Test
+    fun `Discord status wire values remain stable`() {
+        assertEquals("online", DiscordStatus.ONLINE.wireName)
+        assertEquals("idle", DiscordStatus.IDLE.wireName)
+        assertEquals("dnd", DiscordStatus.DND.wireName)
     }
 
     @Test

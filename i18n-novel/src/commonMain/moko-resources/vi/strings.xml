@@ -686,6 +686,10 @@
     <string name="discord_rpc_settings">Rich Presence</string>
     <string name="discord_enable_rpc">Bật Discord Rich Presence</string>
     <string name="discord_enable_rpc_summary">Kết nối với Discord và chia sẻ những hoạt động đã bật</string>
+    <string name="discord_status">Trạng thái Discord</string>
+    <string name="discord_status_online">Trực tuyến</string>
+    <string name="discord_status_idle">Chờ</string>
+    <string name="discord_status_dnd">Không làm phiền</string>
     <string name="discord_show_app">Hiện hoạt động ứng dụng và thư viện</string>
     <string name="discord_show_app_summary">Hiện khi Nekori hoặc thư viện đang mở</string>
     <string name="discord_show_browsing">Hiện hoạt động duyệt</string>

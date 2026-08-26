@@ -75,7 +75,7 @@ internal class DiscordGateway(
         return true
     }
 
-    fun sendPresence(activity: JsonObject?) {
+    fun sendPresence(activity: JsonObject?, status: DiscordStatus) {
         send(
             DiscordProtocol.OP_PRESENCE_UPDATE,
             buildJsonObject {
@@ -85,9 +85,9 @@ internal class DiscordGateway(
                         activity?.let(::add)
                     },
                 )
-                put("afk", false)
+                put("afk", status != DiscordStatus.ONLINE)
                 put("since", 0)
-                put("status", "idle")
+                put("status", status.wireName)
             },
         )
     }

@@ -17,16 +17,13 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
-import java.io.File
-import java.net.URI
+import tachiyomi.source.local.metadata.DEFAULT_EPUB_COVER_URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -115,7 +112,7 @@ class DiscordRpcManager internal constructor(
         throttleJob = null
         pendingActivity = null
         hasPendingActivity = false
-        if (clearActivity && ready) gateway?.sendPresence(null)
+        if (clearActivity && ready) gateway?.sendPresence(null, preferences.status.get())
         gateway?.close()
         gateway = null
         ready = false
@@ -161,7 +158,7 @@ class DiscordRpcManager internal constructor(
         novelUrl: String? = null,
     ) {
         publishAsync(sourceId, preferences.showReading.get()) { id ->
-            val resolvedCover = resolveExternalAsset(cover)
+            val resolvedCover = resolveCoverAsset(cover)
             if (id != requestId.get()) return@publishAsync null
             basePresence(
                 details = "Browsing Novel",
@@ -184,7 +181,7 @@ class DiscordRpcManager internal constructor(
         chapterPage: String? = null,
     ) {
         publishAsync(sourceId, preferences.showReading.get()) { id ->
-            val resolvedCover = resolveExternalAsset(cover)
+            val resolvedCover = resolveCoverAsset(cover)
             if (id != requestId.get()) return@publishAsync null
             basePresence(
                 details = novelName,
@@ -205,7 +202,12 @@ class DiscordRpcManager internal constructor(
         currentActivity = null
         pendingActivity = null
         hasPendingActivity = false
-        if (ready) gateway?.sendPresence(null)
+        if (ready) gateway?.sendPresence(null, preferences.status.get())
+    }
+
+    fun setStatus(status: DiscordStatus) {
+        preferences.status.set(status)
+        if (ready) send(currentActivity)
     }
 
     private fun publishSimple(enabled: Boolean, state: String) {
@@ -301,18 +303,24 @@ class DiscordRpcManager internal constructor(
         val activityWithSession = activity?.let {
             JsonObject(it + ("session_id" to JsonPrimitive(sessionId)))
         }
-        gateway?.sendPresence(activityWithSession)
+        gateway?.sendPresence(activityWithSession, preferences.status.get())
         lastPayloadAt = System.currentTimeMillis()
     }
 
+    private suspend fun resolveCoverAsset(image: String?): String? {
+        val coverUrl = discordCoverUrl(image)
+        return resolveExternalAsset(coverUrl)
+            ?: DEFAULT_EPUB_COVER_URL
+                .takeIf { it != coverUrl }
+                ?.let { resolveExternalAsset(it) }
+    }
+
     private suspend fun resolveExternalAsset(image: String?): String? {
-        if (image.isNullOrBlank()) return null
-        externalAssets[image]?.let { return it }
+        val publicImage = image?.takeIf(::isHttpUrl) ?: return null
+        externalAssets[publicImage]?.let { return it }
         if (accessToken.isBlank()) return null
 
         return runCatching {
-            val publicImage = if (image.startsWith("file://")) uploadLocalCover(image) else image
-            if (!isHttpUrl(publicImage)) return null
             val body = buildJsonObject {
                 put("urls", JsonArray(listOf(JsonPrimitive(publicImage))))
             }.toString().toRequestBody(JSON_MEDIA_TYPE)
@@ -334,37 +342,11 @@ class DiscordRpcManager internal constructor(
                     ?.get("external_asset_path")
                     ?.jsonPrimitive
                     ?.content
-                    ?.also { path -> externalAssets[image] = path }
+                    ?.also { path -> externalAssets[publicImage] = path }
             }
         }.onFailure {
             logcat(LogPriority.WARN, it) { "Discord external asset failed" }
         }.getOrNull()
-    }
-
-    private fun uploadLocalCover(image: String): String {
-        val file = File(URI(image))
-        check(file.isFile) { "Local Discord cover does not exist" }
-        val body = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart("reqtype", "fileupload")
-            .addFormDataPart("time", "24h")
-            .addFormDataPart("fileNameLength", "16")
-            .addFormDataPart("fileToUpload", file.name, file.asRequestBody(OCTET_STREAM))
-            .build()
-        val response = client.newCall(
-            Request.Builder()
-                .url("https://litterbox.catbox.moe/resources/internals/api.php")
-                .header("User-Agent", "Nekori (https://github.com/Yuneko-dev/Nekori)")
-                .post(body)
-                .build(),
-        ).execute()
-        return response.use {
-            val url = it.body.string().trim()
-            check(it.isSuccessful && url.startsWith("https://litter.catbox.moe/")) {
-                "Local Discord cover upload failed: ${it.code}"
-            }
-            url
-        }
     }
 
     private fun gatewayListener(attemptId: Long) = object : DiscordGateway.Listener {
@@ -412,8 +394,10 @@ class DiscordRpcManager internal constructor(
         const val THROTTLE_MS = 5_000L
         const val RECONNECT_MS = 1_000L
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
-        val OCTET_STREAM = "application/octet-stream".toMediaType()
     }
 }
+
+internal fun discordCoverUrl(image: String?): String =
+    image?.takeIf(::isHttpUrl) ?: DEFAULT_EPUB_COVER_URL
 
 private fun <T> Preference<T>.changesWithInitial() = changes()

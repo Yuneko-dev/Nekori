@@ -8,7 +8,7 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-internal const val DEFAULT_EPUB_COVER_URL =
+const val DEFAULT_EPUB_COVER_URL =
     "https://github.com/Yuneko-dev/lnreader-plugins/blob/master/public/static/coverNotAvailable.webp?raw=true"
 
 /**

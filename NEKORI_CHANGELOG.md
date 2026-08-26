@@ -21,6 +21,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
   placeholder with their total reading time.
 - Discord Rich Presence now uses the shared Settings layout and controls while retaining its profile banner,
   avatar card and logged-out empty state.
+- Discord Rich Presence now lets users appear online, idle or in do-not-disturb mode, with idle remaining the
+  default, and uses the default EPUB cover when no public online cover is available instead of uploading local
+  covers to Litterbox.
 
 ### Fixed
 - JS plugin repositories are now checked when the app opens, and newer installed plugins trigger an extension

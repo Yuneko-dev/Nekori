@@ -701,6 +701,10 @@
     <string name="discord_rpc_settings">Rich Presence</string>
     <string name="discord_enable_rpc">Enable Discord Rich Presence</string>
     <string name="discord_enable_rpc_summary">Connect to Discord and publish enabled activity</string>
+    <string name="discord_status">Discord status</string>
+    <string name="discord_status_online">Online</string>
+    <string name="discord_status_idle">Idle</string>
+    <string name="discord_status_dnd">Do Not Disturb</string>
     <string name="discord_show_app">Show app and library activity</string>
     <string name="discord_show_app_summary">Show when Nekori or the library is open</string>
     <string name="discord_show_browsing">Show browsing activity</string>

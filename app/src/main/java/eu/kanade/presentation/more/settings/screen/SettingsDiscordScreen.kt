@@ -44,6 +44,7 @@ import eu.kanade.tachiyomi.discord.DiscordAuthState
 import eu.kanade.tachiyomi.discord.DiscordPreferences
 import eu.kanade.tachiyomi.discord.DiscordProfile
 import eu.kanade.tachiyomi.discord.DiscordRpcManager
+import eu.kanade.tachiyomi.discord.DiscordStatus
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -104,6 +105,7 @@ object SettingsDiscordScreen : SearchableSettings {
         val rpc = remember { Injekt.get<DiscordRpcManager>() }
         val preferences = remember { Injekt.get<DiscordPreferences>() }
         val enabled by preferences.enabled.changes().collectAsState(preferences.enabled.get())
+        val status by preferences.status.changes().collectAsState(preferences.status.get())
         val showApp by preferences.showAppAndLibrary.changes().collectAsState(preferences.showAppAndLibrary.get())
         val showBrowsing by preferences.showBrowsing.changes().collectAsState(preferences.showBrowsing.get())
         val showReading by preferences.showReading.changes().collectAsState(preferences.showReading.get())
@@ -142,6 +144,18 @@ object SettingsDiscordScreen : SearchableSettings {
                         ),
                     )
                     if (enabled) {
+                        add(
+                            Preference.PreferenceItem.BasicListPreference(
+                                value = status.name,
+                                entries = mapOf(
+                                    DiscordStatus.ONLINE.name to stringResource(TDMR.strings.discord_status_online),
+                                    DiscordStatus.IDLE.name to stringResource(TDMR.strings.discord_status_idle),
+                                    DiscordStatus.DND.name to stringResource(TDMR.strings.discord_status_dnd),
+                                ),
+                                title = stringResource(TDMR.strings.discord_status),
+                                onValueChanged = { rpc.setStatus(DiscordStatus.valueOf(it)) },
+                            ),
+                        )
                         add(
                             discordSwitchPreference(
                                 title = stringResource(TDMR.strings.discord_show_app),
