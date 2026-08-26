@@ -16,46 +16,35 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.0.6] - 2026-08-27
+
 ### Changed
-- Most read now keeps library novels as individual entries and combines removed novels into one non-interactive
-  placeholder with their total reading time.
-- Discord Rich Presence now uses the shared Settings layout and controls while retaining its profile banner,
-  avatar card and logged-out empty state.
-- Discord Rich Presence now lets users appear online, idle or in do-not-disturb mode, with idle remaining the
-  default, and uses the default EPUB cover when no public online cover is available instead of uploading local
-  covers to Litterbox.
+- Most read now keeps library novels as individual entries and combines removed novels into one non-interactive placeholder with their total reading time.
+- Discord Rich Presence now uses the shared Settings layout and controls while retaining its profile banner, avatar card and logged-out empty state.
+- Discord Rich Presence now lets users appear online, idle or in DnD mode, with idle remaining the default, and uses the default EPUB cover when no public online cover is available instead of uploading local covers to Litterbox.
 
 ### Fixed
-- JS plugin repositories are now checked when the app opens, and newer installed plugins trigger an extension
-  update notification without treating repository downgrades as updates.
+- JS plugin repositories are now checked when the app opens, and newer installed plugins trigger an extension update notification without treating repository downgrades as updates.
 
 ### Other
-- Synced Tsundoku through commit `2a4ce852f`, adopting upstream memo preservation for download/batch fetch
-  while retaining Nekori's unified AI provider, UserGuidelines and LlmGenerator architecture instead of
-  restoring obsolete per-engine prompt settings.
+- Synced Tsundoku through commit `2a4ce852f`, adopting upstream memo preservation for download/batch fetch while retaining Nekori's unified AI provider, UserGuidelines and LlmGenerator architecture instead of restoring obsolete per-engine prompt settings.
 
 ## [v0.0.5] - 2026-08-26
 
 ### Added
-- Novel details and all-local Library selections now expose an explicit local-novel file-deletion option that
-  also removes each successfully deleted entry from the Library.
-- Daily reading-session details now show novel covers; covers open novel details and session rows reopen the
-  recorded chapter.
-- Library filters can now hide and disable the Tags and Extensions filter tabs independently, while preserving
-  their selections for the next time each filter is enabled.
+- Novel details and all-local Library selections now expose an explicit local-novel file-deletion option that also removes each successfully deleted entry from the Library.
+- Daily reading-session details now show novel covers; covers open novel details and session rows reopen the recorded chapter.
+- Library filters can now hide and disable the Tags and Extensions filter tabs independently, while preserving their selections for the next time each filter is enabled.
 
 ### Changed
 - The library Tags filter now uses balanced Material 3 segmented controls, chips and actions.
-- Progress bars in the Most read list now compare each novel's reading time with the top-ranked novel instead of
-  showing chapter completion.
+- Progress bars in the Most read list now compare each novel's reading time with the top-ranked novel instead of showing chapter completion.
 - The Most read list can now expand to every title with recorded reading time instead of stopping at the top 20.
 - Storage statistics now appear below tracking statistics.
 
 ### Fixed
-- Deleting a single-file local novel now removes its actual file instead of failing because deletion only
-  looked for a directory.
-- Infinite scrolling now keeps the title, current chapter and chapter summaries aligned with the visible content
-  in both directions, even after native page state has been recycled.
+- Deleting a single-file local novel now removes its actual file instead of failing because deletion only looked for a directory.
+- Infinite scrolling now keeps the title, current chapter and chapter summaries aligned with the visible content in both directions, even after native page state has been recycled.
 - Expand/collapse arrows in Updates groups now line up with chapter download buttons.
 
 ## [v0.0.4] - 2026-08-25
@@ -64,15 +53,12 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Optional progress banners show library updates and backup restores in the app, including LNReader imports.
 
 ### Changed
-- Updates stay organized by date. Multiple chapters from the same novel and day collapse into one expandable
-  row with unread feedback and group selection; single-chapter updates remain regular rows.
-- Reading heatmap colors now scale against the busiest day in the selected year, making activity differences
-  easier to see.
+- Updates stay organized by date. Multiple chapters from the same novel and day collapse into one expandable row with unread feedback and group selection; single-chapter updates remain regular rows.
+- Reading heatmap colors now scale against the busiest day in the selected year, making activity differences easier to see.
 - The headless plugin runtime now uses React Native 0.87 and its bundled Hermes compiler.
 
 ### Removed
-- The separate cross-date "Group by novel" view and its Updates toolbar toggle; the date view now handles
-  repeated novel updates directly.
+- The separate cross-date "Group by novel" view and its Updates toolbar toggle; the date view now handles repeated novel updates directly.
 
 ### Fixed
 - Expand/collapse arrows in Updates groups now line up with chapter download buttons.
