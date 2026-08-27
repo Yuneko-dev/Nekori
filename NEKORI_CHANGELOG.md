@@ -17,7 +17,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Changed
-- Plugin details now show a single full-width Material 3 destructive uninstall action instead of an Android app-information button.
+- Plugin details now keep uninstall and website actions side by side; Website opens the plugin site in the in-app WebView instead of Android app information.
 
 ### Removed
 - Redundant `JS` badges and `(JS)` suffixes from user-facing source and extension labels; internal source identity remains unchanged.

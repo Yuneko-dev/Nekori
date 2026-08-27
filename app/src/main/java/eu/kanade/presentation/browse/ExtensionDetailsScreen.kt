@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Launch
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +54,7 @@ import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsViewModel
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -68,6 +70,7 @@ fun ExtensionDetailsScreen(
     onClickDisableAll: () -> Unit,
     onClickClearCookies: () -> Unit,
     onClickUninstall: () -> Unit,
+    onClickWebsite: (Extension.Available.Source) -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -144,6 +147,7 @@ fun ExtensionDetailsScreen(
             incognitoMode = state.isIncognito,
             onClickSourcePreferences = onClickSourcePreferences,
             onClickUninstall = onClickUninstall,
+            onClickWebsite = onClickWebsite,
             onClickSource = onClickSource,
             onClickIncognito = onClickIncognito,
         )
@@ -158,6 +162,7 @@ private fun ExtensionDetails(
     incognitoMode: Boolean,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
     onClickUninstall: () -> Unit,
+    onClickWebsite: (Extension.Available.Source) -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -178,6 +183,7 @@ private fun ExtensionDetails(
                 extension = extension,
                 extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
+                onClickWebsite = onClickWebsite,
                 onClickAgeRating = {
                     showNsfwWarning = true
                 },
@@ -212,9 +218,14 @@ private fun DetailsHeader(
     extIncognitoMode: Boolean,
     onClickAgeRating: () -> Unit,
     onClickUninstall: () -> Unit,
+    onClickWebsite: (Extension.Available.Source) -> Unit,
     onExtIncognitoChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    val websiteSource = (extension as? Extension.JsPlugin)
+        ?.sources
+        ?.firstOrNull()
+        ?.takeIf { it.baseUrl.isNotBlank() }
 
     Column {
         Column(
@@ -319,17 +330,30 @@ private fun DetailsHeader(
             }
         }
 
-        OutlinedButton(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MaterialTheme.padding.medium)
                 .padding(top = MaterialTheme.padding.small),
-            onClick = onClickUninstall,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
         ) {
-            Text(stringResource(MR.strings.ext_uninstall))
+            OutlinedButton(
+                modifier = Modifier.weight(1f),
+                onClick = onClickUninstall,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Text(stringResource(MR.strings.ext_uninstall))
+            }
+
+            Button(
+                modifier = Modifier.weight(1f),
+                enabled = websiteSource != null,
+                onClick = { websiteSource?.let(onClickWebsite) },
+            ) {
+                Text(stringResource(TDMR.strings.plugin_website))
+            }
         }
 
         TextPreferenceWidget(

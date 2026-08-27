@@ -31,6 +31,7 @@
     <string name="action_order_by_extension">By extension</string>
     <string name="action_pin_groups">Source groups</string>
     <string name="action_add_pin_group">Add source group</string>
+    <string name="plugin_website">Website</string>
     <string name="delete_pin_group">Delete source group</string>
     <string name="delete_pin_group_confirmation">Do you wish to delete the source group \"%s\"? This removes it from all sources.</string>
     <string name="pref_category_novel_reader">Novel Reader</string>

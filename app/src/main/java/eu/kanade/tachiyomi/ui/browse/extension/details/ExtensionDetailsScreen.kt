@@ -10,6 +10,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.ExtensionDetailsScreen
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.collectLatest
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -42,6 +43,15 @@ data class ExtensionDetailsScreen(
             onClickDisableAll = { viewModel.toggleSources(false) },
             onClickClearCookies = viewModel::clearCookies,
             onClickUninstall = viewModel::uninstallExtension,
+            onClickWebsite = { source ->
+                navigator.push(
+                    WebViewScreen(
+                        url = source.baseUrl,
+                        initialTitle = source.name,
+                        sourceId = source.id,
+                    ),
+                )
+            },
             onClickSource = viewModel::toggleSource,
             onClickIncognito = viewModel::toggleIncognito,
         )

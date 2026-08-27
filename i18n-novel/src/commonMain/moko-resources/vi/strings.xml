@@ -29,6 +29,7 @@
     <string name="action_order_by_progress">Theo tiến độ</string>
     <string name="action_order_by_total_chapters">Theo tổng số chương</string>
     <string name="action_order_by_extension">Theo phần mở rộng</string>
+    <string name="plugin_website">Trang web</string>
     <string name="pref_category_novel_reader">Trình đọc tiểu thuyết</string>
 
     <!-- Reader Section -->
