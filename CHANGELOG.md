@@ -12,12 +12,14 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 ### Improved
+- Massimport deeplink support [@mrissaoussama](https://github.com/mrissaoussama) [#409](https://github.com/tsundoku-otaku/tsundoku/pull/409)
 - Add option to clear only error-free completed massimport batches [@mrissaoussama](https://github.com/mrissaoussama) [#402](https://github.com/tsundoku-otaku/tsundoku/pull/402)
 - Add multiline LLM prompt editor, and reset option to all LLM options [@mrissaoussama](https://github.com/mrissaoussama) [#411](https://github.com/tsundoku-otaku/tsundoku/pull/411)
 
 
 ### Fixed
 - Library sort by last read now updates after reading [@mrissaoussama](https://github.com/mrissaoussama) [#400](https://github.com/tsundoku-otaku/tsundoku/pull/400)
+- Update QuickJS [@mrissaoussama](https://github.com/mrissaoussama) [#414](https://github.com/tsundoku-otaku/tsundoku/pull/414)
 - Double-tapping browse now does novel search if manga UI hidden [@mrissaoussama](https://github.com/mrissaoussama) [#401](https://github.com/tsundoku-otaku/tsundoku/pull/401)
 - Clarified UI text on text-selectable option [@mrissaoussama](https://github.com/mrissaoussama) [#403](https://github.com/tsundoku-otaku/tsundoku/pull/403)
 - Fix novel theme preference showing null [@mrissaoussama](https://github.com/mrissaoussama) [#404](https://github.com/tsundoku-otaku/tsundoku/pull/404)
