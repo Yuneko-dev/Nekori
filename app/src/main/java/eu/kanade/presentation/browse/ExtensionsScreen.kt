@@ -37,9 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
@@ -423,21 +421,12 @@ private fun ExtensionItemContent(
                     )
                 }
 
-                if (extension is Extension.JsPlugin) {
-                    if (extension.isNsfw) {
-                        if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
-                        Text(
-                            text = "18+",
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        hasAlreadyShownAnElement = true
-                    }
+                if (extension is Extension.JsPlugin && extension.isNsfw) {
                     if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
                     hasAlreadyShownAnElement = true
                     Text(
-                        text = "JS",
-                        color = Color.Yellow,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        text = "18+",
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
 

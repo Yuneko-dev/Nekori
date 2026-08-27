@@ -45,7 +45,6 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.RateLimited
 import eu.kanade.tachiyomi.source.filterUserEnabled
 import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.source.nameWithTypeTag
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.NovelDownloadPreferences
@@ -532,7 +531,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                 )
                 .sortedWith(
                     compareBy(String.CASE_INSENSITIVE_ORDER) { row ->
-                        sourceManager.get(row.override.sourceId)?.nameWithTypeTag()
+                        sourceManager.get(row.override.sourceId)?.name
                             ?: "zzz_${row.override.sourceId}"
                     },
                 )
@@ -563,7 +562,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                             items(rows, key = { it.override.sourceId }) { row ->
                                 val override = row.override
                                 val source = sourceManager.get(override.sourceId)
-                                val sourceName = source?.nameWithTypeTag() ?: "Unknown (#${override.sourceId})"
+                                val sourceName = source?.name ?: "Unknown (#${override.sourceId})"
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -650,7 +649,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
             val enabled = all.filterUserEnabled()
             val existingSource = existing?.let { override -> all.find { it.id == override.sourceId } }
             (if (existingSource != null && existingSource !in enabled) enabled + existingSource else enabled)
-                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.nameWithTypeTag() })
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         }
 
         var selectedSourceId by remember { mutableStateOf(existing?.sourceId ?: 0L) }
@@ -660,7 +659,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
         var sourceExpanded by remember { mutableStateOf(false) }
 
         val selectedSource = novelSources.find { it.id == selectedSourceId }
-        val selectedSourceName = selectedSource?.nameWithTypeTag()
+        val selectedSourceName = selectedSource?.name
             ?: if (selectedSourceId != 0L) "Source #$selectedSourceId" else "Select source..."
         // An extension can declare its own floor via RateLimited; the user can't configure
         // less delay than that, no matter what they drag the slider to.
@@ -709,7 +708,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                         ) {
                             novelSources.forEach { source ->
                                 DropdownMenuItem(
-                                    text = { Text(source.nameWithTypeTag()) },
+                                    text = { Text(source.name) },
                                     onClick = {
                                         selectedSourceId = source.id
                                         sourceExpanded = false

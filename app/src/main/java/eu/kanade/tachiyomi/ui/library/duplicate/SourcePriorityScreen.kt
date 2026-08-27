@@ -35,7 +35,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.filterUserEnabled
-import eu.kanade.tachiyomi.source.nameWithTypeTag
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -272,7 +271,7 @@ class SourcePriorityViewModel(
                     .map { source ->
                         SourcePriorityItem(
                             id = source.id,
-                            displayName = source.nameWithTypeTag(),
+                            displayName = source.name,
                         )
                     }
                     .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })

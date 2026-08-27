@@ -43,7 +43,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.components.SourceIcon
-import eu.kanade.presentation.browse.components.SourceTypeBadge
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
@@ -297,7 +296,6 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                SourceTypeBadge(source = source.source)
                 Spacer(modifier = Modifier.weight(1f))
                 if (showLanguage) {
                     Pill(

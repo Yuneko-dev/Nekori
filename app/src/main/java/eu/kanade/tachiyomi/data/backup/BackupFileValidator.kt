@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.serialization.protobuf.ProtoBuf
+import tachiyomi.domain.source.model.JS_SOURCE_MARKER
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -59,7 +60,7 @@ class BackupFileValidator(
                 if (id == null) {
                     it
                 } else {
-                    sourceManager.getOrStub(id).toString()
+                    sourceManager.getOrStub(id).toString().removeSuffix(JS_SOURCE_MARKER)
                 }
             }
             .distinct()

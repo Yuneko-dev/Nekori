@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.filterEnabledLanguages
 import eu.kanade.tachiyomi.source.isNovelSource
-import eu.kanade.tachiyomi.source.nameWithTypeTag
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -70,7 +69,7 @@ class MigrateMangaViewModel(
         return sourceManager.getAll().filterIsInstance<CatalogueSource>()
             .filterEnabledLanguages()
             .filter { it.id != sourceId && it.isNovelSource() == filterNovel }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.nameWithTypeTag() })
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     }
 
     init {
@@ -145,8 +144,8 @@ class MigrateMangaViewModel(
                     it.copy(
                         dialog = Dialog.QuickMigrateConfirm(
                             targetSourceId = targetSourceId,
-                            sourceName = sourceManager.getOrStub(sourceId).nameWithTypeTag(),
-                            targetSourceName = targetSource.nameWithTypeTag(),
+                            sourceName = sourceManager.getOrStub(sourceId).name,
+                            targetSourceName = targetSource.name,
                             totalCount = selectedManga.size,
                             skipCount = skipCount,
                         ),

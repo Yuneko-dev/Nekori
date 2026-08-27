@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Changed
 - Plugin details now show a single full-width Material 3 destructive uninstall action instead of an Android app-information button.
 
+### Removed
+- Redundant `JS` badges and `(JS)` suffixes from user-facing source and extension labels; internal source identity remains unchanged.
+
 ### Other
 - Recorded Tsundoku through commit `ad3077439` without importing its legacy QuickJS shim or Kotlin-extension APK deeplink resolver; JS import-domain support remains deferred until plugin metadata declares domains explicitly.
 

@@ -62,6 +62,7 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.model.SManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
@@ -557,7 +558,7 @@ private fun SimilarNovelListItem(
                 if (source is StubSource) {
                     Badge(text = stringResource(MR.strings.not_installed))
                 } else {
-                    Badge(text = source.toString())
+                    Badge(text = source.getNameForMangaInfo())
                 }
             }
         }

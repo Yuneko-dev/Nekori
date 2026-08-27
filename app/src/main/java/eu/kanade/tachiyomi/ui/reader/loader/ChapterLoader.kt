@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.awaitInitialized
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import kotlinx.coroutines.flow.first
@@ -136,7 +137,7 @@ class ChapterLoader(
                     logcat { "ChapterLoader: StubSource ${source.id} resolved via JsPluginManager → ${jsSource.name}" }
                     HttpPageLoader(chapter, jsSource)
                 } else {
-                    error(context.stringResource(MR.strings.source_not_installed, source.toString()))
+                    error(context.stringResource(MR.strings.source_not_installed, source.getNameForMangaInfo()))
                 }
             }
             else -> error(context.stringResource(MR.strings.loader_not_implemented_error))

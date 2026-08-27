@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.source
 
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import tachiyomi.domain.source.model.JS_SOURCE_MARKER
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -15,28 +15,14 @@ fun Source.getNameForMangaInfo(): String {
     val isInEnabledLanguages = lang in enabledLanguages
     return when {
         // For edge cases where user disables a source they got manga of in their library.
-        hasOneActiveLanguages && !isInEnabledLanguages -> toString()
-        // Hide the language tag when only one language is used, but keep the type tag.
-        hasOneActiveLanguages && isInEnabledLanguages -> nameWithTypeTag()
-        else -> toString()
+        hasOneActiveLanguages && !isInEnabledLanguages -> toString().removeSuffix(JS_SOURCE_MARKER)
+        // Hide the language tag when only one language is used.
+        hasOneActiveLanguages && isInEnabledLanguages -> name
+        else -> toString().removeSuffix(JS_SOURCE_MARKER)
     }
 }
 
 fun Source.isLocalOrStub(): Boolean = isLocal() || this is StubSource
-
-enum class SourceTypeTag(val label: String) {
-    JS("JS"),
-}
-
-// A stub carries the marker it was registered with; source content type and runtime type are
-// separate persisted facts.
-fun Source.typeTag(): SourceTypeTag? = when {
-    this is JsSource -> SourceTypeTag.JS
-    this is StubSource && isJsSource -> SourceTypeTag.JS
-    else -> null
-}
-
-fun Source.nameWithTypeTag(): String = typeTag()?.let { "$name (${it.label})" } ?: name
 
 // Local sources have no language toggle of their own (local reports "other"), so they are never
 // filtered out.

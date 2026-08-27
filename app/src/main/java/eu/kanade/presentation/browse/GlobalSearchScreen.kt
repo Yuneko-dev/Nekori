@@ -11,7 +11,6 @@ import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.nameWithTypeTag
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
@@ -77,7 +76,7 @@ internal fun GlobalSearchContent(
     ) {
         items.forEach { (source, result) ->
             item(key = source.id) {
-                val name = source.nameWithTypeTag()
+                val name = source.name
                 GlobalSearchResultItem(
                     title = fromSourceId?.let { "▶ $name".takeIf { source.id == fromSourceId } } ?: name,
                     subtitle = LocaleHelper.getLocalizedDisplayName(source.lang),
