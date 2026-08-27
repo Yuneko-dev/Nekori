@@ -21,6 +21,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 - NovelUpdates tracker requests now use the shared application User-Agent instead of a hardcoded Firefox User-Agent, keeping tracker requests aligned with the app's WebView fingerprint for Cloudflare handling.
+- NovelUpdates notes responses with a trailing zero suffix no longer trigger a regex error, restoring chapter-progress reads and updates during tracking.
 
 ### Removed
 - Redundant `JS` badges and `(JS)` suffixes from user-facing source and extension labels; internal source identity remains unchanged.

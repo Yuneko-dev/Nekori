@@ -169,7 +169,7 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates") {
             val responseText = response.body.string()
 
             // Clean response (may end with "0")
-            val cleanedText = responseText.trim().replace(Regex("}\\s*0+$"), "}")
+            val cleanedText = responseText.trim().replace(Regex("\\}\\s*0+$"), "}")
 
             // Parse JSON and extract notes
             val notesMatch = Regex("\"notes\"\\s*:\\s*\"([^\"]+)\"").find(cleanedText)
@@ -203,7 +203,7 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates") {
 
             val getResponse = client.newCall(getRequest).awaitSuccess()
             val responseText = getResponse.body.string()
-            val cleanedText = responseText.trim().replace(Regex("}\\s*0+$"), "}")
+            val cleanedText = responseText.trim().replace(Regex("\\}\\s*0+$"), "}")
 
             // Extract existing notes and tags
             val notesMatch = Regex("\"notes\"\\s*:\\s*\"([^\"]+)\"").find(cleanedText)
