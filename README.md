@@ -104,11 +104,10 @@ release record and is kept identical to upstream so it merges cleanly.
 
 [Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
 
-This is a personal fork, so issues and pull requests may sit unanswered — I build it for myself first. Bugs that also
-affect upstream are better reported to [Tsundoku](https://github.com/tsundoku-otaku/tsundoku) or
-[Mihon](https://github.com/mihonapp/mihon), where far more people will see them.
-
-There is no Discord server, and there will not be one.
+This is a personal project rather than a community fork, so it does not have a dedicated Discord server or
+translation project yet. Questions and bug reports are welcome in
+[Discussions](https://github.com/Yuneko-dev/Nekori/discussions) or
+[Issues](https://github.com/Yuneko-dev/Nekori/issues); I will try to respond as soon as I can.
 
 ### Credits
 
