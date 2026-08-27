@@ -532,7 +532,6 @@ class JsRuntimeBridgeTest {
                   fetch: [
                     typeof fetchHelpers.fetchApi,
                     typeof fetchHelpers.fetchText,
-                    typeof fetchHelpers.fetchFile,
                     typeof fetchHelpers.fetchProto,
                   ].join(','),
                 };
@@ -556,7 +555,7 @@ class JsRuntimeBridgeTest {
         assertTrue(result, result.contains("\"crypto\":\"ba7816bf\""))
         assertTrue(result, result.contains("\"random\":8"))
         assertTrue(result, result.contains("\"aes\":\"1,2,3\""))
-        assertTrue(result, result.contains("\"fetch\":\"function,function,function,function\""))
+        assertTrue(result, result.contains("\"fetch\":\"function,function,function\""))
     }
 
     @Test

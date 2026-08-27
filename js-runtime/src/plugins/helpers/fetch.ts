@@ -62,42 +62,16 @@ export const fetchText = async (
 ): Promise<string> => {
   init = makeInit(init);
   try {
-    const res = await fetch(url, init);
-    if (!res.ok) {
-      throw new Error();
-    }
-    const blob = await res.blob();
-    return await new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onloadend = () => {
-        resolve(fr.result as string);
-      };
-      fr.onerror = () => reject();
-      fr.onabort = () => reject();
-      fr.readAsText(blob, encoding);
-    });
-  } catch {
+    const res = await fetch(url, init as RequestInit);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    const decoder = new TextDecoder(encoding);
+    const result = decoder.decode(arrayBuffer);
+    return result;
+  } catch (e) {
+    console.error(`fetchText failed for ${url}:`, e);
     return '';
   }
-};
-
-export const fetchFile = async (
-  input: RequestInfo,
-  init?: FetchInit,
-): Promise<string> => {
-  init = makeInit(init);
-  const response = await fetch(input, init);
-  const blob = await response.blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result ?? '');
-      resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
-    };
-    reader.onerror = () =>
-      reject(reader.error ?? new Error('Could not read response body'));
-    reader.readAsDataURL(blob);
-  });
 };
 
 interface ProtoRequestInit {

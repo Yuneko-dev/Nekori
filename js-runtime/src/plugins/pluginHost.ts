@@ -24,7 +24,7 @@ import { decode, encode } from 'urlencode';
 
 import { defaultCover } from './helpers/constants';
 import CookieManager from './helpers/cookie';
-import { fetchApi, fetchFile, fetchProto, fetchText } from './helpers/fetch';
+import { fetchApi, fetchProto, fetchText } from './helpers/fetch';
 import { isUrlAbsolute } from './helpers/isAbsoluteUrl';
 import { getUserAgent } from './helpers/nativeHost';
 import {
@@ -87,21 +87,21 @@ const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
  * configurations, and every LNReader plugin is fetched as source at runtime.
  */
 const packages: Record<string, unknown> = {
-  '@libs/novelStatus': { NovelStatus },
-  '@libs/filterInputs': { FilterTypes },
-  '@libs/defaultCover': { defaultCover },
-  '@libs/fetch': { fetchApi, fetchFile, fetchProto, fetchText },
-  '@libs/isAbsoluteUrl': { isUrlAbsolute },
-  '@libs/aes': { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
-  htmlparser2: { Parser },
-  cheerio: { load },
-  dayjs: dayjs,
-  urlencode: { encode, decode },
   'node-html-markdown': {
     NodeHtmlMarkdown,
     PostProcessResult,
     TranslatorCollection,
   },
+  htmlparser2: { Parser },
+  cheerio: { load },
+  dayjs: dayjs,
+  urlencode: { encode, decode },
+  '@libs/novelStatus': { NovelStatus },
+  '@libs/fetch': { fetchApi, fetchText, fetchProto },
+  '@libs/isAbsoluteUrl': { isUrlAbsolute },
+  '@libs/filterInputs': { FilterTypes },
+  '@libs/defaultCover': { defaultCover },
+  '@libs/aes': { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
   '@libs/utils': {
     utf8ToBytes,
     bytesToUtf8,
