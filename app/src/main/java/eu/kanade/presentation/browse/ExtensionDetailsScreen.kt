@@ -1,8 +1,5 @@
 package eu.kanade.presentation.browse
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.util.DisplayMetrics
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Launch
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -181,16 +178,6 @@ private fun ExtensionDetails(
                 extension = extension,
                 extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
-                onClickAppInfo = if (extension is Extension.Installed && extension.isShared) {
-                    {
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", extension.pkgName, null)
-                            context.startActivity(this)
-                        }
-                    }
-                } else {
-                    null
-                },
                 onClickAgeRating = {
                     showNsfwWarning = true
                 },
@@ -225,7 +212,6 @@ private fun DetailsHeader(
     extIncognitoMode: Boolean,
     onClickAgeRating: () -> Unit,
     onClickUninstall: () -> Unit,
-    onClickAppInfo: (() -> Unit)?,
     onExtIncognitoChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
@@ -333,31 +319,17 @@ private fun DetailsHeader(
             }
         }
 
-        Row(
+        OutlinedButton(
             modifier = Modifier
+                .fillMaxWidth()
                 .padding(horizontal = MaterialTheme.padding.medium)
                 .padding(top = MaterialTheme.padding.small),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+            onClick = onClickUninstall,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
         ) {
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = onClickUninstall,
-            ) {
-                Text(stringResource(MR.strings.ext_uninstall))
-            }
-
-            if (onClickAppInfo != null || extension is Extension.JsPlugin) {
-                Button(
-                    modifier = Modifier.weight(1f),
-                    enabled = onClickAppInfo != null,
-                    onClick = { onClickAppInfo?.invoke() },
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.ext_app_info),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-            }
+            Text(stringResource(MR.strings.ext_uninstall))
         }
 
         TextPreferenceWidget(
