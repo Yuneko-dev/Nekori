@@ -80,7 +80,6 @@ class NovelUpdates(id: Long) : BaseTracker(id, "NovelUpdates") {
         val cookies = getPassword()
         return Headers.Builder()
             .add("Cookie", cookies)
-            .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0")
             .add("Referer", "$baseUrl/")
             .build()
     }
