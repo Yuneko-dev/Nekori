@@ -16,6 +16,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Other
+- Recorded Tsundoku through commit `ad3077439` without importing its legacy QuickJS shim or Kotlin-extension APK deeplink resolver; JS import-domain support remains deferred until plugin metadata declares domains explicitly.
+
 ## [v0.0.6] - 2026-08-27
 
 ### Changed
@@ -198,6 +201,6 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## Upstream Sync
 
-Nekori tracks Tsundoku through commit `2a4ce852f` as of 2026-08-26.
+Nekori tracks Tsundoku through commit `ad3077439` as of 2026-08-27.
 
 Upstream changes from Tsundoku are tracked in [CHANGELOG.md](./CHANGELOG.md).
