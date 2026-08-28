@@ -16,10 +16,15 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Novel reader tap zones now include a medium center zone and an adjustable full-width zone at the top or bottom of the screen.
+
 ### Changed
 - Plugin details now keep uninstall and website actions side by side; Website opens the plugin site in the in-app WebView instead of Android app information.
+- Paragraph auto-split now runs once in the shared content pipeline, using the reader's HTML/plain-text classification before translation instead of repeating a heuristic in each page loader.
 
 ### Fixed
+- Auto-split now preserves TXT whitespace and paragraph breaks, handles inline-only HTML correctly, leaves embedded script/style bodies untouched, and keeps paragraph nodes when TXT chapters are prepended or appended by infinite scroll.
 - NovelUpdates tracker requests now use the shared application User-Agent instead of a hardcoded Firefox User-Agent, keeping tracker requests aligned with the app's WebView fingerprint for Cloudflare handling.
 - NovelUpdates notes responses with a trailing zero suffix no longer trigger a regex error, restoring chapter-progress reads and updates during tracking.
 
@@ -27,6 +32,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Redundant `JS` badges and `(JS)` suffixes from user-facing source and extension labels; internal source identity remains unchanged.
 
 ### Other
+- Recorded Tsundoku through commit `18a0f3c44`, adopting its tap-zone and auto-split changes while retaining Nekori's WebView-only reader and forced JS chapter-cache invalidation.
 - Recorded Tsundoku through commit `ad3077439` without importing its legacy QuickJS shim or Kotlin-extension APK deeplink resolver; JS import-domain support remains deferred until plugin metadata declares domains explicitly.
 
 ## [v0.0.6] - 2026-08-27
@@ -211,6 +217,6 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## Upstream Sync
 
-Nekori tracks Tsundoku through commit `ad3077439` as of 2026-08-27.
+Nekori tracks Tsundoku through commit `18a0f3c44` as of 2026-08-28.
 
 Upstream changes from Tsundoku are tracked in [CHANGELOG.md](./CHANGELOG.md).

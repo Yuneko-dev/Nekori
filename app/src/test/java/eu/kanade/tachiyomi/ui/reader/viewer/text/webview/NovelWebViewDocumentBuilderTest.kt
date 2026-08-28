@@ -182,6 +182,24 @@ class NovelWebViewDocumentBuilderTest {
     }
 
     @Test
+    fun `append script preserves plain text paragraphs for infinite scroll`() {
+        val script = NovelWebViewDocumentBuilder.appendProcessedContentScript(
+            target = "chapterElement",
+            processed = ProcessedContent(
+                text = "First paragraph.\n\nSecond paragraph.",
+                isPlainText = true,
+                chapterUrl = "chapter.txt",
+            ),
+        )
+
+        assertTrue(script.contains("document.createElement('p')"))
+        assertTrue(script.contains(NovelWebViewDocumentBuilder.ATTR_DATA_PLAIN_TEXT))
+        assertTrue(script.contains("First paragraph."))
+        assertTrue(script.contains("Second paragraph."))
+        assertFalse(script.contains("chapterElement.textContent"))
+    }
+
+    @Test
     fun `assemble blocks media when blockMedia is true`() {
         val html = NovelWebViewDocumentBuilder.assemble(minimalInput(blockMedia = true))
         assertTrue(html.contains("display: none !important"))

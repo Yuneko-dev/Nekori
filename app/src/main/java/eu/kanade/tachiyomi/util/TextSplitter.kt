@@ -14,14 +14,12 @@ object TextSplitter {
      *
      * @param text The input text (can be HTML or plain text)
      * @param wordCount Target number of words before looking for punctuation
+     * @param isHtml Whether [text] is HTML markup, per the caller's own classification
      * @return Text with additional paragraph breaks inserted
      */
-    fun splitText(text: String, wordCount: Int): String {
+    fun splitText(text: String, wordCount: Int, isHtml: Boolean): String {
         if (wordCount <= 0) return text
         val effectiveWordCount = wordCount.coerceAtLeast(20)
-
-        // Check if this is HTML content
-        val isHtml = Regex("<\\s*(p|div|br|body)\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
         return if (isHtml) {
             splitHtmlText(text, effectiveWordCount)
@@ -32,35 +30,8 @@ object TextSplitter {
 
     private fun splitPlainText(text: String, targetWordCount: Int): String {
         val result = StringBuilder()
-        val words = text.split(Regex("\\s+"))
-        var wordsSincePunctuation = 0
-
-        for (i in words.indices) {
-            val word = words[i]
-            if (word.isEmpty()) continue
-
-            result.append(word)
-            wordsSincePunctuation++
-
-            val endsWithPunctuation = word.lastOrNull()?.let { it in sentenceEndingPunctuation } == true
-
-            if (endsWithPunctuation) {
-                // Check if we've passed the threshold since last punctuation
-                if (wordsSincePunctuation >= targetWordCount) {
-                    // Insert paragraph break after this punctuation
-                    result.append("<br><br>")
-                    wordsSincePunctuation = 0
-                } else {
-                    // Just add a space, continue counting
-                    result.append(" ")
-                }
-            } else {
-                // No punctuation yet, just add space
-                result.append(" ")
-            }
-        }
-
-        return result.toString().trim()
+        appendTextSegment(result, text, targetWordCount, 0, "\n\n")
+        return result.toString()
     }
 
     private fun splitHtmlText(html: String, targetWordCount: Int): String {
@@ -82,6 +53,19 @@ object TextSplitter {
                 val tag = html.substring(i, tagEnd + 1)
                 result.append(tag)
 
+                val rawTextTag = RAW_TEXT_TAG.matchEntire(tag)?.groupValues?.get(1)
+                if (rawTextTag != null) {
+                    val closeStart = html.indexOf("</$rawTextTag", tagEnd + 1, ignoreCase = true)
+                    val closeEnd = if (closeStart == -1) -1 else html.indexOf('>', closeStart)
+                    if (closeEnd == -1) {
+                        result.append(html, tagEnd + 1, html.length)
+                        break
+                    }
+                    result.append(html, tagEnd + 1, closeEnd + 1)
+                    i = closeEnd + 1
+                    continue
+                }
+
                 // Check if it's a paragraph or break tag - reset counter
                 if (tag.lowercase().startsWith("<p>") ||
                     tag.lowercase().startsWith("<br") ||
@@ -99,36 +83,48 @@ object TextSplitter {
                 val nextTag = html.indexOf('<', i)
                 val textEnd = if (nextTag == -1) html.length else nextTag
                 val text = html.substring(i, textEnd)
-
-                // Walk character-by-character to preserve original whitespace exactly
-                var ti = 0
-                while (ti < text.length) {
-                    // Collect and emit whitespace as-is
-                    val wsStart = ti
-                    while (ti < text.length && text[ti].isWhitespace()) ti++
-                    if (ti > wsStart) result.append(text, wsStart, ti)
-                    if (ti >= text.length) break
-
-                    // Collect a word (non-whitespace run)
-                    val wordStart = ti
-                    while (ti < text.length && !text[ti].isWhitespace()) ti++
-                    val word = text.substring(wordStart, ti)
-
-                    result.append(word)
-                    wordsSincePunctuation++
-
-                    val endsWithPunctuation = word.lastOrNull()?.let { it in sentenceEndingPunctuation } == true
-                    if (endsWithPunctuation && wordsSincePunctuation >= targetWordCount) {
-                        // Use line breaks instead of forcing paragraph tags.
-                        // This keeps splitting valid for <div>-based chapters and body-level plain HTML.
-                        result.append("<br><br>")
-                        wordsSincePunctuation = 0
-                    }
-                }
+                wordsSincePunctuation = appendTextSegment(
+                    result,
+                    text,
+                    targetWordCount,
+                    wordsSincePunctuation,
+                    "<br><br>",
+                )
                 i = textEnd
             }
         }
 
         return result.toString()
     }
+
+    private fun appendTextSegment(
+        result: StringBuilder,
+        text: String,
+        targetWordCount: Int,
+        initialWordCount: Int,
+        paragraphBreak: String,
+    ): Int {
+        var wordsSincePunctuation = initialWordCount
+        var index = 0
+        while (index < text.length) {
+            val whitespaceStart = index
+            while (index < text.length && text[index].isWhitespace()) index++
+            if (index > whitespaceStart) result.append(text, whitespaceStart, index)
+            if (index >= text.length) break
+
+            val wordStart = index
+            while (index < text.length && !text[index].isWhitespace()) index++
+            val word = text.substring(wordStart, index)
+            result.append(word)
+            wordsSincePunctuation++
+
+            if (word.lastOrNull() in sentenceEndingPunctuation && wordsSincePunctuation >= targetWordCount) {
+                result.append(paragraphBreak)
+                wordsSincePunctuation = 0
+            }
+        }
+        return wordsSincePunctuation
+    }
+
+    private val RAW_TEXT_TAG = Regex("<(script|style)(?:\\s[^>]*)?>", RegexOption.IGNORE_CASE)
 }

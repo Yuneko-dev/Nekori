@@ -50,10 +50,7 @@ internal object NovelWebViewDocumentBuilder {
         val finalContent = if (input.processed.isPlainText) {
             // Per-paragraph <p> (textContent-set, never parsed as markup) instead of one <pre>, so
             // plain text exposes the same block elements the copy/quote paragraph-index counter walks.
-            val paragraphsJsonArray = input.processed.text
-                .split(Regex("\n{2,}"))
-                .filter { it.isNotEmpty() }
-                .joinToString(",", prefix = "[", postfix = "]") { quoteForJson(it) }
+            val paragraphsJsonArray = plainTextParagraphsJson(input.processed.text)
             """
                 <div class="$PLAIN_TEXT_CLASS" $ATTR_DATA_PLAIN_TEXT="1"></div>
                 <script>
@@ -211,6 +208,35 @@ internal object NovelWebViewDocumentBuilder {
         val end = "</$CHAPTER_TAG_NAME>"
         return start to end
     }
+
+    internal fun appendProcessedContentScript(target: String, processed: ProcessedContent): String {
+        if (!processed.isPlainText) {
+            return "$target.innerHTML = ${quoteForJson(extractBodyOrFallback(processed.text))};"
+        }
+
+        return """
+            var plainTextContainer = document.createElement('div');
+            plainTextContainer.className = '$PLAIN_TEXT_CLASS';
+            plainTextContainer.setAttribute('$ATTR_DATA_PLAIN_TEXT', '1');
+            var paragraphs = ${plainTextParagraphsJson(processed.text)};
+            var fragment = document.createDocumentFragment();
+            for (var i = 0; i < paragraphs.length; i++) {
+                var paragraph = document.createElement('p');
+                paragraph.style.whiteSpace = 'pre-wrap';
+                paragraph.style.wordBreak = 'break-word';
+                paragraph.style.overflowWrap = 'anywhere';
+                paragraph.textContent = paragraphs[i];
+                fragment.appendChild(paragraph);
+            }
+            plainTextContainer.appendChild(fragment);
+            $target.appendChild(plainTextContainer);
+        """.trimIndent()
+    }
+
+    private fun plainTextParagraphsJson(text: String): String = text
+        .split(Regex("\n{2,}"))
+        .filter { it.isNotEmpty() }
+        .joinToString(",", prefix = "[", postfix = "]") { quoteForJson(it) }
 
     internal fun extractBodyOrFallback(html: String): String = try {
         val doc = org.jsoup.Jsoup.parse(html)

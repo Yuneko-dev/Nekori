@@ -34,7 +34,9 @@
 
     <!-- Reader Section -->
     <string name="novel_viewer">Tiểu thuyết (văn bản)</string>
-    <string name="novel_nav_center_only">Chỉ vùng giữa</string>
+    <string name="novel_nav_center_only">Chỉ vùng giữa (S)</string>
+    <string name="novel_nav_center_large">Chỉ vùng giữa (M)</string>
+    <string name="novel_nav_zone_height">Chiều cao vùng</string>
     <string name="chapter_progress_novel">%1$d%%</string>
     <string name="novel_page_label">Trang %s</string>
     <string name="novel_volume_label">Tập %s</string>

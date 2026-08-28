@@ -458,12 +458,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     e.y / container.height.toFloat(),
                 )
 
-                // Center-only mode: navigator.getAction defaults every unmatched tap to MENU, so
-                // gate the toggle on the center rect ourselves (parity with the TextView viewer).
-                // Compare against the index constant, not TapZones.size: a seventh tap-zone entry
-                // would silently move that sentinel and disable this branch.
-                if (preferences.navigationModeNovel.get() == ReaderPreferences.TAPZONE_CENTER_INDEX) {
-                    if (pos.x in 0.4f..0.6f && pos.y in 0.4f..0.6f) {
+                if (preferences.navigationModeNovel.get() in ReaderPreferences.TAPZONE_ZONE_ONLY_MODES) {
+                    val menuZone = navigator.getRegions().firstOrNull()?.rectF
+                    if (menuZone != null && menuZone.contains(pos.x, pos.y)) {
                         activity.toggleMenu()
                     }
                     return true
@@ -1674,8 +1671,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         chapterNumber: Float,
         chapterUrl: String?,
     ) {
-        val plainTextMode = processed.isPlainText
-        val escapedContent = quoteForJson(processed.renderableText())
+        val contentScript = NovelWebViewDocumentBuilder.appendProcessedContentScript("chapterElement", processed)
         val token = ++scrollRestoreToken
 
         val js = """
@@ -1690,7 +1686,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 chapterElement.setAttribute('$CHAPTER_NUMBER_ATTR', '$chapterNumber');
                 chapterElement.setAttribute('$CHAPTER_PATH_ATTR', ${quoteForJson(chapterUrl.orEmpty())});
                 chapterElement.setAttribute('$CHAPTER_URL_ATTR', ${quoteForJson(toAbsoluteChapterUrl(chapterUrl))});
-                ${if (plainTextMode) "chapterElement.textContent = $escapedContent;" else "chapterElement.innerHTML = $escapedContent;"}
+                $contentScript
 
                 var divider = document.createElement('div');
                 divider.className = '$CHAPTER_DIVIDER_CLASS';
@@ -1739,8 +1735,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun appendHtmlContent(processed: ProcessedContent, chapterId: Long, chapterName: String, chapterNumber: Float, chapterUrl: String?) {
-        val plainTextMode = processed.isPlainText
-        val escapedContent = quoteForJson(processed.renderableText())
+        val contentScript = NovelWebViewDocumentBuilder.appendProcessedContentScript("chapterElement", processed)
 
         val js = """
             (function() {
@@ -1763,7 +1758,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 chapterElement.setAttribute('$CHAPTER_PATH_ATTR', ${quoteForJson(chapterUrl.orEmpty())});
                 chapterElement.setAttribute('$CHAPTER_URL_ATTR', ${quoteForJson(toAbsoluteChapterUrl(chapterUrl))});
                 chapterElement.setAttribute('${TSUNDOKU_CHAPTER_ATTR}', '1');
-                ${if (plainTextMode) "chapterElement.textContent = $escapedContent;" else "chapterElement.innerHTML = $escapedContent;"}
+                $contentScript
                 chaptersContainer.appendChild(chapterElement);
 
                 // Rebuild boundaries synchronously (getBoundingClientRect forces layout) BEFORE the
@@ -1799,9 +1794,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Appended chapter $chapterId (${loadedChapterIds.size} total)" }
     }
-
-    private fun ProcessedContent.renderableText(): String =
-        if (isPlainText) text else NovelWebViewDocumentBuilder.extractBodyOrFallback(text)
 
     private suspend fun loadHtmlContent(
         processed: ProcessedContent,

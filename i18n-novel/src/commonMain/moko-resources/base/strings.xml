@@ -38,7 +38,9 @@
 
     <!-- Reader Section -->
     <string name="novel_viewer">Novel (text)</string>
-    <string name="novel_nav_center_only">Center only</string>
+    <string name="novel_nav_center_only">Center (S)</string>
+    <string name="novel_nav_center_large">Center (M)</string>
+    <string name="novel_nav_zone_height">Zone height</string>
     <string name="chapter_progress_novel">%1$d%%</string>
     <string name="novel_page_label">Page %s</string>
     <string name="novel_volume_label">Volume %s</string>

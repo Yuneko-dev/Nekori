@@ -3,6 +3,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.util.TextSplitter
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -18,9 +19,23 @@ class ContentPipelineTest {
         every { get() } returns value
     }
 
-    private fun pipelineWith(regexRulesJson: String = "[]"): ContentPipeline {
+    private fun fakeBoolPref(value: Boolean): Preference<Boolean> = mockk {
+        every { get() } returns value
+    }
+
+    private fun fakeIntPref(value: Int): Preference<Int> = mockk {
+        every { get() } returns value
+    }
+
+    private fun pipelineWith(
+        regexRulesJson: String = "[]",
+        autoSplit: Boolean = false,
+        autoSplitWordCount: Int = 20,
+    ): ContentPipeline {
         val prefs = mockk<ReaderPreferences>()
         every { prefs.novelRegexReplacements } returns fakePref(regexRulesJson)
+        every { prefs.novelAutoSplitText } returns fakeBoolPref(autoSplit)
+        every { prefs.novelAutoSplitWordCount } returns fakeIntPref(autoSplitWordCount)
         return ContentPipeline(prefs)
     }
 
@@ -261,6 +276,45 @@ class ContentPipelineTest {
         // Translator-injected comment is then stripped by sanitize, so we shouldn't see it
         // either — but the pre-translator text should match plain's text up to that point.
         assertFalse(translated.text.contains("<!--T-->"))
+    }
+
+    @Test
+    fun `auto-split disabled leaves content untouched`() = runBlocking {
+        val pipeline = pipelineWith(autoSplit = false)
+        val sentence = "word ".repeat(25) + "end."
+        val result = pipeline.process("<p>$sentence</p>", cfg())
+        assertFalse(result.text.contains("<br>"))
+    }
+
+    @Test
+    fun `auto-split enabled inserts break in HTML content past the word threshold`() = runBlocking {
+        val pipeline = pipelineWith(autoSplit = true)
+        val sentence = "word ".repeat(25) + "end."
+        val result = pipeline.process("<p>$sentence</p>", cfg(url = "x.html"))
+        assertTrue(result.text.contains("<br>"))
+    }
+
+    @Test
+    fun `auto-split enabled uses blank-line break for plain-text chapters, not literal html tags`() = runBlocking {
+        val pipeline = pipelineWith(autoSplit = true)
+        val sentence = "word ".repeat(25) + "end. more text after."
+        val result = pipeline.process(sentence, cfg(url = "/path/x.txt"))
+        assertTrue(result.isPlainText)
+        assertTrue(result.text.contains("\n\n"))
+        assertFalse(result.text.contains("<br>"))
+    }
+
+    @Test
+    fun `plain-text auto-split preserves existing whitespace`() {
+        val text = "First  line.\n\nSecond\tline."
+        assertEquals(text, TextSplitter.splitText(text, wordCount = 20, isHtml = false))
+    }
+
+    @Test
+    fun `html auto-split leaves embedded script and style bodies untouched`() {
+        val rawText = "word ".repeat(25) + "end."
+        val html = "<script>$rawText</script><style>$rawText</style>"
+        assertEquals(html, TextSplitter.splitText(html, wordCount = 20, isHtml = true))
     }
 
     @Test

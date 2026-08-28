@@ -7,13 +7,9 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.util.TextSplitter
 import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.core.common.util.lang.withIOContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Loader used to load pages for a local novel source.
@@ -22,7 +18,6 @@ class LocalNovelPageLoader(
     private val chapter: ReaderChapter,
     private val source: Source,
     private val forceRefresh: Boolean = false,
-    private val readerPreferences: ReaderPreferences = Injekt.get(),
 ) : PageLoader() {
 
     override var isLocal: Boolean = true
@@ -66,16 +61,7 @@ class LocalNovelPageLoader(
                 // A reload from source must outlive the plugin's chapter-text cache, or it replays
                 // the same HTML for as long as that entry stays fresh.
                 if (forceRefresh) (source as? JsSource)?.invalidateChapterText(page.url)
-                var text = source.fetchPageText(Page(page.index, page.url, page.imageUrl))
-                // Apply auto-split if enabled
-                if (readerPreferences.novelAutoSplitText.get()) {
-                    val wordCount = readerPreferences.novelAutoSplitWordCount.get().coerceAtLeast(20)
-                    if (wordCount > 0) {
-                        text = TextSplitter.splitText(text, wordCount)
-                    }
-                }
-
-                page.text = text
+                page.text = source.fetchPageText(Page(page.index, page.url, page.imageUrl))
                 page.status = Page.State.Ready
             } else {
                 throw IllegalStateException("Source is not a NovelSource")

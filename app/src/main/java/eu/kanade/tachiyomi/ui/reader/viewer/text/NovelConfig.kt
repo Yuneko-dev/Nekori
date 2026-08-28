@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.BottomNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.CenterNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.EdgeNavigation
@@ -18,7 +19,7 @@ import uy.kohesive.injekt.api.get
 
 class NovelConfig(
     scope: CoroutineScope,
-    readerPreferences: ReaderPreferences = Injekt.get(),
+    private val readerPreferences: ReaderPreferences = Injekt.get(),
 ) : ViewerConfig(readerPreferences, scope) {
 
     // suppress tap-zone preview on initial flow emit during construction
@@ -34,6 +35,11 @@ class NovelConfig(
             .drop(1)
             .onEach { navigationModeChangedListener?.invoke() }
             .launchIn(scope)
+
+        readerPreferences.novelBottomZoneHeight.changes()
+            .drop(1)
+            .onEach { if (navigationMode == ReaderPreferences.TAPZONE_BOTTOM_INDEX) updateNavigation(navigationMode) }
+            .launchIn(scope)
     }
 
     override var navigator: ViewerNavigation = defaultNavigation()
@@ -46,6 +52,7 @@ class NovelConfig(
     }
 
     override fun updateNavigation(navigationMode: Int) {
+        coerceInvertForZoneOnlyMode(navigationMode)
         this.navigator = when (navigationMode) {
             0 -> defaultNavigation()
             1 -> LNavigation()
@@ -53,6 +60,9 @@ class NovelConfig(
             3 -> EdgeNavigation()
             4 -> RightAndLeftNavigation()
             ReaderPreferences.TAPZONE_CENTER_INDEX -> CenterNavigation()
+            ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX -> CenterNavigation(large = true)
+            ReaderPreferences.TAPZONE_BOTTOM_INDEX ->
+                BottomNavigation(readerPreferences.novelBottomZoneHeight.get() / 100f)
             ReaderPreferences.TAPZONE_DISABLED_INDEX -> DisabledNavigation()
             else -> defaultNavigation()
         }
@@ -60,6 +70,33 @@ class NovelConfig(
             navigationModeChangedListener?.invoke()
         } else {
             initialNavigationConsumed = true
+        }
+    }
+
+    /**
+     * Zone-only modes expose a restricted invert choice in settings (center: none only;
+     * bottom: none or vertical). A wider value carried over from a previous nav mode would
+     * leave the settings chip row showing nothing selected while still shifting the zone.
+     * Snap it to the nearest equivalent so the navigator and the chip row agree.
+     */
+    private fun coerceInvertForZoneOnlyMode(navigationMode: Int) {
+        val pref = readerPreferences.novelNavInverted
+        val current = pref.get()
+        val target = when (navigationMode) {
+            ReaderPreferences.TAPZONE_CENTER_INDEX,
+            ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX,
+            -> ReaderPreferences.TappingInvertMode.NONE
+            ReaderPreferences.TAPZONE_BOTTOM_INDEX -> when (current) {
+                // Horizontal invert is a no-op on the full-width bottom rect; both == vertical.
+                ReaderPreferences.TappingInvertMode.HORIZONTAL -> ReaderPreferences.TappingInvertMode.NONE
+                ReaderPreferences.TappingInvertMode.BOTH -> ReaderPreferences.TappingInvertMode.VERTICAL
+                else -> current
+            }
+            else -> return
+        }
+        if (target != current) {
+            tappingInverted = target
+            pref.set(target)
         }
     }
 }
