@@ -24,6 +24,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Paragraph auto-split now runs once in the shared content pipeline, using the reader's HTML/plain-text classification before translation instead of repeating a heuristic in each page loader.
 
 ### Fixed
+- Extension version rows no longer inherit a stray leading separator from previously composed metadata.
 - Auto-split now preserves TXT whitespace and paragraph breaks, handles inline-only HTML correctly, leaves embedded script/style bodies untouched, and keeps paragraph nodes when TXT chapters are prepended or appended by infinite scroll.
 - NovelUpdates tracker requests now use the shared application User-Agent instead of a hardcoded Firefox User-Agent, keeping tracker requests aligned with the app's WebView fingerprint for Cloudflare handling.
 - NovelUpdates notes responses with a trailing zero suffix no longer trigger a regex error, restoring chapter-progress reads and updates during tracking.

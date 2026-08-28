@@ -381,7 +381,7 @@ private fun ExtensionItemContent(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
         ) {
             ProvideTextStyle(value = MaterialTheme.typography.bodySmall) {
-                var hasAlreadyShownAnElement by remember { mutableStateOf(false) }
+                var hasAlreadyShownAnElement = false
                 if (extension is Extension.Installed && extension.lang.isNotEmpty()) {
                     hasAlreadyShownAnElement = true
                     Text(
