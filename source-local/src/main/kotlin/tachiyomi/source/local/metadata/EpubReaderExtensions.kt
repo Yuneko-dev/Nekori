@@ -9,7 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 const val DEFAULT_EPUB_COVER_URL =
-    "https://github.com/Yuneko-dev/lnreader-plugins/blob/master/public/static/coverNotAvailable.webp?raw=true"
+    "https://github.com/Yuneko-dev/Nekori-plugins/blob/master/public/static/coverNotAvailable.webp?raw=true"
 
 /**
  * Fills manga and chapter metadata using this epub file's metadata.
