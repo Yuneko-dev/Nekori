@@ -170,6 +170,89 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun typedBrowseCallsForwardArgumentsToTheRuntimeKey() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'browse.test',
+              name: 'Browse test',
+              version: '1',
+              site: 'https://example.invalid',
+              filters: { category: { type: 'Picker', value: 'default' } },
+              popularNovels: async (page, options) => [{
+                name: `${'$'}{page}:${'$'}{options.showLatestNovels}:${'$'}{options.filters.category.value}`,
+                path: '/popular',
+              }],
+              searchNovels: async (query, page) => [{ name: `${'$'}{query}:${'$'}{page}`, path: '/search' }],
+            };
+        """.trimIndent()
+
+        runtime.call(
+            "plugin.load",
+            """{"id":"browse.test","key":"browse.test@v1","code":${quote(code)}}""",
+        )
+
+        assertEquals(
+            "3:true:action",
+            Json.parseToJsonElement(
+                runtime.call(
+                    "plugin.popularNovels",
+                    """{"id":"browse.test","key":"browse.test@v1","page":3,"showLatestNovels":true,"filters":{"category":{"type":"Picker","value":"action"}}}""",
+                ),
+            ).jsonObject["novels"]?.jsonArray?.single()?.jsonObject?.get("name")?.jsonPrimitive?.content,
+        )
+        assertEquals(
+            "a'b:4",
+            Json.parseToJsonElement(
+                runtime.call(
+                    "plugin.searchNovels",
+                    """{"id":"browse.test","key":"browse.test@v1","query":"a'b","page":4}""",
+                ),
+            ).jsonObject["novels"]?.jsonArray?.single()?.jsonObject?.get("name")?.jsonPrimitive?.content,
+        )
+    }
+
+    @Test
+    fun typedPluginStateCallsReadFromTheRuntimeKey() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            exports.default = {
+              id: 'state.test',
+              name: 'State test',
+              version: '1',
+              site: 'https://state.invalid',
+              webStorageUtilized: true,
+              filters: { category: { type: 'Picker', value: 'default' } },
+              pluginSettings: { enabled: { type: 'Switch', value: true } },
+            };
+        """.trimIndent()
+
+        runtime.call(
+            "plugin.load",
+            """{"id":"state.test","key":"state.test@v1","code":${quote(code)}}""",
+        )
+
+        assertEquals(
+            "https://state.invalid",
+            Json.parseToJsonElement(
+                runtime.call("plugin.metadata", """{"id":"state.test","key":"state.test@v1"}"""),
+            ).jsonObject["site"]?.jsonPrimitive?.content,
+        )
+        assertEquals(
+            "default",
+            Json.parseToJsonElement(
+                runtime.call("plugin.filters", """{"id":"state.test","key":"state.test@v1"}"""),
+            ).jsonObject["category"]?.jsonObject?.get("value")?.jsonPrimitive?.content,
+        )
+        assertEquals(
+            true,
+            Json.parseToJsonElement(
+                runtime.call("plugin.settings", """{"id":"state.test","key":"state.test@v1"}"""),
+            ).jsonObject["enabled"]?.jsonObject?.get("value")?.jsonPrimitive?.content?.toBoolean(),
+        )
+    }
+
+    @Test
     fun inspectingAPluginDoesNotRequireKnowingItsId() = runBlocking {
         val runtime = createRuntime()
         val code = """

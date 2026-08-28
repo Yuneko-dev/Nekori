@@ -40,6 +40,7 @@ import {
   resolvePluginUrl,
 } from './plugins/pluginHost';
 import { PluginContentType, PluginContentWarning } from './plugins/types';
+import type { Filters, FilterToValues } from './plugins/types/filterTypes';
 
 declare const global: {
   __TSUNDOKU_JS_READY__?: boolean;
@@ -178,26 +179,80 @@ registerHandler('plugin.webStorageSet', async args => {
 });
 
 registerHandler('plugin.popularNovels', async args => {
-  const { id, page } = args as { id: string; page: number };
-  const plugin = getPlugin(id);
-  const novels = await plugin.popularNovels(page, {
-    showLatestNovels: false,
-    // Not `undefined`. Plugins dereference their own declared filters — Báo Mới reads
-    // `filters.page.value` — so the host is expected to materialize the plugin's defaults, each of
-    // which already carries a `value`. M1's filter system has to do this properly; passing
-    // `undefined` is what LNReader's type signature allows and what real plugins crash on.
-    filters: plugin.filters,
-  });
-  return { novels };
+  const {
+    id,
+    key,
+    page,
+    showLatestNovels = false,
+    filters,
+  } = args as {
+    id: string;
+    key?: string;
+    page: number;
+    showLatestNovels?: boolean;
+    filters?: FilterToValues<Filters>;
+  };
+  const runtimeKey = key ?? id;
+  const plugin = getPlugin(runtimeKey);
+  try {
+    const novels = await plugin.popularNovels(page, {
+      showLatestNovels,
+      filters: filters ?? plugin.filters,
+    });
+    return { novels };
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
 });
 
 registerHandler('plugin.searchNovels', async args => {
-  const { id, query, page } = args as {
+  const { id, key, query, page } = args as {
     id: string;
+    key?: string;
     query: string;
     page: number;
   };
-  return { novels: await getPlugin(id).searchNovels(query, page) };
+  const runtimeKey = key ?? id;
+  try {
+    return { novels: await getPlugin(runtimeKey).searchNovels(query, page) };
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
+});
+
+registerHandler('plugin.metadata', async args => {
+  const { id, key } = args as { id: string; key?: string };
+  const runtimeKey = key ?? id;
+  try {
+    const plugin = getPlugin(runtimeKey);
+    return {
+      site: plugin.site,
+      webStorageUtilized: plugin.webStorageUtilized === true,
+      imageRequestInit: plugin.imageRequestInit,
+    };
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
+});
+
+registerHandler('plugin.filters', async args => {
+  const { id, key } = args as { id: string; key?: string };
+  const runtimeKey = key ?? id;
+  try {
+    return getPlugin(runtimeKey).filters ?? {};
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
+});
+
+registerHandler('plugin.settings', async args => {
+  const { id, key } = args as { id: string; key?: string };
+  const runtimeKey = key ?? id;
+  try {
+    return getPlugin(runtimeKey).pluginSettings ?? {};
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
 });
 
 registerHandler('plugin.parseNovel', async args => {

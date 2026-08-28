@@ -98,6 +98,13 @@ class JsSource(
     // inferHasNextPage probe result, reused when the user pages forward.
     private val browseProbeCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
+    private data class BrowseCall(
+        val method: String,
+        val payload: JsonObject,
+    ) {
+        val cacheKey: String = "$method\u0000$payload"
+    }
+
     // Raw JSON of plugin.filters / plugin.pluginSettings. Static per plugin version.
     @Volatile private var filtersJsonCache: String? = null
 
@@ -235,16 +242,11 @@ class JsSource(
             installedPlugin.customCSS == other.customCSS &&
             installedPlugin.customJS == other.customJS
 
-    /** Execute one plugin expression and return its JSON result. */
-    private suspend fun executePluginMethod(methodCall: String): String {
+    /** Execute one typed plugin RPC and return its JSON result. */
+    private suspend fun callPlugin(method: String, payload: JsonObject): String {
         ensureLoadedInHermes()
-        val payload = buildJsonObject {
-            put("id", pluginId)
-            put("key", runtimeKey)
-            put("expression", methodCall)
-        }.toString()
         return withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
-            hermesRuntime.call("plugin.eval", payload)
+            hermesRuntime.call(method, payload.toString())
         }
     }
 
@@ -315,9 +317,12 @@ class JsSource(
     }
 
     private suspend fun refreshRuntimeMetadata() {
-        val metadata = executePluginMethod(
-            "({ site: plugin.site, webStorageUtilized: plugin.webStorageUtilized === true, " +
-                "imageRequestInit: plugin.imageRequestInit })",
+        val metadata = callPlugin(
+            "plugin.metadata",
+            buildJsonObject {
+                put("id", pluginId)
+                put("key", runtimeKey)
+            },
         )
         applyRuntimeMetadata(json.parseToJsonElement(metadata).jsonObject)
     }
@@ -370,48 +375,65 @@ class JsSource(
      * Execute a browse method call, consuming a matching inferHasNextPage probe result if one
      * is pending so paging forward doesn't refetch the page the probe already pulled.
      */
-    private suspend fun executeBrowseMethod(methodCall: String): String {
-        browseProbeCache.remove(methodCall)?.let { (cached, ts) ->
+    private fun popularBrowseCall(
+        page: Int,
+        showLatestNovels: Boolean,
+        filters: JsonObject? = null,
+    ) = BrowseCall(
+        method = "plugin.popularNovels",
+        payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", runtimeKey)
+            put("page", page)
+            put("showLatestNovels", showLatestNovels)
+            filters?.let { put("filters", it) }
+        },
+    )
+
+    private fun searchBrowseCall(query: String, page: Int) = BrowseCall(
+        method = "plugin.searchNovels",
+        payload = buildJsonObject {
+            put("id", pluginId)
+            put("key", runtimeKey)
+            put("query", query)
+            put("page", page)
+        },
+    )
+
+    private suspend fun executeBrowseMethod(call: BrowseCall): String {
+        browseProbeCache.remove(call.cacheKey)?.let { (cached, ts) ->
             if (System.currentTimeMillis() - ts < BROWSE_PROBE_TTL_MS) {
                 return cached
             }
         }
-        return executePluginMethod(methodCall)
+        return callPlugin(call.method, call.payload)
     }
 
     // CatalogueSource implementation
 
     override suspend fun getPopularManga(page: Int): MangasPage = withContext(Dispatchers.IO) {
-        val currentResult =
-            executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })")
+        val currentResult = executeBrowseMethod(popularBrowseCall(page, showLatestNovels = false))
         val parsed = parseMangasPage(currentResult, page)
         inferHasNextPage(
             currentPage = page,
             current = parsed,
-            methodCallForPage = { probePage ->
-                "plugin.popularNovels($probePage, { showLatestNovels: false, filters: plugin.filters })"
-            },
+            callForPage = { probePage -> popularBrowseCall(probePage, showLatestNovels = false) },
         )
     }
 
     override suspend fun getLatestUpdates(page: Int): MangasPage = withContext(Dispatchers.IO) {
-        val currentResult =
-            executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: true, filters: plugin.filters })")
+        val currentResult = executeBrowseMethod(popularBrowseCall(page, showLatestNovels = true))
         val parsed = parseMangasPage(currentResult, page)
         inferHasNextPage(
             currentPage = page,
             current = parsed,
-            methodCallForPage = { probePage ->
-                "plugin.popularNovels($probePage, { showLatestNovels: true, filters: plugin.filters })"
-            },
+            callForPage = { probePage -> popularBrowseCall(probePage, showLatestNovels = true) },
         )
     }
 
     override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = withContext(
         Dispatchers.IO,
     ) {
-        val escapedQuery = escapeJsString(query)
-
         // Determine if non-default filters are present
         val hasActiveFilters = filters.isNotEmpty() && filters.any { filter ->
             when (filter) {
@@ -428,39 +450,35 @@ class JsSource(
 
         if (query.isNotBlank()) {
             // Use searchNovels for text search
-            val currentResult = executeBrowseMethod("plugin.searchNovels('$escapedQuery', $page)")
+            val currentResult = executeBrowseMethod(searchBrowseCall(query, page))
             val parsed = parseMangasPage(currentResult, page)
             inferHasNextPage(
                 currentPage = page,
                 current = parsed,
-                methodCallForPage = { probePage -> "plugin.searchNovels('$escapedQuery', $probePage)" },
+                callForPage = { probePage -> searchBrowseCall(query, probePage) },
             )
         } else if (hasActiveFilters) {
             // Use popularNovels with user-modified filters
-            val filtersJs = convertFiltersToJs(filters)
-            val currentResult =
-                executeBrowseMethod("plugin.popularNovels($page, { showLatestNovels: false, filters: $filtersJs })")
+            val filterValues = convertFiltersToJson(filters)
+            val currentResult = executeBrowseMethod(
+                popularBrowseCall(page, showLatestNovels = false, filters = filterValues),
+            )
             val parsed = parseMangasPage(currentResult, page)
             inferHasNextPage(
                 currentPage = page,
                 current = parsed,
-                methodCallForPage = { probePage ->
-                    "plugin.popularNovels($probePage, { showLatestNovels: false, filters: $filtersJs })"
+                callForPage = { probePage ->
+                    popularBrowseCall(probePage, showLatestNovels = false, filters = filterValues)
                 },
             )
         } else {
             // Default to popular with plugin's original filters
-            val currentResult =
-                executeBrowseMethod(
-                    "plugin.popularNovels($page, { showLatestNovels: false, filters: plugin.filters })",
-                )
+            val currentResult = executeBrowseMethod(popularBrowseCall(page, showLatestNovels = false))
             val parsed = parseMangasPage(currentResult, page)
             inferHasNextPage(
                 currentPage = page,
                 current = parsed,
-                methodCallForPage = { probePage ->
-                    "plugin.popularNovels($probePage, { showLatestNovels: false, filters: plugin.filters })"
-                },
+                callForPage = { probePage -> popularBrowseCall(probePage, showLatestNovels = false) },
             )
         }
     }
@@ -469,7 +487,7 @@ class JsSource(
      * Convert Tsundoku FilterList back to JS filter object format for plugin.
      * Uses JsonObject builder to avoid kotlinx.serialization issues with Map<String, Any>.
      */
-    private fun convertFiltersToJs(filters: FilterList): String {
+    private fun convertFiltersToJson(filters: FilterList): JsonObject {
         val filterEntries = mutableMapOf<String, JsonElement>()
 
         filters.forEach { filter ->
@@ -541,7 +559,7 @@ class JsSource(
             }
         }
 
-        return JsonObject(filterEntries).toString()
+        return JsonObject(filterEntries)
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
@@ -597,7 +615,13 @@ class JsSource(
     suspend fun getFilterListAsync(): FilterList {
         return try {
             val result = filtersJsonCache
-                ?: executePluginMethod("plugin.filters || {}")
+                ?: callPlugin(
+                    "plugin.filters",
+                    buildJsonObject {
+                        put("id", pluginId)
+                        put("key", runtimeKey)
+                    },
+                )
                     .also { filtersJsonCache = it }
             parseFiltersFromJson(result)
         } catch (e: Exception) {
@@ -616,7 +640,13 @@ class JsSource(
         try {
             val settings = withContext(Dispatchers.IO) {
                 val result = pluginSettingsJsonCache
-                    ?: executePluginMethod("JSON.stringify(plugin.pluginSettings || {})")
+                    ?: callPlugin(
+                        "plugin.settings",
+                        buildJsonObject {
+                            put("id", pluginId)
+                            put("key", runtimeKey)
+                        },
+                    )
                         .also { pluginSettingsJsonCache = it }
                 val settingsJson = decodeJsonStringIfQuoted(result)
                 if (settingsJson.isBlank() || settingsJson == "{}" || settingsJson == "null") {
@@ -810,10 +840,6 @@ class JsSource(
         }
     }
 
-    /** Escape a value for embedding in a single-quoted JS string literal. */
-    private fun escapeJsString(value: String): String =
-        value.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"")
-
     /** plugin.parseNovel with raw-result caching and in-flight dedup. */
     private suspend fun parseNovelCached(mangaUrl: String): String {
         val path = mangaUrl
@@ -946,7 +972,7 @@ class JsSource(
     private suspend fun inferHasNextPage(
         currentPage: Int,
         current: MangasPage,
-        methodCallForPage: (Int) -> String,
+        callForPage: (Int) -> BrowseCall,
     ): MangasPage {
         if (current.hasNextPage || current.mangas.isEmpty()) {
             return current
@@ -954,8 +980,8 @@ class JsSource(
 
         val probePage = currentPage + 1
         return try {
-            val probeCall = methodCallForPage(probePage)
-            val nextResult = executePluginMethod(probeCall)
+            val probeCall = callForPage(probePage)
+            val nextResult = callPlugin(probeCall.method, probeCall.payload)
             // Save so paging to probePage serves this result instead of refetching it.
             // Evict oldest under lock so a concurrent probe's fresh entry isn't wiped.
             synchronized(browseProbeCache) {
@@ -963,7 +989,7 @@ class JsSource(
                     val oldest = browseProbeCache.minByOrNull { it.value.second }?.key ?: break
                     browseProbeCache.remove(oldest)
                 }
-                browseProbeCache[probeCall] = nextResult to System.currentTimeMillis()
+                browseProbeCache[probeCall.cacheKey] = nextResult to System.currentTimeMillis()
             }
             val nextParsed = parseMangasPage(nextResult, probePage)
             MangasPage(current.mangas, nextParsed.mangas.isNotEmpty())

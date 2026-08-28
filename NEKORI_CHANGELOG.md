@@ -24,6 +24,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Plugin details now keep uninstall and website actions side by side; Website opens the plugin site in the in-app WebView instead of Android app information.
 - Paragraph auto-split now runs once in the shared content pipeline, using the reader's HTML/plain-text classification before translation instead of repeating a heuristic in each page loader.
 
+### Improved
+- Browse, search, filters, plugin settings and runtime metadata now use typed bridge calls instead of compiling a new JavaScript expression for every request.
+
 ### Fixed
 - Extension version rows no longer inherit a stray leading separator from previously composed metadata.
 - Auto-split now preserves TXT whitespace and paragraph breaks, handles inline-only HTML correctly, leaves embedded script/style bodies untouched, and keeps paragraph nodes when TXT chapters are prepended or appended by infinite scroll.
