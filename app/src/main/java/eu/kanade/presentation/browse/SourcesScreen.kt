@@ -71,7 +71,11 @@ fun SourcesScreen(
     when {
         state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
         state.isEmpty -> EmptyScreen(
-            stringRes = MR.strings.source_empty_screen,
+            stringRes = if (state.searchQuery.isNullOrBlank()) {
+                MR.strings.source_empty_screen
+            } else {
+                MR.strings.no_results_found
+            },
             modifier = Modifier.padding(contentPadding),
         )
         else -> {
@@ -79,7 +83,7 @@ fun SourcesScreen(
                 contentPadding = contentPadding + topSmallPaddingValues,
             ) {
                 items(
-                    items = state.items,
+                    items = state.filteredItems,
                     contentType = {
                         when (it) {
                             is SourceUiModel.Header -> "header"

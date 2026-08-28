@@ -18,6 +18,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Added
 - Novel reader tap zones now include a medium center zone and an adjustable full-width zone at the top or bottom of the screen.
+- Browse sources can now be filtered by plugin name or language using the same search toolbar as extensions.
 
 ### Changed
 - Plugin details now keep uninstall and website actions side by side; Website opens the plugin site in the in-app WebView instead of Android app information.

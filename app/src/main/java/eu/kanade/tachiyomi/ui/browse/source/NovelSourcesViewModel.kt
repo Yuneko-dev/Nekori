@@ -122,6 +122,10 @@ class NovelSourcesViewModel(
         toggleSource.await(source)
     }
 
+    fun search(query: String?) {
+        mutableState.update { it.copy(searchQuery = query) }
+    }
+
     fun togglePin(source: Source) {
         toggleSourcePin.await(source)
     }
@@ -168,9 +172,8 @@ class NovelSourcesViewModel(
         val dialog: Dialog? = null,
         val isLoading: Boolean = true,
         val items: List<SourceUiModel> = listOf(),
-    ) {
-        val isEmpty = items.isEmpty()
-    }
+        val searchQuery: String? = null,
+    )
 
     companion object {
         const val PINNED_KEY = "pinned"

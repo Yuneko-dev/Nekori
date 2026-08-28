@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -25,13 +24,15 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
-fun Screen.novelSourcesTab(): TabContent {
+fun Screen.novelSourcesTab(
+    screenModel: NovelSourcesViewModel,
+): TabContent {
     val navigator = LocalNavigator.currentOrThrow
-    val screenModel = viewModel<NovelSourcesViewModel>()
     val state by screenModel.state.collectAsState()
 
     return TabContent(
         titleRes = MR.strings.label_sources,
+        searchEnabled = true,
         actions = listOf(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
@@ -55,6 +56,7 @@ fun Screen.novelSourcesTab(): TabContent {
                     dialog = mappedDialog,
                     isLoading = state.isLoading,
                     items = state.items,
+                    searchQuery = state.searchQuery,
                 ),
                 contentPadding = contentPadding,
                 onClickItem = { source, listing ->

@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.NovelExtensionsViewModel
 import eu.kanade.tachiyomi.ui.browse.extension.novelExtensionsTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.novelMigrateSourceTab
+import eu.kanade.tachiyomi.ui.browse.source.NovelSourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.NovelGlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.novelSourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -56,11 +57,14 @@ data object BrowseTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        val sourcesViewModel = viewModel<NovelSourcesViewModel>()
+        val sourcesState by sourcesViewModel.state.collectAsState()
         val extensionsViewModel = viewModel<NovelExtensionsViewModel>()
         val extensionsState by extensionsViewModel.state.collectAsState()
+        val sourcesTabIndex = 0
         val extensionsTabIndex = 1
         val tabs = listOf(
-            novelSourcesTab(),
+            novelSourcesTab(sourcesViewModel),
             novelExtensionsTab(extensionsViewModel),
             novelMigrateSourceTab(),
         )
@@ -71,10 +75,16 @@ data object BrowseTab : Tab {
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
-            searchQuery = extensionsState.searchQuery.takeIf { state.currentPage == extensionsTabIndex },
+            searchQuery = when (state.currentPage) {
+                sourcesTabIndex -> sourcesState.searchQuery
+                extensionsTabIndex -> extensionsState.searchQuery
+                else -> null
+            },
             onChangeSearchQuery = { query ->
-                if (state.currentPage == extensionsTabIndex) {
-                    extensionsViewModel.search(query)
+                when (state.currentPage) {
+                    sourcesTabIndex -> sourcesViewModel.search(query)
+                    extensionsTabIndex -> extensionsViewModel.search(query)
+                    else -> Unit
                 }
             },
         )
