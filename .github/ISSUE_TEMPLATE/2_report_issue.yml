@@ -52,7 +52,7 @@ body:
       label: Nekori version
       description: You can find your Nekori version in **More → About**.
       placeholder: |
-        Example: "0.0.6"
+        Example: "0.0.7"
     validations:
       required: true
 
