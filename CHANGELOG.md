@@ -11,6 +11,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
+
+## [v0.3.3] - 2026-08-30
 ### Improved
 - Massimport deeplink support [@mrissaoussama](https://github.com/mrissaoussama) [#409](https://github.com/tsundoku-otaku/tsundoku/pull/409)
 - Add option to clear only error-free completed massimport batches [@mrissaoussama](https://github.com/mrissaoussama) [#402](https://github.com/tsundoku-otaku/tsundoku/pull/402)
@@ -19,6 +21,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 
 ### Fixed
+- Route novel-extension deeplinks to novel global search [@mrissaoussama](https://github.com/mrissaoussama) [#417](https://github.com/tsundoku-otaku/tsundoku/pull/417)
 - Library sort by last read now updates after reading [@mrissaoussama](https://github.com/mrissaoussama) [#400](https://github.com/tsundoku-otaku/tsundoku/pull/400)
 - Update QuickJS [@mrissaoussama](https://github.com/mrissaoussama) [#414](https://github.com/tsundoku-otaku/tsundoku/pull/414)
 - Double-tapping browse now does novel search if manga UI hidden [@mrissaoussama](https://github.com/mrissaoussama) [#401](https://github.com/tsundoku-otaku/tsundoku/pull/401)
@@ -381,7 +384,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - **Browse Screen Enhancements**: Jump-to-page, page range loading, back confirmation
 
 
-[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.1...main
+[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.3...main
+[v0.3.3]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.2.0...v0.3.0
