@@ -93,6 +93,7 @@
     <string name="mass_import_confirm_clear_completed_title">Xóa các lô đã hoàn tất?</string>
     <string name="mass_import_confirm_clear_completed_message">Thao tác này sẽ xóa mọi lô đã hoàn tất và đã hủy khỏi hàng đợi.</string>
     <string name="mass_import_button_clear">Xóa</string>
+    <string name="mass_import_button_clear_no_errors">Xóa các mục không có lỗi</string>
     <string name="mass_import_confirm_clear_pending_title">Xóa các URL đang chờ?</string>
     <string name="mass_import_confirm_clear_pending_message">Thao tác này sẽ xóa mọi URL đang chờ khỏi trường nhập.</string>
     <string name="mass_import_confirm_cancel_all_title">Hủy tất cả lô nhập?</string>
