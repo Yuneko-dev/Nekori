@@ -89,7 +89,7 @@ internal class NovelWebViewPreferenceObserver(
         }
 
         scope.launch {
-            preferences.novelTtsUseTikTok.changes()
+            preferences.novelTtsEngine.changes()
                 .drop(1)
                 .collect { onTtsEngineChanged() }
         }

@@ -12,6 +12,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
+import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
+import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
 import eu.kanade.presentation.reader.settings.novelThemes
 import eu.kanade.presentation.reader.settings.rememberNovelFontOptions
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -47,7 +49,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelSourceCssPriority,
             readerPref.novelTtsSpeed,
             readerPref.novelTtsPitch,
-            readerPref.novelTtsUseTikTok,
+            readerPref.novelTtsEngine,
+            readerPref.novelTtsVoice,
             readerPref.novelTtsTikTokVoice,
             readerPref.novelStatusBarOrder,
         )
@@ -458,10 +461,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = readerPreferences.novelTtsEnabled,
                     title = stringResource(TDMR.strings.pref_novel_tts_enabled),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelTtsUseTikTok,
-                    title = stringResource(TDMR.strings.pref_novel_tts_use_tiktok),
-                ),
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(TDMR.strings.pref_novel_tts_engine),
+                ) { NovelTtsEnginePreference(readerPreferences) },
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(TDMR.strings.pref_novel_tts_voice),
+                ) { NovelTtsVoicePreference(readerPreferences) },
                 Preference.PreferenceItem.SliderPreference(
                     value = (ttsSpeed * 10).toInt(),
                     valueRange = 1..30,
@@ -480,6 +485,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = readerPreferences.novelTtsAutoNextChapter,
                     title = stringResource(TDMR.strings.settings_reader_tts_auto_next_title),
                     subtitle = stringResource(TDMR.strings.settings_reader_tts_auto_next_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelTtsBackgroundPlayback,
+                    title = stringResource(TDMR.strings.novel_tts_background_playback),
+                    subtitle = stringResource(TDMR.strings.novel_tts_background_playback_summary),
+                ),
+                Preference.PreferenceItem.InfoPreference(
+                    stringResource(TDMR.strings.novel_tts_advanced_settings_info),
                 ),
             ),
         )

@@ -5,6 +5,10 @@
     <queries>
         <!-- Needed to detect Google Play Services availability for telemetry init -->
         <package android:name="com.google.android.gms" />
+        <!-- Android 11+ package visibility for installed text-to-speech engines -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <!-- Internet -->

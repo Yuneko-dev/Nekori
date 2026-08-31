@@ -351,8 +351,11 @@
     <string name="pref_novel_tts_section">Text-to-Speech</string>
     <string name="pref_novel_tts_speed">Speech speed</string>
     <string name="pref_novel_tts_pitch">Speech pitch</string>
-    <string name="pref_novel_tts_use_tiktok">(Experimental) Use TikTok TTS</string>
+    <string name="pref_novel_tts_engine">Engine</string>
+    <string name="novel_tts_system_engine">System default</string>
+    <string name="novel_tts_tiktok_engine">TikTok TTS (online, unstable)</string>
     <string name="pref_novel_tts_voice">Voice</string>
+    <string name="novel_tts_advanced_settings_info">Open the reader settings while reading to customize highlighting, auto-start, and other advanced TTS options.</string>
     <string name="pref_novel_tts_auto_next">Auto-play next chapter</string>
     <string name="novel_tts_playback_error">Text-to-speech failed: %s</string>
 
@@ -1290,6 +1293,7 @@
     <string name="novel_tts_keep_highlight_in_view">Keep highlighted paragraph in view</string>
     <string name="novel_tts_auto_start_on_panel_open">Auto-start TTS when opening controls panel</string>
     <string name="novel_tts_background_playback">Keep TTS running in background</string>
+    <string name="novel_tts_background_playback_summary">Continue while the reader stays open; closing it or removing the app from recents stops playback.</string>
     <string name="novel_tts_highlight_style">Highlight style</string>
     <string name="novel_tts_highlight_style_background">Background</string>
     <string name="novel_tts_highlight_style_underline">Underline</string>

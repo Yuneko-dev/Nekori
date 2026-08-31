@@ -16,6 +16,15 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Text-to-speech settings now provide shared engine and voice pickers in both global novel-reader settings and the in-reader TTS panel, plus the existing background-playback control.
+
+### Changed
+- TikTok TTS is now an explicitly labeled online, unstable engine choice instead of a separate experimental toggle.
+
+### Fixed
+- Android 11 and newer can discover third-party TTS services such as MultiTTS, and a failed Android TTS initialization can be retried without reopening the reader.
+
 ## [v0.0.7] - 2026-08-28
 
 ### Added

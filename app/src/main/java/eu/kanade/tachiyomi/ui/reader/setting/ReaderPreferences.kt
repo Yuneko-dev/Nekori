@@ -275,7 +275,17 @@ class ReaderPreferences(
     val novelTtsEnabled: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_enabled", true)
     val novelTtsSpeed: Preference<Float> = preferenceStore.getFloat("pref_novel_tts_speed", 1.0f)
     val novelTtsPitch: Preference<Float> = preferenceStore.getFloat("pref_novel_tts_pitch", 1.0f)
-    val novelTtsUseTikTok: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_use_tiktok", false)
+    private val legacyNovelTtsUseTikTok: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_novel_tts_use_tiktok", false)
+    val novelTtsEngine: Preference<String> = preferenceStore.getString(
+        "pref_novel_tts_engine",
+        NovelTtsEngine.SystemDefault.preferenceValue,
+    ).also { enginePreference ->
+        if (!enginePreference.isSet() && legacyNovelTtsUseTikTok.get()) {
+            enginePreference.set(NovelTtsEngine.TikTok.preferenceValue)
+        }
+        if (legacyNovelTtsUseTikTok.isSet()) legacyNovelTtsUseTikTok.delete()
+    }
     val novelTtsVoice: Preference<String> = preferenceStore.getString("pref_novel_tts_voice", "")
     val novelTtsTikTokVoice: Preference<String> = preferenceStore.getString("pref_novel_tts_tiktok_voice", "")
     val novelTtsAutoNextChapter: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_auto_next", true)

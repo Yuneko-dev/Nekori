@@ -1,8 +1,10 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
 import android.content.Context
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import eu.kanade.tachiyomi.ui.reader.setting.NovelTtsEngine
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -21,7 +23,7 @@ class TtsController(
     private val networkClient: OkHttpClient,
     private val scope: CoroutineScope,
     private val callbacks: Callbacks,
-) : TextToSpeech.OnInitListener {
+) {
 
     interface Callbacks {
         fun onInitialized(pendingRequest: StartRequest?)
@@ -36,6 +38,9 @@ class TtsController(
 
     private var tts: TextToSpeech? = null
     private var tikTokTts: TikTokTtsEngine? = null
+    private var activeEngine: NovelTtsEngine? = null
+    private var initializationGeneration = 0L
+    private var boundSystemDefault: String? = null
     private val tikTokListener = object : TikTokTtsEngine.Listener {
         override fun onStart(utteranceId: String) = handleUtteranceStart(utteranceId)
 
@@ -71,14 +76,31 @@ class TtsController(
     var pendingStartRequest: StartRequest? = null
 
     fun ensureInitialized() {
-        if (usesTikTok()) {
+        val selectedEngine = selectedEngine()
+        if (selectedEngine != activeEngine || systemDefaultChanged(selectedEngine)) {
+            stop()
+            releaseEngines()
+        }
+        activeEngine = selectedEngine
+
+        if (selectedEngine is NovelTtsEngine.TikTok) {
             if (tikTokTts == null) tikTokTts = TikTokTtsEngine(networkClient)
             ttsInitialized = true
             return
         }
         if (tts == null) {
             try {
-                tts = TextToSpeech(context, this)
+                val generation = ++initializationGeneration
+                val listener = TextToSpeech.OnInitListener { status -> onInit(generation, status) }
+                tts = when (selectedEngine) {
+                    is NovelTtsEngine.Android -> TextToSpeech(context, listener, selectedEngine.packageName)
+                    else -> TextToSpeech(context, listener)
+                }
+                boundSystemDefault = if (selectedEngine is NovelTtsEngine.SystemDefault) {
+                    currentSystemDefault()
+                } else {
+                    null
+                }
                 logcat(LogPriority.DEBUG) { "TTS: Initialization started" }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "TTS: Failed to create instance: ${e.message}" }
@@ -86,12 +108,8 @@ class TtsController(
         }
     }
 
-    override fun onInit(status: Int) {
-        if (usesTikTok()) {
-            tts?.shutdown()
-            tts = null
-            return
-        }
+    private fun onInit(generation: Long, status: Int) {
+        if (generation != initializationGeneration || activeEngine is NovelTtsEngine.TikTok) return
         if (status == TextToSpeech.SUCCESS) {
             ttsInitialized = true
             applySettings()
@@ -103,6 +121,8 @@ class TtsController(
             }
         } else {
             ttsInitialized = false
+            tts?.shutdown()
+            tts = null
             logcat(LogPriority.ERROR) { "TTS initialization failed with status: $status" }
         }
     }
@@ -406,14 +426,32 @@ class TtsController(
 
     fun onEngineChanged() {
         stop()
+        releaseEngines()
+    }
+
+    private fun releaseEngines() {
+        initializationGeneration++
         tts?.shutdown()
         tts = null
         tikTokTts?.close()
         tikTokTts = null
         ttsInitialized = false
+        activeEngine = null
+        boundSystemDefault = null
     }
 
-    private fun usesTikTok(): Boolean = preferences.novelTtsUseTikTok.get()
+    private fun selectedEngine(): NovelTtsEngine = NovelTtsEngine.fromPreference(preferences.novelTtsEngine.get())
+
+    private fun usesTikTok(): Boolean = activeEngine is NovelTtsEngine.TikTok
+
+    private fun systemDefaultChanged(selectedEngine: NovelTtsEngine): Boolean =
+        selectedEngine is NovelTtsEngine.SystemDefault &&
+            activeEngine is NovelTtsEngine.SystemDefault &&
+            ttsInitialized &&
+            currentSystemDefault() != boundSystemDefault
+
+    private fun currentSystemDefault(): String? =
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.TTS_DEFAULT_SYNTH)
 
     private fun selectedTikTokVoice(): String {
         val selected = preferences.novelTtsTikTokVoice.get()
@@ -425,11 +463,7 @@ class TtsController(
 
     fun destroy() {
         stop()
-        tts?.shutdown()
-        tts = null
-        tikTokTts?.close()
-        tikTokTts = null
-        ttsInitialized = false
+        releaseEngines()
     }
 
     companion object {

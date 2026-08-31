@@ -1,6 +1,5 @@
 package eu.kanade.presentation.reader.settings
 
-import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,11 +35,7 @@ import androidx.compose.material.icons.outlined.Javascript
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,11 +49,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,7 +62,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -81,14 +73,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.InlineSettingsChipRow
 import tachiyomi.presentation.core.components.SettingsChipRow
-import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.StepperItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import tachiyomi.tts.tiktok.TikTokVoiceCatalog
-import tachiyomi.tts.tiktok.displayName
-import java.util.Locale
 
 @Serializable
 data class CodeSnippet(
@@ -1620,12 +1608,8 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
 
     if (!ttsEnabled) return
 
-    val context = LocalContext.current
     val ttsSpeed by screenModel.preferences.novelTtsSpeed.collectAsState()
     val ttsPitch by screenModel.preferences.novelTtsPitch.collectAsState()
-    val useTikTok by screenModel.preferences.novelTtsUseTikTok.collectAsState()
-    val androidVoice by screenModel.preferences.novelTtsVoice.collectAsState()
-    val tikTokVoice by screenModel.preferences.novelTtsTikTokVoice.collectAsState()
     val ttsEnableHighlight by screenModel.preferences.novelTtsEnableHighlight.collectAsState()
     val ttsHighlightStyle by screenModel.preferences.novelTtsHighlightStyle.collectAsState()
     val ttsHighlightColor by screenModel.preferences.novelTtsHighlightColor.collectAsState()
@@ -1657,108 +1641,14 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
         )
     }
 
-    ReaderSwitchItem(
-        label = stringResource(TDMR.strings.pref_novel_tts_use_tiktok),
-        pref = screenModel.preferences.novelTtsUseTikTok,
-    )
-
-    // TikTok voices are bundled. Android TextToSpeech is only initialized while its engine is selected.
-    val availableVoices = remember { mutableStateListOf<Pair<String, String>>() }
-
-    DisposableEffect(useTikTok) {
-        var tts: TextToSpeech? = null
-        var disposed = false
-        availableVoices.clear()
-        if (useTikTok) {
-            availableVoices += TikTokVoiceCatalog.voices.map { voice ->
-                voice.id to voice.displayName()
-            }
-            if (TikTokVoiceCatalog.find(tikTokVoice) == null) {
-                screenModel.preferences.novelTtsTikTokVoice.set(
-                    TikTokVoiceCatalog.defaultFor(Locale.getDefault()).id,
-                )
-            }
-        } else {
-            tts = TextToSpeech(context) { status ->
-                if (!disposed && status == TextToSpeech.SUCCESS) {
-                    val voices = tts?.voices ?: emptySet()
-                    availableVoices.clear()
-                    availableVoices.add("" to context.stringResource(TDMR.strings.novel_tts_default_voice))
-                    voices.filter { !it.isNetworkConnectionRequired }
-                        .sortedBy { "${it.locale.displayLanguage} (${it.name})" }
-                        .forEach { voice ->
-                            val displayName = "${voice.locale.displayLanguage} (${voice.name})"
-                            availableVoices.add(voice.name to displayName)
-                        }
-                }
-            }
-        }
-        onDispose {
-            disposed = true
-            tts?.shutdown()
-        }
-    }
-
-    // Section Header
     Text(
         text = stringResource(TDMR.strings.pref_novel_tts_section),
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
-
-    // Voice Selection Dropdown
-    if (availableVoices.isNotEmpty()) {
-        var expanded by remember { mutableStateOf(false) }
-        val selectedVoice = if (useTikTok) tikTokVoice else androidVoice
-        val selectedVoiceDisplay = availableVoices.find { it.first == selectedVoice }?.second
-            ?: context.stringResource(TDMR.strings.novel_tts_default_voice)
-
-        Column(
-            modifier = Modifier.padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = 4.dp,
-            ),
-        ) {
-            Text(
-                text = stringResource(TDMR.strings.pref_novel_tts_voice),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-            ) {
-                OutlinedTextField(
-                    value = selectedVoiceDisplay,
-                    onValueChange = { },
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth(),
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    availableVoices.forEach { (voiceName, displayName) ->
-                        DropdownMenuItem(
-                            text = { Text(displayName) },
-                            onClick = {
-                                if (useTikTok) {
-                                    screenModel.preferences.novelTtsTikTokVoice.set(voiceName)
-                                } else {
-                                    screenModel.preferences.novelTtsVoice.set(voiceName)
-                                }
-                                expanded = false
-                            },
-                        )
-                    }
-                }
-            }
-        }
-    }
+    NovelTtsEnginePreference(screenModel.preferences)
+    NovelTtsVoicePreference(screenModel.preferences)
 
     // Speech Speed Slider (0.5x to 6.0x)
     SliderItem(

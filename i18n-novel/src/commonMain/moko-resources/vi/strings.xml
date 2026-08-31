@@ -342,8 +342,11 @@
     <string name="pref_novel_tts_section">Chuyển văn bản thành giọng nói</string>
     <string name="pref_novel_tts_speed">Tốc độ đọc</string>
     <string name="pref_novel_tts_pitch">Cao độ giọng đọc</string>
-    <string name="pref_novel_tts_use_tiktok">(Thử nghiệm) Sử dụng TikTok TTS</string>
+    <string name="pref_novel_tts_engine">Engine</string>
+    <string name="novel_tts_system_engine">Mặc định hệ thống</string>
+    <string name="novel_tts_tiktok_engine">TikTok TTS (trực tuyến, không ổn định)</string>
     <string name="pref_novel_tts_voice">Giọng đọc</string>
+    <string name="novel_tts_advanced_settings_info">Mở cài đặt trình đọc khi đang đọc để tùy chỉnh tô sáng, tự động bắt đầu và các tùy chọn TTS nâng cao khác.</string>
     <string name="pref_novel_tts_auto_next">Tự động đọc chương tiếp theo</string>
     <string name="novel_tts_playback_error">Chuyển văn bản thành giọng nói thất bại: %s</string>
 
@@ -1156,6 +1159,7 @@
     <string name="novel_tts_keep_highlight_in_view">Giữ đoạn văn tô sáng trong tầm nhìn</string>
     <string name="novel_tts_auto_start_on_panel_open">Tự động bắt đầu TTS khi mở bảng điều khiển</string>
     <string name="novel_tts_background_playback">Giữ TTS chạy nền</string>
+    <string name="novel_tts_background_playback_summary">Tiếp tục khi trình đọc còn mở; đóng trình đọc hoặc xóa ứng dụng khỏi màn hình gần đây sẽ dừng phát.</string>
     <string name="novel_tts_highlight_style">Kiểu tô sáng</string>
     <string name="novel_tts_highlight_style_background">Nền</string>
     <string name="novel_tts_highlight_style_underline">Gạch chân</string>
