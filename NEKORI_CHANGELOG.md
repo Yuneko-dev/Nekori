@@ -18,6 +18,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Added
 - Text-to-speech settings now provide shared engine and voice pickers in both global novel-reader settings and the in-reader TTS panel, plus the existing background-playback control.
+- Download menus now include an All option that queues every chapter regardless of read state or active chapter filters.
 
 ### Changed
 - TikTok TTS is now an explicitly labeled online, unstable engine choice instead of a separate experimental toggle.

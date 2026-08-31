@@ -901,8 +901,19 @@ class LibraryViewModel(
             DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(25)
             DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(null)
             DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters()
+            DownloadAction.ALL_CHAPTERS -> downloadAllChapters()
         }
         clearSelection()
+    }
+
+    private fun downloadAllChapters() {
+        val mangas = state.value.selectedManga
+        viewModelScope.launchNonCancellable {
+            mangas.forEach { manga ->
+                val chapters = getChaptersByMangaId.await(manga.id)
+                downloadManager.downloadChapters(manga, chapters)
+            }
+        }
     }
 
     private fun downloadNextChapters(amount: Int?) {
