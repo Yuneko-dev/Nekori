@@ -456,12 +456,7 @@ class MangaViewModel(
     }
 
     fun forceRefresh() {
-        val current = successState
-        if (current?.novelStructure?.layout == NovelLayout.PAGED && current.selectedSection != null) {
-            loadPage(current.selectedSection, forceRefresh = true)
-        } else {
-            fetchAllFromSource(forceRefresh = true)
-        }
+        fetchAllFromSource(forceRefresh = true)
     }
 
     private fun loadPage(page: String, forceRefresh: Boolean = false) {

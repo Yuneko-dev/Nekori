@@ -62,8 +62,9 @@ class SyncChaptersWithSource(
         source: Source,
         manualFetch: Boolean = false,
         fetchWindow: Pair<Long, Long> = Pair(0, 0),
+        novelStructureOverride: NovelStructure? = null,
     ): List<Chapter> {
-        val novelStructure = (source as? NovelStructureSource)?.getNovelStructure(manga.url)
+        val novelStructure = novelStructureOverride ?: (source as? NovelStructureSource)?.getNovelStructure(manga.url)
         if (
             rawSourceChapters.isEmpty() &&
             !source.isLocal() &&
@@ -324,12 +325,11 @@ class SyncChaptersWithSource(
                             sourceChapter.chapter_number.toDouble(),
                         ),
                         sourceOrder = pagedSourceOrder(novelStructure.totalPages, pageNumber, index),
-                        dateFetch = nowMillis + orderedChapters.size - index,
+                        dateFetch = 0L,
                         dateUpload = sourceChapter.date_upload.takeIf { it != 0L } ?: nowMillis,
                     )
             }
         novelStructureRepository.reconcilePage(manga.id, page, chapters)
-        updateManga.awaitUpdateLastUpdate(manga.id)
     }
 
     private suspend fun replaceNovelStructure(

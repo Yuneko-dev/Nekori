@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.util.lang.normalizeHtmlDescription
 import kotlinx.coroutines.CoroutineScope
@@ -168,6 +169,23 @@ class JsSource(
     override val name: String = plugin.name
     override val lang: String = plugin.langCode()
     override val supportsLatest: Boolean = true
+    override suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+    ): SMangaUpdate {
+        if (fetchChapters && chapters.isEmpty() && novelStructures[manga.url]?.layout == NovelLayout.PAGED) {
+            chaptersCache.remove(manga.url)
+            parseNovelCache.remove(manga.url)
+        }
+        return super<CatalogueSource>.getMangaUpdate(
+            manga = manga,
+            chapters = chapters,
+            fetchDetails = fetchDetails,
+            fetchChapters = fetchChapters,
+        )
+    }
 
     // Novel source marker
     override val isNovelSource: Boolean = true

@@ -16,6 +16,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+- Paged novel update checks now refresh page 1, the previous tail and newly added pages while keeping all other pages lazy-loaded.
+
 ## [v0.0.8] - 2026-08-31
 
 ### Added

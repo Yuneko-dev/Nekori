@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
@@ -19,6 +20,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.novel.model.NovelLayout
+import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import kotlin.time.Clock
@@ -31,6 +34,7 @@ class UpdateMangaFromRemote(
     private val coverCache: CoverCache,
     private val libraryPreferences: LibraryPreferences,
     private val downloadManager: DownloadManager,
+    private val novelStructureRepository: NovelStructureRepository,
 ) {
     suspend operator fun invoke(
         manga: Manga,
@@ -72,16 +76,29 @@ class UpdateMangaFromRemote(
                     fetchChapters = fetchChapters,
                 )
             }
+            val pagedSource = source as? PagedNovelSource
+            val sourceStructure = if (fetchChapters) pagedSource?.getNovelStructure(manga.url) else null
+            val pagedUpdate = if (pagedSource != null && sourceStructure?.layout == NovelLayout.PAGED) {
+                pagedSource.fetchPagedNovelUpdate(
+                    mangaUrl = manga.url,
+                    initialChapters = update.chapters,
+                    initialStructure = sourceStructure,
+                    previousStructure = novelStructureRepository.get(manga.id),
+                )
+            } else {
+                null
+            }
             if (fetchDetails) {
                 awaitUpdateFromSource(manga, update.manga, manualFetch)
             }
             val newChapters = if (fetchChapters) {
                 syncChaptersWithSource.await(
-                    rawSourceChapters = update.chapters,
+                    rawSourceChapters = pagedUpdate?.chapters ?: update.chapters,
                     manga = manga,
                     source = source,
                     manualFetch = manualFetch,
                     fetchWindow = fetchWindow,
+                    novelStructureOverride = pagedUpdate?.structure ?: sourceStructure,
                 )
             } else {
                 emptyList()
