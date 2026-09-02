@@ -49,6 +49,7 @@ import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FastForward
 import androidx.compose.material.icons.outlined.FastRewind
@@ -59,6 +60,8 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Stop
@@ -335,6 +338,9 @@ fun NovelReaderAppBars(
                             .fillMaxWidth()
                             .padding(horizontal = MaterialTheme.padding.small),
                         items = bottomBarItems,
+                        onFindInPage = onFindInPage,
+                        onReloadSource = onReloadSource,
+                        onSummarizeChapter = onSummarizeChapter,
                         onOpenInWebView = onOpenInWebView,
                         onShare = onShare,
                         onNextChapter = onNextChapter,
@@ -592,6 +598,9 @@ private fun NovelReaderTopBar(
 @Composable
 private fun NovelReaderBottomBar(
     items: List<BottomBarItemState>,
+    onFindInPage: () -> Unit,
+    onReloadSource: () -> Unit,
+    onSummarizeChapter: (() -> Unit)?,
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
@@ -622,14 +631,23 @@ private fun NovelReaderBottomBar(
     onShare: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val enabledItems = remember(items, isWebView, ttsEnabled, translationMasterEnabled, onOpenInWebView, onShare) {
+    val enabledItems = remember(
+        items,
+        isWebView,
+        ttsEnabled,
+        translationMasterEnabled,
+        onOpenInWebView,
+        onShare,
+        onSummarizeChapter,
+    ) {
         items.filter {
             it.enabled &&
                 it.item.isAvailable(ttsEnabled) &&
                 (isWebView || it.item != BottomBarItem.EDIT) &&
                 (translationMasterEnabled || it.item != BottomBarItem.TRANSLATE) &&
                 (onOpenInWebView != null || it.item != BottomBarItem.WEBVIEW) &&
-                (onShare != null || it.item != BottomBarItem.SHARE)
+                (onShare != null || it.item != BottomBarItem.SHARE) &&
+                (onSummarizeChapter != null || it.item != BottomBarItem.SUMMARIZE_CHAPTER)
         }
     }
 
@@ -678,6 +696,39 @@ private fun NovelReaderBottomBar(
                         Icon(
                             Icons.AutoMirrored.Outlined.FormatListBulleted,
                             contentDescription = stringResource(MR.strings.action_view_chapters),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+
+                    BottomBarItem.FIND_IN_CHAPTER -> IconButton(
+                        onClick = onFindInPage,
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Search,
+                            contentDescription = stringResource(TDMR.strings.action_find_in_chapter),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+
+                    BottomBarItem.RELOAD_SOURCE -> IconButton(
+                        onClick = onReloadSource,
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Refresh,
+                            contentDescription = stringResource(TDMR.strings.action_reload_source),
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+
+                    BottomBarItem.SUMMARIZE_CHAPTER -> IconButton(
+                        onClick = { onSummarizeChapter?.invoke() },
+                        modifier = Modifier.size(buttonSize),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Description,
+                            contentDescription = stringResource(TDMR.strings.action_summarize_chapter),
                             modifier = Modifier.size(iconSize),
                         )
                     }
@@ -976,6 +1027,15 @@ internal fun bottomBarItemInfo(
     BottomBarItem.EDIT -> Icons.Outlined.Edit to stringResource(MR.strings.action_edit)
     BottomBarItem.WEBVIEW -> Icons.Outlined.Public to stringResource(MR.strings.action_open_in_web_view)
     BottomBarItem.SHARE -> Icons.Outlined.Share to stringResource(MR.strings.action_share)
+    BottomBarItem.FIND_IN_CHAPTER ->
+        Icons.Outlined.Search to
+            stringResource(TDMR.strings.action_find_in_chapter)
+    BottomBarItem.RELOAD_SOURCE ->
+        Icons.Outlined.Refresh to
+            stringResource(TDMR.strings.action_reload_source)
+    BottomBarItem.SUMMARIZE_CHAPTER ->
+        Icons.Outlined.Description to
+            stringResource(TDMR.strings.action_summarize_chapter)
 }
 
 @Composable

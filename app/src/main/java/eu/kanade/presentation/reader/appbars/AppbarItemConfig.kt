@@ -20,6 +20,9 @@ enum class BottomBarItem(val id: String) {
     QUOTES("quotes"),
     WEBVIEW("webview"),
     SHARE("share"),
+    FIND_IN_CHAPTER("find_in_chapter"),
+    RELOAD_SOURCE("reload_source"),
+    SUMMARIZE_CHAPTER("summarize_chapter"),
 }
 
 fun BottomBarItem.isAvailable(ttsEnabled: Boolean): Boolean = this != BottomBarItem.TTS || ttsEnabled
@@ -46,6 +49,9 @@ val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.EDIT, enabled = false, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.WEBVIEW, enabled = false, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.SHARE, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.FIND_IN_CHAPTER, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.RELOAD_SOURCE, enabled = false, defaultEnabled = false),
+    BottomBarItemState(BottomBarItem.SUMMARIZE_CHAPTER, enabled = false, defaultEnabled = false),
 )
 
 @Serializable

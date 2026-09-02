@@ -16,6 +16,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Reader toolbar customization now supports Find in chapter, Reload from source and Summarize chapter actions.
+
 ### Fixed
 - Paged novel update checks now refresh page 1, the previous tail and newly added pages while keeping all other pages lazy-loaded.
 
