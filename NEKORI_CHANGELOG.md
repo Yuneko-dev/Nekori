@@ -247,6 +247,6 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## Upstream Sync
 
-Nekori tracks Tsundoku through commit `4d744fc14` as of 2026-08-31.
+Nekori tracks Tsundoku through commit `fe54f05ae038cbc2ae72713c6ac68a2fbccb11af` as of 2026-09-05.
 
 Upstream changes from Tsundoku are tracked in [CHANGELOG.md](./CHANGELOG.md).
