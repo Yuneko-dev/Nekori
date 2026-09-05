@@ -29,13 +29,14 @@
         var link = element && element.closest('a[href^="#"]');
         if (!link || !rootElement.contains(link)) return;
 
-        var chapterElement = link.closest('tsundoku-chapter');
-        // A chapter wrapper exists only in infinite-scroll documents. Keep native anchors elsewhere.
+        var layout = window.Tsundoku && window.Tsundoku.runtime && window.Tsundoku.runtime.readerLayout;
+        var paged = layout && layout.enabled;
+        var chapterElement = link.closest('tsundoku-chapter') || (paged ? rootElement : null);
+        // Preserve native anchors for unwrapped, vertically scrolling documents.
         if (!chapterElement) return;
 
         var fragment = link.getAttribute('href').slice(1);
-        // Preserve the browser's normal href="#" behavior.
-        if (!fragment) return;
+        if (!fragment && !paged) return;
 
         try {
             fragment = decodeURIComponent(fragment);
@@ -46,10 +47,12 @@
         // Do not let duplicate ids in another loaded chapter win browser fragment resolution.
         event.preventDefault();
 
-        var target = findAnchor(chapterElement, fragment);
+        var target = fragment ? findAnchor(chapterElement, fragment) : chapterElement;
         if (!target) return;
 
-        target.scrollIntoView({ behavior: 'auto', block: 'start' });
+        // scrollIntoView can scroll the column viewport vertically, even with overflow-y: hidden.
+        if (paged) layout.revealElement(target);
+        else target.scrollIntoView({ behavior: 'auto', block: 'start' });
     }, true);
 
     rootElement.dataset.scopedAnchorsInstalled = true;

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -16,6 +17,7 @@ import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
 import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
 import eu.kanade.presentation.reader.settings.novelThemes
 import eu.kanade.presentation.reader.settings.rememberNovelFontOptions
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
@@ -72,12 +74,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val readerPref = remember { Injekt.get<ReaderPreferences>() }
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(TDMR.strings.pref_novel_reader_preview),
                 subtitle = stringResource(TDMR.strings.pref_novel_reader_preview_summary),
-                onClick = { navigator.push(NovelReaderPreviewScreen()) },
+                onClick = { context.startActivity(ReaderActivity.newPreviewIntent(context)) },
             ),
             getDisplayGroup(readerPref),
             getTextGroup(readerPref, navigator),

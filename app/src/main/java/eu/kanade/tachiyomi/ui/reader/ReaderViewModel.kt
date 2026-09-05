@@ -150,6 +150,17 @@ class ReaderViewModel @JvmOverloads constructor(
     private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
     private val sensitiveContentPolicy: SensitiveContentPolicy = Injekt.get(),
 ) : ViewModel() {
+    val isPreview = savedState.get<Boolean>(NovelReaderPreview.EXTRA) == true
+    private val preview by lazy {
+        if (isPreview) {
+            NovelReaderPreview {
+                Injekt.get<Application>().assets.open(NovelReaderPreview.ASSET).bufferedReader().use { it.readText() }
+            }
+        } else {
+            null
+        }
+    }
+
     private val quoteManager: QuoteManager by lazy {
         QuoteManager(Injekt.get<Application>())
     }
@@ -162,7 +173,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private val mutableState = MutableStateFlow(
         State(
             translationMasterEnabled = translationPreferences.translationEnabled().get(),
-            isTranslating = translationPreferences.translationEnabled().get() &&
+            isTranslating = !isPreview && translationPreferences.translationEnabled().get() &&
                 translationPreferences.smartAutoTranslate().get(),
         ),
     )
@@ -174,7 +185,7 @@ class ReaderViewModel @JvmOverloads constructor(
     val mangaId = savedState.get<Long>("manga") ?: -1L
     private val initialChapterId = savedState.get<Long>("chapter") ?: -1L
 
-    val hasValidArgs = mangaId != -1L && initialChapterId != -1L
+    val hasValidArgs = isPreview || (mangaId != -1L && initialChapterId != -1L)
 
     private val eventChannel = Channel<Event>()
     val eventFlow = eventChannel.receiveAsFlow()
@@ -237,7 +248,7 @@ class ReaderViewModel @JvmOverloads constructor(
         AtomicReference(runBlocking { buildReaderChapterList(chapterId) })
     }
     private val chapterList: List<ReaderChapter>
-        get() = chapterListRef.get()
+        get() = preview?.let { listOf(it.chapter) } ?: chapterListRef.get()
 
     private suspend fun buildReaderChapterList(selectedChapterId: Long): List<ReaderChapter> {
         val manga = manga!!
@@ -331,7 +342,7 @@ class ReaderViewModel @JvmOverloads constructor(
         }
         buildReaderChapterDrawerSnapshot(
             items = items,
-            structure = novelStructureRepository.get(currentManga.id),
+            structure = if (isPreview) null else novelStructureRepository.get(currentManga.id),
             currentChapterId = currentChapterId,
         )
     }
@@ -457,6 +468,13 @@ class ReaderViewModel @JvmOverloads constructor(
     private suspend fun init() {
         withIOContext {
             try {
+                preview?.let {
+                    it.load()
+                    chapterId = it.chapter.chapter.id!!
+                    mutableState.update { state -> state.copy(manga = it.manga) }
+                    commitViewerChapters(ViewerChapters(it.chapter, null, null), null, false)
+                    return@withIOContext
+                }
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
                 sourceManager.awaitInitialized()
                 mutableState.update { it.copy(manga = manga) }
@@ -573,6 +591,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private suspend fun loadAdjacentPagedPages(current: ReaderChapter): Map<Long, Long> =
         pagedChapterLoadMutex.withLock {
+            if (isPreview) return@withLock emptyMap()
             val currentManga = manga ?: return@withLock emptyMap()
             var structure = novelStructureRepository.get(currentManga.id)
                 ?.takeIf { it.layout == NovelLayout.PAGED }
@@ -726,6 +745,7 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     suspend fun hasNextPagedPage(anchor: ReaderChapter): Boolean {
+        if (isPreview) return false
         val currentManga = manga ?: return false
         val structure = novelStructureRepository.get(currentManga.id)
             ?.takeIf { it.layout == NovelLayout.PAGED }
@@ -803,6 +823,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * Manually read chapters get [TranslationService.PRIORITY_MANUAL_READ].
      */
     private fun enqueueTranslationIfNeeded(chapter: ReaderChapter) {
+        if (isPreview) return
         val currentManga = manga ?: return
         if (
             sourceManager.get(currentManga.source)?.isNovelSource() == true &&
@@ -833,7 +854,9 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     fun reloadChapter(fromSource: Boolean = false) {
         val currChapter = state.value.viewerChapters?.currChapter ?: return
-        val loader = loader ?: return
+        val loader = loader
+        val sample = preview
+        if (loader == null && sample == null) return
         val navigationRequest = navigationGuard.begin(ReaderNavigationSource.USER) ?: return
 
         // The viewer no-ops setChapters for an already-loaded chapter id, so the reload would fetch
@@ -845,12 +868,17 @@ class ReaderViewModel @JvmOverloads constructor(
                 // Reset chapter state to force reload
                 currChapter.state = ReaderChapter.State.Wait
 
-                val committed = loadChapter(
-                    loader = loader,
-                    chapter = currChapter,
-                    forceFromSource = fromSource,
-                    navigationRequest = navigationRequest,
-                )
+                val committed = if (sample != null) {
+                    sample.load()
+                    navigationGuard.isCurrent(navigationRequest)
+                } else {
+                    loadChapter(
+                        loader = loader!!,
+                        chapter = currChapter,
+                        forceFromSource = fromSource,
+                        navigationRequest = navigationRequest,
+                    )
+                }
 
                 // Notify the viewer to refresh
                 if (committed) {
@@ -878,6 +906,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * translates the next chapter, so this stands down rather than duplicate it.
      */
     private fun prefetchNextChapterTranslation() {
+        if (isPreview) return
         val next = state.value.viewerChapters?.nextChapter
         val nextId = next?.chapter?.id
         if (next == null || nextId == null ||
@@ -1008,6 +1037,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * uses `awaitTimeReadOnly`, which deliberately leaves recency alone, and must not patch it.
      */
     private suspend fun stampHistory(chapterId: Long, readAt: Date, sessionReadDuration: Long) {
+        if (isPreview) return
         upsertHistory.await(HistoryUpdate(chapterId, readAt, sessionReadDuration))
         manga?.id?.let { getLibraryManga.applyChapterUpdates(mangaId = it, lastRead = readAt.time) }
     }
@@ -1021,6 +1051,10 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /** Saves progress when infinite scroll retained the chapter identity but recycled its page. */
     fun saveNovelProgress(selectedChapter: ReaderChapter, progressPercentage: Int) {
+        if (isPreview) {
+            selectedChapter.chapter.last_page_read = progressPercentage.coerceIn(0, 100)
+            return
+        }
         if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source)) return
 
         viewModelScope.launchNonCancellable {
@@ -1151,6 +1185,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * if setting is enabled and [currentChapter] is queued for download
      */
     private fun cancelQueuedDownloads(currentChapter: ReaderChapter): Download? {
+        if (isPreview) return null
         return downloadManager.getQueuedDownloadOrNull(currentChapter.chapter.id!!)?.also {
             downloadManager.cancelQueuedDownloads(listOf(it))
         }
@@ -1189,6 +1224,8 @@ class ReaderViewModel @JvmOverloads constructor(
         }
         readerChapter.requestedPage = pageIndex
         chapterPageIndex = pageIndex
+
+        if (isPreview) return
 
         if (
             !sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source) &&
@@ -1276,7 +1313,9 @@ class ReaderViewModel @JvmOverloads constructor(
      * Saves the chapter last read history if incognito mode isn't on.
      */
     private suspend fun updateHistory(readerChapter: ReaderChapter) = historyMutex.withLock {
-        if (sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_HISTORY, manga?.source)) {
+        if (isPreview ||
+            sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_HISTORY, manga?.source)
+        ) {
             chapterReadStartTime = null
             return@withLock
         }
@@ -1412,6 +1451,7 @@ class ReaderViewModel @JvmOverloads constructor(
         chapter.bookmark = bookmarked
 
         viewModelScope.launchNonCancellable {
+            if (isPreview) return@launchNonCancellable
             updateChapter.await(
                 ChapterUpdate(
                     id = chapter.id!!,
@@ -1496,6 +1536,7 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     private fun enqueueDownloadedChapterForTranslation(chapterId: Long) {
+        if (isPreview) return
         val currentManga = manga ?: return
         val chapter = chapterList.firstOrNull { it.chapter.id == chapterId } ?: return
 
@@ -1537,6 +1578,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * resolving the chapter from the loaded list plus the current manga and source.
      */
     private fun buildTranslationLocator(chapterId: Long?): TranslationLocator? {
+        if (isPreview) return null
         val currentManga = manga ?: return null
         val chapter = chapterId?.let { id -> chapterList.firstOrNull { it.chapter.id == id }?.chapter }
             ?: getCurrentChapter()?.chapter
@@ -1557,7 +1599,7 @@ class ReaderViewModel @JvmOverloads constructor(
         val chapterId = overrideChapterId ?: chapter?.chapter?.id
         val mangaId = manga?.id
 
-        if (translationPreferences.smartAutoTranslate().get()) {
+        if (!isPreview && translationPreferences.smartAutoTranslate().get()) {
             val detected = translationService.detectLanguage(content, mangaId)
             val target = translationPreferences.targetLanguage().get()
 
@@ -1658,6 +1700,13 @@ class ReaderViewModel @JvmOverloads constructor(
     fun setMangaOrientationType(orientation: ReaderOrientation) {
         val manga = manga ?: return
         viewModelScope.launchIO {
+            if (isPreview) {
+                mutableState.update {
+                    it.copy(manga = manga.copy(viewerFlags = orientation.flagValue.toLong()))
+                }
+                eventChannel.send(Event.SetOrientation(getMangaOrientation()))
+                return@launchIO
+            }
             setMangaViewerFlags.awaitSetOrientation(manga.id, orientation.flagValue.toLong())
             val currChapters = state.value.viewerChapters
             if (currChapters != null) {
@@ -1746,6 +1795,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * are ignored.
      */
     private fun deletePendingChapters() {
+        if (isPreview) return
         viewModelScope.launchNonCancellable {
             downloadManager.deletePendingChapters()
         }
@@ -1824,6 +1874,10 @@ class ReaderViewModel @JvmOverloads constructor(
                     val htmlContent =
                         (jsonObj["content"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: continue
 
+                    preview?.let { sample ->
+                        if (id == sample.chapter.chapter.id) sample.editedText = htmlContent
+                    }
+                    if (isPreview) continue
                     val chapter = chapterList.find { it.chapter.id == id }?.chapter?.toDomainChapter() ?: continue
                     saveSingleChapterEdits(m, chapter, s, htmlContent)
                 }
@@ -1940,6 +1994,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private fun quoteSourceName(): String? = getSource()?.toString()
 
     fun getQuotes(): List<Quote> {
+        preview?.let { return it.quotes.toList() }
         val manga = manga ?: return emptyList()
         val sourceName = quoteSourceName() ?: return emptyList()
         return quoteManager.getQuotes(sourceName, manga.title)
@@ -1957,22 +2012,40 @@ class ReaderViewModel @JvmOverloads constructor(
             timestamp = System.currentTimeMillis(),
             paragraphIndex = paragraphIndex,
         )
+        preview?.let {
+            it.quotes.add(quote)
+            return
+        }
         quoteManager.addQuote(sourceName, manga.title, quote)
     }
 
     fun deleteQuote(quote: Quote) {
+        preview?.let {
+            it.quotes.removeAll { saved -> saved.id == quote.id }
+            return
+        }
         val manga = manga ?: return
         val sourceName = quoteSourceName() ?: return
         quoteManager.removeQuote(sourceName, manga.title, quote.id)
     }
 
     fun updateQuote(quote: Quote) {
+        preview?.let {
+            val index = it.quotes.indexOfFirst { saved -> saved.id == quote.id }
+            if (index >= 0) it.quotes[index] = quote
+            return
+        }
         val manga = manga ?: return
         val sourceName = quoteSourceName() ?: return
         quoteManager.updateQuote(sourceName, manga.title, quote)
     }
 
     fun reorderQuotes(quotes: List<Quote>) {
+        preview?.let {
+            it.quotes.clear()
+            it.quotes.addAll(quotes)
+            return
+        }
         val manga = manga ?: return
         val sourceName = quoteSourceName() ?: return
         quoteManager.reorderQuotes(sourceName, manga.title, quotes)

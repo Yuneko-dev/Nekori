@@ -150,6 +150,9 @@ class ReaderActivity : BaseActivity() {
     )
 
     companion object {
+        fun newPreviewIntent(context: Context): Intent =
+            Intent(context, ReaderActivity::class.java).putExtra(NovelReaderPreview.EXTRA, true)
+
         fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
@@ -338,11 +341,13 @@ class ReaderActivity : BaseActivity() {
             return
         }
 
-        NotificationReceiver.dismissNotification(
-            this,
-            viewModel.mangaId.hashCode(),
-            Notifications.ID_NEW_CHAPTERS,
-        )
+        if (!viewModel.isPreview) {
+            NotificationReceiver.dismissNotification(
+                this,
+                viewModel.mangaId.hashCode(),
+                Notifications.ID_NEW_CHAPTERS,
+            )
+        }
 
         config = ReaderConfig()
         setMenuVisibility(viewModel.state.value.menuVisible)
@@ -377,6 +382,7 @@ class ReaderActivity : BaseActivity() {
         val discordRpc = Injekt.get<DiscordRpcManager>()
         viewModel.state
             .map { state ->
+                if (viewModel.isPreview) return@map null
                 val manga = state.manga ?: return@map null
                 val chapter = state.novelVisibleChapter
                     ?: state.currentChapter?.chapter
@@ -1526,6 +1532,10 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun openMangaScreen() {
+        if (viewModel.isPreview) {
+            finish()
+            return
+        }
         viewModel.manga?.id?.let { id ->
             startActivity(
                 Intent(this, MainActivity::class.java).apply {

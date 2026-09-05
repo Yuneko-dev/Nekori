@@ -110,7 +110,9 @@
         focus: function (chapterId) {
             var host = existingHost(chapterId);
             if (!host) return false;
-            host.scrollIntoView({ behavior: "smooth", block: "start" });
+            var layout = window.Tsundoku && window.Tsundoku.runtime && window.Tsundoku.runtime.readerLayout;
+            if (layout && layout.enabled) layout.revealElement(host);
+            else host.scrollIntoView({ behavior: "smooth", block: "start" });
             return true;
         },
 
