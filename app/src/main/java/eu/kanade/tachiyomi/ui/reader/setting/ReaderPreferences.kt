@@ -113,6 +113,27 @@ class ReaderPreferences(
     }
 
     // region Novel
+    val novelReadingLayout: Preference<NovelReadingLayout> = preferenceStore.getEnum(
+        "pref_novel_reading_layout",
+        NovelReadingLayout.SCROLL,
+    )
+    val novelPageSpread: Preference<NovelPageSpread> = preferenceStore.getEnum(
+        "pref_novel_page_spread",
+        NovelPageSpread.AUTO,
+    )
+    val novelPageEffect: Preference<NovelPageEffect> = preferenceStore.getEnum(
+        "pref_novel_page_effect",
+        NovelPageEffect.SLIDE,
+    )
+    val novelPagedSwipeNavigation: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_paged_swipe_navigation",
+        true,
+    )
+    val novelAutoPageIntervalSeconds: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_auto_page_interval_seconds",
+        5,
+    )
+
     val novelFontSize: Preference<Int> = preferenceStore.getInt("pref_novel_font_size", 16)
     val novelFontFamily: Preference<String> = preferenceStore.getString("pref_novel_font_family", "sans-serif")
     val novelTheme: Preference<String> = preferenceStore.getString("pref_novel_theme", "app")

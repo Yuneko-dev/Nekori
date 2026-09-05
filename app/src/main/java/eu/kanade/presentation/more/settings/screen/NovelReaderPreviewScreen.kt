@@ -29,16 +29,20 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelContentDirection
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewAssetLoader
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewDocumentBuilder
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewPagedController
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewPreferenceObserver
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewStyler
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.detectNovelContentDirection
 import eu.kanade.tachiyomi.util.system.setUserAgent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -141,7 +145,9 @@ class NovelReaderPreviewScreen : Screen {
         val assetLoader = NovelWebViewAssetLoader(context.assets)
         val contentPipeline = ContentPipeline(preferences)
         lateinit var styler: NovelWebViewStyler
+        lateinit var pagedController: NovelWebViewPagedController
         var loadJob: Job? = null
+        val previewDirection = detectNovelContentDirection(previewHtml, "en")
 
         val webView = WebView(context).apply {
             setUserAgent(userAgent)
@@ -165,6 +171,11 @@ class NovelReaderPreviewScreen : Screen {
                     super.onPageFinished(view, url)
                     styler.injectScript { "" }
                     styler.injectReaderUi()
+                    pagedController.install(
+                        direction = previewDirection,
+                        infinite = false,
+                        chapterId = -1L,
+                    )
                 }
             }
 
@@ -175,12 +186,26 @@ class NovelReaderPreviewScreen : Screen {
                 container = this,
                 evaluateJs = { script -> evaluateJavascript(script, null) },
             )
+            pagedController = NovelWebViewPagedController(
+                context = context,
+                webView = this,
+                preferences = preferences,
+                evaluateJs = { script -> evaluateJavascript(script, null) },
+            )
         }
 
         fun reloadPreview() {
             loadJob?.cancel()
             loadJob = scope.launch {
-                loadPreview(webView, styler, context, preferences, contentPipeline, previewHtml)
+                loadPreview(
+                    webView,
+                    styler,
+                    context,
+                    preferences,
+                    contentPipeline,
+                    previewHtml,
+                    previewDirection,
+                )
             }
         }
 
@@ -208,6 +233,7 @@ class NovelReaderPreviewScreen : Screen {
         preferences: ReaderPreferences,
         contentPipeline: ContentPipeline,
         previewHtml: String,
+        previewDirection: NovelContentDirection,
     ) {
         val processed = withContext(Dispatchers.Default) {
             contentPipeline.process(
@@ -235,6 +261,9 @@ class NovelReaderPreviewScreen : Screen {
             tsundokuScript = "",
             pluginJavaScript = styler.initialPluginJavaScript(),
             infiniteScrollEnabled = false,
+            pagedLayoutEnabled = preferences.novelReadingLayout.get() == NovelReadingLayout.PAGED,
+            chapterDirection = previewDirection,
+            chapterLanguage = "en",
             blockMedia = preferences.novelBlockMedia.get(),
         )
         val document = withContext(Dispatchers.Default) { NovelWebViewDocumentBuilder.assemble(input) }

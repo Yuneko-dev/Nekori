@@ -735,31 +735,6 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Prepares the previous chapter for novel infinite-scroll without changing the active chapter.
-     */
-    suspend fun preparePreviousChapterForInfiniteScroll(): ReaderChapter? {
-        val currentChapter = state.value.viewerChapters?.currChapter ?: return null
-        return preparePreviousChapterForInfiniteScroll(currentChapter)
-    }
-
-    /**
-     * Prepares the previous chapter before [anchor] for novel infinite-scroll without changing the active chapter.
-     */
-    suspend fun preparePreviousChapterForInfiniteScroll(anchor: ReaderChapter): ReaderChapter? {
-        val chapterPages = loadAdjacentPagedPages(anchor)
-        val anchorPos = chapterList.indexOfFirst { it.chapter.id == anchor.chapter.id }
-        if (anchorPos < 0) return null
-        val prevChapter = pagedAdjacentChapter(
-            anchor,
-            chapterList.getOrNull(anchorPos - 1),
-            chapterPages,
-            pageDelta = -1,
-        ) ?: return null
-        preloadChapterPages(prevChapter)
-        return prevChapter
-    }
-
-    /**
      * Fill [chapter]'s page list without publishing it. This emits no
      * [Event.ReloadViewerChapters], so it can run for a chapter the reader is not showing.
      */

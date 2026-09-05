@@ -18,9 +18,16 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Added
 - Reader toolbar customization now supports Find in chapter, Reload from source and Summarize chapter actions.
+- Novel readers now offer a paged reading mode alongside scrolling, with automatic, single-page and double-page layouts, reading direction settings, and None, Horizontal, Slide and Curl page-turn effects.
+- Paged-reader settings are available globally and inside the reader, with live preview, configurable progress-control placement and page-range status indicators. Pages fit the viewport without overscroll, and navigation supports chapter boundaries.
 
 ### Fixed
+- TTS highlighting no longer shifts paragraph layout, and Android TTS connections use the application context to avoid retaining a destroyed reader activity.
 - Paged novel update checks now refresh page 1, the previous tail and newly added pages while keeping all other pages lazy-loaded.
+
+### Other
+- Split the novel WebView reader into focused paged-navigation, reading-command, chapter-DOM, TTS-DOM and page-turn components, with separate JavaScript layout and page-navigation assets.
+- Page turns keep the WebView covered until committed or restored content is drawable. Curl supports front/back leaf composition in double-page mode; shadows fade at gesture endpoints and settling follows remaining travel and release velocity.
 
 ## [v0.0.8] - 2026-08-31
 

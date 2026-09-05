@@ -17,10 +17,12 @@ html {
 }
 
 body {
-    margin-right: 0;
-    margin-left: 0;
-    padding-top: var(--reader-margin-top);
-    padding-bottom: calc(40px + var(--reader-margin-bottom) + var(--tsundoku-safe-bottom, 0px));
+    --reader-margin-inline-start: var(--reader-margin-left);
+    --reader-margin-inline-end: var(--reader-margin-right);
+
+    margin-inline: 0;
+    padding-block-start: var(--reader-margin-top);
+    padding-block-end: calc(40px + var(--reader-margin-bottom));
 
     font-size: var(--reader-font-size);
     font-family: var(--reader-font-family);
@@ -37,13 +39,87 @@ body:not(.page-reader) .transition-chapter {
 }
 
 .transition-chapter {
-    padding-right: var(--reader-margin-right);
-    padding-left: var(--reader-margin-left);
+    padding-inline-start: var(--reader-margin-inline-start);
+    padding-inline-end: var(--reader-margin-inline-end);
 }
 
 #LNReader-chapter {
-    padding-right: var(--reader-margin-right);
-    padding-left: var(--reader-margin-left);
+    --reader-margin-inline-start: var(--reader-margin-left);
+    --reader-margin-inline-end: var(--reader-margin-right);
+
+    padding-inline-start: var(--reader-margin-inline-start);
+    padding-inline-end: var(--reader-margin-inline-end);
+}
+
+#LNReader-chapter[dir="rtl"] {
+    --reader-margin-inline-start: var(--reader-margin-right);
+    --reader-margin-inline-end: var(--reader-margin-left);
+}
+
+body.page-reader {
+    block-size: 100vh;
+    block-size: 100dvh;
+    margin-block: 0;
+    padding-block: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body.page-reader #LNReader-chapter {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100vh;
+    block-size: 100dvh;
+    min-block-size: 100vh;
+    min-block-size: 100dvh;
+    max-block-size: 100vh;
+    max-block-size: 100dvh;
+    padding-block-start: var(--reader-margin-top);
+    padding-block-end: calc(40px + var(--reader-margin-bottom));
+    overflow-x: auto;
+    overflow-y: hidden;
+    column-fill: auto;
+    /* One logical page pitch remains exactly viewport/spread: the gap supplies the trailing
+       margin of one leaf plus the leading margin of the next. */
+    column-gap: calc(var(--reader-margin-right) + var(--reader-margin-left));
+    scroll-behavior: auto;
+    overscroll-behavior: none;
+    touch-action: pan-y;
+    scrollbar-width: none;
+}
+
+body.page-reader #LNReader-chapter[data-reader-spread="single"] {
+    column-count: 1;
+}
+
+body.page-reader #LNReader-chapter[data-reader-spread="double"] {
+    column-count: 2;
+}
+
+body.page-reader #LNReader-chapter::-webkit-scrollbar {
+    display: none;
+}
+
+body.page-reader tsundoku-chapter {
+    contain: none;
+    break-before: column;
+}
+
+body.page-reader #LNReader-chapter img {
+    max-block-size: calc(100vh - var(--reader-margin-top) - var(--reader-margin-bottom) - 40px);
+    max-block-size: calc(100dvh - var(--reader-margin-top) - var(--reader-margin-bottom) - 40px);
+    object-fit: contain;
+}
+
+body.page-reader .tsundoku-chapter-divider {
+    display: none;
+}
+
+.tsundoku-layout-blank-leaf {
+    display: block;
+    block-size: 100%;
+    break-before: column;
+    break-after: column;
 }
 
 #LNReader-chapter p {
@@ -118,8 +194,8 @@ td {
 
 .next-button,
 .info-text {
-    margin-right: var(--reader-margin-right);
-    margin-left: var(--reader-margin-left);
+    margin-inline-start: var(--reader-margin-inline-start);
+    margin-inline-end: var(--reader-margin-inline-end);
     border-width: 0;
     border-radius: 50px;
     background-color: var(--md-sys-color-primary);
@@ -171,7 +247,7 @@ td {
 #reader-footer-wrapper {
     position: fixed;
     z-index: 9999999;
-    bottom: var(--tsundoku-safe-bottom, 0px);
+    bottom: 0;
     left: 0;
     width: 100%;
 }

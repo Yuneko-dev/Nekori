@@ -64,6 +64,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
+import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import kotlinx.serialization.Serializable
@@ -512,22 +515,90 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
 @Composable
 internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) {
     val autoScrollSpeed by screenModel.preferences.novelAutoScrollSpeed.collectAsState()
+    val storedAutoPageInterval by screenModel.preferences.novelAutoPageIntervalSeconds.collectAsState()
+    val autoPageInterval = storedAutoPageInterval.coerceIn(2, 60)
     val volumeKeysScroll by screenModel.preferences.novelVolumeKeysScroll.collectAsState()
+    val readingLayout by screenModel.preferences.novelReadingLayout.collectAsState()
 
-    SliderItem(
-        label = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
-        value = autoScrollSpeed,
-        valueRange = 2..20,
-        valueString = "${autoScrollSpeed / 2f}",
-        onChange = { screenModel.preferences.novelAutoScrollSpeed.set(it) },
-    )
+    SettingsChipRow(TDMR.strings.pref_novel_reading_layout) {
+        listOf(
+            NovelReadingLayout.SCROLL to TDMR.strings.novel_reading_layout_scroll,
+            NovelReadingLayout.PAGED to TDMR.strings.novel_reading_layout_paged,
+        ).forEach { (value, label) ->
+            FilterChip(
+                selected = readingLayout == value,
+                onClick = { screenModel.preferences.novelReadingLayout.set(value) },
+                label = { Text(stringResource(label)) },
+            )
+        }
+    }
+
+    if (readingLayout == NovelReadingLayout.PAGED) {
+        val pageSpread by screenModel.preferences.novelPageSpread.collectAsState()
+        val pageEffect by screenModel.preferences.novelPageEffect.collectAsState()
+
+        SettingsChipRow(TDMR.strings.pref_novel_page_spread) {
+            listOf(
+                NovelPageSpread.AUTO to TDMR.strings.novel_page_spread_auto,
+                NovelPageSpread.SINGLE to TDMR.strings.novel_page_spread_single,
+                NovelPageSpread.DOUBLE to TDMR.strings.novel_page_spread_double,
+            ).forEach { (value, label) ->
+                FilterChip(
+                    selected = pageSpread == value,
+                    onClick = { screenModel.preferences.novelPageSpread.set(value) },
+                    label = { Text(stringResource(label)) },
+                )
+            }
+        }
+
+        SettingsChipRow(TDMR.strings.pref_novel_page_effect) {
+            listOf(
+                NovelPageEffect.NONE to MR.strings.none,
+                NovelPageEffect.HORIZONTAL to TDMR.strings.novel_page_effect_horizontal,
+                NovelPageEffect.SLIDE to TDMR.strings.novel_page_effect_slide,
+                NovelPageEffect.CURL to TDMR.strings.novel_page_effect_curl,
+            ).forEach { (value, label) ->
+                FilterChip(
+                    selected = pageEffect == value,
+                    onClick = { screenModel.preferences.novelPageEffect.set(value) },
+                    label = { Text(stringResource(label)) },
+                )
+            }
+        }
+
+        EInkFlashSettings(screenModel)
+    }
+
+    if (readingLayout == NovelReadingLayout.PAGED) {
+        SliderItem(
+            label = stringResource(TDMR.strings.pref_novel_auto_page_interval),
+            value = autoPageInterval,
+            valueRange = 2..60,
+            valueString = stringResource(TDMR.strings.novel_auto_page_interval_seconds, autoPageInterval),
+            onChange = { screenModel.preferences.novelAutoPageIntervalSeconds.set(it) },
+        )
+    } else {
+        SliderItem(
+            label = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
+            value = autoScrollSpeed,
+            valueRange = 2..20,
+            valueString = "${autoScrollSpeed / 2f}",
+            onChange = { screenModel.preferences.novelAutoScrollSpeed.set(it) },
+        )
+    }
 
     // Volume Keys to Scroll
     ReaderSwitchItem(
-        label = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
+        label = stringResource(
+            if (readingLayout == NovelReadingLayout.PAGED) {
+                TDMR.strings.pref_novel_volume_keys_page
+            } else {
+                TDMR.strings.pref_novel_volume_keys_scroll
+            },
+        ),
         pref = screenModel.preferences.novelVolumeKeysScroll,
     )
-    if (volumeKeysScroll) {
+    if (volumeKeysScroll && readingLayout == NovelReadingLayout.SCROLL) {
         val distance by screenModel.preferences.novelVolumeKeysScrollDistance.collectAsState()
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_volume_keys_scroll_distance),
@@ -618,8 +689,18 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
 
     // Swipe Navigation
     ReaderSwitchItem(
-        label = stringResource(TDMR.strings.pref_novel_swipe_navigation),
-        pref = screenModel.preferences.novelSwipeNavigation,
+        label = stringResource(
+            if (readingLayout == NovelReadingLayout.PAGED) {
+                TDMR.strings.pref_novel_paged_swipe_navigation
+            } else {
+                TDMR.strings.pref_novel_swipe_navigation
+            },
+        ),
+        pref = if (readingLayout == NovelReadingLayout.PAGED) {
+            screenModel.preferences.novelPagedSwipeNavigation
+        } else {
+            screenModel.preferences.novelSwipeNavigation
+        },
     )
 
     // Text Selection

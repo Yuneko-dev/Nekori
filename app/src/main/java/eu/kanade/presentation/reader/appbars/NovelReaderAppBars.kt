@@ -103,6 +103,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.ui.reader.NovelFindInPageState
 import eu.kanade.tachiyomi.ui.reader.TranslationUiStatus
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -150,6 +151,9 @@ fun NovelReaderAppBars(
     verticalProgressSliderSize: String,
     currentProgress: Int, // 0-100 percentage
     onProgressChange: (Int) -> Unit,
+    isPaged: Boolean = false,
+    pagedProgress: NovelPagePosition? = null,
+    onPagedProgressChange: (Int) -> Unit = {},
 
     // Bottom bar - navigation
     onNextChapter: () -> Unit,
@@ -195,27 +199,12 @@ fun NovelReaderAppBars(
     // Extra bottom offset for the floating TTS overlay so it clears the status bar
     ttsOverlayBottomPadding: Dp = 0.dp,
 
-    // Measured bar heights in px (0 while hidden), so the page can inset fixed elements clear of the
-    // transient reader menu bars.
-    onTopBarHeight: (Int) -> Unit = {},
-    onBottomBarHeight: (Int) -> Unit = {},
 ) {
     val backgroundColor = MaterialTheme.colorScheme
         .surfaceColorAtElevation(3.dp)
         .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
 
-    // onSizeChanged doesn't fire a final 0 when AnimatedVisibility removes the bars, so clear the
-    // reported heights here when the menu hides.
     val findInPageOpen = findInPageState != null
-
-    LaunchedEffect(visible, findInPageOpen) {
-        if (!visible && !findInPageOpen) {
-            onTopBarHeight(0)
-        }
-        if (!visible || findInPageOpen) {
-            onBottomBarHeight(0)
-        }
-    }
 
     Box(modifier = Modifier.fillMaxHeight()) {
         Column(modifier = Modifier.fillMaxHeight()) {
@@ -233,14 +222,11 @@ fun NovelReaderAppBars(
                         onPrevious = onFindPrevious,
                         onNext = onFindNext,
                         onClose = onCloseFindInPage,
-                        modifier = Modifier
-                            .onSizeChanged { onTopBarHeight(it.height) }
-                            .background(backgroundColor),
+                        modifier = Modifier.background(backgroundColor),
                     )
                 } else {
                     NovelReaderTopBar(
                         modifier = Modifier
-                            .onSizeChanged { onTopBarHeight(it.height) }
                             .background(backgroundColor)
                             .clickable(onClick = onClickTopAppBar),
                         novelTitle = novelTitle,
@@ -287,8 +273,9 @@ fun NovelReaderAppBars(
                             .align(alignment)
                             .padding(horizontal = VERTICAL_PROGRESS_EDGE_INSET, vertical = MaterialTheme.padding.small)
                             .fillMaxHeight(heightFraction),
-                        currentProgress = currentProgress,
-                        onProgressChange = onProgressChange,
+                        currentValue = if (isPaged) pagedProgress?.unitIndex ?: 0 else currentProgress,
+                        maxValue = if (isPaged) pagedProgress?.let { it.unitCount - 1 } ?: 0 else 100,
+                        onValueChange = if (isPaged) onPagedProgressChange else onProgressChange,
                         backgroundColor = backgroundColor,
                     )
                 }
@@ -318,19 +305,29 @@ fun NovelReaderAppBars(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onSizeChanged { onBottomBarHeight(it.height) }
                         .background(backgroundColor)
                         .windowInsetsPadding(WindowInsets.navigationBars),
                 ) {
-                    if (showProgressSlider && progressSliderMode == PROGRESS_SLIDER_MODE_HORIZONTAL) {
-                        NovelProgressSlider(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MaterialTheme.padding.medium),
-                            currentProgress = currentProgress,
-                            onProgressChange = onProgressChange,
-                            backgroundColor = backgroundColor,
-                        )
+                    if (showProgressSlider) {
+                        if (isPaged && pagedProgress != null && progressSliderMode == PROGRESS_SLIDER_MODE_HORIZONTAL) {
+                            NovelPagedProgressSlider(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MaterialTheme.padding.medium),
+                                position = pagedProgress,
+                                onProgressChange = onPagedProgressChange,
+                                backgroundColor = backgroundColor,
+                            )
+                        } else if (!isPaged && progressSliderMode == PROGRESS_SLIDER_MODE_HORIZONTAL) {
+                            NovelProgressSlider(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MaterialTheme.padding.medium),
+                                currentProgress = currentProgress,
+                                onProgressChange = onProgressChange,
+                                backgroundColor = backgroundColor,
+                            )
+                        }
                     }
 
                     NovelReaderBottomBar(
@@ -352,6 +349,7 @@ fun NovelReaderAppBars(
                         onClickOrientation = onClickOrientation,
                         onClickSettings = onClickSettings,
                         onScrollToTop = onScrollToTop,
+                        isPaged = isPaged,
                         isAutoScrolling = isAutoScrolling,
                         onToggleAutoScroll = onToggleAutoScroll,
                         isTranslating = isTranslating,
@@ -610,6 +608,7 @@ private fun NovelReaderBottomBar(
     onClickOrientation: () -> Unit,
     onClickSettings: () -> Unit,
     onScrollToTop: () -> Unit,
+    isPaged: Boolean,
     isAutoScrolling: Boolean,
     onToggleAutoScroll: () -> Unit,
     isTranslating: Boolean,
@@ -808,10 +807,11 @@ private fun NovelReaderBottomBar(
                         Icon(
                             imageVector = if (isAutoScrolling) Icons.Outlined.Stop else Icons.Outlined.PlayArrow,
                             contentDescription = stringResource(
-                                if (isAutoScrolling) {
-                                    TDMR.strings.action_stop_auto_scroll
-                                } else {
-                                    TDMR.strings.action_start_auto_scroll
+                                when {
+                                    isPaged && isAutoScrolling -> TDMR.strings.action_stop_auto_page
+                                    isPaged -> TDMR.strings.action_start_auto_page
+                                    isAutoScrolling -> TDMR.strings.action_stop_auto_scroll
+                                    else -> TDMR.strings.action_start_auto_scroll
                                 },
                             ),
                             modifier = Modifier.size(iconSize),
@@ -1089,18 +1089,21 @@ private fun NovelProgressSlider(
 
 @Composable
 private fun NovelVerticalProgressSlider(
-    currentProgress: Int,
-    onProgressChange: (Int) -> Unit,
+    currentValue: Int,
+    maxValue: Int,
+    onValueChange: (Int) -> Unit,
     backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     var measuredTrackHeightPx by remember { mutableStateOf(0) }
 
-    fun progressFromOffset(y: Float, totalHeight: Float): Int {
-        if (totalHeight <= 0f) return currentProgress
+    val safeMaxValue = maxValue.coerceAtLeast(0)
+
+    fun valueFromOffset(y: Float, totalHeight: Float): Int {
+        if (totalHeight <= 0f || safeMaxValue == 0) return currentValue
         val clamped = y.coerceIn(0f, totalHeight)
-        return ((clamped / totalHeight) * 100f).toInt().coerceIn(0, 100)
+        return ((clamped / totalHeight) * safeMaxValue).toInt().coerceIn(0, safeMaxValue)
     }
 
     Column(
@@ -1120,7 +1123,11 @@ private fun NovelVerticalProgressSlider(
             contentAlignment = Alignment.Center,
         ) {
             val trackHeightPx = measuredTrackHeightPx.toFloat().coerceAtLeast(1f)
-            val progressFraction = (currentProgress / 100f).coerceIn(0f, 1f)
+            val progressFraction = if (safeMaxValue == 0) {
+                0f
+            } else {
+                (currentValue.toFloat() / safeMaxValue).coerceIn(0f, 1f)
+            }
 
             // Vertical track
             Box(
@@ -1148,28 +1155,28 @@ private fun NovelVerticalProgressSlider(
                     .width(VERTICAL_PROGRESS_CONTAINER_WIDTH)
                     .pointerInput(measuredTrackHeightPx) {
                         detectTapGestures { offset ->
-                            val newProgress = progressFromOffset(offset.y, trackHeightPx)
-                            if (newProgress != currentProgress) {
-                                onProgressChange(newProgress)
+                            val newValue = valueFromOffset(offset.y, trackHeightPx)
+                            if (newValue != currentValue) {
+                                onValueChange(newValue)
                             }
                         }
                     }
                     .pointerInput(measuredTrackHeightPx) {
-                        var lastSentProgress = currentProgress
+                        var lastSentValue = currentValue
                         detectVerticalDragGestures(
                             onDragStart = { offset ->
-                                val newProgress = progressFromOffset(offset.y, trackHeightPx)
-                                if (newProgress != lastSentProgress) {
-                                    onProgressChange(newProgress)
-                                    lastSentProgress = newProgress
+                                val newValue = valueFromOffset(offset.y, trackHeightPx)
+                                if (newValue != lastSentValue) {
+                                    onValueChange(newValue)
+                                    lastSentValue = newValue
                                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             },
                             onVerticalDrag = { change, _ ->
-                                val newProgress = progressFromOffset(change.position.y, trackHeightPx)
-                                if (newProgress != lastSentProgress) {
-                                    onProgressChange(newProgress)
-                                    lastSentProgress = newProgress
+                                val newValue = valueFromOffset(change.position.y, trackHeightPx)
+                                if (newValue != lastSentValue) {
+                                    onValueChange(newValue)
+                                    lastSentValue = newValue
                                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             },

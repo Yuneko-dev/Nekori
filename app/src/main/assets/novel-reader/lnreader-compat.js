@@ -58,8 +58,10 @@
   window.van = mock();
   window.tts = mock({ started: false, reading: false });
   window.pageReader = mock({
-    page: state(1),
-    totalPages: state(1),
+    // These two signals are live compatibility state, not no-op mocks: the paged driver updates
+    // `.val` after every settled visual unit for LNReader custom scripts.
+    page: { val: 1 },
+    totalPages: { val: 1 },
   });
 
   const originalFetch = window.fetch.bind(window);

@@ -73,11 +73,11 @@ val EstimatedStatusBarHeight = 40.dp
  * element optionally reflects charging state.
  *
  * @param chapterText       Pre-formatted chapter string respecting the display preference.
- * @param progressPercent   Current scroll position, 0-100.
+ * @param progressText      Pre-formatted scroll percent or paged position.
  * @param order             Element ids in render order.
  * @param showTime          Whether to include the clock segment.
  * @param showChapter       Whether to include the chapter segment.
- * @param showProgress      Whether to include the progress % segment.
+ * @param showProgress      Whether to include the scroll-percent or page-position segment.
  * @param showBattery       Whether to include battery % + icon.
  * @param showCharging      When true, the battery icon reflects charging state.
  * @param backgroundColor   Reader's background color (matches current novel theme).
@@ -89,7 +89,7 @@ val EstimatedStatusBarHeight = 40.dp
 @Composable
 fun NovelStatusBar(
     chapterText: String?,
-    progressPercent: Int,
+    progressText: String?,
     order: List<StatusBarItem>,
     showTime: Boolean,
     showChapter: Boolean,
@@ -191,8 +191,8 @@ fun NovelStatusBar(
                             )
                         }
 
-                        StatusBarItem.PROGRESS -> if (showProgress) {
-                            Text(text = "$progressPercent%", style = labelStyle, color = contentColor)
+                        StatusBarItem.PROGRESS -> if (showProgress && progressText != null) {
+                            Text(text = progressText, style = labelStyle, color = contentColor)
                         }
 
                         StatusBarItem.BATTERY -> if (showBattery && batteryPercent >= 0) {

@@ -19,6 +19,7 @@ class NovelWebViewDocumentBuilderTest {
         isPlainText: Boolean = false,
         css: String = "body { color: black; }",
         infiniteScrollEnabled: Boolean = false,
+        pagedLayoutEnabled: Boolean = false,
         blockMedia: Boolean = false,
     ) = NovelWebViewDocumentBuilder.DocumentInput(
         processed = ProcessedContent(text = text, isPlainText = isPlainText, chapterUrl = null),
@@ -32,6 +33,7 @@ class NovelWebViewDocumentBuilderTest {
         tsundokuScript = "",
         pluginJavaScript = "",
         infiniteScrollEnabled = infiniteScrollEnabled,
+        pagedLayoutEnabled = pagedLayoutEnabled,
         blockMedia = blockMedia,
     )
 
@@ -142,6 +144,27 @@ class NovelWebViewDocumentBuilderTest {
             ),
         )
         assertTrue(html.contains("<tsundoku-chapter"))
+    }
+
+    @Test
+    fun `paged chapter keeps a directional wrapper without an infinite divider`() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(pagedLayoutEnabled = true).copy(
+                chapter = ReaderChapter(
+                    ChapterImpl().apply {
+                        id = 2L
+                        url = "/chapter-2"
+                        name = "Chapter 2"
+                    },
+                ),
+                chapterDirection = NovelContentDirection.RTL,
+                chapterLanguage = "ar",
+            ),
+        )
+        val document = Jsoup.parse(html)
+        assertEquals("rtl", document.selectFirst("tsundoku-chapter")?.attr("dir"))
+        assertEquals("ar", document.selectFirst("tsundoku-chapter")?.attr("lang"))
+        assertTrue(document.select(".tsundoku-chapter-divider").isEmpty())
     }
 
     @Test

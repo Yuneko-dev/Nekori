@@ -1,9 +1,8 @@
 /* core-player.css */
 
-/* A video chapter is a single 16:9 player, not a column of text, so neither the reading margin nor the
-   transient menu inset should push it down the page — center it in the viewport instead. The status bar
-   already has real layout space through viewer_container padding, and --tsundoku-safe-top only covers
-   the reader menu bars, which overlay briefly and then hide again.
+/* A video chapter is a single 16:9 player, not a column of text, so the reading margin should not push
+   it down the page — center it in the viewport instead. The status bar already has real layout space
+   through viewer_container padding, while reader menu bars overlay without resizing content.
 
    reader.css still owns padding-bottom: that one reserves the bottom bar strip, a real obstruction
    rather than a preference, so content centers in the box above it. */
@@ -90,7 +89,7 @@ body {
 
 #lnreader-debug-overlay {
   position: fixed;
-  top: var(--tsundoku-safe-top, 0);
+  top: 0;
   left: 0;
   width: 100%;
   max-height: 75vh;

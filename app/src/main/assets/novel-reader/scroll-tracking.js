@@ -104,7 +104,13 @@
                 if (chapterProgress >= __DONE_THRESHOLD__) chapterProgress = 1.0;
             }
         }
-        return { progress: progress, chapterProgress: chapterProgress, idx: idx, chapterId: chapterId, isLast: isLast };
+        return {
+            progress: progress,
+            chapterProgress: chapterProgress,
+            idx: idx,
+            chapterId: chapterId,
+            isLast: isLast,
+        };
     }
 
     var PROGRESS_EVENT = '__PROGRESS_EVENT__';
@@ -144,6 +150,7 @@
 
     function onFrame() {
         framePending = false;
+        if (runtime.readerLayout && runtime.readerLayout.enabled) return;
         var s = computeState();
         publishProgress(s);
 
@@ -177,6 +184,7 @@
             ? s.idx === window.chapterBoundaries.length - 1 && s.chapterProgress >= loadThreshold
             : s.progress >= loadThreshold;
         if (shouldLoadNext) loadNextChapterIfIdle();
+
     }
 
     function onScroll() {
@@ -188,6 +196,7 @@
 
     // computeState() is re-read here so a chapter switch mid-scroll can't persist a stale value.
     function persistCurrent(retriesLeft) {
+        if (runtime.readerLayout && runtime.readerLayout.enabled) return;
         if (retriesLeft === undefined) retriesLeft = 3;
         if (retriesLeft > 0 && Date.now() - lastBodyResizeAt < SETTLE_MS) {
             setTimeout(function () { persistCurrent(retriesLeft - 1); }, SETTLE_MS);

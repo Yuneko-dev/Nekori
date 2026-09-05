@@ -163,6 +163,8 @@
     <string name="action_clear_tags">Xóa thẻ</string>
     <string name="action_start_auto_scroll">Bắt đầu tự động cuộn</string>
     <string name="action_stop_auto_scroll">Dừng tự động cuộn</string>
+    <string name="action_start_auto_page">Bắt đầu tự động chuyển trang</string>
+    <string name="action_stop_auto_page">Dừng tự động chuyển trang</string>
     <string name="action_copy_links">Sao chép liên kết</string>
     <string name="action_mass_import">Nhập hàng loạt</string>
 
@@ -362,6 +364,9 @@
     <string name="pref_novel_text_align">Căn chỉnh văn bản</string>
     <string name="pref_novel_auto_scroll">Tự động cuộn</string>
     <string name="pref_novel_auto_scroll_speed">Tốc độ tự động cuộn</string>
+    <string name="pref_novel_auto_page">Tự động chuyển trang</string>
+    <string name="pref_novel_auto_page_interval">Thời gian chuyển trang</string>
+    <string name="novel_auto_page_interval_seconds">%1$d giây</string>
     <string name="pref_novel_volume_keys_scroll">Phím âm lượng để cuộn</string>
     <string name="pref_novel_volume_keys_scroll_distance">Khoảng cách cuộn</string>
     <string name="pref_novel_text_selectable">Bật chọn văn bản</string>
@@ -379,6 +384,9 @@
     <string name="pref_novel_paragraph_spacing">Khoảng cách đoạn văn</string>
     <string name="pref_novel_block_media">Chặn ảnh và video</string>
     <string name="pref_novel_swipe_navigation">Vuốt để đổi chương</string>
+    <string name="pref_novel_paged_swipe_navigation">Vuốt để chuyển trang</string>
+    <string name="pref_novel_paged_swipe_navigation_summary">Vuốt trái hoặc phải đúng một trang hiển thị</string>
+    <string name="pref_novel_volume_keys_page">Phím âm lượng để chuyển trang</string>
     <string name="pref_novel_auto_load_next_at">Ngưỡng tự tải chương tiếp theo (%)</string>
     <string name="pref_novel_auto_load_next_always">Luôn tải trước 1 chương</string>
     <string name="pref_novel_tts">Chuyển văn bản thành giọng nói</string>
@@ -399,6 +407,19 @@
 
     <string name="pref_novel_infinite_scroll">Cuộn vô hạn (tự tải chương kế tiếp)</string>
     <string name="pref_novel_progress_slider">Hiện thanh trượt tiến độ</string>
+    <string name="pref_novel_reading_layout">Bố cục đọc</string>
+    <string name="novel_reading_layout_scroll">Cuộn</string>
+    <string name="novel_reading_layout_paged">Phân trang</string>
+    <string name="pref_novel_page_spread">Số trang hiển thị</string>
+    <string name="novel_page_spread_auto">Tự động</string>
+    <string name="novel_page_spread_single">Một trang</string>
+    <string name="novel_page_spread_double">Hai trang</string>
+    <string name="pref_novel_page_effect">Hiệu ứng chuyển trang</string>
+    <string name="novel_page_effect_horizontal">Vuốt ngang</string>
+    <string name="novel_page_effect_slide">Trượt</string>
+    <string name="novel_page_effect_curl">Lật trang</string>
+    <string name="novel_page_progress_single">Trang %1$d/%2$d</string>
+    <string name="novel_page_progress_range">Trang %1$d–%2$d/%3$d</string>
     <string name="pref_novel_scrollbar_mode">Thanh trượt tiến độ</string>
     <string name="novel_scrollbar_horizontal">Ngang</string>
     <string name="pref_novel_vertical_progress_slider_size">Kích thước dọc</string>

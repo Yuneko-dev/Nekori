@@ -34,17 +34,6 @@ private val flashColors = listOf(
 internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsViewModel) {
     val readerTheme by screenModel.preferences.readerTheme.collectAsState()
 
-    val flashPageState by screenModel.preferences.flashOnPageChange.collectAsState()
-
-    val flashMillisPref = screenModel.preferences.flashDurationMillis
-    val flashMillis by flashMillisPref.collectAsState()
-
-    val flashIntervalPref = screenModel.preferences.flashPageInterval
-    val flashInterval by flashIntervalPref.collectAsState()
-
-    val flashColorPref = screenModel.preferences.flashColor
-    val flashColor by flashColorPref.collectAsState()
-
     SettingsChipRow(MR.strings.pref_reader_theme) {
         themes.map { (labelRes, value) ->
             FilterChip(
@@ -72,6 +61,19 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsViewModel) {
         label = stringResource(MR.strings.pref_keep_screen_on),
         pref = screenModel.preferences.keepScreenOn,
     )
+
+    EInkFlashSettings(screenModel)
+}
+
+@Composable
+internal fun ColumnScope.EInkFlashSettings(screenModel: ReaderSettingsViewModel) {
+    val flashPageState by screenModel.preferences.flashOnPageChange.collectAsState()
+    val flashMillisPref = screenModel.preferences.flashDurationMillis
+    val flashMillis by flashMillisPref.collectAsState()
+    val flashIntervalPref = screenModel.preferences.flashPageInterval
+    val flashInterval by flashIntervalPref.collectAsState()
+    val flashColorPref = screenModel.preferences.flashColor
+    val flashColor by flashColorPref.collectAsState()
 
     ReaderSwitchItem(
         label = stringResource(MR.strings.pref_flash_page),

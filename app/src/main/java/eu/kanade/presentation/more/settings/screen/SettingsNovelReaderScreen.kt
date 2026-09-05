@@ -16,6 +16,9 @@ import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
 import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
 import eu.kanade.presentation.reader.settings.novelThemes
 import eu.kanade.presentation.reader.settings.rememberNovelFontOptions
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
+import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -33,6 +36,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val readerPref = remember { Injekt.get<ReaderPreferences>() }
         return listOf(
             readerPref.novelFontSize,
+            readerPref.novelReadingLayout,
+            readerPref.novelPageSpread,
+            readerPref.novelPageEffect,
+            readerPref.novelPagedSwipeNavigation,
+            readerPref.novelAutoPageIntervalSeconds,
             readerPref.novelFontFamily,
             readerPref.novelFontColor,
             readerPref.novelBackgroundColor,
@@ -154,31 +162,84 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     @Composable
     private fun getDisplayGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val readingLayout = readerPreferences.novelReadingLayout.collectAsState().value
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = readerPreferences.novelTheme,
-                    entries = novelThemes.associate { (label, value) -> value to stringResource(label) },
-                    title = stringResource(TDMR.strings.pref_novel_theme),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.fullscreen,
-                    title = stringResource(MR.strings.pref_fullscreen),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelShowProgressSlider,
-                    title = stringResource(TDMR.strings.pref_novel_progress_slider),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelKeepScreenOn,
-                    title = stringResource(MR.strings.pref_keep_screen_on),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelCustomBrightness,
-                    title = stringResource(MR.strings.pref_custom_brightness),
-                ),
-            ),
+            preferenceItems = buildList {
+                add(
+                    Preference.PreferenceItem.ListPreference(
+                        preference = readerPreferences.novelReadingLayout,
+                        entries = mapOf(
+                            NovelReadingLayout.SCROLL to stringResource(TDMR.strings.novel_reading_layout_scroll),
+                            NovelReadingLayout.PAGED to stringResource(TDMR.strings.novel_reading_layout_paged),
+                        ),
+                        title = stringResource(TDMR.strings.pref_novel_reading_layout),
+                    ),
+                )
+                if (readingLayout == NovelReadingLayout.PAGED) {
+                    add(
+                        Preference.PreferenceItem.ListPreference(
+                            preference = readerPreferences.novelPageSpread,
+                            entries = mapOf(
+                                NovelPageSpread.AUTO to stringResource(TDMR.strings.novel_page_spread_auto),
+                                NovelPageSpread.SINGLE to stringResource(TDMR.strings.novel_page_spread_single),
+                                NovelPageSpread.DOUBLE to stringResource(TDMR.strings.novel_page_spread_double),
+                            ),
+                            title = stringResource(TDMR.strings.pref_novel_page_spread),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.ListPreference(
+                            preference = readerPreferences.novelPageEffect,
+                            entries = mapOf(
+                                NovelPageEffect.NONE to stringResource(MR.strings.none),
+                                NovelPageEffect.HORIZONTAL to
+                                    stringResource(TDMR.strings.novel_page_effect_horizontal),
+                                NovelPageEffect.SLIDE to stringResource(TDMR.strings.novel_page_effect_slide),
+                                NovelPageEffect.CURL to stringResource(TDMR.strings.novel_page_effect_curl),
+                            ),
+                            title = stringResource(TDMR.strings.pref_novel_page_effect),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.SwitchPreference(
+                            preference = readerPreferences.flashOnPageChange,
+                            title = stringResource(MR.strings.pref_flash_page),
+                        ),
+                    )
+                }
+                add(
+                    Preference.PreferenceItem.ListPreference(
+                        preference = readerPreferences.novelTheme,
+                        entries = novelThemes.associate { (label, value) -> value to stringResource(label) },
+                        title = stringResource(TDMR.strings.pref_novel_theme),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.fullscreen,
+                        title = stringResource(MR.strings.pref_fullscreen),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelShowProgressSlider,
+                        title = stringResource(TDMR.strings.pref_novel_progress_slider),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelKeepScreenOn,
+                        title = stringResource(MR.strings.pref_keep_screen_on),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = readerPreferences.novelCustomBrightness,
+                        title = stringResource(MR.strings.pref_custom_brightness),
+                    ),
+                )
+            },
         )
     }
 
@@ -273,6 +334,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     @Composable
     private fun getNavigationGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val readingLayout = readerPreferences.novelReadingLayout.collectAsState().value
         val volumeKeysScroll = readerPreferences.novelVolumeKeysScroll.collectAsState().value
         val volumeKeysScrollDistance = readerPreferences.novelVolumeKeysScrollDistance.collectAsState().value
 
@@ -282,10 +344,16 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 add(
                     Preference.PreferenceItem.SwitchPreference(
                         preference = readerPreferences.novelVolumeKeysScroll,
-                        title = stringResource(TDMR.strings.pref_novel_volume_keys_scroll),
+                        title = stringResource(
+                            if (readingLayout == NovelReadingLayout.PAGED) {
+                                TDMR.strings.pref_novel_volume_keys_page
+                            } else {
+                                TDMR.strings.pref_novel_volume_keys_scroll
+                            },
+                        ),
                     ),
                 )
-                if (volumeKeysScroll) {
+                if (volumeKeysScroll && readingLayout == NovelReadingLayout.SCROLL) {
                     add(
                         Preference.PreferenceItem.SliderPreference(
                             value = volumeKeysScrollDistance,
@@ -300,9 +368,25 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 }
                 add(
                     Preference.PreferenceItem.SwitchPreference(
-                        preference = readerPreferences.novelSwipeNavigation,
-                        title = stringResource(TDMR.strings.settings_reader_swipe_navigation_title),
-                        subtitle = stringResource(TDMR.strings.settings_reader_swipe_navigation_summary),
+                        preference = if (readingLayout == NovelReadingLayout.PAGED) {
+                            readerPreferences.novelPagedSwipeNavigation
+                        } else {
+                            readerPreferences.novelSwipeNavigation
+                        },
+                        title = stringResource(
+                            if (readingLayout == NovelReadingLayout.PAGED) {
+                                TDMR.strings.pref_novel_paged_swipe_navigation
+                            } else {
+                                TDMR.strings.settings_reader_swipe_navigation_title
+                            },
+                        ),
+                        subtitle = stringResource(
+                            if (readingLayout == NovelReadingLayout.PAGED) {
+                                TDMR.strings.pref_novel_paged_swipe_navigation_summary
+                            } else {
+                                TDMR.strings.settings_reader_swipe_navigation_summary
+                            },
+                        ),
                     ),
                 )
             },
@@ -311,21 +395,42 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     @Composable
     private fun getAutoScrollGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val readingLayout = readerPreferences.novelReadingLayout.collectAsState().value
         val autoScrollSpeed = readerPreferences.novelAutoScrollSpeed.collectAsState().value
+        val autoPageInterval = readerPreferences.novelAutoPageIntervalSeconds.collectAsState().value.coerceIn(2, 60)
 
         return Preference.PreferenceGroup(
-            title = stringResource(TDMR.strings.pref_novel_auto_scroll),
-            preferenceItems = listOf(
-                Preference.PreferenceItem.SliderPreference(
-                    value = autoScrollSpeed,
-                    valueRange = 2..20,
-                    title = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
-                    valueString = "${autoScrollSpeed / 2f}",
-                    onValueChanged = {
-                        readerPreferences.novelAutoScrollSpeed.set(it)
-                    },
-                ),
+            title = stringResource(
+                if (readingLayout == NovelReadingLayout.PAGED) {
+                    TDMR.strings.pref_novel_auto_page
+                } else {
+                    TDMR.strings.pref_novel_auto_scroll
+                },
             ),
+            preferenceItems = if (readingLayout == NovelReadingLayout.PAGED) {
+                listOf(
+                    Preference.PreferenceItem.SliderPreference(
+                        value = autoPageInterval,
+                        valueRange = 2..60,
+                        title = stringResource(TDMR.strings.pref_novel_auto_page_interval),
+                        valueString = stringResource(
+                            TDMR.strings.novel_auto_page_interval_seconds,
+                            autoPageInterval,
+                        ),
+                        onValueChanged = readerPreferences.novelAutoPageIntervalSeconds::set,
+                    ),
+                )
+            } else {
+                listOf(
+                    Preference.PreferenceItem.SliderPreference(
+                        value = autoScrollSpeed,
+                        valueRange = 2..20,
+                        title = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
+                        valueString = "${autoScrollSpeed / 2f}",
+                        onValueChanged = readerPreferences.novelAutoScrollSpeed::set,
+                    ),
+                )
+            },
         )
     }
 

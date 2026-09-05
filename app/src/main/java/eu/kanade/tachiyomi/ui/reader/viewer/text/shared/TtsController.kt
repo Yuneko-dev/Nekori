@@ -18,12 +18,16 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 class TtsController(
-    private val context: Context,
+    context: Context,
     private val preferences: ReaderPreferences,
     private val networkClient: OkHttpClient,
     private val scope: CoroutineScope,
     private val callbacks: Callbacks,
 ) {
+
+    // Android's TextToSpeech keeps its Context on a native service connection. Never give that
+    // connection a ReaderActivity, even though destroy() also shuts the engine down.
+    private val context = context.applicationContext
 
     interface Callbacks {
         fun onInitialized(pendingRequest: StartRequest?)

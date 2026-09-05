@@ -10,40 +10,7 @@ internal class NovelWebViewInlineFeedback(
     private val evaluateJs: (String) -> Unit,
 ) {
 
-    fun showInlineLoading(isPrepend: Boolean) {
-        val js = """
-            (function() {
-                var loadingDiv = document.getElementById('$ID_INLINE_LOADING');
-                if (!loadingDiv) {
-                    loadingDiv = document.createElement('div');
-                    loadingDiv.id = '$ID_INLINE_LOADING';
-                    loadingDiv.style.textAlign = 'center';
-                    loadingDiv.style.padding = '20px';
-                    loadingDiv.style.color = '#888';
-                    loadingDiv.innerHTML = 'Loading...';
-                }
-
-                if ($isPrepend) {
-                    document.body.insertBefore(loadingDiv, document.body.firstChild);
-                } else {
-                    document.body.appendChild(loadingDiv);
-                }
-            })();
-        """.trimIndent()
-        evaluateJs(js)
-    }
-
-    fun hideInlineLoading(@Suppress("UNUSED_PARAMETER") isPrepend: Boolean = false) {
-        val js = """
-            (function() {
-                var loadingDiv = document.getElementById('$ID_INLINE_LOADING');
-                if (loadingDiv) loadingDiv.remove();
-            })();
-        """.trimIndent()
-        evaluateJs(js)
-    }
-
-    fun showInlineError(message: String, isPrepend: Boolean) {
+    fun showInlineError(message: String) {
         scope.launch(Dispatchers.Main) {
             val escapedMessage = message
                 .replace("\\", "\\\\")
@@ -74,11 +41,7 @@ internal class NovelWebViewInlineFeedback(
                     errorDiv.remove();
                 };
 
-                if ($isPrepend) {
-                    document.body.insertBefore(errorDiv, document.body.firstChild);
-                } else {
-                    document.body.appendChild(errorDiv);
-                }
+                document.body.appendChild(errorDiv);
 
                 var observer = new IntersectionObserver(function(entries) {
                     var entry = entries[0];
@@ -103,7 +66,6 @@ internal class NovelWebViewInlineFeedback(
     }
 
     companion object {
-        const val ID_INLINE_LOADING = "inline-loading"
         const val ID_INLINE_ERROR = "inline-error"
         private const val AUTO_DISMISS_MS = 8_000L
     }

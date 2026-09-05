@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Common actions (In MR)
     ext_update: Update
@@ -168,6 +168,8 @@
     <string name="action_clear_tags">Clear tags</string>
     <string name="action_start_auto_scroll">Start auto-scroll</string>
     <string name="action_stop_auto_scroll">Stop auto-scroll</string>
+    <string name="action_start_auto_page">Start auto page</string>
+    <string name="action_stop_auto_page">Stop auto page</string>
     <string name="action_copy_links">Copy links</string>
     <string name="action_mass_import">Mass import</string>
 
@@ -370,6 +372,9 @@
     <string name="pref_novel_text_align">Text alignment</string>
     <string name="pref_novel_auto_scroll">Auto scroll</string>
     <string name="pref_novel_auto_scroll_speed">Auto scroll speed</string>
+    <string name="pref_novel_auto_page">Auto page</string>
+    <string name="pref_novel_auto_page_interval">Page turn interval</string>
+    <string name="novel_auto_page_interval_seconds">%1$d seconds</string>
     <string name="pref_novel_volume_keys_scroll">Volume keys scroll</string>
     <string name="pref_novel_volume_keys_scroll_distance">Scroll distance</string>
     <string name="pref_novel_text_selectable">Enable text selection</string>
@@ -387,6 +392,9 @@
     <string name="pref_novel_paragraph_spacing">Paragraph spacing</string>
     <string name="pref_novel_block_media">Block images and videos</string>
     <string name="pref_novel_swipe_navigation">Swipe to change chapters</string>
+    <string name="pref_novel_paged_swipe_navigation">Swipe to turn pages</string>
+    <string name="pref_novel_paged_swipe_navigation_summary">Swipe left or right by one visual page</string>
+    <string name="pref_novel_volume_keys_page">Volume keys to turn pages</string>
     <string name="pref_novel_auto_load_next_at">Auto-load next chapter at %</string>
     <string name="pref_novel_auto_load_next_always">Always one ahead</string>
     <string name="pref_novel_tts">Text to speech</string>
@@ -408,6 +416,19 @@
     -->
     <string name="pref_novel_infinite_scroll">Infinite scroll (auto-load next chapter)</string>
     <string name="pref_novel_progress_slider">Show progress slider</string>
+    <string name="pref_novel_reading_layout">Reading layout</string>
+    <string name="novel_reading_layout_scroll">Scroll</string>
+    <string name="novel_reading_layout_paged">Paged</string>
+    <string name="pref_novel_page_spread">Page spread</string>
+    <string name="novel_page_spread_auto">Auto</string>
+    <string name="novel_page_spread_single">Single</string>
+    <string name="novel_page_spread_double">Double</string>
+    <string name="pref_novel_page_effect">Page effect</string>
+    <string name="novel_page_effect_horizontal">Horizontal swipe</string>
+    <string name="novel_page_effect_slide">Slide</string>
+    <string name="novel_page_effect_curl">Curl</string>
+    <string name="novel_page_progress_single">Page %1$d of %2$d</string>
+    <string name="novel_page_progress_range">Pages %1$d–%2$d of %3$d</string>
     <string name="pref_novel_scrollbar_mode">Progress slider</string>
     <string name="novel_scrollbar_horizontal">Horizontal</string>
     <string name="pref_novel_vertical_progress_slider_size">Vertical size</string>

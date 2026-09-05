@@ -9,6 +9,7 @@ function createHarness() {
     const frames = [];
     const listeners = new Map();
     const chapterUpdates = [];
+    let nextLoads = 0;
     let dividers = [divider('1', 0), divider('2', 1_000)];
 
     const window = {
@@ -41,7 +42,9 @@ function createHarness() {
         },
     };
     const Android = {
-        loadNextChapter() {},
+        loadNextChapter() {
+            nextLoads += 1;
+        },
         onChapterScrollUpdate(chapterId) {
             chapterUpdates.push(chapterId);
         },
@@ -79,6 +82,9 @@ function createHarness() {
 
     return {
         chapterUpdates,
+        get nextLoads() {
+            return nextLoads;
+        },
         drainFrame() {
             assert.notEqual(frames.length, 0, 'expected a scheduled animation frame');
             frames.shift()(0);
@@ -141,4 +147,28 @@ test('resetChapterTracking immediately resamples a stationary viewport', () => {
     harness.drainFrame();
 
     assert.deepEqual(harness.chapterUpdates, ['1', '2', '2']);
+});
+
+test('moving backward never requests a chapter outside the DOM', () => {
+    const harness = createHarness();
+    finishInitialFrames(harness);
+
+    harness.scrollTo(300);
+    harness.drainFrame();
+    harness.scrollTo(100);
+    harness.drainFrame();
+
+    assert.equal(typeof harness.runtime.loadingPrevious, 'undefined');
+});
+
+test('leaves progress and chapter loading to the active paged layout', () => {
+    const harness = createHarness();
+    finishInitialFrames(harness);
+    harness.runtime.readerLayout = { enabled: true };
+
+    harness.scrollTo(3_200);
+    harness.drainFrame();
+
+    assert.deepEqual(harness.chapterUpdates, ['1']);
+    assert.equal(harness.nextLoads, 0);
 });

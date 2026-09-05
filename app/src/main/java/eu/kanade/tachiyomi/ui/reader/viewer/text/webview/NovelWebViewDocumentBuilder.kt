@@ -29,6 +29,9 @@ internal object NovelWebViewDocumentBuilder {
         val tsundokuScript: String,
         val pluginJavaScript: String,
         val infiniteScrollEnabled: Boolean,
+        val pagedLayoutEnabled: Boolean = false,
+        val chapterDirection: NovelContentDirection = NovelContentDirection.LTR,
+        val chapterLanguage: String = "",
         val blockMedia: Boolean,
         val compatConfigJson: String = "{}",
         val chapterDirectives: NovelWebViewChapterDirectives = NovelWebViewChapterDirectives(),
@@ -74,7 +77,7 @@ internal object NovelWebViewDocumentBuilder {
             extractBodyOrFallback(input.processed.text)
         }
 
-        val chapterContent = if (input.infiniteScrollEnabled) {
+        val chapterContent = if (input.infiniteScrollEnabled || input.pagedLayoutEnabled) {
             val chapterDivider = buildChapterDivider(chapterId, chapterName, chapterNumber, chapterPath, input)
             val (chapterWrapperStart, chapterWrapperEnd) = buildChapterWrapper(
                 chapterId,
@@ -204,7 +207,9 @@ internal object NovelWebViewDocumentBuilder {
         val path = chapterPath.htmlAttributeEscape()
 
         @Suppress("ktlint:standard:max-line-length")
-        val start = """<$CHAPTER_TAG_NAME $CHAPTER_ID_ATTR="$chapterId" $CHAPTER_TITLE_ATTR="$name" $CHAPTER_NUMBER_ATTR="$chapterNumber" $CHAPTER_PATH_ATTR="$path" $CHAPTER_URL_ATTR="$absoluteUrl" $TSUNDOKU_CHAPTER_ATTR="1">"""
+        val direction = input.chapterDirection.htmlValue
+        val language = input.chapterLanguage.htmlAttributeEscape()
+        val start = """<$CHAPTER_TAG_NAME $CHAPTER_ID_ATTR="$chapterId" $CHAPTER_TITLE_ATTR="$name" $CHAPTER_NUMBER_ATTR="$chapterNumber" $CHAPTER_PATH_ATTR="$path" $CHAPTER_URL_ATTR="$absoluteUrl" $TSUNDOKU_CHAPTER_ATTR="1" dir="$direction" lang="$language">"""
         val end = "</$CHAPTER_TAG_NAME>"
         return start to end
     }

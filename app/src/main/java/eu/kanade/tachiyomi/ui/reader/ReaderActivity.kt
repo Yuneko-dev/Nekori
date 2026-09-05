@@ -75,6 +75,7 @@ import eu.kanade.presentation.reader.appbars.NovelReaderAppBars
 import eu.kanade.presentation.reader.appbars.QuotesSheet
 import eu.kanade.presentation.reader.appbars.bottomBarItemInfo
 import eu.kanade.presentation.reader.appbars.isAvailable
+import eu.kanade.presentation.reader.appbars.novelPagedProgressLabel
 import eu.kanade.presentation.reader.deserializeStatusBarOrder
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.presentation.util.formatChapterNumber
@@ -91,6 +92,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService
+import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
@@ -111,6 +113,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -472,6 +475,11 @@ class ReaderActivity : BaseActivity() {
         }
 
         val isNovelViewer = state.viewer is NovelWebViewViewer
+        val isPagedReading = (state.viewer as? NovelWebViewViewer)?.isPagedMode() == true
+        val statusPagePositionFlow = remember(state.viewer) {
+            (state.viewer as? NovelWebViewViewer)?.pagePosition ?: flowOf<NovelPagePosition?>(null)
+        }
+        val statusPagePosition by statusPagePositionFlow.collectAsState(initial = null)
         val findInPageOpen = findInPageState != null
         val readerChromeVisible = state.menuVisible || findInPageOpen
         val statusBarAtBottomEdge = novelStatusBarPosition != "top"
@@ -578,24 +586,6 @@ class ReaderActivity : BaseActivity() {
             if (vc.paddingTop != top || vc.paddingBottom != bottom) vc.setPadding(0, top, 0, bottom)
         }
 
-        // Reader menu bars are transient overlays, so reserving layout for them would churn the
-        // WebView size on every toggle. Report their measured heights (system bars included) to the
-        // page as --tsundoku-safe-top/bottom + menuVisible. Read only inside snapshotFlow with
-        // remembered callbacks so scroll-driven recompositions stay off the per-frame path.
-        val menuTopBarPx = remember { mutableIntStateOf(0) }
-        val menuBottomBarPx = remember { mutableIntStateOf(0) }
-        val onTopBarHeight = remember { { px: Int -> menuTopBarPx.intValue = px } }
-        val onBottomBarHeight = remember { { px: Int -> menuBottomBarPx.intValue = px } }
-        val webViewer = state.viewer as? NovelWebViewViewer
-        LaunchedEffect(webViewer, readerChromeVisible, density) {
-            val viewer = webViewer ?: return@LaunchedEffect
-            snapshotFlow {
-                with(density) { menuTopBarPx.intValue.toDp().value to menuBottomBarPx.intValue.toDp().value }
-            }
-                .distinctUntilChanged()
-                .collect { (top, bottom) -> viewer.onReaderChromeChanged(readerChromeVisible, top, bottom) }
-        }
-
         NovelChapterDrawer(
             drawerState = chapterDrawerState,
             snapshot = chapterDrawerSnapshot,
@@ -621,8 +611,6 @@ class ReaderActivity : BaseActivity() {
                     state = state,
                     onOpenChapterDrawer = openChapterDrawer,
                     ttsOverlayBottomPadding = ttsOverlayBottomPadding,
-                    onTopBarHeight = onTopBarHeight,
-                    onBottomBarHeight = onBottomBarHeight,
                 )
 
                 if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
@@ -649,9 +637,14 @@ class ReaderActivity : BaseActivity() {
                     val statusBarOrder = remember(novelStatusBarOrderRaw) {
                         novelStatusBarOrderRaw.deserializeStatusBarOrder()
                     }
+                    val progressText = if (isPagedReading) {
+                        statusPagePosition?.let { novelPagedProgressLabel(it) }
+                    } else {
+                        "${state.novelProgressPercent}%"
+                    }
                     NovelStatusBar(
                         chapterText = chapterText,
-                        progressPercent = state.novelProgressPercent,
+                        progressText = progressText,
                         order = statusBarOrder,
                         showTime = novelStatusBarShowTime,
                         showChapter = showChapterSegment,
@@ -971,6 +964,11 @@ class ReaderActivity : BaseActivity() {
         return handled || super.dispatchGenericMotionEvent(event)
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        (viewModel.state.value.viewer as? NovelWebViewViewer)?.onTrimMemory()
+    }
+
     @Composable
     private fun ContentOverlay(state: ReaderViewModel.State) {
         val flashOnPageChange by readerPreferences.flashOnPageChange.collectAsState()
@@ -998,8 +996,6 @@ class ReaderActivity : BaseActivity() {
         state: ReaderViewModel.State,
         onOpenChapterDrawer: () -> Unit,
         ttsOverlayBottomPadding: Dp = 0.dp,
-        onTopBarHeight: (Int) -> Unit = {},
-        onBottomBarHeight: (Int) -> Unit = {},
     ) {
         if (!ifSourcesLoaded()) {
             return
@@ -1033,6 +1029,7 @@ class ReaderActivity : BaseActivity() {
 
             // Use state.novelProgressPercent for slider value, which is updated via onNovelProgressChanged callback
             val novelProgressFromState = state.novelProgressPercent
+            val pagedProgress by novelViewer.pagePosition.collectAsState()
 
             val ttsPlaybackState by novelViewer.ttsPlaybackState.collectAsState()
             val isTtsActive = ttsPlaybackState != NovelWebViewViewer.TtsPlaybackState.STOPPED
@@ -1136,6 +1133,9 @@ class ReaderActivity : BaseActivity() {
                     }
                     novelViewer.setProgressPercent(newProgress)
                 },
+                isPaged = novelViewer.isPagedMode(),
+                pagedProgress = pagedProgress,
+                onPagedProgressChange = novelViewer::setPagedUnit,
 
                 onNextChapter = {
                     loadNextChapter()
@@ -1246,8 +1246,6 @@ class ReaderActivity : BaseActivity() {
                 bottomBarItems = bottomBarItems,
                 onQuotes = ::onQuotesClicked,
                 ttsOverlayBottomPadding = ttsOverlayBottomPadding,
-                onTopBarHeight = onTopBarHeight,
-                onBottomBarHeight = onBottomBarHeight,
             )
 
             androidx.activity.compose.BackHandler(enabled = isEditing && state.hasUnsavedChanges) {
@@ -1626,7 +1624,11 @@ class ReaderActivity : BaseActivity() {
                 (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("next")
                 // Only reset to page 0 if NOT using infinite scroll for novel viewers
                 val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
-                if (novelViewer?.isInfiniteScrollEnabled() != true) {
+                if (novelViewer?.isInfiniteScrollEnabled() == true) {
+                    viewModel.state.value.viewerChapters?.currChapter?.chapter?.id?.let { chapterId ->
+                        novelViewer.scrollToLoadedChapter(chapterId)
+                    }
+                } else {
                     moveToPageIndex(0)
                 }
             } finally {
@@ -1649,7 +1651,11 @@ class ReaderActivity : BaseActivity() {
                 (viewModel.state.value.viewer as? NovelWebViewViewer)?.onChapterNavigate("prev")
                 // Only reset to page 0 if NOT using infinite scroll for novel viewers
                 val novelViewer = viewModel.state.value.viewer as? NovelWebViewViewer
-                if (novelViewer?.isInfiniteScrollEnabled() != true) {
+                if (novelViewer?.isInfiniteScrollEnabled() == true) {
+                    viewModel.state.value.viewerChapters?.currChapter?.chapter?.id?.let { chapterId ->
+                        novelViewer.scrollToLoadedChapter(chapterId)
+                    }
+                } else {
                     moveToPageIndex(0)
                 }
             } finally {
@@ -1715,6 +1721,11 @@ class ReaderActivity : BaseActivity() {
      */
     fun isTranslationEnabled(): Boolean {
         return viewModel.state.value.isTranslating
+    }
+
+    /** Flashes the existing display-refresh overlay after a settled WebView page turn. */
+    fun onNovelVisualPageChanged() {
+        if (readerPreferences.flashOnPageChange.get()) displayRefreshHost.flash()
     }
 
     /** Whether a cached translation exists for [chapterId]; viewers use it to pick the loading label. */
