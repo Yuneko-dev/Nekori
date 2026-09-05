@@ -21,6 +21,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Novel readers now offer a paged reading mode alongside scrolling, with automatic, single-page and double-page layouts, reading direction settings, and None, Horizontal, Slide and Curl page-turn effects.
 
 ### Fixed
+- Fixed the remaining e-ink flash trigger at infinite-scroll chapter dividers by routing chapter changes through the paged-mode flash guard.
 - Reader TTS settings align engine and voice rows with the sheet's spacing and typography, and remove the redundant section title.
 - Paged reading is restricted to novel sources; mixed, image and video sources keep scrolling even when paged layout is selected.
 - In-chapter links and summary focus now reveal the target page in paged reading without shifting the text vertically.

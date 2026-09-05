@@ -423,7 +423,7 @@ class ReaderActivity : BaseActivity() {
                         reloadContentWithTranslation()
                     }
                     ReaderViewModel.Event.PageChanged -> {
-                        displayRefreshHost.flash()
+                        onNovelVisualPageChanged()
                     }
                     is ReaderViewModel.Event.SetOrientation -> {
                         setOrientation(event.orientation)
