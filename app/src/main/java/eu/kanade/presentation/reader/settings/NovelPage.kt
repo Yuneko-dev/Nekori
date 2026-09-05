@@ -1722,14 +1722,8 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
         )
     }
 
-    Text(
-        text = stringResource(TDMR.strings.pref_novel_tts_section),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-    NovelTtsEnginePreference(screenModel.preferences)
-    NovelTtsVoicePreference(screenModel.preferences)
+    NovelTtsEnginePreference(screenModel.preferences, readerSheet = true)
+    NovelTtsVoicePreference(screenModel.preferences, readerSheet = true)
 
     // Speech Speed Slider (0.5x to 6.0x)
     SliderItem(

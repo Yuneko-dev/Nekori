@@ -3,18 +3,26 @@ package eu.kanade.presentation.reader.settings
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
 import eu.kanade.tachiyomi.ui.reader.setting.NovelTtsEngine
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.tts.tiktok.TikTokVoiceCatalog
@@ -22,7 +30,7 @@ import tachiyomi.tts.tiktok.displayName
 import java.util.Locale
 
 @Composable
-fun NovelTtsEnginePreference(preferences: ReaderPreferences) {
+fun NovelTtsEnginePreference(preferences: ReaderPreferences, readerSheet: Boolean = false) {
     val context = LocalContext.current
     val storedValue by preferences.novelTtsEngine.collectAsState()
     val selected = NovelTtsEngine.fromPreference(storedValue)
@@ -42,10 +50,17 @@ fun NovelTtsEnginePreference(preferences: ReaderPreferences) {
         )
     }
 
+    val title = stringResource(TDMR.strings.pref_novel_tts_engine)
+    val subtitle = entries[selected.preferenceValue]
     ListPreferenceWidget(
         value = selected.preferenceValue,
-        title = stringResource(TDMR.strings.pref_novel_tts_engine),
-        subtitle = entries[selected.preferenceValue],
+        title = title,
+        subtitle = subtitle,
+        preferenceContent = if (readerSheet) {
+            { onClick -> TtsReaderPreferenceRow(title, subtitle, onClick) }
+        } else {
+            null
+        },
         icon = null,
         entries = entries,
         onValueChange = { value ->
@@ -59,7 +74,7 @@ fun NovelTtsEnginePreference(preferences: ReaderPreferences) {
 }
 
 @Composable
-fun NovelTtsVoicePreference(preferences: ReaderPreferences) {
+fun NovelTtsVoicePreference(preferences: ReaderPreferences, readerSheet: Boolean = false) {
     val context = LocalContext.current
     val storedEngine by preferences.novelTtsEngine.collectAsState()
     val androidVoice by preferences.novelTtsVoice.collectAsState()
@@ -106,10 +121,17 @@ fun NovelTtsVoicePreference(preferences: ReaderPreferences) {
     }
 
     val selectedVoice = if (engine is NovelTtsEngine.TikTok) tikTokVoice else androidVoice
+    val title = stringResource(TDMR.strings.pref_novel_tts_voice)
+    val subtitle = entries[selectedVoice] ?: defaultVoiceLabel
     ListPreferenceWidget(
         value = selectedVoice,
-        title = stringResource(TDMR.strings.pref_novel_tts_voice),
-        subtitle = entries[selectedVoice] ?: defaultVoiceLabel,
+        title = title,
+        subtitle = subtitle,
+        preferenceContent = if (readerSheet) {
+            { onClick -> TtsReaderPreferenceRow(title, subtitle, onClick) }
+        } else {
+            null
+        },
         icon = null,
         entries = entries,
         onValueChange = { value ->
@@ -129,4 +151,26 @@ private fun installedAndroidTtsEngines(packageManager: PackageManager): List<Pai
         .map { info -> info.serviceInfo.packageName to info.serviceInfo.loadLabel(packageManager).toString() }
         .distinctBy { it.first }
         .sortedBy { it.second.lowercase() }
+}
+
+@Composable
+private fun TtsReaderPreferenceRow(title: String, subtitle: String?, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = SettingsItemsPaddings.Horizontal,
+                vertical = SettingsItemsPaddings.Vertical,
+            ),
+    ) {
+        Text(text = title, style = MaterialTheme.typography.bodyMedium)
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }

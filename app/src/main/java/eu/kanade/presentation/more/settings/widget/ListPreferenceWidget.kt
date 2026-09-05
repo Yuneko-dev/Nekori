@@ -34,16 +34,21 @@ fun <T> ListPreferenceWidget(
     subtitle: String?,
     icon: ImageVector?,
     entries: Map<out T, String>,
+    preferenceContent: @Composable ((onClick: () -> Unit) -> Unit)? = null,
     onValueChange: (T) -> Unit,
 ) {
     var isDialogShown by remember { mutableStateOf(false) }
 
-    TextPreferenceWidget(
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        onPreferenceClick = { isDialogShown = true },
-    )
+    if (preferenceContent != null) {
+        preferenceContent { isDialogShown = true }
+    } else {
+        TextPreferenceWidget(
+            title = title,
+            subtitle = subtitle,
+            icon = icon,
+            onPreferenceClick = { isDialogShown = true },
+        )
+    }
 
     if (isDialogShown) {
         AlertDialog(
