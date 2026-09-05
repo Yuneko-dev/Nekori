@@ -61,6 +61,16 @@ object TtsTextUtils {
         return (ttsChunks.size - 1).coerceAtLeast(0)
     }
 
+    fun getParagraphStartChunk(paragraphIndex: Int, paragraphIndexes: List<Int>): Int {
+        val target = paragraphIndex.coerceIn(0, paragraphIndexes.lastOrNull() ?: 0)
+        return paragraphIndexes.indexOfFirst { it >= target }.coerceAtLeast(0)
+    }
+
+    fun getParagraphProgress(chunkIndex: Int, paragraphIndexes: List<Int>): Pair<Int, Int> {
+        if (paragraphIndexes.isEmpty()) return 0 to 0
+        return paragraphIndexes[chunkIndex.coerceIn(0, paragraphIndexes.lastIndex)] to (paragraphIndexes.last() + 1)
+    }
+
     fun computeTtsStepTargetChunk(
         delta: Int,
         ttsPaused: Boolean,

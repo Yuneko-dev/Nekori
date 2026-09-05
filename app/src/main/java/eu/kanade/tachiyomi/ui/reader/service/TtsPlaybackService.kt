@@ -36,7 +36,8 @@ import uy.kohesive.injekt.injectLazy
 class TtsPlaybackService : Service() {
 
     private var isPaused: Boolean = false
-    private var progressPercent: Int = 0
+    private var paragraphIndex: Int = 0
+    private var paragraphCount: Int = 0
     private var novelTitle: String = "TTS playback"
     private var chapterTitle: String = ""
     private var mangaId: Long = -1L
@@ -57,6 +58,11 @@ class TtsPlaybackService : Service() {
                     override fun onSkipToPrevious() = sendControlBroadcast(COMMAND_PREV_PARAGRAPH)
                     override fun onSkipToNext() = sendControlBroadcast(COMMAND_NEXT_PARAGRAPH)
                     override fun onStop() = stopPlayback()
+                    override fun onSeekTo(pos: Long) {
+                        if (paragraphCount <= 0) return
+                        val target = (pos / SEEK_UNIT_MS).coerceIn(0, (paragraphCount - 1).toLong()).toInt()
+                        sendControlBroadcast(COMMAND_SEEK_PARAGRAPH, target)
+                    }
                 },
             )
             isActive = true
@@ -84,7 +90,8 @@ class TtsPlaybackService : Service() {
 
             ACTION_SYNC -> {
                 isPaused = intent.getBooleanExtra(EXTRA_IS_PAUSED, false)
-                progressPercent = intent.getIntExtra(EXTRA_PROGRESS_PERCENT, 0).coerceIn(0, 100)
+                paragraphIndex = intent.getIntExtra(EXTRA_PARAGRAPH_INDEX, 0).coerceAtLeast(0)
+                paragraphCount = intent.getIntExtra(EXTRA_PARAGRAPH_COUNT, 0).coerceAtLeast(0)
                 novelTitle = intent.getStringExtra(EXTRA_NOVEL_TITLE).orEmpty().ifBlank { "TTS playback" }
                 chapterTitle = intent.getStringExtra(EXTRA_CHAPTER_TITLE).orEmpty()
                 val syncedMangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1L)
@@ -155,6 +162,7 @@ class TtsPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val statusText = if (isPaused) "Paused" else "Reading in background"
+        mediaSession.setSessionActivity(openReaderPendingIntent)
         val contentText = if (chapterTitle.isNotBlank()) "$chapterTitle · $statusText" else statusText
 
         val notification = Notification.Builder(this, Notifications.CHANNEL_TTS_PLAYBACK)
@@ -163,12 +171,13 @@ class TtsPlaybackService : Service() {
             .setContentText(contentText)
             .setLargeIcon(coverBitmap)
             .setContentIntent(openReaderPendingIntent)
+            .setDeleteIntent(stopIntent)
+            .setSubText(paragraphProgressLabel())
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
-            .setProgress(100, progressPercent, false)
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(this, R.drawable.ic_skip_previous_24dp),
@@ -232,10 +241,13 @@ class TtsPlaybackService : Service() {
     }
 
     private fun updateMediaSession() {
+        val position = paragraphIndex.coerceIn(0, (paragraphCount - 1).coerceAtLeast(0)).toLong() * SEEK_UNIT_MS
         mediaSession.setMetadata(
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, novelTitle)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, chapterTitle)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, paragraphProgressLabel().orEmpty())
+                .putLong(MediaMetadata.METADATA_KEY_DURATION, paragraphCount.coerceAtLeast(1).toLong() * SEEK_UNIT_MS)
                 .apply { coverBitmap?.let { putBitmap(MediaMetadata.METADATA_KEY_ART, it) } }
                 .build(),
         )
@@ -244,14 +256,17 @@ class TtsPlaybackService : Service() {
                 .setActions(
                     PlaybackState.ACTION_PLAY or
                         PlaybackState.ACTION_PAUSE or
+                        PlaybackState.ACTION_PLAY_PAUSE or
                         PlaybackState.ACTION_SKIP_TO_PREVIOUS or
                         PlaybackState.ACTION_SKIP_TO_NEXT or
-                        PlaybackState.ACTION_STOP,
+                        PlaybackState.ACTION_STOP or
+                        PlaybackState.ACTION_SEEK_TO,
                 )
                 .setState(
                     if (isPaused) PlaybackState.STATE_PAUSED else PlaybackState.STATE_PLAYING,
-                    PlaybackState.PLAYBACK_POSITION_UNKNOWN,
-                    1f,
+                    position,
+                    // Position is a paragraph index, not elapsed audio time; never extrapolate it.
+                    0f,
                 )
                 .build(),
         )
@@ -277,11 +292,18 @@ class TtsPlaybackService : Service() {
         }
     }
 
-    private fun sendControlBroadcast(command: String) {
+    private fun paragraphProgressLabel(): String? {
+        if (paragraphCount <= 0) return null
+        val current = paragraphIndex.coerceIn(0, paragraphCount - 1) + 1
+        return "Paragraph $current of $paragraphCount"
+    }
+
+    private fun sendControlBroadcast(command: String, seekParagraphIndex: Int? = null) {
         sendBroadcast(
             Intent(ACTION_CONTROL).apply {
                 setPackage(packageName)
                 putExtra(EXTRA_COMMAND, command)
+                if (seekParagraphIndex != null) putExtra(EXTRA_SEEK_PARAGRAPH_INDEX, seekParagraphIndex)
             },
         )
     }
@@ -293,6 +315,8 @@ class TtsPlaybackService : Service() {
     }
 
     companion object {
+        // Synthetic milliseconds let system media controls seek by paragraph.
+        private const val SEEK_UNIT_MS = 1_000L
         private const val ACTION_SYNC =
             "eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService.SYNC"
         private const val ACTION_PLAY =
@@ -314,9 +338,12 @@ class TtsPlaybackService : Service() {
         const val COMMAND_PREV_PARAGRAPH = "prev_paragraph"
         const val COMMAND_NEXT_PARAGRAPH = "next_paragraph"
         const val COMMAND_STOP = "stop"
+        const val COMMAND_SEEK_PARAGRAPH = "seek_paragraph"
+        const val EXTRA_SEEK_PARAGRAPH_INDEX = "extra_seek_paragraph_index"
 
         private const val EXTRA_IS_PAUSED = "extra_is_paused"
-        private const val EXTRA_PROGRESS_PERCENT = "extra_progress_percent"
+        private const val EXTRA_PARAGRAPH_INDEX = "extra_paragraph_index"
+        private const val EXTRA_PARAGRAPH_COUNT = "extra_paragraph_count"
         private const val EXTRA_NOVEL_TITLE = "extra_novel_title"
         private const val EXTRA_CHAPTER_TITLE = "extra_chapter_title"
         private const val EXTRA_MANGA_ID = "extra_manga_id"
@@ -326,7 +353,8 @@ class TtsPlaybackService : Service() {
         fun syncState(
             context: Context,
             isPaused: Boolean,
-            progressPercent: Int,
+            paragraphIndex: Int,
+            paragraphCount: Int,
             novelTitle: String,
             chapterTitle: String,
             mangaId: Long,
@@ -338,7 +366,8 @@ class TtsPlaybackService : Service() {
                     Intent(context, TtsPlaybackService::class.java)
                         .setAction(ACTION_SYNC)
                         .putExtra(EXTRA_IS_PAUSED, isPaused)
-                        .putExtra(EXTRA_PROGRESS_PERCENT, progressPercent.coerceIn(0, 100))
+                        .putExtra(EXTRA_PARAGRAPH_INDEX, paragraphIndex.coerceAtLeast(0))
+                        .putExtra(EXTRA_PARAGRAPH_COUNT, paragraphCount.coerceAtLeast(0))
                         .putExtra(EXTRA_NOVEL_TITLE, novelTitle)
                         .putExtra(EXTRA_CHAPTER_TITLE, chapterTitle)
                         .putExtra(EXTRA_MANGA_ID, mangaId)

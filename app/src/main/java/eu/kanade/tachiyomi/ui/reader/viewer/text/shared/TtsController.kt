@@ -15,7 +15,6 @@ import okhttp3.OkHttpClient
 import tachiyomi.tts.tiktok.TikTokTtsEngine
 import tachiyomi.tts.tiktok.TikTokVoiceCatalog
 import java.util.Locale
-import kotlin.math.roundToInt
 
 class TtsController(
     context: Context,
@@ -365,6 +364,21 @@ class TtsController(
             ttsChunks,
             ttsChunkParagraphIndexes,
         )
+        startFromChunk(target)
+    }
+
+    /**
+     * Jumps directly to the first chunk of [paragraphIndex] (a media-notification seek, or any
+     * future direct paragraph-jump caller) - as opposed to [stepParagraph]'s relative +/-1 move.
+     * No-ops if nothing is loaded; clamps past the end to the last paragraph's first chunk.
+     */
+    fun seekToParagraph(paragraphIndex: Int) {
+        if (ttsChunks.isEmpty()) return
+        val target = TtsTextUtils.getParagraphStartChunk(paragraphIndex, ttsChunkParagraphIndexes)
+        startFromChunk(target)
+    }
+
+    private fun startFromChunk(target: Int) {
         ttsResumeChunkIndex = target
         ttsCurrentChunkIndex = target
         ttsPaused = false
@@ -395,11 +409,17 @@ class TtsController(
             (!ttsInitialized && (tts != null || tikTokTts != null)) ||
             (ttsChunks.isEmpty() && isTtsAutoPlay)
 
-    fun getProgressPercent(): Int {
-        if (ttsChunks.isEmpty()) return 0
+    /**
+     * Current (paragraphIndex, paragraphCount) - distinct from chunk index/count: a paragraph too
+     * long for a single TTS utterance splits into multiple chunks (see [speak]), so paragraph
+     * count is always <= chunk count. Used by the media notification for a "paragraph N of M"
+     * display and as the seek-bar's position/duration basis.
+     */
+    fun getParagraphProgress(): Pair<Int, Int> {
+        if (ttsChunks.isEmpty()) return 0 to 0
         val current = (if (ttsPaused) ttsResumeChunkIndex else ttsCurrentChunkIndex)
             .coerceIn(0, ttsChunks.size - 1)
-        return (((current + 1) * 100f) / ttsChunks.size).roundToInt().coerceIn(0, 100)
+        return TtsTextUtils.getParagraphProgress(current, ttsChunkParagraphIndexes)
     }
 
     fun applySettings() {

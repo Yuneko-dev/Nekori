@@ -7,6 +7,26 @@ import org.junit.jupiter.api.Test
 class TtsTextUtilsTest {
 
     @Test
+    fun `media seek starts paragraphs at their first chunk and clamps out of range targets`() {
+        val paragraphs = listOf(0, 0, 1, 3, 3)
+        assertEquals(0, TtsTextUtils.getParagraphStartChunk(-1, paragraphs))
+        assertEquals(2, TtsTextUtils.getParagraphStartChunk(1, paragraphs))
+        assertEquals(3, TtsTextUtils.getParagraphStartChunk(2, paragraphs))
+        assertEquals(3, TtsTextUtils.getParagraphStartChunk(Int.MAX_VALUE, paragraphs))
+        assertEquals(0, TtsTextUtils.getParagraphStartChunk(1, emptyList()))
+    }
+
+    @Test
+    fun `media progress counts paragraphs instead of utterance chunks`() {
+        val paragraphs = listOf(0, 0, 1, 2, 2)
+        assertEquals(0 to 3, TtsTextUtils.getParagraphProgress(1, paragraphs))
+        assertEquals(1 to 3, TtsTextUtils.getParagraphProgress(2, paragraphs))
+        assertEquals(2 to 3, TtsTextUtils.getParagraphProgress(Int.MAX_VALUE, paragraphs))
+        assertEquals(0 to 3, TtsTextUtils.getParagraphProgress(-1, paragraphs))
+        assertEquals(0 to 0, TtsTextUtils.getParagraphProgress(0, emptyList()))
+    }
+
+    @Test
     fun `normalizeText matches LNReader punctuation and whitespace handling`() {
         assertEquals(
             "Hello, world! Next",
