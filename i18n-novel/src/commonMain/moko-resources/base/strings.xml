@@ -1386,4 +1386,10 @@
     <string name="pref_restart_app_summary">Restart the app to recover a stuck or unresponsive JS Engine</string>
     <string name="pref_show_updating_progress_banner">Show updating progress banner</string>
     <string name="pref_show_restoring_progress_banner">Show restoring progress banner</string>
+
+    <!-- Stepper settings -->
+    <string name="stepper_decrease">Decrease</string>
+    <string name="stepper_increase">Increase</string>
+    <string name="stepper_enter_value">Enter value (%1$d–%2$d)</string>
+    <string name="stepper_value_range_error">Must be between %1$d and %2$d</string>
 </resources>

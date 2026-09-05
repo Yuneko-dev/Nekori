@@ -62,6 +62,8 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.toggle
+import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.Slider
 import tachiyomi.presentation.core.components.material.padding
@@ -211,7 +213,7 @@ fun StepperItem(
                 onClick = { if (value - step >= valueRange.first) onChange(value - step) },
                 enabled = value > valueRange.first,
             ) {
-                Icon(Icons.Outlined.Remove, contentDescription = "Decrease")
+                Icon(Icons.Outlined.Remove, contentDescription = stringResource(TDMR.strings.stepper_decrease))
             }
             Text(
                 text = value.toString(),
@@ -225,7 +227,7 @@ fun StepperItem(
                 onClick = { if (value + step <= valueRange.last) onChange(value + step) },
                 enabled = value < valueRange.last,
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "Increase")
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(TDMR.strings.stepper_increase))
             }
         }
     }
@@ -286,7 +288,9 @@ private fun StepperInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Enter value (${valueRange.first}–${valueRange.last})") },
+        title = {
+            Text(stringResource(TDMR.strings.stepper_enter_value, valueRange.first, valueRange.last))
+        },
         text = {
             OutlinedTextField(
                 value = input,
@@ -294,7 +298,9 @@ private fun StepperInputDialog(
                 singleLine = true,
                 isError = !isValid,
                 supportingText = if (!isValid) {
-                    { Text("Must be between ${valueRange.first} and ${valueRange.last}") }
+                    {
+                        Text(stringResource(TDMR.strings.stepper_value_range_error, valueRange.first, valueRange.last))
+                    }
                 } else {
                     null
                 },
@@ -306,18 +312,18 @@ private fun StepperInputDialog(
                 onClick = { if (isValid) onConfirm(parsed) },
                 enabled = isValid,
             ) {
-                Text("OK")
+                Text(stringResource(MR.strings.action_ok))
             }
         },
         dismissButton = {
             Row {
                 if (defaultValue != null) {
                     TextButton(onClick = { onConfirm(defaultValue) }) {
-                        Text("Default")
+                        Text(stringResource(MR.strings.label_default))
                     }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+                    Text(stringResource(MR.strings.action_cancel))
                 }
             }
         },

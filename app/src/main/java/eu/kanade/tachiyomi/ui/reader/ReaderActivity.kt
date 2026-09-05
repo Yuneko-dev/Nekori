@@ -93,6 +93,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
+import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
@@ -1725,7 +1726,12 @@ class ReaderActivity : BaseActivity() {
 
     /** Flashes the existing display-refresh overlay after a settled WebView page turn. */
     fun onNovelVisualPageChanged() {
-        if (readerPreferences.flashOnPageChange.get()) displayRefreshHost.flash()
+        if (
+            readerPreferences.novelReadingLayout.get() == NovelReadingLayout.PAGED &&
+            readerPreferences.flashOnPageChange.get()
+        ) {
+            displayRefreshHost.flash()
+        }
     }
 
     /** Whether a cached translation exists for [chapterId]; viewers use it to pick the loading label. */

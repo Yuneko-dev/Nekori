@@ -214,9 +214,27 @@ internal object NovelWebViewDocumentBuilder {
         return start to end
     }
 
-    internal fun appendProcessedContentScript(target: String, processed: ProcessedContent): String {
+    internal fun appendProcessedContentScript(
+        target: String,
+        processed: ProcessedContent,
+    ): String {
         if (!processed.isPlainText) {
-            return "$target.innerHTML = ${quoteForJson(extractBodyOrFallback(processed.text))};"
+            val htmlContent = quoteForJson(
+                extractBodyOrFallback(processed.text),
+            )
+
+            return """
+            (function() {
+                var targetElement = $target;
+                var htmlContent = $htmlContent;
+
+                if (typeof targetElement.setHTMLUnsafe === 'function') {
+                    targetElement.setHTMLUnsafe(htmlContent);
+                } else {
+                    targetElement.innerHTML = htmlContent;
+                }
+            })();
+            """.trimIndent()
         }
 
         return """
