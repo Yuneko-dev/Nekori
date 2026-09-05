@@ -6,7 +6,6 @@ import android.webkit.WebView
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
-import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,8 +39,8 @@ internal class NovelWebViewPagedController(
         }
     }
 
-    fun install(direction: NovelContentDirection, infinite: Boolean, chapterId: Long) {
-        enabled = preferences.novelReadingLayout.get() == NovelReadingLayout.PAGED
+    fun install(direction: NovelContentDirection, infinite: Boolean, chapterId: Long, enabled: Boolean) {
+        this.enabled = enabled
         this.direction = direction
         this.infinite = infinite
         this.chapterId = chapterId

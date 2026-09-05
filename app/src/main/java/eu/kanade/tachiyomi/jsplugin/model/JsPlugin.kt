@@ -50,6 +50,8 @@ data class JsPlugin(
 
     fun allowsInfiniteScroll(): Boolean = contentType != CONTENT_TYPE_VIDEO && contentType != CONTENT_TYPE_MIXED
 
+    fun allowsPagedReading(): Boolean = contentType.isNullOrBlank() || contentType == "novel"
+
     /**
      * Unique identifier combining plugin ID and repository URL for disambiguation
      */

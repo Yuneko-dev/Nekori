@@ -21,6 +21,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Novel readers now offer a paged reading mode alongside scrolling, with automatic, single-page and double-page layouts, reading direction settings, and None, Horizontal, Slide and Curl page-turn effects.
 
 ### Fixed
+- Paged reading is restricted to novel sources; mixed, image and video sources keep scrolling even when paged layout is selected.
 - In-chapter links and summary focus now reveal the target page in paged reading without shifting the text vertically.
 - Reader settings preview now opens the actual reader with a temporary sample chapter, so its controls and layout match normal reading without saving sample progress or history.
 - E-ink page flashing is now limited to paged novel reading and no longer fires on chapter changes after switching back to scrolling. Shared stepper controls and their numeric input dialog now use localized labels, accessibility descriptions and validation text.

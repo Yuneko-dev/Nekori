@@ -80,6 +80,9 @@ class JsSource(
     val allowsInfiniteScroll: Boolean
         get() = plugin.allowsInfiniteScroll()
 
+    val allowsPagedReading: Boolean
+        get() = plugin.allowsPagedReading()
+
     // parseNovel details and chapter list share one response.
     private val chaptersCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
     private val novelStructures = java.util.concurrent.ConcurrentHashMap<String, NovelStructure>()

@@ -44,6 +44,16 @@ class JsPluginModelTest {
         assertTrue(plugin().allowsInfiniteScroll())
     }
 
+    @Test
+    fun `only novel and legacy plugins allow paged reading`() {
+        assertTrue(plugin(contentType = "novel").allowsPagedReading())
+        assertTrue(plugin().allowsPagedReading())
+        assertTrue(plugin(contentType = "").allowsPagedReading())
+        listOf("mixed", "image", "video", "unknown").forEach { type ->
+            assertFalse(plugin(contentType = type).allowsPagedReading(), type)
+        }
+    }
+
     private fun plugin(
         contentWarning: Int = 0,
         contentType: String? = null,

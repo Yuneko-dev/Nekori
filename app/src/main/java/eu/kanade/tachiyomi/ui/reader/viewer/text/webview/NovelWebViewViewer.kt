@@ -336,6 +336,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun isVideoChapter(): Boolean = currentDocumentIsVideo
 
+    private fun isPagedLayoutEnabled(): Boolean =
+        preferences.novelReadingLayout.get() == NovelReadingLayout.PAGED && !currentDocumentIsVideo &&
+            ((activity.viewModel.getSource() as? JsSource)?.allowsPagedReading ?: true)
+
     private val ttsController: TtsController
 
     private lateinit var styler: NovelWebViewStyler
@@ -1222,6 +1226,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.onNovelProgressChanged(lastSavedProgress)
         } else {
             pagedController.install(
+                enabled = isPagedLayoutEnabled(),
                 direction = currentDocumentDirection,
                 infinite = isInfiniteScrollEnabled(),
                 chapterId = currentChapters?.currChapter?.chapter?.id ?: -1L,
@@ -1624,8 +1629,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             tsundokuScript = buildTsundokuScript(),
             pluginJavaScript = styler.initialPluginJavaScript(),
             infiniteScrollEnabled = isInfiniteScrollEnabled(),
-            pagedLayoutEnabled = preferences.novelReadingLayout.get() == NovelReadingLayout.PAGED &&
-                !directives.isVideo,
+            pagedLayoutEnabled = isPagedLayoutEnabled(),
             chapterDirection = direction,
             chapterLanguage = language,
             blockMedia = preferences.novelBlockMedia.get(),
