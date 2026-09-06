@@ -1,9 +1,9 @@
 package eu.kanade.presentation.reader.settings
 
-import android.graphics.Typeface
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,54 +44,33 @@ import uy.kohesive.injekt.api.get
 internal data class NovelFontOption(
     val label: String,
     val value: String,
-    val fontFamily: FontFamily,
+    val fontFamily: FontFamily?,
 )
 
 @Composable
-internal fun rememberNovelFontOptions(): List<NovelFontOption> {
+internal fun rememberNovelFontOptions(selected: String): List<NovelFontOption> {
     val fontManager = remember { Injekt.get<FontManager>() }
-    val systemFonts = listOf(
-        NovelFontOption(
-            label = stringResource(TDMR.strings.novel_font_sans_serif),
-            value = "sans-serif",
-            fontFamily = FontFamily.SansSerif,
-        ),
-        NovelFontOption(
-            label = stringResource(TDMR.strings.novel_font_serif),
-            value = "serif",
-            fontFamily = FontFamily.Serif,
-        ),
-        NovelFontOption(
-            label = stringResource(TDMR.strings.novel_font_monospace),
-            value = "monospace",
-            fontFamily = FontFamily.Monospace,
-        ),
-        systemFontOption(
-            label = stringResource(TDMR.strings.novel_font_georgia),
-            value = "Georgia, serif",
-        ),
-        systemFontOption(
-            label = stringResource(TDMR.strings.novel_font_times),
-            value = "Times New Roman, serif",
-        ),
-        systemFontOption(
-            label = stringResource(TDMR.strings.novel_font_arial),
-            value = "Arial, sans-serif",
-        ),
-    )
-    val customFonts by produceState(emptyList(), fontManager) {
+    val systemFonts = fontManager.getSystemFonts().map { font ->
+        NovelFontOption(font.name, font.path, fontManager.getTypeface(font)?.let(::FontFamily))
+    }
+    val customFonts by produceState<List<NovelFontOption>?>(null, fontManager) {
         value = withContext(Dispatchers.IO) {
             fontManager.getInstalledFonts().map { font ->
                 NovelFontOption(
                     label = font.name,
                     value = font.path,
-                    fontFamily = FontFamily(fontManager.getTypeface(font) ?: Typeface.DEFAULT),
+                    fontFamily = fontManager.getTypeface(font)?.let(::FontFamily),
                 )
             }
         }
     }
 
-    return systemFonts + customFonts
+    val options = systemFonts + customFonts.orEmpty()
+    return if (customFonts != null && options.none { it.value == selected }) {
+        options + NovelFontOption(selected.substringAfterLast('/'), selected, null)
+    } else {
+        options
+    }
 }
 
 @Composable
@@ -100,7 +80,7 @@ internal fun NovelFontSelectItem(
     defaultValue: String,
     onSelect: (String) -> Unit,
 ) {
-    val options = rememberNovelFontOptions()
+    val options = rememberNovelFontOptions(selected)
     val selectedOption = options.find { it.value == selected }
     var showDialog by remember { mutableStateOf(false) }
 
@@ -135,7 +115,11 @@ internal fun NovelFontSelectItem(
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = selectedOption?.label ?: selected,
+            text = if (selectedOption != null && selectedOption.fontFamily == null) {
+                stringResource(TDMR.strings.settings_font_manager_font_unavailable)
+            } else {
+                selectedOption?.label ?: selected
+            },
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = selectedOption?.fontFamily,
             ),
@@ -177,6 +161,8 @@ internal fun NovelFontPickerDialog(
                                 .clip(MaterialTheme.shapes.small)
                                 .selectable(
                                     selected = selected == option.value,
+                                    enabled = option.fontFamily != null,
+                                    role = Role.RadioButton,
                                     onClick = { onSelect(option.value) },
                                 )
                                 .fillMaxWidth()
@@ -184,15 +170,27 @@ internal fun NovelFontPickerDialog(
                         ) {
                             RadioButton(
                                 selected = selected == option.value,
+                                enabled = option.fontFamily != null,
                                 onClick = null,
                             )
-                            Text(
-                                text = option.label,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontFamily = option.fontFamily,
-                                ),
-                                modifier = Modifier.padding(start = 24.dp),
-                            )
+                            Column(modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp)) {
+                                Text(text = option.label, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = stringResource(
+                                        if (option.fontFamily != null) {
+                                            TDMR.strings.settings_font_manager_preview_sample
+                                        } else {
+                                            TDMR.strings.settings_font_manager_font_unavailable
+                                        },
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = option.fontFamily),
+                                    color = if (option.fontFamily != null) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.error
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -218,14 +216,5 @@ internal fun NovelFontPickerDialog(
         } else {
             null
         },
-    )
-}
-
-private fun systemFontOption(label: String, value: String): NovelFontOption {
-    val familyName = value.substringBefore(',').trim()
-    return NovelFontOption(
-        label = label,
-        value = value,
-        fontFamily = FontFamily(Typeface.create(familyName, Typeface.NORMAL)),
     )
 }

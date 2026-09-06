@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -12,11 +13,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okhttp3.Request
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -30,7 +32,10 @@ class FontManager(
     private val storageManager: StorageManager = Injekt.get(),
     private val networkHelper: NetworkHelper = Injekt.get(),
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val googleFonts = GoogleFontsCatalog {
+        val request = Request.Builder().url("https://fonts.google.com/metadata/fonts").build()
+        networkHelper.client.rateLimitExempt().newCall(request).awaitSuccess().use { it.body.string() }
+    }
 
     // Cache for loaded typefaces
     private val typefaceCache = java.util.concurrent.ConcurrentHashMap<String, Typeface>()
@@ -52,7 +57,9 @@ class FontManager(
             ?.filter {
                 it.isFile && it.name?.let { name ->
                     name.endsWith(".ttf", ignoreCase = true) ||
-                        name.endsWith(".otf", ignoreCase = true)
+                        name.endsWith(".otf", ignoreCase = true) ||
+                        name.endsWith(".woff", ignoreCase = true) ||
+                        name.endsWith(".woff2", ignoreCase = true)
                 } == true
             }
             ?.mapNotNull { file ->
@@ -73,12 +80,9 @@ class FontManager(
      */
     fun getSystemFonts(): List<FontInfo> {
         return listOf(
-            FontInfo("Sans Serif", "sans-serif", "sans-serif", false),
-            FontInfo("Serif", "serif", "serif", false),
-            FontInfo("Monospace", "monospace", "monospace", false),
-            FontInfo("Georgia", "Georgia, serif", "Georgia, serif", false),
-            FontInfo("Times New Roman", "Times New Roman, serif", "Times New Roman, serif", false),
-            FontInfo("Arial", "Arial, sans-serif", "Arial, sans-serif", false),
+            FontInfo(context.stringResource(TDMR.strings.novel_font_sans_serif), "sans-serif", "sans-serif", false),
+            FontInfo(context.stringResource(TDMR.strings.novel_font_serif), "serif", "serif", false),
+            FontInfo(context.stringResource(TDMR.strings.novel_font_monospace), "monospace", "monospace", false),
         )
     }
 
@@ -167,6 +171,7 @@ class FontManager(
             }
 
             val displayName = fileName.substringBeforeLast(".").replace("_", " ").replace("-", " ")
+            typefaceCache.remove(targetFile.uri.toString())
             Result.success(
                 FontInfo(
                     name = displayName,
@@ -283,6 +288,7 @@ class FontManager(
                 isCustom = true,
             )
 
+            typefaceCache.remove(fontInfo.path)
             emit(FontDownloadState.Success(fontInfo))
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to download font: $fontFamily" }
@@ -294,78 +300,7 @@ class FontManager(
      * Search Google Fonts.
      */
     suspend fun searchGoogleFonts(query: String): List<GoogleFontInfo> = withContext(Dispatchers.IO) {
-        try {
-            // Using a simplified list of popular Google Fonts
-            // In a full implementation, you'd use the Google Fonts API with an API key
-            val popularFonts = listOf(
-                GoogleFontInfo("Roboto", "sans-serif", listOf("100", "300", "400", "500", "700", "900")),
-                GoogleFontInfo("Open Sans", "sans-serif", listOf("300", "400", "600", "700", "800")),
-                GoogleFontInfo("Lato", "sans-serif", listOf("100", "300", "400", "700", "900")),
-                GoogleFontInfo(
-                    "Montserrat",
-                    "sans-serif",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo(
-                    "Poppins",
-                    "sans-serif",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo("Source Sans Pro", "sans-serif", listOf("200", "300", "400", "600", "700", "900")),
-                GoogleFontInfo(
-                    "Noto Sans",
-                    "sans-serif",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo("Nunito", "sans-serif", listOf("200", "300", "400", "500", "600", "700", "800", "900")),
-                GoogleFontInfo("Merriweather", "serif", listOf("300", "400", "700", "900")),
-                GoogleFontInfo("Playfair Display", "serif", listOf("400", "500", "600", "700", "800", "900")),
-                GoogleFontInfo("Lora", "serif", listOf("400", "500", "600", "700")),
-                GoogleFontInfo("PT Serif", "serif", listOf("400", "700")),
-                GoogleFontInfo("Source Serif Pro", "serif", listOf("200", "300", "400", "600", "700", "900")),
-                GoogleFontInfo("Libre Baskerville", "serif", listOf("400", "700")),
-                GoogleFontInfo("Crimson Text", "serif", listOf("400", "600", "700")),
-                GoogleFontInfo("EB Garamond", "serif", listOf("400", "500", "600", "700", "800")),
-                GoogleFontInfo("Fira Code", "monospace", listOf("300", "400", "500", "600", "700")),
-                GoogleFontInfo(
-                    "JetBrains Mono",
-                    "monospace",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800"),
-                ),
-                GoogleFontInfo("Source Code Pro", "monospace", listOf("200", "300", "400", "500", "600", "700", "900")),
-                GoogleFontInfo(
-                    "Inconsolata",
-                    "monospace",
-                    listOf("200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo("IBM Plex Mono", "monospace", listOf("100", "200", "300", "400", "500", "600", "700")),
-                GoogleFontInfo("Dancing Script", "cursive", listOf("400", "500", "600", "700")),
-                GoogleFontInfo("Pacifico", "cursive", listOf("400")),
-                GoogleFontInfo("Caveat", "cursive", listOf("400", "500", "600", "700")),
-                GoogleFontInfo("Indie Flower", "cursive", listOf("400")),
-                GoogleFontInfo("Noto Serif JP", "serif", listOf("200", "300", "400", "500", "600", "700", "900")),
-                GoogleFontInfo(
-                    "Noto Sans JP",
-                    "sans-serif",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo(
-                    "Noto Sans KR",
-                    "sans-serif",
-                    listOf("100", "200", "300", "400", "500", "600", "700", "800", "900"),
-                ),
-                GoogleFontInfo("Noto Sans SC", "sans-serif", listOf("100", "200", "300", "400", "500", "700", "900")),
-            )
-
-            if (query.isBlank()) {
-                popularFonts
-            } else {
-                popularFonts.filter { it.family.contains(query, ignoreCase = true) }
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to search Google Fonts" }
-            emptyList()
-        }
+        googleFonts.search(query)
     }
 
     /**
@@ -377,7 +312,9 @@ class FontManager(
         try {
             val fontsDir = getFontsDirectory() ?: return@withContext false
             val file = fontsDir.findFile(fontInfo.fileName)
-            file?.delete() ?: false
+            (file?.delete() ?: false).also { deleted ->
+                if (deleted) typefaceCache.remove(fontInfo.path)
+            }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to delete font: ${fontInfo.fileName}" }
             false
@@ -393,30 +330,24 @@ class FontManager(
                 "sans-serif" -> Typeface.SANS_SERIF
                 "serif" -> Typeface.SERIF
                 "monospace" -> Typeface.MONOSPACE
-                else -> Typeface.create(fontInfo.path.substringBefore(',').trim(), Typeface.NORMAL)
+                else -> null
             }
         }
 
-        return typefaceCache.getOrPut(fontInfo.path) {
-            try {
-                val uri = Uri.parse(fontInfo.path)
-                val file = UniFile.fromUri(context, uri)
-
-                // Always use temp file method - this works reliably across all Android versions
-                // and storage locations, avoiding issues with content URIs and scoped storage
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    val tempFile = File.createTempFile("font_", ".tmp", context.cacheDir)
-                    tempFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                    val typeface = Typeface.createFromFile(tempFile)
+        return try {
+            context.contentResolver.openInputStream(Uri.parse(fontInfo.path))?.use { input ->
+                typefaceCache[fontInfo.path]?.let { return it }
+                val tempFile = File.createTempFile("font_", ".tmp", context.cacheDir)
+                try {
+                    tempFile.outputStream().use { output -> input.copyTo(output) }
+                    Typeface.createFromFile(tempFile).also { typefaceCache[fontInfo.path] = it }
+                } finally {
                     tempFile.delete()
-                    typeface
-                } ?: Typeface.DEFAULT
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to load typeface: ${fontInfo.path}" }
-                Typeface.DEFAULT
+                }
             }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to load typeface: ${fontInfo.path}" }
+            null
         }
     }
 

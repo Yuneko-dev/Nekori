@@ -858,9 +858,11 @@
     <string name="settings_font_manager_title">Quản lý phông chữ</string>
     <string name="settings_font_manager_add_font">Thêm phông chữ</string>
     <string name="settings_font_manager_loading">Đang tải phông chữ...</string>
-    <string name="settings_font_manager_system_fonts">Phông chữ hệ thống</string>
-    <string name="settings_font_manager_custom_fonts">Phông chữ tùy chỉnh</string>
-    <string name="settings_font_manager_downloading">Đang tải phông chữ...</string>
+    <string name="settings_font_manager_system_fonts">Phông chữ có sẵn</string>
+    <string name="settings_font_manager_custom_fonts">Phông chữ đã thêm</string>
+    <string name="settings_font_manager_preview_sample">Gió chiều khẽ lay những tán cây.</string>
+    <string name="settings_font_manager_font_unavailable">Không thể tải phông chữ</string>
+    <string name="settings_font_manager_downloading">Đang tải %1$s…</string>
     <string name="settings_font_manager_import_from_device">Nhập từ thiết bị</string>
     <string name="settings_font_manager_select_ttf_otf">Chọn tệp TTF hoặc OTF</string>
     <string name="settings_font_manager_download_google_fonts">Tải từ Google Fonts</string>

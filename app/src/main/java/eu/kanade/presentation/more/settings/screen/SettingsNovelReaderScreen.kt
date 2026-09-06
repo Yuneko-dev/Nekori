@@ -467,13 +467,17 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ) {
                     val title = stringResource(TDMR.strings.pref_font_family)
                     val selected by readerPreferences.novelFontFamily.collectAsState()
-                    val options = rememberNovelFontOptions()
+                    val options = rememberNovelFontOptions(selected)
                     val selectedOption = options.find { it.value == selected }
                     var showDialog by remember { mutableStateOf(false) }
 
                     TextPreferenceWidget(
                         title = title,
-                        subtitle = selectedOption?.label ?: selected,
+                        subtitle = if (selectedOption != null && selectedOption.fontFamily == null) {
+                            stringResource(TDMR.strings.settings_font_manager_font_unavailable)
+                        } else {
+                            selectedOption?.label ?: selected
+                        },
                         onPreferenceClick = { showDialog = true },
                     )
                     if (showDialog) {

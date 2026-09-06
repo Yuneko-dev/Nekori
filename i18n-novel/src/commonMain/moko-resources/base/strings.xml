@@ -991,9 +991,11 @@
     <string name="settings_font_manager_title">Font Manager</string>
     <string name="settings_font_manager_add_font">Add Font</string>
     <string name="settings_font_manager_loading">Loading fonts...</string>
-    <string name="settings_font_manager_system_fonts">System Fonts</string>
-    <string name="settings_font_manager_custom_fonts">Custom Fonts</string>
-    <string name="settings_font_manager_downloading">Downloading font...</string>
+    <string name="settings_font_manager_system_fonts">Built-in fonts</string>
+    <string name="settings_font_manager_custom_fonts">Added fonts</string>
+    <string name="settings_font_manager_preview_sample">The quick brown fox jumps over the lazy dog.</string>
+    <string name="settings_font_manager_font_unavailable">Font unavailable</string>
+    <string name="settings_font_manager_downloading">Downloading %1$s…</string>
     <string name="settings_font_manager_import_from_device">Import from Device</string>
     <string name="settings_font_manager_select_ttf_otf">Select a TTF or OTF file</string>
     <string name="settings_font_manager_download_google_fonts">Download from Google Fonts</string>

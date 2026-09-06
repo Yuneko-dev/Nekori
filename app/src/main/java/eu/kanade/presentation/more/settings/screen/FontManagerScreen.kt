@@ -18,12 +18,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
@@ -34,13 +35,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -49,6 +52,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,12 +63,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -74,7 +79,11 @@ import eu.kanade.tachiyomi.data.font.FontInfo
 import eu.kanade.tachiyomi.data.font.FontManager
 import eu.kanade.tachiyomi.data.font.GoogleFontInfo
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -133,14 +142,11 @@ class FontManagerScreen : Screen {
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { showAddFontSheet = true },
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = stringResource(TDMR.strings.settings_font_manager_add_font),
-                    )
-                }
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text(stringResource(TDMR.strings.settings_font_manager_add_font)) },
+                )
             },
         ) { paddingValues ->
             if (state.isLoading) {
@@ -159,26 +165,38 @@ class FontManagerScreen : Screen {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
+                        .padding(paddingValues)
+                        .selectableGroup(),
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        top = 16.dp,
-                        end = 16.dp,
-                        bottom = 88.dp,
+                        top = 8.dp,
+                        bottom = 96.dp,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    if ((state.systemFonts + state.customFonts).none { it.path == state.selectedFontPath }) {
+                        item(key = "unavailable-selection") {
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        stringResource(TDMR.strings.settings_font_manager_font_unavailable),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                supportingContent = { Text(state.selectedFontPath) },
+                                trailingContent = { RadioButton(selected = true, onClick = null, enabled = false) },
+                            )
+                        }
+                    }
                     // System Fonts Section
                     item {
                         Text(
                             text = stringResource(TDMR.strings.settings_font_manager_system_fonts),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
                     }
 
-                    items(state.systemFonts) { font ->
+                    items(state.systemFonts, key = { "system:${it.path}" }) { font ->
                         FontItem(
                             fontInfo = font,
                             isSelected = font.path == state.selectedFontPath,
@@ -193,13 +211,13 @@ class FontManagerScreen : Screen {
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = stringResource(TDMR.strings.settings_font_manager_custom_fonts),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             )
                         }
 
-                        items(state.customFonts) { font ->
+                        items(state.customFonts, key = { "custom:${it.path}" }) { font ->
                             FontItem(
                                 fontInfo = font,
                                 isSelected = font.path == state.selectedFontPath,
@@ -209,26 +227,17 @@ class FontManagerScreen : Screen {
                         }
                     }
 
-                    // Download Progress
-                    state.downloadProgress?.let { progress ->
+                    state.downloadingFont?.let { fontFamily ->
                         item {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                ) {
-                                    Text(
-                                        text = stringResource(TDMR.strings.settings_font_manager_downloading),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    LinearProgressIndicator(
-                                        progress = { progress / 100f },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                }
+                                Text(
+                                    text = stringResource(TDMR.strings.settings_font_manager_downloading, fontFamily),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
                         }
                     }
@@ -344,10 +353,18 @@ class FontManagerScreen : Screen {
 
         // Google Fonts Dialog
         if (showGoogleFontsDialog) {
+            LaunchedEffect(Unit) { screenModel.openGoogleFonts() }
+            DisposableEffect(Unit) {
+                onDispose { screenModel.closeGoogleFonts() }
+            }
             GoogleFontsDialog(
+                searchQuery = state.googleFontsQuery,
                 googleFonts = state.googleFonts,
                 isSearching = state.isSearchingGoogleFonts,
+                searchError = state.googleFontsError,
+                canDownload = state.downloadingFont == null,
                 onSearch = { screenModel.searchGoogleFonts(it) },
+                onRetry = { screenModel.searchGoogleFonts(state.googleFontsQuery, debounce = false) },
                 onDownload = {
                     screenModel.downloadGoogleFont(it.family)
                     showGoogleFontsDialog = false
@@ -386,6 +403,12 @@ class FontManagerScreen : Screen {
     }
 }
 
+private sealed interface FontPreview {
+    data object Loading : FontPreview
+    data object Unavailable : FontPreview
+    data class Ready(val family: FontFamily) : FontPreview
+}
+
 @Composable
 private fun FontItem(
     fontInfo: FontInfo,
@@ -394,69 +417,59 @@ private fun FontItem(
     onDelete: (() -> Unit)?,
 ) {
     val fontManager = remember { Injekt.get<FontManager>() }
-    val previewFontFamily by produceState<FontFamily?>(null, fontInfo.path) {
+    val preview by produceState<FontPreview>(FontPreview.Loading, fontInfo) {
+        value = FontPreview.Loading
         value = withContext(Dispatchers.IO) {
-            fontManager.getTypeface(fontInfo)?.let(::FontFamily)
+            fontManager.getTypeface(fontInfo)?.let { FontPreview.Ready(FontFamily(it)) } ?: FontPreview.Unavailable
         }
     }
+    val ready = preview as? FontPreview.Ready
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        ListItem(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+                .weight(1f)
+                .selectable(
+                    selected = isSelected,
+                    enabled = ready != null,
+                    role = Role.RadioButton,
+                    onClick = onClick,
+                ),
+            headlineContent = {
                 Text(
                     text = fontInfo.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFamily = previewFontFamily,
-                    ),
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = if (fontInfo.isCustom) {
-                        stringResource(TDMR.strings.settings_font_manager_custom_font_label)
-                    } else {
-                        stringResource(TDMR.strings.settings_font_manager_system_font_label)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (isSelected) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = stringResource(MR.strings.selected),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            if (onDelete != null) {
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = stringResource(MR.strings.action_delete),
-                        tint = MaterialTheme.colorScheme.error,
+            },
+            supportingContent = {
+                when (val currentPreview = preview) {
+                    FontPreview.Loading -> Text(stringResource(MR.strings.loading))
+                    FontPreview.Unavailable -> Text(
+                        text = stringResource(TDMR.strings.settings_font_manager_font_unavailable),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    is FontPreview.Ready -> Text(
+                        text = stringResource(TDMR.strings.settings_font_manager_preview_sample),
+                        fontFamily = currentPreview.family,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
+            },
+            trailingContent = { RadioButton(selected = isSelected, onClick = null, enabled = ready != null) },
+        )
+        if (onDelete != null) {
+            IconButton(onClick = onDelete, modifier = Modifier.padding(end = 8.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(MR.strings.action_delete),
+                )
             }
         }
     }
@@ -464,14 +477,16 @@ private fun FontItem(
 
 @Composable
 private fun GoogleFontsDialog(
+    searchQuery: String,
     googleFonts: List<GoogleFontInfo>,
     isSearching: Boolean,
+    searchError: String?,
+    canDownload: Boolean,
     onSearch: (String) -> Unit,
+    onRetry: () -> Unit,
     onDownload: (GoogleFontInfo) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Google Fonts") },
@@ -479,16 +494,13 @@ private fun GoogleFontsDialog(
             Column {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        onSearch(it)
-                    },
+                    onValueChange = onSearch,
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(TDMR.strings.settings_font_manager_search_fonts_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { onSearch(searchQuery) }),
+                    keyboardActions = KeyboardActions(onSearch = { onRetry() }),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -500,16 +512,26 @@ private fun GoogleFontsDialog(
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }
+                } else if (searchError != null) {
+                    Text(
+                        text = stringResource(MR.strings.chapter_error),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Text(text = searchError, style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onRetry) { Text(stringResource(MR.strings.action_retry)) }
+                } else if (googleFonts.isEmpty()) {
+                    Text(stringResource(MR.strings.no_results_found))
                 } else {
                     LazyColumn(
                         modifier = Modifier.height(300.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        items(googleFonts) { font ->
+                        items(googleFonts, key = { it.family }) { font ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onDownload(font) },
+                                    .clickable(enabled = canDownload) { onDownload(font) },
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -532,7 +554,11 @@ private fun GoogleFontsDialog(
                                     Icon(
                                         Icons.Default.Download,
                                         contentDescription = stringResource(MR.strings.action_download),
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = if (canDownload) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                        },
                                     )
                                 }
                             }
@@ -560,15 +586,18 @@ class FontManagerViewModel(
         val systemFonts: List<FontInfo> = emptyList(),
         val customFonts: List<FontInfo> = emptyList(),
         val selectedFontPath: String = "",
+        val googleFontsQuery: String = "",
         val googleFonts: List<GoogleFontInfo> = emptyList(),
         val isSearchingGoogleFonts: Boolean = false,
-        val downloadProgress: Int? = null,
+        val googleFontsError: String? = null,
+        val downloadingFont: String? = null,
         val message: String? = null,
     )
 
+    private var searchJob: Job? = null
+
     init {
         loadFonts()
-        loadGoogleFonts("")
     }
 
     private fun loadFonts() {
@@ -647,35 +676,57 @@ class FontManagerViewModel(
         }
     }
 
-    fun searchGoogleFonts(query: String) {
-        mutableState.update { it.copy(isSearchingGoogleFonts = true) }
-
-        kotlinx.coroutines.MainScope().launch {
-            val fonts = fontManager.searchGoogleFonts(query)
-            mutableState.update {
-                it.copy(
-                    isSearchingGoogleFonts = false,
-                    googleFonts = fonts,
-                )
+    fun searchGoogleFonts(query: String, debounce: Boolean = true) {
+        searchJob?.cancel()
+        mutableState.update {
+            it.copy(
+                googleFontsQuery = query,
+                googleFonts = emptyList(),
+                isSearchingGoogleFonts = true,
+                googleFontsError = null,
+            )
+        }
+        searchJob = viewModelScope.launch {
+            try {
+                if (debounce) delay(250)
+                val fonts = fontManager.searchGoogleFonts(query)
+                ensureActive()
+                mutableState.update { it.copy(isSearchingGoogleFonts = false, googleFonts = fonts) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ensureActive()
+                mutableState.update {
+                    it.copy(
+                        isSearchingGoogleFonts = false,
+                        googleFontsError = e.message?.takeIf(String::isNotBlank)
+                            ?: context.contextStringResource(MR.strings.unknown_error),
+                    )
+                }
             }
         }
     }
 
-    private fun loadGoogleFonts(query: String) {
-        searchGoogleFonts(query)
+    fun openGoogleFonts() {
+        searchGoogleFonts("", debounce = false)
+    }
+
+    fun closeGoogleFonts() {
+        searchJob?.cancel()
+        mutableState.update { it.copy(isSearchingGoogleFonts = false) }
     }
 
     fun downloadGoogleFont(fontFamily: String) {
+        if (state.value.downloadingFont != null) return
+        mutableState.update { it.copy(downloadingFont = fontFamily) }
         kotlinx.coroutines.MainScope().launch {
             fontManager.downloadGoogleFont(fontFamily).collect { downloadState ->
                 when (downloadState) {
-                    is FontDownloadState.Downloading -> {
-                        mutableState.update { it.copy(downloadProgress = downloadState.progress) }
-                    }
+                    is FontDownloadState.Downloading -> Unit
                     is FontDownloadState.Success -> {
                         mutableState.update {
                             it.copy(
-                                downloadProgress = null,
+                                downloadingFont = null,
                                 message = context.contextStringResource(
                                     TDMR.strings.settings_font_manager_downloaded,
                                     fontFamily,
@@ -687,7 +738,7 @@ class FontManagerViewModel(
                     is FontDownloadState.Error -> {
                         mutableState.update {
                             it.copy(
-                                downloadProgress = null,
+                                downloadingFont = null,
                                 message = context.contextStringResource(
                                     TDMR.strings.settings_font_manager_download_failed,
                                     downloadState.message,
