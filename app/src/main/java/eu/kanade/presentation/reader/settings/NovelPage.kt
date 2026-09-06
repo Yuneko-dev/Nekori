@@ -644,20 +644,6 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
 
     NovelScrollbarSettings(screenModel.preferences)
 
-    val markAsReadThreshold by screenModel.preferences.novelMarkAsReadThreshold.collectAsState()
-    SliderItem(
-        label = stringResource(TDMR.strings.settings_reader_mark_as_read_at_title),
-        value = markAsReadThreshold,
-        valueRange = 50..100,
-        valueString = "$markAsReadThreshold%",
-        onChange = screenModel.preferences.novelMarkAsReadThreshold::set,
-    )
-    ReaderSwitchItem(
-        label = stringResource(TDMR.strings.settings_reader_auto_mark_short_title),
-        pref = screenModel.preferences.novelMarkShortChapterAsRead,
-        summary = stringResource(TDMR.strings.settings_reader_auto_mark_short_summary),
-    )
-
     // Infinite Scroll
     val infiniteScrollEnabled by screenModel.preferences.novelInfiniteScroll.collectAsState()
     ReaderSwitchItem(
