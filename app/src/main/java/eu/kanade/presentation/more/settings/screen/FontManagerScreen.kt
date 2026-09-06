@@ -105,6 +105,8 @@ class FontManagerScreen : Screen {
         val screenModel = viewModel<FontManagerViewModel>()
         val state by screenModel.state.collectAsState()
 
+        LaunchedEffect(screenModel) { screenModel.loadFonts() }
+
         val snackbarHostState = remember { SnackbarHostState() }
 
         var showAddFontSheet by remember { mutableStateOf(false) }
@@ -596,14 +598,10 @@ class FontManagerViewModel(
 
     private var searchJob: Job? = null
 
-    init {
-        loadFonts()
-    }
-
-    private fun loadFonts() {
+    fun loadFonts() {
         mutableState.update { it.copy(isLoading = true) }
 
-        kotlinx.coroutines.MainScope().launch {
+        viewModelScope.launch {
             val systemFonts = fontManager.getSystemFonts()
             val customFonts = fontManager.getInstalledFonts()
             val currentFont = readerPreferences.novelFontFamily.get()
@@ -625,7 +623,7 @@ class FontManagerViewModel(
     }
 
     fun importFont(uri: android.net.Uri) {
-        kotlinx.coroutines.MainScope().launch {
+        viewModelScope.launch {
             val result = fontManager.importFont(uri)
             result.fold(
                 onSuccess = { font ->
@@ -654,7 +652,7 @@ class FontManagerViewModel(
     }
 
     fun deleteFont(font: FontInfo) {
-        kotlinx.coroutines.MainScope().launch {
+        viewModelScope.launch {
             val success = fontManager.deleteFont(font)
             if (success) {
                 loadFonts()
@@ -719,7 +717,7 @@ class FontManagerViewModel(
     fun downloadGoogleFont(fontFamily: String) {
         if (state.value.downloadingFont != null) return
         mutableState.update { it.copy(downloadingFont = fontFamily) }
-        kotlinx.coroutines.MainScope().launch {
+        viewModelScope.launch {
             fontManager.downloadGoogleFont(fontFamily).collect { downloadState ->
                 when (downloadState) {
                     is FontDownloadState.Downloading -> Unit

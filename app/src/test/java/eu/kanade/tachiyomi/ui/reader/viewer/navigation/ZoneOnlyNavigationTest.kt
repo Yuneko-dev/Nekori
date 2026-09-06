@@ -1,12 +1,46 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.navigation
 
 import android.graphics.RectF
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import eu.kanade.tachiyomi.util.lang.invert
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ZoneOnlyNavigationTest {
+
+    @Test
+    fun `switching to centered zones clears every persisted inversion`() {
+        listOf(ReaderPreferences.TAPZONE_CENTER_INDEX, ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX).forEach { zone ->
+            TappingInvertMode.entries.forEach { inversion ->
+                assertEquals(TappingInvertMode.NONE, inversion.forNovelNavigation(zone))
+            }
+        }
+    }
+
+    @Test
+    fun `switching to bottom zone retains vertical movement without horizontal inversion`() {
+        val expected = mapOf(
+            TappingInvertMode.NONE to TappingInvertMode.NONE,
+            TappingInvertMode.HORIZONTAL to TappingInvertMode.NONE,
+            TappingInvertMode.VERTICAL to TappingInvertMode.VERTICAL,
+            TappingInvertMode.BOTH to TappingInvertMode.VERTICAL,
+        )
+        expected.forEach { (inversion, canonical) ->
+            val effective = inversion.forNovelNavigation(ReaderPreferences.TAPZONE_BOTTOM_INDEX)
+            assertEquals(canonical, effective)
+            assertRectEquals(bottomZone.invert(inversion), bottomZone.invert(effective))
+        }
+    }
+
+    @Test
+    fun `ordinary disabled and unknown navigation modes preserve persisted inversion`() {
+        (listOf(-1) + (0..5).toList() + 99).forEach { zone ->
+            TappingInvertMode.entries.forEach { inversion ->
+                assertEquals(inversion, inversion.forNovelNavigation(zone), "zone=$zone invert=$inversion")
+            }
+        }
+    }
 
     private val centerZone = RectF(0.4f, 0.4f, 0.6f, 0.6f)
     private val centerLargeZone = RectF(0.3f, 0.3f, 0.7f, 0.7f)

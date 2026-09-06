@@ -16,6 +16,7 @@ import eu.kanade.presentation.reader.settings.ColorPickerDialog
 import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
 import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
 import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
+import eu.kanade.presentation.reader.settings.novelScrollbarMode
 import eu.kanade.presentation.reader.settings.novelTapZoneInvertOptions
 import eu.kanade.presentation.reader.settings.novelTapZoneOptions
 import eu.kanade.presentation.reader.settings.novelThemes
@@ -213,12 +214,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val showProgress by readerPreferences.novelShowProgressSlider.collectAsState()
         val verticalScrollbar by readerPreferences.novelVerticalScrollbar.collectAsState()
         val scrollbarPosition by readerPreferences.novelVerticalScrollbarPosition.collectAsState()
-        val scrollbarMode = when {
-            !showProgress -> "none"
-            !verticalScrollbar -> "horizontal"
-            scrollbarPosition == "left" -> "vertical_left"
-            else -> "vertical_right"
-        }
+        val scrollbarMode = novelScrollbarMode(showProgress, verticalScrollbar, scrollbarPosition)
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
             preferenceItems = buildList {
@@ -564,6 +560,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         preference = readerPreferences.navigationModeNovel,
                         title = stringResource(MR.strings.pref_viewer_nav),
                         entries = novelTapZoneOptions.associate { (value, label) -> value to stringResource(label) },
+                        onValueChanged = { mode ->
+                            val invert = readerPreferences.novelNavInverted
+                            invert.set(invert.get().forNovelNavigation(mode))
+                            true
+                        },
                     ),
                 )
                 if (invertOptions.isNotEmpty()) {

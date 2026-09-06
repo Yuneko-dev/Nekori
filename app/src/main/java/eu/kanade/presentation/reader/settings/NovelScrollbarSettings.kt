@@ -19,12 +19,7 @@ internal fun ColumnScope.NovelScrollbarSettings(preferences: ReaderPreferences) 
     val showProgressSlider by preferences.novelShowProgressSlider.collectAsState()
     val showVerticalScrollbar by preferences.novelVerticalScrollbar.collectAsState()
     val verticalScrollbarPosition by preferences.novelVerticalScrollbarPosition.collectAsState()
-    val scrollbarMode = when {
-        !showProgressSlider -> "none"
-        showVerticalScrollbar && verticalScrollbarPosition == "left" -> "vertical_left"
-        showVerticalScrollbar && verticalScrollbarPosition == "right" -> "vertical_right"
-        else -> "horizontal"
-    }
+    val scrollbarMode = novelScrollbarMode(showProgressSlider, showVerticalScrollbar, verticalScrollbarPosition)
     val scrollbarModeOptions = listOf(
         stringResource(MR.strings.none) to "none",
         stringResource(TDMR.strings.novel_scrollbar_horizontal) to "horizontal",
@@ -71,4 +66,11 @@ internal fun ReaderPreferences.setNovelScrollbarMode(mode: String) {
             novelShowProgressSlider.set(true)
         }
     }
+}
+
+internal fun novelScrollbarMode(showProgress: Boolean, vertical: Boolean, position: String): String = when {
+    !showProgress -> "none"
+    vertical && position == "left" -> "vertical_left"
+    vertical && position == "right" -> "vertical_right"
+    else -> "horizontal"
 }

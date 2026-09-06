@@ -112,6 +112,14 @@ class ReaderPreferences(
         HORIZONTAL(MR.strings.tapping_inverted_horizontal, shouldInvertHorizontal = true),
         VERTICAL(MR.strings.tapping_inverted_vertical, shouldInvertVertical = true),
         BOTH(MR.strings.tapping_inverted_both, shouldInvertHorizontal = true, shouldInvertVertical = true),
+        ;
+
+        fun forNovelNavigation(mode: Int): TappingInvertMode = when (mode) {
+            TAPZONE_CENTER_INDEX, TAPZONE_CENTER_LARGE_INDEX -> NONE
+            // Full-width zones ignore horizontal inversion; BOTH is equivalent to VERTICAL.
+            TAPZONE_BOTTOM_INDEX -> if (shouldInvertVertical) VERTICAL else NONE
+            else -> this
+        }
     }
 
     enum class NovelWebViewNetworkMode {

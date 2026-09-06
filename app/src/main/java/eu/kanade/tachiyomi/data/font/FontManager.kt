@@ -7,13 +7,17 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimitExempt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import logcat.LogPriority
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -90,6 +94,8 @@ class FontManager(
      * Import a font file from a URI.
      */
     suspend fun importFont(uri: Uri): Result<FontInfo> = withContext(Dispatchers.IO) {
+        var stagedFile: UniFile? = null
+        var saved = false
         try {
             val fontsDir = getFontsDirectory()
                 ?: return@withContext Result.failure(Exception("Cannot access fonts directory"))
@@ -107,9 +113,11 @@ class FontManager(
                 return@withContext Result.failure(Exception("Invalid font format. Only TTF and OTF are supported."))
             }
 
-            // Check if font already exists
+            // Raw-file providers may return an existing destination; cleanup must not delete it.
+            val existingFile = fontsDir.findFile(fileName)
             val targetFile = fontsDir.createFile(fileName)
                 ?: return@withContext Result.failure(Exception("Cannot create font file"))
+            stagedFile = targetFile.takeIf { it.uri != existingFile?.uri }
 
             // Copy file
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -117,6 +125,7 @@ class FontManager(
                     input.copyTo(output)
                 }
             } ?: return@withContext Result.failure(Exception("Cannot read source file"))
+            currentCoroutineContext().ensureActive()
 
             // Validate font file properly
             try {
@@ -128,12 +137,12 @@ class FontManager(
                     // For scoped storage we need to copy to temp file first to validate
                     context.contentResolver.openInputStream(targetFile.uri)?.use { input ->
                         val tempFile = File.createTempFile("font_validate_", ".tmp", context.cacheDir)
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
+                        try {
+                            tempFile.outputStream().use { output -> input.copyTo(output) }
+                            Typeface.createFromFile(tempFile)
+                        } finally {
+                            tempFile.delete()
                         }
-                        val typeface = Typeface.createFromFile(tempFile)
-                        tempFile.delete()
-                        typeface
                     }
                 }
 
@@ -164,14 +173,17 @@ class FontManager(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                targetFile.delete()
                 logcat(LogPriority.WARN) { "Font validation failed: ${e.message}" }
                 return@withContext Result.failure(Exception("Invalid or corrupted font file"))
             }
 
             val displayName = fileName.substringBeforeLast(".").replace("_", " ").replace("-", " ")
+            currentCoroutineContext().ensureActive()
             typefaceCache.remove(targetFile.uri.toString())
+            saved = true
             Result.success(
                 FontInfo(
                     name = displayName,
@@ -180,9 +192,13 @@ class FontManager(
                     isCustom = true,
                 ),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to import font" }
             Result.failure(e)
+        } finally {
+            if (!saved) runCatching { stagedFile?.delete() }
         }
     }
 
@@ -192,22 +208,21 @@ class FontManager(
     fun downloadGoogleFont(fontFamily: String): Flow<FontDownloadState> = flow {
         emit(FontDownloadState.Downloading(0))
 
+        var stagedFile: UniFile? = null
+        var saved = false
         try {
-            // Google Fonts API for getting font file URL
-            val apiUrl = "https://fonts.google.com/download?family=${fontFamily.replace(" ", "+")}"
-
-            // Alternative: Use Google Fonts CSS API to get the font URL
-            val cssUrl = "https://fonts.googleapis.com/css2?family=${fontFamily.replace(
-                " ",
-                "+",
-            )}:wght@400;700&display=swap"
+            // Only one face is saved, so request the default style.
+            val cssUrl = "https://fonts.googleapis.com/css2".toHttpUrl().newBuilder()
+                .addQueryParameter("family", fontFamily)
+                .addQueryParameter("display", "swap")
+                .build()
 
             val request = Request.Builder()
                 .url(cssUrl)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
-            val response = networkHelper.client.rateLimitExempt().newCall(request).execute()
+            val response = networkHelper.client.rateLimitExempt().newCall(request).awaitSuccess()
             val css = response.use { it.body.string() }
 
             // Parse font URLs from CSS
@@ -228,7 +243,7 @@ class FontManager(
                 .url(fontUrl)
                 .build()
 
-            val fontResponse = networkHelper.client.rateLimitExempt().newCall(fontRequest).execute()
+            val fontResponse = networkHelper.client.rateLimitExempt().newCall(fontRequest).awaitSuccess()
             val fontBytes = fontResponse.use { it.body.bytes() }
 
             emit(FontDownloadState.Downloading(75))
@@ -246,40 +261,38 @@ class FontManager(
             }
             val fileName = "${fontFamily.replace(" ", "_")}.$extension"
 
+            val existingFile = fontsDir.findFile(fileName)
             val targetFile = fontsDir.createFile(fileName)
                 ?: throw Exception("Cannot create font file")
+            stagedFile = targetFile.takeIf { it.uri != existingFile?.uri }
 
             targetFile.openOutputStream().use { output ->
                 output.write(fontBytes)
             }
+            currentCoroutineContext().ensureActive()
 
             emit(FontDownloadState.Downloading(100))
 
             // Validate downloaded font before returning success
-            try {
-                // Check file header
-                context.contentResolver.openInputStream(targetFile.uri)?.use { input ->
-                    val header = ByteArray(4)
-                    if (input.read(header) != 4) throw Exception("Downloaded file is incomplete")
+            // Check file header
+            context.contentResolver.openInputStream(targetFile.uri)?.use { input ->
+                val header = ByteArray(4)
+                if (input.read(header) != 4) throw Exception("Downloaded file is incomplete")
 
-                    val magic = (header[0].toInt() shl 24) or
-                        (header[1].toInt() shl 16) or
-                        (header[2].toInt() shl 8) or
-                        header[3].toInt()
+                val magic = (header[0].toInt() shl 24) or
+                    (header[1].toInt() shl 16) or
+                    (header[2].toInt() shl 8) or
+                    header[3].toInt()
 
-                    if (magic != 0x00010000 &&
-                        magic != 0x74727565 &&
-                        magic != 0x4F54544F &&
-                        magic != 0x774F4632 && // woff2
-                        magic != 0x774F4646
-                    ) { // woff
-                        throw Exception("Downloaded file is not a valid font")
-                    }
+                if (magic != 0x00010000 &&
+                    magic != 0x74727565 &&
+                    magic != 0x4F54544F &&
+                    magic != 0x774F4632 && // woff2
+                    magic != 0x774F4646
+                ) { // woff
+                    throw Exception("Downloaded file is not a valid font")
                 }
-            } catch (e: Exception) {
-                targetFile.delete()
-                throw e
-            }
+            } ?: throw Exception("Cannot read downloaded font")
 
             val fontInfo = FontInfo(
                 name = fontFamily,
@@ -289,10 +302,16 @@ class FontManager(
             )
 
             typefaceCache.remove(fontInfo.path)
+            currentCoroutineContext().ensureActive()
+            saved = true
             emit(FontDownloadState.Success(fontInfo))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to download font: $fontFamily" }
             emit(FontDownloadState.Error(e.message ?: "Unknown error"))
+        } finally {
+            if (!saved) runCatching { stagedFile?.delete() }
         }
     }.flowOn(Dispatchers.IO)
 
@@ -315,6 +334,8 @@ class FontManager(
             (file?.delete() ?: false).also { deleted ->
                 if (deleted) typefaceCache.remove(fontInfo.path)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to delete font: ${fontInfo.fileName}" }
             false

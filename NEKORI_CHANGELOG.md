@@ -17,27 +17,26 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
-- Font manager uses Material 3 rows with uniform names, localized previews in the actual font, radio selection, a direct custom-font Delete button and an extended Add button.
-- Font downloads show an inline named activity indicator; additional Google Fonts downloads are visibly disabled until the active download finishes.
-- Global novel reader settings now expose default rotation, reading-mode and tap-zone hints, and skip-read, filtered and duplicate chapter controls. Opening-hint toggles remain global-only; per-novel rotation remains available through the existing appbar action.
-- Global novel settings use standard preference rows for tap zones, scrollbars, custom colors and the full paged E-Ink controls. In-reader settings retain their existing layout; standalone TTS and source CSS controls stay in their existing groups.
-- In-reader TTS highlight background/text choices display preset color swatches using the same rendering as theme choices; Custom uses the existing Palette icon and color picker.
-- Reader toolbar customization now supports Find in chapter, Reload from source and Summarize chapter actions.
-- Novel readers now offer a paged reading mode alongside scrolling, with automatic, single-page and double-page layouts, reading direction settings, and None, Horizontal, Slide and Curl page-turn effects.
+- Paged novel reading with single/double-page layouts, reading direction and page-turn effects.
+- Customizable reader toolbar actions for chapter search, reload and summary.
+- Global reader controls for default rotation, opening hints, chapter skipping, tap zones, scrollbars and E-Ink.
+
+### Changed
+- Standalone reader settings use standard preference rows; TTS color choices show swatches and a Custom palette icon.
+- Font selection uses sample previews and radio buttons, with direct deletion and a compact named download indicator.
 
 ### Fixed
-- Google Fonts search now queries Google's full website catalog instead of a small hardcoded subset, making families such as Literata discoverable. Successful catalog loads are reused; search failures show Retry and stale queries cannot overwrite newer results.
-- Font manager and reader picker share only the guaranteed Sans Serif, Serif and Monospace choices. Unloadable fonts remain visible with an error and disabled selection; legacy saved selections stay unchanged. Failed previews no longer silently substitute the default font.
-- Novel tap-zone settings distinguish the default layout from disabled navigation without changing saved values. Reader setting labels reuse existing translations, and text alignment labels are localized.
-- Global reader reset includes settings hidden by their current mode or represented by multiple stored preferences, while preserving user-authored snippets and replacement rules.
-- Fixed the remaining e-ink flash trigger at infinite-scroll chapter dividers by routing chapter changes through the paged-mode flash guard.
-- Reader TTS settings align engine and voice rows with the sheet's spacing and typography, and remove the redundant section title.
-- Paged reading is restricted to novel sources; mixed, image and video sources keep scrolling even when paged layout is selected.
-- In-chapter links and summary focus now reveal the target page in paged reading without shifting the text vertically.
-- Reader settings preview now opens the actual reader with a temporary sample chapter, so its controls and layout match normal reading without saving sample progress or history.
-- E-ink page flashing is now limited to paged novel reading and no longer fires on chapter changes after switching back to scrolling. Shared stepper controls and their numeric input dialog now use localized labels, accessibility descriptions and validation text.
-- TTS highlighting no longer shifts paragraph layout, and Android TTS connections use the application context to avoid retaining a destroyed reader activity.
-- Paged novel update checks now refresh page 1, the previous tail and newly added pages while keeping all other pages lazy-loaded.
+- Google Fonts search uses the full catalog, with cached results, cancellation and retry on failure.
+- Font pickers share built-in choices and report unavailable fonts instead of showing misleading fallback previews; reopening the manager refreshes the selection.
+- Font operations follow the ViewModel lifecycle, report HTTP failures and clean up incomplete imports/downloads.
+- Tap-zone options keep Disabled last and normalize inversion for center/bottom layouts; scrollbar modes stay consistent across settings and the reader.
+- Reader reset includes hidden controls without deleting custom scripts or replacement rules.
+- Reader labels reuse existing translations; text alignment and stepper controls are localized.
+- Paged layout and E-Ink flashing apply only to eligible novel content; scrolling, mixed and video content remain unaffected.
+- Chapter links and summaries reveal the correct page without shifting paged text vertically.
+- Settings preview uses the actual reader without saving sample history or progress.
+- TTS controls have consistent spacing; highlighting preserves paragraph layout and Android TTS no longer retains a destroyed activity.
+- Paged updates refresh the first page, previous tail and new pages while keeping other pages lazy-loaded.
 
 ## [v0.0.8] - 2026-08-31
 

@@ -78,6 +78,7 @@ import eu.kanade.presentation.reader.appbars.isAvailable
 import eu.kanade.presentation.reader.appbars.novelPagedProgressLabel
 import eu.kanade.presentation.reader.deserializeStatusBarOrder
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
+import eu.kanade.presentation.reader.settings.novelScrollbarMode
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -1033,12 +1034,11 @@ class ReaderActivity : BaseActivity() {
             val showVerticalProgressSlider by readerPreferences.novelVerticalScrollbar.collectAsState()
             val verticalProgressSliderPosition by readerPreferences.novelVerticalScrollbarPosition.collectAsState()
             val verticalProgressSliderSize by readerPreferences.novelVerticalProgressSliderSize.collectAsState()
-            val progressSliderMode = when {
-                !showProgressSlider -> "none"
-                showVerticalProgressSlider && verticalProgressSliderPosition == "left" -> "vertical_left"
-                showVerticalProgressSlider && verticalProgressSliderPosition == "right" -> "vertical_right"
-                else -> "horizontal"
-            }
+            val progressSliderMode = novelScrollbarMode(
+                showProgressSlider,
+                showVerticalProgressSlider,
+                verticalProgressSliderPosition,
+            )
 
             // Use state.novelProgressPercent for slider value, which is updated via onNovelProgressChanged callback
             val novelProgressFromState = state.novelProgressPercent

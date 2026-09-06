@@ -82,18 +82,7 @@ class NovelConfig(
     private fun coerceInvertForZoneOnlyMode(navigationMode: Int) {
         val pref = readerPreferences.novelNavInverted
         val current = pref.get()
-        val target = when (navigationMode) {
-            ReaderPreferences.TAPZONE_CENTER_INDEX,
-            ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX,
-            -> ReaderPreferences.TappingInvertMode.NONE
-            ReaderPreferences.TAPZONE_BOTTOM_INDEX -> when (current) {
-                // Horizontal invert is a no-op on the full-width bottom rect; both == vertical.
-                ReaderPreferences.TappingInvertMode.HORIZONTAL -> ReaderPreferences.TappingInvertMode.NONE
-                ReaderPreferences.TappingInvertMode.BOTH -> ReaderPreferences.TappingInvertMode.VERTICAL
-                else -> current
-            }
-            else -> return
-        }
+        val target = current.forNovelNavigation(navigationMode)
         if (target != current) {
             tappingInverted = target
             pref.set(target)
