@@ -554,8 +554,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // start instead of staying on whatever the previous viewer set, but
         // without the show-on-start preview.
         activity.binding.navigationOverlay.setNavigation(config.navigator, false)
-        // Brand-new-user one-shot: surface the nav layout on first reader open.
-        if (config.forceNavigationOverlay && !activity.tapZonesShownInSession) {
+        // Opening preference and first-user onboarding share one preview per activity session.
+        if ((config.forceNavigationOverlay || preferences.showNavigationOverlay.get()) &&
+            preferences.navigationModeNovel.get() != ReaderPreferences.TAPZONE_DISABLED_INDEX &&
+            !activity.tapZonesShownInSession
+        ) {
             activity.tapZonesShownInSession = true
             activity.binding.navigationOverlay.setNavigation(config.navigator, true)
         }
@@ -1238,6 +1241,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             syncShortChapterProgressIfNeeded()
             if (isEditingMode) toggleEditMode(true)
         }
+        activity.showReadingMode(isPagedMode())
         if (!isInfiniteScrollEnabled()) {
             styler.injectNextChapterButton(
                 chapterName = currentChapters?.currChapter?.chapter?.name.orEmpty(),

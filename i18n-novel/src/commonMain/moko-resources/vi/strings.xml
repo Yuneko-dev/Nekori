@@ -407,14 +407,10 @@
 
     <string name="pref_novel_infinite_scroll">Cuộn vô hạn (tự tải chương kế tiếp)</string>
     <string name="pref_novel_progress_slider">Hiện thanh trượt tiến độ</string>
-    <string name="pref_novel_reading_layout">Bố cục đọc</string>
-    <string name="novel_reading_layout_scroll">Cuộn</string>
-    <string name="novel_reading_layout_paged">Phân trang</string>
     <string name="pref_novel_page_spread">Số trang hiển thị</string>
     <string name="novel_page_spread_auto">Tự động</string>
     <string name="novel_page_spread_single">Một trang</string>
     <string name="novel_page_spread_double">Hai trang</string>
-    <string name="pref_novel_page_effect">Hiệu ứng chuyển trang</string>
     <string name="novel_page_effect_horizontal">Vuốt ngang</string>
     <string name="novel_page_effect_slide">Trượt</string>
     <string name="novel_page_effect_curl">Lật trang</string>
@@ -928,25 +924,19 @@
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Văn bản</string>
     <string name="settings_reader_font_manager_summary">Tải hoặc nhập phông chữ tùy chỉnh</string>
-    <string name="settings_reader_force_lowercase">Ép chữ thường</string>
     <string name="settings_reader_force_lowercase_summary">Chuyển toàn bộ văn bản thành chữ thường</string>
-    <string name="settings_reader_use_original_fonts_title">Dùng phông chữ gốc (chỉ WebView)</string>
     <string name="settings_reader_use_original_fonts_summary">Giữ nguyên phông chữ từ trang nguồn</string>
     <string name="settings_reader_swipe_navigation_title">Điều hướng vuốt</string>
     <string name="settings_reader_swipe_navigation_summary">Vuốt trái/phải để đổi chương</string>
     <string name="settings_reader_formatting_group">Định dạng</string>
     <string name="settings_reader_content_group">Nội dung</string>
-    <string name="settings_reader_infinite_scroll_title">Cuộn vô hạn</string>
     <string name="settings_reader_infinite_scroll_summary">Tự động tải chương tiếp theo khi cuộn</string>
     <string name="settings_reader_auto_load_next_at_title">Tự động tải chương tiếp theo tại</string>
     <string name="settings_reader_mark_as_read_at_title">Đánh dấu đã đọc chương tại</string>
     <string name="settings_reader_auto_mark_short_title">Tự động đánh dấu chương ngắn là đã đọc</string>
     <string name="settings_reader_auto_mark_short_summary">Nếu chương vừa với màn hình mà không cần cuộn, đánh dấu đã đọc ngay</string>
-    <string name="settings_reader_hide_chapter_title">Ẩn tiêu đề chương</string>
     <string name="settings_reader_hide_chapter_title_summary">Loại bỏ tiêu đề chương khỏi nội dung</string>
-    <string name="settings_reader_block_media_title">Chặn nội dung đa phương tiện</string>
-    <string name="settings_reader_block_media_summary">Chặn tải ảnh và nội dung đa phương tiện ở cả hai trình đọc</string>
-    <string name="settings_reader_text_selectable_title">Cho phép chọn văn bản</string>
+    <string name="settings_reader_block_media_summary">Chặn tải ảnh và nội dung đa phương tiện trong trình đọc</string>
     <string name="settings_reader_text_selectable_summary">Cho phép chọn và sao chép văn bản trong trình đọc</string>
     <string name="settings_reader_source_css_priority_title">Ưu tiên CSS nguồn</string>
     <string name="settings_reader_source_css_priority_summary">Cho phép CSS nhúng/nguồn ghi đè màu chủ đề trình đọc</string>
@@ -1389,4 +1379,5 @@
     <string name="stepper_increase">Tăng</string>
     <string name="stepper_enter_value">Nhập giá trị (%1$d–%2$d)</string>
     <string name="stepper_value_range_error">Giá trị phải nằm trong khoảng %1$d đến %2$d</string>
+    <string name="novel_text_align_justify">Căn đều</string>
 </resources>

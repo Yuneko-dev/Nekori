@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -62,22 +63,24 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsViewModel) {
         pref = screenModel.preferences.keepScreenOn,
     )
 
-    EInkFlashSettings(screenModel)
+    EInkFlashSettings(screenModel.preferences)
 }
 
 @Composable
-internal fun ColumnScope.EInkFlashSettings(screenModel: ReaderSettingsViewModel) {
-    val flashPageState by screenModel.preferences.flashOnPageChange.collectAsState()
-    val flashMillisPref = screenModel.preferences.flashDurationMillis
+internal fun ColumnScope.EInkFlashSettings(preferences: ReaderPreferences) {
+    HeadingItem("E-Ink")
+    val flashPageState by preferences.flashOnPageChange.collectAsState()
+    val flashMillisPref = preferences.flashDurationMillis
     val flashMillis by flashMillisPref.collectAsState()
-    val flashIntervalPref = screenModel.preferences.flashPageInterval
+    val flashIntervalPref = preferences.flashPageInterval
     val flashInterval by flashIntervalPref.collectAsState()
-    val flashColorPref = screenModel.preferences.flashColor
+    val flashColorPref = preferences.flashColor
     val flashColor by flashColorPref.collectAsState()
 
     ReaderSwitchItem(
         label = stringResource(MR.strings.pref_flash_page),
-        pref = screenModel.preferences.flashOnPageChange,
+        pref = preferences.flashOnPageChange,
+        summary = stringResource(MR.strings.pref_flash_page_summ),
     )
     if (flashPageState) {
         SliderItem(

@@ -241,6 +241,8 @@ class ReaderActivity : BaseActivity() {
      */
     var tapZonesShownInSession = false
 
+    private var readingModeShownInSession = false
+
     // Quotes functionality
     private var showQuotesSheet by mutableStateOf(false)
     private var findInPageState by mutableStateOf<NovelFindInPageState?>(null)
@@ -1547,6 +1549,13 @@ class ReaderActivity : BaseActivity() {
         startPostponedEnterTransition()
     }
 
+    fun showReadingMode(isPaged: Boolean) {
+        if (readingModeShownInSession || viewModel.isPreview || !readerPreferences.showReadingMode.get()) return
+        readingModeShownInSession = true
+        menuToggleToast?.cancel()
+        menuToggleToast = toast(if (isPaged) MR.strings.pager_viewer else MR.strings.webtoon_viewer)
+    }
+
     private fun openMangaScreen() {
         if (viewModel.isPreview) {
             finish()
@@ -1911,6 +1920,11 @@ class ReaderActivity : BaseActivity() {
          * Initializes the reader subscriptions.
          */
         init {
+            readerPreferences.defaultOrientationType.changes()
+                .drop(1)
+                .onEach { if (viewModel.manga != null) setOrientation(viewModel.getMangaOrientation()) }
+                .launchIn(lifecycleScope)
+
             readerPreferences.readerTheme.changes()
                 .onEach { theme ->
                     binding.readerContainer.setBackgroundColor(

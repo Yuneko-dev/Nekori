@@ -1,5 +1,6 @@
 package eu.kanade.presentation.reader.settings
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -69,11 +70,13 @@ import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.InlineSettingsChipRow
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
@@ -188,7 +191,17 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
                     checkedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
             ) {
-                Icon(imageVector = icon, contentDescription = value)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = stringResource(
+                        when (value) {
+                            "left" -> MR.strings.zoom_start_left
+                            "center" -> MR.strings.zoom_start_center
+                            "right" -> MR.strings.zoom_start_right
+                            else -> TDMR.strings.novel_text_align_justify
+                        },
+                    ),
+                )
             }
         }
     }
@@ -356,13 +369,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
                             else -> null
                         }
                         if (displayColor != null) {
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                                    .background(displayColor)
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                            )
+                            ColorSwatch(displayColor)
                         }
                         if (isCustom) {
                             Icon(
@@ -419,13 +426,7 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
                             else -> null
                         }
                         if (displayColor != null) {
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                                    .background(displayColor)
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                            )
+                            ColorSwatch(displayColor)
                         }
                         if (isCustom) {
                             Icon(
@@ -450,6 +451,13 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
                 },
             )
         }
+    }
+
+    HeadingItem(MR.strings.pref_category_general)
+    ReaderSwitchItem(stringResource(MR.strings.pref_fullscreen), screenModel.preferences.fullscreen)
+    val fullscreen by screenModel.preferences.fullscreen.collectAsState()
+    if (fullscreen && LocalActivity.current?.hasDisplayCutout() == true) {
+        ReaderSwitchItem(stringResource(MR.strings.pref_cutout_short), screenModel.preferences.drawUnderCutout)
     }
 
     // Hide Chapter Title in Content
@@ -520,10 +528,10 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
     val volumeKeysScroll by screenModel.preferences.novelVolumeKeysScroll.collectAsState()
     val readingLayout by screenModel.preferences.novelReadingLayout.collectAsState()
 
-    SettingsChipRow(TDMR.strings.pref_novel_reading_layout) {
+    SettingsChipRow(MR.strings.pref_viewer_type) {
         listOf(
-            NovelReadingLayout.SCROLL to TDMR.strings.novel_reading_layout_scroll,
-            NovelReadingLayout.PAGED to TDMR.strings.novel_reading_layout_paged,
+            NovelReadingLayout.SCROLL to MR.strings.webtoon_viewer,
+            NovelReadingLayout.PAGED to MR.strings.pager_viewer,
         ).forEach { (value, label) ->
             FilterChip(
                 selected = readingLayout == value,
@@ -551,7 +559,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
             }
         }
 
-        SettingsChipRow(TDMR.strings.pref_novel_page_effect) {
+        SettingsChipRow(MR.strings.pref_page_transitions) {
             listOf(
                 NovelPageEffect.NONE to MR.strings.none,
                 NovelPageEffect.HORIZONTAL to TDMR.strings.novel_page_effect_horizontal,
@@ -566,7 +574,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
             }
         }
 
-        EInkFlashSettings(screenModel)
+        EInkFlashSettings(screenModel.preferences)
     }
 
     if (readingLayout == NovelReadingLayout.PAGED) {
@@ -610,82 +618,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         )
     }
 
-    // Tap-zone navigation settings for novel viewer
-    val navigationModeNovel by screenModel.preferences.navigationModeNovel.collectAsState()
-    val novelNavInverted by screenModel.preferences.novelNavInverted.collectAsState()
-    val effectiveNavigationModeNovel = if (navigationModeNovel == ReaderPreferences.TAPZONE_DISABLED_INDEX) {
-        0
-    } else {
-        navigationModeNovel
-    }
-    SettingsChipRow(MR.strings.pref_viewer_nav) {
-        ReaderPreferences.TapZones.forEachIndexed { idx, res ->
-            if (idx == 0) {
-                FilterChip(
-                    selected = effectiveNavigationModeNovel == 0,
-                    onClick = {
-                        screenModel.preferences.navigationModeNovel.set(ReaderPreferences.TAPZONE_DISABLED_INDEX)
-                    },
-                    label = { Text(stringResource(res)) },
-                )
-            } else if (idx != ReaderPreferences.TAPZONE_DISABLED_INDEX) {
-                FilterChip(
-                    selected = effectiveNavigationModeNovel == idx,
-                    onClick = { screenModel.preferences.navigationModeNovel.set(idx) },
-                    label = { Text(stringResource(res)) },
-                )
-            }
-        }
-
-        FilterChip(
-            selected = navigationModeNovel == ReaderPreferences.TAPZONE_CENTER_INDEX,
-            onClick = { screenModel.preferences.navigationModeNovel.set(ReaderPreferences.TAPZONE_CENTER_INDEX) },
-            label = { Text(stringResource(TDMR.strings.novel_nav_center_only)) },
-        )
-        FilterChip(
-            selected = navigationModeNovel == ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX,
-            onClick = { screenModel.preferences.navigationModeNovel.set(ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX) },
-            label = { Text(stringResource(TDMR.strings.novel_nav_center_large)) },
-        )
-        FilterChip(
-            selected = navigationModeNovel == ReaderPreferences.TAPZONE_BOTTOM_INDEX,
-            onClick = { screenModel.preferences.navigationModeNovel.set(ReaderPreferences.TAPZONE_BOTTOM_INDEX) },
-            label = { Text(stringResource(TDMR.strings.novel_status_bar_position_bottom)) },
-        )
-    }
-
-    val invertOptions = when {
-        effectiveNavigationModeNovel == 0 -> emptyList()
-        navigationModeNovel == ReaderPreferences.TAPZONE_CENTER_INDEX ||
-            navigationModeNovel == ReaderPreferences.TAPZONE_CENTER_LARGE_INDEX -> emptyList()
-        navigationModeNovel == ReaderPreferences.TAPZONE_BOTTOM_INDEX -> listOf(
-            ReaderPreferences.TappingInvertMode.NONE to TDMR.strings.novel_status_bar_position_bottom,
-            ReaderPreferences.TappingInvertMode.VERTICAL to TDMR.strings.novel_status_bar_position_top,
-        )
-        else -> ReaderPreferences.TappingInvertMode.entries.map { it to it.titleRes }
-    }
-    if (invertOptions.isNotEmpty()) {
-        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            invertOptions.forEach { (entry, label) ->
-                FilterChip(
-                    selected = entry == novelNavInverted,
-                    onClick = { screenModel.preferences.novelNavInverted.set(entry) },
-                    label = { Text(stringResource(label)) },
-                )
-            }
-        }
-    }
-
-    if (navigationModeNovel == ReaderPreferences.TAPZONE_BOTTOM_INDEX) {
-        val bottomZoneHeight by screenModel.preferences.novelBottomZoneHeight.collectAsState()
-        SliderItem(
-            label = stringResource(TDMR.strings.novel_nav_zone_height),
-            value = bottomZoneHeight,
-            valueRange = 5..50,
-            valueString = "$bottomZoneHeight%",
-            onChange = { screenModel.preferences.novelBottomZoneHeight.set(it) },
-        )
-    }
+    NovelTapZoneSettings(screenModel.preferences)
 
     // Swipe Navigation
     ReaderSwitchItem(
@@ -709,69 +642,21 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         pref = screenModel.preferences.novelTextSelectable,
     )
 
-    // Progress slider mode
-    val showProgressSlider by screenModel.preferences.novelShowProgressSlider.collectAsState()
-    val showVerticalScrollbar by screenModel.preferences.novelVerticalScrollbar.collectAsState()
-    val verticalScrollbarPosition by screenModel.preferences.novelVerticalScrollbarPosition.collectAsState()
-    val scrollbarMode = when {
-        !showProgressSlider -> "none"
-        showVerticalScrollbar && verticalScrollbarPosition == "left" -> "vertical_left"
-        showVerticalScrollbar && verticalScrollbarPosition == "right" -> "vertical_right"
-        else -> "horizontal"
-    }
-    val scrollbarModeOptions = listOf(
-        stringResource(MR.strings.none) to "none",
-        stringResource(TDMR.strings.novel_scrollbar_horizontal) to "horizontal",
-        stringResource(TDMR.strings.novel_vertical_scrollbar_left) to "vertical_left",
-        stringResource(TDMR.strings.novel_vertical_scrollbar_right) to "vertical_right",
-    )
-    SettingsChipRow(TDMR.strings.pref_novel_scrollbar_mode) {
-        scrollbarModeOptions.forEach { (label, value) ->
-            FilterChip(
-                selected = scrollbarMode == value,
-                onClick = {
-                    when (value) {
-                        "none" -> {
-                            screenModel.preferences.novelShowProgressSlider.set(false)
-                            screenModel.preferences.novelVerticalScrollbar.set(false)
-                        }
-                        "horizontal" -> {
-                            screenModel.preferences.novelShowProgressSlider.set(true)
-                            screenModel.preferences.novelVerticalScrollbar.set(false)
-                        }
-                        "vertical_left" -> {
-                            screenModel.preferences.novelShowProgressSlider.set(true)
-                            screenModel.preferences.novelVerticalScrollbarPosition.set("left")
-                            screenModel.preferences.novelVerticalScrollbar.set(true)
-                        }
-                        "vertical_right" -> {
-                            screenModel.preferences.novelShowProgressSlider.set(true)
-                            screenModel.preferences.novelVerticalScrollbarPosition.set("right")
-                            screenModel.preferences.novelVerticalScrollbar.set(true)
-                        }
-                    }
-                },
-                label = { Text(label) },
-            )
-        }
-    }
+    NovelScrollbarSettings(screenModel.preferences)
 
-    val verticalProgressSliderSize by screenModel.preferences.novelVerticalProgressSliderSize.collectAsState()
-    if (scrollbarMode == "vertical_left" || scrollbarMode == "vertical_right") {
-        val verticalSizeOptions = listOf(
-            stringResource(TDMR.strings.novel_vertical_progress_slider_half) to "half",
-            stringResource(TDMR.strings.novel_vertical_progress_slider_full) to "full",
-        )
-        InlineSettingsChipRow(TDMR.strings.pref_novel_vertical_progress_slider_size) {
-            verticalSizeOptions.forEach { (label, value) ->
-                FilterChip(
-                    selected = verticalProgressSliderSize == value,
-                    onClick = { screenModel.preferences.novelVerticalProgressSliderSize.set(value) },
-                    label = { Text(label) },
-                )
-            }
-        }
-    }
+    val markAsReadThreshold by screenModel.preferences.novelMarkAsReadThreshold.collectAsState()
+    SliderItem(
+        label = stringResource(TDMR.strings.settings_reader_mark_as_read_at_title),
+        value = markAsReadThreshold,
+        valueRange = 50..100,
+        valueString = "$markAsReadThreshold%",
+        onChange = screenModel.preferences.novelMarkAsReadThreshold::set,
+    )
+    ReaderSwitchItem(
+        label = stringResource(TDMR.strings.settings_reader_auto_mark_short_title),
+        pref = screenModel.preferences.novelMarkShortChapterAsRead,
+        summary = stringResource(TDMR.strings.settings_reader_auto_mark_short_summary),
+    )
 
     // Infinite Scroll
     val infiniteScrollEnabled by screenModel.preferences.novelInfiniteScroll.collectAsState()
@@ -821,6 +706,11 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_battery),
             pref = screenModel.preferences.novelStatusBarShowBattery,
+        )
+        ReaderSwitchItem(
+            label = stringResource(TDMR.strings.pref_novel_status_bar_show_charging),
+            pref = screenModel.preferences.novelStatusBarShowCharging,
+            summary = stringResource(TDMR.strings.pref_novel_status_bar_show_charging_summary),
         )
         ReaderSwitchItem(
             label = stringResource(TDMR.strings.pref_novel_status_bar_show_chapter_number),
@@ -1797,6 +1687,9 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
                         }
                     },
                     label = { Text(label) },
+                    leadingIcon = {
+                        ColorOptionIcon(colorValue)
+                    },
                 )
             }
         }
@@ -1827,6 +1720,9 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
                         }
                     },
                     label = { Text(label) },
+                    leadingIcon = {
+                        ColorOptionIcon(colorValue)
+                    },
                 )
             }
         }
@@ -1848,11 +1744,31 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
     )
 }
 
+@Composable
+private fun ColorOptionIcon(color: Int) {
+    if (color == Int.MIN_VALUE) {
+        Icon(Icons.Outlined.Palette, contentDescription = null, modifier = Modifier.size(16.dp))
+    } else {
+        ColorSwatch(Color(color))
+    }
+}
+
+@Composable
+private fun ColorSwatch(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(color)
+            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+    )
+}
+
 /**
  * A simple RGB color picker dialog with sliders.
  */
 @Composable
-private fun ColorPickerDialog(
+internal fun ColorPickerDialog(
     title: String,
     initialColor: Int,
     onDismiss: () -> Unit,

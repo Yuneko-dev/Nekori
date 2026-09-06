@@ -2,6 +2,7 @@ package eu.kanade.presentation.reader.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,10 +19,11 @@ import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.util.collectAsState
 
 @Composable
-internal fun ReaderSwitchItem(label: String, pref: Preference<Boolean>) {
+internal fun ReaderSwitchItem(label: String, pref: Preference<Boolean>, summary: String? = null) {
     val checked by pref.collectAsState()
     ReaderSwitchItem(
         label = label,
+        summary = summary,
         checked = checked,
         onCheckedChange = pref::set,
     )
@@ -32,6 +34,7 @@ internal fun ReaderSwitchItem(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    summary: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -44,11 +47,16 @@ internal fun ReaderSwitchItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            summary?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Switch(
             checked = checked,
             onCheckedChange = null,

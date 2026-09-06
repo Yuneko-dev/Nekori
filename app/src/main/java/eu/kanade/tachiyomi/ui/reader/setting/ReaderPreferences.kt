@@ -45,6 +45,13 @@ class ReaderPreferences(
 
     val skipDupe: Preference<Boolean> = preferenceStore.getBoolean("skip_dupe", false)
 
+    val showReadingMode: Preference<Boolean> = preferenceStore.getBoolean("pref_show_reading_mode", true)
+
+    val showNavigationOverlay: Preference<Boolean> = preferenceStore.getBoolean(
+        "reader_navigation_overlay_on_start",
+        false,
+    )
+
     val autoTranslate: Preference<Boolean> = preferenceStore.getBoolean("pref_auto_translate", false)
 
     val novelReadTracking: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_read_tracking", true)

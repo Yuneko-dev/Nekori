@@ -17,10 +17,15 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Global novel reader settings now expose default rotation, reading-mode and tap-zone hints, and skip-read, filtered and duplicate chapter controls. Opening-hint toggles remain global-only; per-novel rotation remains available through the existing appbar action.
+- Global novel settings use standard preference rows for tap zones, scrollbars, custom colors and the full paged E-Ink controls. In-reader settings retain their existing layout; standalone TTS and source CSS controls stay in their existing groups.
+- In-reader TTS highlight background/text choices display preset color swatches using the same rendering as theme choices; Custom uses the existing Palette icon and color picker.
 - Reader toolbar customization now supports Find in chapter, Reload from source and Summarize chapter actions.
 - Novel readers now offer a paged reading mode alongside scrolling, with automatic, single-page and double-page layouts, reading direction settings, and None, Horizontal, Slide and Curl page-turn effects.
 
 ### Fixed
+- Novel tap-zone settings distinguish the default layout from disabled navigation without changing saved values. Reader setting labels reuse existing translations, and text alignment labels are localized.
+- Global reader reset includes settings hidden by their current mode or represented by multiple stored preferences, while preserving user-authored snippets and replacement rules.
 - Fixed the remaining e-ink flash trigger at infinite-scroll chapter dividers by routing chapter changes through the paged-mode flash guard.
 - Reader TTS settings align engine and voice rows with the sheet's spacing and typography, and remove the redundant section title.
 - Paged reading is restricted to novel sources; mixed, image and video sources keep scrolling even when paged layout is selected.

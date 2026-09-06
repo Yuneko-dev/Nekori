@@ -416,14 +416,10 @@
     -->
     <string name="pref_novel_infinite_scroll">Infinite scroll (auto-load next chapter)</string>
     <string name="pref_novel_progress_slider">Show progress slider</string>
-    <string name="pref_novel_reading_layout">Reading layout</string>
-    <string name="novel_reading_layout_scroll">Scroll</string>
-    <string name="novel_reading_layout_paged">Paged</string>
     <string name="pref_novel_page_spread">Page spread</string>
     <string name="novel_page_spread_auto">Auto</string>
     <string name="novel_page_spread_single">Single</string>
     <string name="novel_page_spread_double">Double</string>
-    <string name="pref_novel_page_effect">Page effect</string>
     <string name="novel_page_effect_horizontal">Horizontal swipe</string>
     <string name="novel_page_effect_slide">Slide</string>
     <string name="novel_page_effect_curl">Curl</string>
@@ -1061,25 +1057,19 @@
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Text</string>
     <string name="settings_reader_font_manager_summary">Download or import custom fonts</string>
-    <string name="settings_reader_force_lowercase">Force lowercase</string>
     <string name="settings_reader_force_lowercase_summary">Convert all text to lowercase</string>
-    <string name="settings_reader_use_original_fonts_title">Use original fonts (WebView only)</string>
     <string name="settings_reader_use_original_fonts_summary">Preserve fonts from the source website</string>
     <string name="settings_reader_swipe_navigation_title">Swipe navigation</string>
     <string name="settings_reader_swipe_navigation_summary">Swipe left/right to change chapters</string>
     <string name="settings_reader_formatting_group">Formatting</string>
     <string name="settings_reader_content_group">Content</string>
-    <string name="settings_reader_infinite_scroll_title">Infinite scroll</string>
     <string name="settings_reader_infinite_scroll_summary">Load next chapter automatically while scrolling</string>
     <string name="settings_reader_auto_load_next_at_title">Auto-load next chapter at</string>
     <string name="settings_reader_mark_as_read_at_title">Mark chapter as read at</string>
     <string name="settings_reader_auto_mark_short_title">Auto-mark short chapters as read</string>
     <string name="settings_reader_auto_mark_short_summary">If a chapter fits the screen without scrolling, mark it read immediately</string>
-    <string name="settings_reader_hide_chapter_title">Hide chapter title</string>
     <string name="settings_reader_hide_chapter_title_summary">Strip chapter title from content</string>
-    <string name="settings_reader_block_media_title">Block media</string>
-    <string name="settings_reader_block_media_summary">Block images and media loading in both readers</string>
-    <string name="settings_reader_text_selectable_title">Text selectable</string>
+    <string name="settings_reader_block_media_summary">Block images and media loading in the reader</string>
     <string name="settings_reader_text_selectable_summary">Allow selecting and copying text in the reader</string>
     <string name="settings_reader_source_css_priority_title">Source CSS priority</string>
     <string name="settings_reader_source_css_priority_summary">Allow embedded/source CSS to override reader theme colors</string>
@@ -1392,4 +1382,5 @@
     <string name="stepper_increase">Increase</string>
     <string name="stepper_enter_value">Enter value (%1$d–%2$d)</string>
     <string name="stepper_value_range_error">Must be between %1$d and %2$d</string>
+    <string name="novel_text_align_justify">Justify</string>
 </resources>
