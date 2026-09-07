@@ -37,6 +37,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Settings preview uses the actual reader without saving sample history or progress.
 - TTS controls have consistent spacing; highlighting preserves paragraph layout and Android TTS no longer retains a destroyed activity.
 - Paged updates refresh the first page, previous tail and new pages while keeping other pages lazy-loaded.
+- Translation progress estimates now use a 60-second curve so slower parallel requests do not appear nearly complete too early.
 
 ## [v0.0.8] - 2026-08-31
 

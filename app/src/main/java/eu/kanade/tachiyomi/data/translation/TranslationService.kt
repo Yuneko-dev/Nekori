@@ -58,6 +58,13 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.exp
 
 /**
+ * Smooth progress estimate for a chunk whose request is still in flight.
+ * The estimate intentionally stops below 1.0; completion reports the exact value.
+ */
+internal fun estimateChunkProgress(elapsedMs: Double): Float =
+    (0.99 * (1 - exp(-elapsedMs / 60_000.0))).toFloat()
+
+/**
  * Service for managing translation queue and executing translations.
  *
  * Thread-safe: uses [ConcurrentHashMap] keyed by chapterId to avoid
@@ -926,8 +933,7 @@ class TranslationService(
                     while (isActive) {
                         delay(100)
                         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000.0
-                        val estimated = 0.99 * (1 - exp(-elapsedMs / 30_000.0))
-                        reportChunkProgress(index, estimated.toFloat())
+                        reportChunkProgress(index, estimateChunkProgress(elapsedMs))
                     }
                 }
                 try {

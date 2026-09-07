@@ -2,12 +2,23 @@ package eu.kanade.tachiyomi.data.translation
 
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.service.TranslationPreferences
+import kotlin.math.exp
 
 class TranslationChunkerTest {
+
+    @Test
+    fun `chunk progress uses a sixty second time constant`() {
+        val expectedAtThirtySeconds = 0.99 * (1 - exp(-0.5))
+        val expectedAtSixtySeconds = 0.99 * (1 - exp(-1.0))
+
+        assertEquals(expectedAtThirtySeconds, estimateChunkProgress(30_000.0).toDouble(), 1e-6)
+        assertEquals(expectedAtSixtySeconds, estimateChunkProgress(60_000.0).toDouble(), 1e-6)
+    }
 
     @Test
     fun `LLM chapter splitting defaults to two thousand words`() {
