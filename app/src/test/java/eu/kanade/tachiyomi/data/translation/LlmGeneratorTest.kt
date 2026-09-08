@@ -1,20 +1,65 @@
 package eu.kanade.tachiyomi.data.translation
 
+import eu.kanade.tachiyomi.network.NetworkHelper
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import tachiyomi.domain.translation.model.AIApiMode
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
+import tachiyomi.domain.translation.service.TranslationPreferences
+import java.io.IOException
 
 class LlmGeneratorTest {
+
+    @Test
+    fun `connection test generates text with the selected api and rejects failures`() = runTest {
+        val preferences = mockk<TranslationPreferences>()
+        every { preferences.translationTimeoutMs().get() } returns 10_000L
+        every { preferences.aiRpmLimit().get() } returns 0
+        val network = mockk<NetworkHelper>()
+        var responseBody = """{"choices":[{"message":{"content":"OK"}}]}"""
+        var responseCode = 200
+        var calls = 0
+        every { network.client } returns OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            val sent = chain.request()
+            sent.method shouldBe "POST"
+            sent.url.encodedPath shouldBe "/v1/chat/completions"
+            sent.header("Authorization") shouldBe "Bearer test-key"
+            val body = Buffer().also { sent.body!!.writeTo(it) }.readUtf8()
+            val payload = Json.parseToJsonElement(body).toString()
+            payload.contains("\"model\":\"model\"") shouldBe true
+            payload.contains("Reply with OK.") shouldBe true
+            Response.Builder().request(sent).protocol(Protocol.HTTP_1_1)
+                .code(responseCode).message("Test").body(responseBody.toResponseBody()).build()
+        }.build()
+        val generator = LlmGenerator(network, Json, preferences)
+        val provider = provider(AIProviderType.OPENAI).copy(apiMode = AIApiMode.CHAT_COMPLETIONS)
+
+        generator.testConnection(provider, "test-key")
+        calls shouldBe 1
+        responseBody = """{"choices":[{"message":{"content":" "}}]}"""
+        assertThrows<IOException> { generator.testConnection(provider, "test-key") }
+        responseCode = 401
+        assertThrows<IOException> { generator.testConnection(provider, "test-key") }
+        assertThrows<IOException> { generator.testConnection(provider.copy(model = ""), "test-key") }
+        calls shouldBe 3
+    }
 
     @Test
     fun `translation timeout applies to the whole LLM request`() {

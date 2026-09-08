@@ -112,7 +112,19 @@ class LlmGenerator(
     }
 
     suspend fun testConnection(provider: AIProvider, apiKey: String) {
-        loadModels(provider, apiKey)
+        val result = generate(
+            AiExecutionConfig(provider = provider, apiKey = apiKey),
+            LlmGenerationRequest(
+                systemPrompt = "This is a connection test. Reply only with OK.",
+                input = "Reply with OK.",
+            ),
+        )
+        when (result) {
+            is LlmResult.Success -> if (result.text.isBlank()) {
+                throw IOException("Provider returned no text")
+            }
+            is LlmResult.Failure -> throw IOException(result.message)
+        }
     }
 
     private suspend fun execute(provider: AIProvider, apiKey: String, request: LlmGenerationRequest): String {

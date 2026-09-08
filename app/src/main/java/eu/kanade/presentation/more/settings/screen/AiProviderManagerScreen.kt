@@ -1,6 +1,5 @@
 package eu.kanade.presentation.more.settings.screen
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,9 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -19,12 +21,15 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +40,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -55,6 +64,7 @@ import tachiyomi.domain.translation.model.validateCustomHeaders
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
+import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -244,6 +254,7 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
+                            val loadModelsLabel = stringResource(TDMR.strings.pref_ai_load_models)
                             IconButton(
                                 enabled = busyAction == null,
                                 onClick = {
@@ -257,11 +268,14 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                                 },
                             ) {
                                 if (busyAction == ProviderAction.LOAD_MODELS) {
-                                    CircularProgressIndicator(Modifier.padding(4.dp))
+                                    CircularProgressIndicator(
+                                        Modifier.size(24.dp).semantics { contentDescription = loadModelsLabel },
+                                        strokeWidth = 2.dp,
+                                    )
                                 } else {
                                     Icon(
                                         Icons.Outlined.Refresh,
-                                        contentDescription = stringResource(TDMR.strings.pref_ai_load_models),
+                                        contentDescription = loadModelsLabel,
                                     )
                                 }
                             }
@@ -333,11 +347,18 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (busyAction == ProviderAction.TEST_CONNECTION) {
-                            CircularProgressIndicator(Modifier.padding(4.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(ButtonDefaults.IconSize),
+                                color = LocalContentColor.current,
+                                strokeWidth = 2.dp,
+                            )
                         } else {
-                            Icon(Icons.Outlined.CheckCircleOutline, null)
+                            Icon(Icons.Outlined.CheckCircleOutline, null, Modifier.size(ButtonDefaults.IconSize))
                         }
-                        Text(stringResource(TDMR.strings.pref_ai_test_connection), Modifier.padding(start = 8.dp))
+                        Text(
+                            stringResource(TDMR.strings.pref_ai_test_connection),
+                            Modifier.padding(start = ButtonDefaults.IconSpacing),
+                        )
                     }
                 }
                 status?.let { message ->
@@ -414,14 +435,29 @@ private fun ModelPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(TDMR.strings.pref_ai_provider_model)) },
         text = {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+            ScrollbarLazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).selectableGroup()) {
                 items(models, key = { it }) { model ->
                     Row(
-                        Modifier.fillMaxWidth().clickable { onSelect(model) }.padding(vertical = 12.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.small)
+                            .selectable(
+                                selected = model == selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(model) },
+                            )
+                            .heightIn(min = 56.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Text(model, Modifier.weight(1f))
-                        if (model == selected) Icon(Icons.Outlined.CheckCircleOutline, null)
+                        RadioButton(selected = model == selected, onClick = null)
+                        Text(
+                            model,
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 }
             }
