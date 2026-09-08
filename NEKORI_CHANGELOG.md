@@ -22,6 +22,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Global reader controls for default rotation, opening hints, chapter skipping, tap zones, scrollbars and E-Ink.
 
 ### Changed
+- AI providers no longer expose or send temperature; fixed endpoints show a lock and an explanation.
 - Standalone reader settings use standard preference rows; TTS color choices show swatches and a Custom palette icon.
 - Font selection uses sample previews and radio buttons, with direct deletion and a compact named download indicator.
 

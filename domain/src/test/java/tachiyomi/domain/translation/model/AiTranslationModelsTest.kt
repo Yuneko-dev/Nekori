@@ -19,7 +19,6 @@ class AiTranslationModelsTest {
             endpoint = "http://localhost:1234/v1",
             model = "model",
             apiMode = AIApiMode.CHAT_COMPLETIONS,
-            temperature = 0.7f,
             customHeaders = listOf(AIHeader("X-Test", "yes")),
         )
 
@@ -65,14 +64,11 @@ class AiTranslationModelsTest {
         AIProviderType.OPENAI.defaultEndpoint shouldBe "https://api.openai.com/v1"
         AIProviderType.OPENAI.endpointEditable shouldBe false
         AIProviderType.OPENAI.supportsApiMode shouldBe true
-        AIProviderType.OPENAI.supportsTemperature shouldBe true
 
         AIProviderType.GEMINI.apiFamily shouldBe AIApiFamily.GEMINI
         AIProviderType.GEMINI.defaultEndpoint shouldBe "https://generativelanguage.googleapis.com"
         AIProviderType.GEMINI.endpointEditable shouldBe true
         AIProviderType.GEMINI.supportsApiMode shouldBe false
-        // Gemini requests carry no temperature, so the slider must not be offered for it.
-        AIProviderType.GEMINI.supportsTemperature shouldBe false
 
         AIProviderType.CUSTOM_OPENAI.endpointEditable shouldBe true
         AIProviderType.CUSTOM_OPENAI.supportsApiMode shouldBe true

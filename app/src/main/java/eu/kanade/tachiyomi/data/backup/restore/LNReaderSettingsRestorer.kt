@@ -226,7 +226,6 @@ class LNReaderSettingsRestorer(
             endpoint = endpoint.ifBlank { type.defaultEndpoint },
             model = model,
             apiMode = if (apiMode == "chat-completions") AIApiMode.CHAT_COMPLETIONS else AIApiMode.RESPONSES,
-            temperature = temperature.coerceIn(0f, 2f),
             reasoning = enableReasoning,
             reasoningEffort = runCatching { ReasoningEffort.valueOf(reasoningEffort.uppercase()) }
                 .getOrDefault(ReasoningEffort.LOW),
@@ -241,7 +240,6 @@ class LNReaderSettingsRestorer(
         val provider: String,
         val endpoint: String = "",
         val model: String,
-        val temperature: Float = 0.6f,
         val apiMode: String = "responses",
         val enableReasoning: Boolean = false,
         val reasoningEffort: String = "low",

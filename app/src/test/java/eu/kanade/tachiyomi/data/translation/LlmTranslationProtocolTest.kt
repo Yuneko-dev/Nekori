@@ -152,7 +152,6 @@ class LlmTranslationProtocolTest {
             endpoint = "https://api.openai.com/v1",
             model = "gpt-5",
             apiMode = AIApiMode.RESPONSES,
-            temperature = 1.2f,
         )
 
         LlmRequestFactory.create(provider, generation(structured = true))
@@ -160,7 +159,7 @@ class LlmTranslationProtocolTest {
     }
 
     @Test
-    fun `chat structured request uses response format and temperature`() {
+    fun `chat structured request uses response format without temperature`() {
         val body = LlmRequestFactory.create(
             AIProvider(
                 id = "id",
@@ -169,17 +168,16 @@ class LlmTranslationProtocolTest {
                 endpoint = "https://api.openai.com/v1",
                 model = "gpt-4o",
                 apiMode = AIApiMode.CHAT_COMPLETIONS,
-                temperature = 0.6f,
             ),
             generation(structured = true),
         ).body.toString()
 
         body shouldContain "response_format"
-        body shouldContain "temperature"
+        body.contains("temperature") shouldBe false
     }
 
     @Test
-    fun `chat request matches LNReader temperature behavior`() {
+    fun `chat request omits temperature with reasoning enabled`() {
         val body = LlmRequestFactory.create(
             AIProvider(
                 id = "id",
@@ -188,13 +186,12 @@ class LlmTranslationProtocolTest {
                 endpoint = "https://api.openai.com/v1",
                 model = "reasoning-model",
                 apiMode = AIApiMode.CHAT_COMPLETIONS,
-                temperature = 1.4f,
                 reasoning = true,
             ),
             generation(structured = false),
         ).body.toString()
 
-        body shouldContain "temperature"
+        body.contains("temperature") shouldBe false
         body.contains("reasoning_effort") shouldBe false
         body shouldContain "\"store\":false"
     }

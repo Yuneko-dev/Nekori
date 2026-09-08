@@ -486,11 +486,11 @@
     <string name="pref_ai_provider_alias">Alias</string>
     <string name="pref_ai_provider_type">Provider</string>
     <string name="pref_ai_provider_endpoint">Endpoint</string>
+    <string name="pref_ai_provider_endpoint_fixed">This provider uses a fixed endpoint. Select Custom (OpenAI compatible) to use a different server.</string>
     <string name="pref_ai_provider_model">Model</string>
     <string name="pref_ai_provider_api_key">API key</string>
     <string name="pref_ai_provider_api_key_required">API key is required for this provider</string>
     <string name="pref_ai_provider_api_mode">API mode</string>
-    <string name="pref_ai_provider_temperature">Temperature</string>
     <string name="pref_ai_provider_reasoning">Reasoning</string>
     <string name="pref_ai_provider_reasoning_effort">Reasoning effort</string>
     <string name="pref_ai_provider_custom_headers">Custom headers</string>

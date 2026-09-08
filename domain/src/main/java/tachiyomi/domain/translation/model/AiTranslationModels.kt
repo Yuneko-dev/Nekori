@@ -112,8 +112,6 @@ enum class AIProviderType {
     val endpointEditable: Boolean get() = this == GEMINI || this == CUSTOM_OPENAI
     val supportsApiMode: Boolean get() = apiFamily == AIApiFamily.OPENAI_COMPATIBLE
 
-    /** Gemini requests carry no temperature, so offering the slider would be a knob wired to nothing. */
-    val supportsTemperature: Boolean get() = apiFamily == AIApiFamily.OPENAI_COMPATIBLE
 }
 
 enum class AIApiFamily {
@@ -151,7 +149,6 @@ data class AIProvider(
     val endpoint: String,
     val model: String,
     val apiMode: AIApiMode = AIApiMode.RESPONSES,
-    val temperature: Float = 0.6f,
     val reasoning: Boolean = false,
     val reasoningEffort: ReasoningEffort = ReasoningEffort.LOW,
     val customHeaders: List<AIHeader> = emptyList(),
@@ -230,6 +227,5 @@ fun AIProvider.normalized(): AIProvider = copy(
     alias = alias.trim(),
     endpoint = endpoint.trim().trimEnd('/'),
     model = model.trim(),
-    temperature = temperature.coerceIn(0f, 2f),
     customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
 )

@@ -477,11 +477,11 @@
     <string name="pref_ai_provider_alias">Bí danh</string>
     <string name="pref_ai_provider_type">Loại nhà cung cấp</string>
     <string name="pref_ai_provider_endpoint">Endpoint</string>
+    <string name="pref_ai_provider_endpoint_fixed">Nhà cung cấp này dùng endpoint cố định. Chọn Tùy chỉnh (tương thích OpenAI) để dùng máy chủ khác.</string>
     <string name="pref_ai_provider_model">Mô hình</string>
     <string name="pref_ai_provider_api_key">Khóa API</string>
     <string name="pref_ai_provider_api_key_required">Nhà cung cấp này yêu cầu khóa API</string>
     <string name="pref_ai_provider_api_mode">Chế độ API</string>
-    <string name="pref_ai_provider_temperature">Nhiệt độ</string>
     <string name="pref_ai_provider_reasoning">Lập luận</string>
     <string name="pref_ai_provider_reasoning_effort">Mức độ lập luận</string>
     <string name="pref_ai_provider_custom_headers">Header tùy chỉnh</string>

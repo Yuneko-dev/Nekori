@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.AlertDialog
@@ -24,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -107,7 +107,6 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
         var model by remember { mutableStateOf(original?.model.orEmpty()) }
         var apiKey by remember { mutableStateOf(original?.let { store.apiKey(it.id) }.orEmpty()) }
         var apiMode by remember { mutableStateOf(original?.apiMode ?: AIApiMode.CHAT_COMPLETIONS) }
-        var temperature by remember { mutableStateOf(original?.temperature ?: 0.6f) }
         var reasoning by remember { mutableStateOf(original?.reasoning ?: false) }
         var effort by remember { mutableStateOf(original?.reasoningEffort ?: ReasoningEffort.LOW) }
         var headers by remember { mutableStateOf(original?.customHeaders.orEmpty()) }
@@ -129,7 +128,6 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
             endpoint = endpoint,
             model = model,
             apiMode = apiMode,
-            temperature = temperature,
             reasoning = reasoning,
             reasoningEffort = effort,
             customHeaders = headers,
@@ -209,11 +207,23 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                 }
                 item { ManagerTextField(alias, { alias = it }, stringResource(TDMR.strings.pref_ai_provider_alias)) }
                 item {
-                    ManagerTextField(
-                        endpoint,
-                        { endpoint = it },
-                        stringResource(TDMR.strings.pref_ai_provider_endpoint),
+                    OutlinedTextField(
+                        value = endpoint,
+                        onValueChange = { endpoint = it },
+                        label = { Text(stringResource(TDMR.strings.pref_ai_provider_endpoint)) },
                         readOnly = !type.endpointEditable,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = if (!type.endpointEditable) {
+                            { Icon(Icons.Outlined.Lock, contentDescription = null) }
+                        } else {
+                            null
+                        },
+                        supportingText = if (!type.endpointEditable) {
+                            { Text(stringResource(TDMR.strings.pref_ai_provider_endpoint_fixed)) }
+                        } else {
+                            null
+                        },
                     )
                 }
                 item {
@@ -266,21 +276,6 @@ data class AiProviderEditorScreen(private val providerId: String? = null) : Scre
                             values = AIApiMode.entries,
                             valueLabel = AIApiMode::displayName,
                             onSelected = { apiMode = it },
-                        )
-                    }
-                }
-                if (type.supportsTemperature) {
-                    item {
-                        val label = stringResource(TDMR.strings.pref_ai_provider_temperature)
-                        Text(
-                            "$label: ${"%.1f".format(temperature)}",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Slider(
-                            value = temperature,
-                            onValueChange = { temperature = (it * 10).toInt() / 10f },
-                            valueRange = 0f..2f,
-                            steps = 19,
                         )
                     }
                 }

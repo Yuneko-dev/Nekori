@@ -231,7 +231,6 @@ object LlmRequestFactory {
         body = buildJsonObject {
             put("model", provider.model)
             put("messages", messages(system, user))
-            put("temperature", provider.temperature)
             put("store", false)
             if (schema != null) {
                 put(
