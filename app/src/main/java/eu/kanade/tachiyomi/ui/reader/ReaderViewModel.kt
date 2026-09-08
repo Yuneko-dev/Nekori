@@ -489,7 +489,11 @@ class ReaderViewModel @JvmOverloads constructor(
                 if (e is CancellationException) {
                     throw e
                 }
-                mutableState.update { it.copy(initError = e) }
+                // A published chapter error is retryable inside the reader; only initialization
+                // failures without a chapter should close the activity.
+                if (state.value.viewerChapters?.currChapter?.state !is ReaderChapter.State.Error) {
+                    mutableState.update { it.copy(initError = e) }
+                }
             }
         }
     }
@@ -505,9 +509,18 @@ class ReaderViewModel @JvmOverloads constructor(
         navigationRequest: ReaderNavigationRequest? = null,
         flushHistoryBeforeCommit: Boolean = false,
     ): Boolean {
-        loader.loadChapter(chapter, forceFromSource)
+        // Keep the errored chapter in ViewerChapters so the viewer can render its actionable
+        // error state. The caller still receives the failure after the navigation commit.
+        val loadError = try {
+            loader.loadChapter(chapter, forceFromSource)
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            e
+        }
 
-        val pagedChapterPages = loadAdjacentPagedPages(chapter)
+        val pagedChapterPages = if (loadError == null) loadAdjacentPagedPages(chapter) else emptyMap()
         val newChapters = buildViewerChapters(chapter, pagedChapterPages)
 
         val committed = commitViewerChapters(
@@ -515,6 +528,8 @@ class ReaderViewModel @JvmOverloads constructor(
             navigationRequest = navigationRequest,
             flushHistoryBeforeCommit = flushHistoryBeforeCommit,
         )
+
+        if (loadError != null) throw loadError
 
         if (committed) {
             // Prioritize this chapter for translation if it's a novel and translation is enabled
@@ -585,7 +600,9 @@ class ReaderViewModel @JvmOverloads constructor(
             }
             published = true
         }
-        if (published) prefetchNextChapterTranslation()
+        if (published && newChapters.currChapter.state !is ReaderChapter.State.Error) {
+            prefetchNextChapterTranslation()
+        }
         published
     }
 
@@ -889,6 +906,12 @@ class ReaderViewModel @JvmOverloads constructor(
             } catch (e: Throwable) {
                 if (e is CancellationException) throw e
                 logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
+                // Mutating the same ReaderChapter does not change ViewerChapters equality.
+                withUIContext {
+                    if (navigationGuard.isCurrent(navigationRequest)) {
+                        state.value.viewerChapters?.let { state.value.viewer?.setChapters(it) }
+                    }
+                }
             } finally {
                 navigationGuard.finish(navigationRequest)
             }
@@ -1046,11 +1069,18 @@ class ReaderViewModel @JvmOverloads constructor(
      * Saves reading progress for novel chapters using percentage (0-100).
      * Used by NovelWebViewViewer to save scroll position.
      */
-    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) =
-        saveNovelProgress(page.chapter, progressPercentage)
+    fun saveNovelProgress(
+        page: ReaderPage,
+        progressPercentage: Int,
+        backwardJumpAllowancePercent: Int = 10,
+    ) = saveNovelProgress(page.chapter, progressPercentage, backwardJumpAllowancePercent)
 
     /** Saves progress when infinite scroll retained the chapter identity but recycled its page. */
-    fun saveNovelProgress(selectedChapter: ReaderChapter, progressPercentage: Int) {
+    fun saveNovelProgress(
+        selectedChapter: ReaderChapter,
+        progressPercentage: Int,
+        backwardJumpAllowancePercent: Int = 10,
+    ) {
         if (isPreview) {
             selectedChapter.chapter.last_page_read = progressPercentage.coerceIn(0, 100)
             return
@@ -1067,10 +1097,12 @@ class ReaderViewModel @JvmOverloads constructor(
                 // Skip save if progress hasn't changed at all
                 if (clampedProgress == currentProgress) return@withLock
 
-                // Reject large backward jumps (>10%), including spurious 0% reports that
-                // fire during relayout/recreation (e.g. orientation lock). A 0 used to be
-                // exempted here, which let a transient 0 wipe real progress on reopen.
-                if (clampedProgress < currentProgress - 10) {
+                // Reject large backward jumps, including spurious 0% reports that fire during
+                // relayout/recreation (e.g. orientation lock). A 0 used to be exempted here,
+                // which let a transient 0 wipe real progress on reopen. Paged callers pass the
+                // allowance for one deliberate page turn.
+                val allowance = backwardJumpAllowancePercent.coerceIn(0, 100)
+                if (clampedProgress < currentProgress - allowance) {
                     logcat(LogPriority.DEBUG) {
                         "NovelProgress: Skipping save - new progress $clampedProgress% is much less than current $currentProgress%"
                     }

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -14,12 +15,6 @@ object NovelProgress {
      */
     const val DONE_THRESHOLD = 0.99f
 
-    /**
-     * After a failed next-chapter append, suppress auto-load for this long so a chapter that keeps
-     * failing at the bottom can't respawn a request every scroll frame. Shared by both renderers.
-     */
-    const val NEXT_LOAD_RETRY_COOLDOWN_MS = 15_000L
-
     /** Snap a near-complete ratio to a clean 1f so the stored percent lands on 100. */
     fun snapProgress(progress: Float): Float = if (progress >= DONE_THRESHOLD) 1f else progress
 
@@ -32,6 +27,16 @@ object NovelProgress {
     /** True when [newProgress] rounds to a different percent than [lastProgress] (dedup guard). */
     fun percentChanged(newProgress: Float, lastProgress: Float): Boolean =
         progressToPercent(newProgress) != progressToPercent(lastProgress)
+
+    /**
+     * Allow one deliberate backward page turn when paged progress is persisted. A paged unit's
+     * progress is indexed from zero, so each step is one of (count - 1) intervals.
+     */
+    fun backwardJumpAllowancePercent(pagedUnitCount: Int?): Int =
+        pagedUnitCount
+            ?.takeIf { it > 1 }
+            ?.let { ceil(100.0 / (it - 1)).toInt().coerceIn(10, 100) }
+            ?: 10
 
     /**
      * Chapters to mark 100% read when the visible chapter moves forward from [oldIndex] to

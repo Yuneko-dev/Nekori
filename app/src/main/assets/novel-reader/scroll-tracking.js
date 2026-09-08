@@ -235,6 +235,19 @@
     window.updateChapterBoundaries = function () {
         var dividers = document.querySelectorAll('.__CHAPTER_DIVIDER_CLASS__');
         var scrollY = window.scrollY || window.pageYOffset || 0;
+        // An inline loading/error banner appended past the last chapter is not chapter content -
+        // it must not inflate the last chapter's height and skew its progress ratio while shown.
+        // The same banner id is reused for an upward (prepend) load, where it sits at
+        // document.body.firstChild - above every divider; treating that as the document end makes
+        // docEnd ~= 0 and corrupts every boundary height. Only honour it when it actually follows
+        // the last divider in DOM order.
+        var banner = document.getElementById('inline-loading') || document.getElementById('inline-error');
+        var lastDivider = dividers[dividers.length - 1];
+        var bannerTrails = !!banner && (!lastDivider ||
+            (lastDivider.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+        var docEnd = bannerTrails
+            ? banner.getBoundingClientRect().top + scrollY
+            : document.body.scrollHeight;
         var boundaries = [];
         dividers.forEach(function (divider, index) {
             var chapterId = divider.getAttribute('__CHAPTER_ID_ATTR__');
@@ -243,7 +256,7 @@
             var nextDivider = dividers[index + 1];
             var endOffset = nextDivider
                 ? nextDivider.getBoundingClientRect().top + scrollY
-                : document.body.scrollHeight;
+                : docEnd;
             boundaries.push({
                 chapterId: chapterId,
                 startOffset: startOffset,

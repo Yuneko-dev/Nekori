@@ -11,6 +11,8 @@ function createHarness() {
     const chapterUpdates = [];
     let nextLoads = 0;
     let dividers = [divider('1', 0), divider('2', 1_000)];
+    let banner = null;
+    let chapterOffset = 0;
 
     const window = {
         innerHeight: 800,
@@ -29,6 +31,7 @@ function createHarness() {
     const body = {
         scrollHeight: 4_000,
         scrollTop: 0,
+        children: [],
     };
     const document = {
         body,
@@ -39,6 +42,9 @@ function createHarness() {
         },
         querySelectorAll() {
             return dividers;
+        },
+        getElementById(id) {
+            return banner?.id === id ? banner : null;
         },
     };
     const Android = {
@@ -73,6 +79,7 @@ function createHarness() {
         clearTimeout,
         console,
         document,
+        Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
         requestAnimationFrame(callback) {
             frames.push(callback);
         },
@@ -91,6 +98,22 @@ function createHarness() {
         },
         replaceSecondDivider(chapterId) {
             dividers = [divider('1', 0), divider(chapterId, 1_000)];
+            syncDom();
+        },
+        setBanner(id, placement) {
+            const height = 100;
+            chapterOffset = placement === 'leading' ? height : 0;
+            body.scrollHeight = placement === 'none' ? 4_000 : 4_000 + height;
+            banner = placement === 'none' ? null : bannerNode(id, placement === 'leading' ? 0 : 4_000);
+            dividers = [divider('1', 0), divider('2', 1_000)];
+            syncDom();
+        },
+        boundaries() {
+            return Array.from(window.chapterBoundaries, ({ chapterId, startOffset, height }) => ({
+                chapterId,
+                startOffset,
+                height,
+            }));
         },
         runtime: window.Tsundoku.runtime,
         scrollTo(y) {
@@ -108,10 +131,30 @@ function createHarness() {
                 return chapterId;
             },
             getBoundingClientRect() {
+                return { top: absoluteTop + chapterOffset - window.scrollY };
+            },
+            compareDocumentPosition(other) {
+                return body.children.indexOf(this) < body.children.indexOf(other) ? 4 : 2;
+            },
+        };
+    }
+
+    function bannerNode(id, absoluteTop) {
+        return {
+            id,
+            getBoundingClientRect() {
                 return { top: absoluteTop - window.scrollY };
             },
         };
     }
+
+    function syncDom() {
+        body.children = banner?.id && chapterOffset > 0
+            ? [banner, ...dividers]
+            : [...dividers, ...(banner ? [banner] : [])];
+    }
+
+    syncDom();
 }
 
 function finishInitialFrames(harness) {
@@ -171,4 +214,54 @@ test('leaves progress and chapter loading to the active paged layout', () => {
 
     assert.deepEqual(harness.chapterUpdates, ['1']);
     assert.equal(harness.nextLoads, 0);
+});
+
+test('excludes trailing loading and error banners from the last chapter boundary', () => {
+    for (const id of ['inline-loading', 'inline-error']) {
+        const harness = createHarness();
+        finishInitialFrames(harness);
+
+        harness.setBanner(id, 'trailing');
+        harness.updateBoundaries();
+
+        assert.deepEqual(harness.boundaries(), [
+            { chapterId: '1', startOffset: 0, height: 1_000 },
+            { chapterId: '2', startOffset: 1_000, height: 3_000 },
+        ]);
+    }
+});
+
+test('ignores a leading prepend banner when rebuilding chapter boundaries', () => {
+    const harness = createHarness();
+    finishInitialFrames(harness);
+
+    harness.setBanner('inline-loading', 'leading');
+    harness.updateBoundaries();
+
+    assert.deepEqual(harness.boundaries(), [
+        { chapterId: '1', startOffset: 100, height: 1_000 },
+        { chapterId: '2', startOffset: 1_100, height: 3_000 },
+    ]);
+});
+
+test('keeps last-chapter progress stable while a trailing banner appears and disappears', () => {
+    const harness = createHarness();
+    finishInitialFrames(harness);
+
+    harness.scrollTo(2_600);
+    harness.drainFrame();
+    const before = harness.runtime.chapterProgress;
+
+    harness.setBanner('inline-loading', 'trailing');
+    harness.updateBoundaries();
+    harness.drainFrame();
+    const during = harness.runtime.chapterProgress;
+
+    harness.setBanner('inline-loading', 'none');
+    harness.updateBoundaries();
+    harness.drainFrame();
+    const after = harness.runtime.chapterProgress;
+
+    assert.equal(during, before);
+    assert.equal(after, before);
 });

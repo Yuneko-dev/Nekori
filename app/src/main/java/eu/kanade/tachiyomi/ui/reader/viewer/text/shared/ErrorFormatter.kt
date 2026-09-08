@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationTargetException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.TimeoutException
 
 object ErrorFormatter {
 
@@ -57,6 +58,7 @@ object ErrorFormatter {
     fun categorize(e: Throwable): Category = when (e) {
         is UnknownHostException -> Category.NetworkHostNotFound
         is SocketTimeoutException -> Category.NetworkTimeout
+        is TimeoutException -> Category.NetworkTimeout
         is ConnectException -> Category.NetworkRefused
         is FileNotFoundException -> Category.FileNotFound
         is IOException -> Category.NetworkIO

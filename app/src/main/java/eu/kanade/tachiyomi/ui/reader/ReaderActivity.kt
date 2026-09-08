@@ -1722,8 +1722,8 @@ class ReaderActivity : BaseActivity() {
      * Called from the novel viewer to save reading progress with a percentage.
      * Progress is stored as percentage (0-100) in last_page_read.
      */
-    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
-        viewModel.saveNovelProgress(page, progressPercentage)
+    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int, backwardJumpAllowancePercent: Int = 10) {
+        viewModel.saveNovelProgress(page, progressPercentage, backwardJumpAllowancePercent)
     }
 
     /**

@@ -243,13 +243,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private var nextRequiresDocumentNavigation = false
 
-    // Suppresses auto-append for NEXT_LOAD_RETRY_COOLDOWN_MS after a failure; the JS load guard
-    // clears each finally, so without this a chapter that keeps timing out re-fires every frame.
-    private var lastNextLoadFailedAt = 0L
-
-    // True while a delayed JS-latch release is queued for the current cooldown, so the JS load latch
-    // is held (not re-fired every scroll frame) and released exactly once when the cooldown ends.
-    private var cooldownReleaseScheduled = false
+    // A failed append waits for its Retry button instead of repeatedly fetching while at the bottom.
+    private var nextLoadRequiresManualRetry = false
 
     // Lightweight property accessors so existing call sites keep working.
     // Mutations should go through chapterQueue's methods (append / prepend /
@@ -350,6 +345,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private val inlineFeedback by lazy {
         NovelWebViewInlineFeedback(
+            context = activity,
             scope = scope,
             evaluateJs = { js -> evaluateJavascriptSafe(js, null) },
         )
@@ -1105,6 +1101,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     override fun destroy() {
         if (isDestroyed) return
+        inlineFeedback.clear()
         protectedMediaPlaybackArmed = false
         hideFullscreenVideo()
         WebView.setWebContentsDebuggingEnabled(
@@ -1287,7 +1284,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         currentPage?.let { page ->
             val progressValue = NovelProgress.progressToPercent(lastSavedProgress)
             lastPersistedPercent = progressValue
-            activity.saveNovelProgress(page, progressValue)
+            val unitCount = pagedController.position.value
+                ?.takeIf { pagedController.enabled && it.chapterId == page.chapter.chapter.id }
+                ?.unitCount
+            activity.saveNovelProgress(page, progressValue, NovelProgress.backwardJumpAllowancePercent(unitCount))
             logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Saving progress $progressValue%" }
         }
     }
@@ -1387,7 +1387,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     override fun setChapters(chapters: ViewerChapters) {
-        val page = chapters.currChapter.pages?.firstOrNull() ?: return
         val chapterId = chapters.currChapter.chapter.id ?: return
         loadJob?.cancel()
 
@@ -1395,8 +1394,19 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             launchedVideoChapterId = null
         }
 
-        currentPage = page
         currentChapters = chapters
+        val chapterError = chapters.currChapter.state as? ReaderChapter.State.Error
+        if (chapterError != null) {
+            contentJob?.cancel()
+            appendJob?.cancel()
+            ttsController.stop()
+            currentPage = null
+            chapterQueue.clear()
+            displayError(chapterError.error)
+            return
+        }
+        val page = chapters.currChapter.pages?.firstOrNull() ?: return
+        currentPage = page
 
         if (loadedChapterIds.contains(chapterId)) {
             logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Chapter $chapterId already loaded, skipping" }
@@ -1470,27 +1480,33 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // Gate infinite-scroll appends until this base chapter's DOM is committed.
         docState = DocState.LOADING
         val job = scope.launch {
-            if (activity.isTranslationEnabled()) {
-                val labelRes = if (activity.hasCachedTranslation(chapterId)) {
-                    TDMR.strings.novel_chapter_translating_from_cache
-                } else {
-                    TDMR.strings.novel_chapter_translating_from_api
+            try {
+                if (activity.isTranslationEnabled()) {
+                    val labelRes = if (activity.hasCachedTranslation(chapterId)) {
+                        TDMR.strings.novel_chapter_translating_from_cache
+                    } else {
+                        TDMR.strings.novel_chapter_translating_from_api
+                    }
+                    showLoadingIndicator(activity.stringResource(labelRes))
                 }
-                showLoadingIndicator(activity.stringResource(labelRes))
-            }
 
-            val prepared = prepareChapterContent(chapter, page, rawContent, isAppend = false)
+                val prepared = prepareChapterContent(chapter, page, rawContent, isAppend = false)
 
-            withContext(Dispatchers.Main) {
-                loadHtmlContent(
-                    prepared.processed,
-                    chapter,
-                    prepared.directives,
-                    prepared.direction,
-                    prepared.language,
-                )
-                chapterQueue.reset(chapter)
-                if (prepared.directives.noCache) page.text = null
+                withContext(Dispatchers.Main) {
+                    loadHtmlContent(
+                        prepared.processed,
+                        chapter,
+                        prepared.directives,
+                        prepared.direction,
+                        prepared.language,
+                    )
+                    chapterQueue.reset(chapter)
+                    if (prepared.directives.noCache) page.text = null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                displayError(e)
             }
         }
         contentJob = job
@@ -1602,6 +1618,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         language: String = "",
     ) {
         activity.closeFindInPage(this)
+        inlineFeedback.clear()
+        nextLoadRequiresManualRetry = false
 
         val chapterModel = chapter?.chapter
         val chapterId = chapterModel?.id ?: -1L
@@ -2112,6 +2130,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun displayError(error: Throwable) {
         activity.closeFindInPage(this)
+        inlineFeedback.clear()
+        pagedController.disable()
 
         val fmt = ErrorFormatter.format(error)
         logcat(LogPriority.ERROR) { "NovelWebViewViewer: Chapter load failed\n${fmt.stackTrace}" }
@@ -2128,6 +2148,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val escapedCategory = HtmlUtils.escapeHtml(fmt.category.localized(activity))
         val escapedSummary = HtmlUtils.escapeHtml(fmt.summary)
         val escapedTrace = HtmlUtils.escapeHtml(fmt.stackTrace)
+        val retryLabel = HtmlUtils.escapeHtml(activity.stringResource(MR.strings.action_retry))
+        val copyLabel = HtmlUtils.escapeHtml(activity.stringResource(MR.strings.action_copy_to_clipboard))
+        val detailsLabel = HtmlUtils.escapeHtml(activity.stringResource(TDMR.strings.novel_error_technical_details))
         // Base64-encode the trace so it can be safely passed to the Android JS bridge
         // without worrying about special characters breaking the JS string literal.
         val base64Trace = android.util.Base64.encodeToString(
@@ -2155,9 +2178,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             <div class="err">
               <div class="category">$escapedCategory</div>
               <div class="summary">$escapedSummary</div>
-              <button class="copy-btn" onclick="copyErr()">Copy error details</button>
+              <button class="copy-btn" onclick="window.Android.retryChapter()">$retryLabel</button>
+              <button class="copy-btn" onclick="copyErr()">$copyLabel</button>
               <details>
-                <summary>Technical details</summary>
+                <summary>$detailsLabel</summary>
                 <pre>$escapedTrace</pre>
               </details>
             </div>
@@ -2684,37 +2708,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     if (handoffState.isIdle) {
                         scope.launch { preFetchNextChapterForTts() }
                     }
-                } else if (System.currentTimeMillis() - lastNextLoadFailedAt <
-                    NovelProgress.NEXT_LOAD_RETRY_COOLDOWN_MS
-                ) {
-                    // Keep the JS load latch held (JS set it before this call) so it stops re-firing
-                    // loadNextChapter every scroll frame during the cooldown; schedule a single
-                    // release for when the cooldown expires so it can't become permanent.
-                    if (!cooldownReleaseScheduled) {
-                        cooldownReleaseScheduled = true
-                        val remaining = NovelProgress.NEXT_LOAD_RETRY_COOLDOWN_MS -
-                            (System.currentTimeMillis() - lastNextLoadFailedAt)
-                        webView.postDelayed({
-                            cooldownReleaseScheduled = false
-                            setJsLoadingNext()
-                        }, remaining.coerceAtLeast(0))
-                    }
-                    logcat(LogPriority.DEBUG) { "NovelWebViewViewer: loadNextChapter ignored, in failure cooldown" }
-                } else if (!isLoadingNext) {
-                    isLoadingNext = true
-                    appendJob = scope.launch {
-                        try {
-                            val ok = appendNextChapterIfAvailable()
-                            lastNextLoadFailedAt = if (ok) 0L else System.currentTimeMillis()
-                        } finally {
-                            isLoadingNext = false
-                            setJsLoadingNext()
-                        }
-                    }
                 } else {
-                    logcat(LogPriority.WARN) {
-                        "NovelWebViewViewer: loadNextChapter ignored (infiniteScroll=${isInfiniteScrollEnabled()}, isLoadingNext=$isLoadingNext)"
-                    }
+                    startNextChapterAppend()
                 }
             }
         }
@@ -2729,19 +2724,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 // Chapter fits in viewport → no scroll events fire → threshold never reached.
                 // Trigger infinite scroll append manually.
-                if (isInfiniteScrollEnabled() && !isLoadingNext && !ttsController.isTtsAutoPlay &&
-                    !webChapterIsError
-                ) {
-                    isLoadingNext = true
-                    appendJob = scope.launch {
-                        try {
-                            appendNextChapterIfAvailable()
-                        } finally {
-                            isLoadingNext = false
-                            setJsLoadingNext()
-                        }
-                    }
-                }
+                if (!ttsController.isTtsAutoPlay) startNextChapterAppend()
+            }
+        }
+
+        @JavascriptInterface
+        fun retryChapter() {
+            activity.runOnUiThread {
+                if (isDestroyed || !webChapterIsError) return@runOnUiThread
+                showLoadingIndicator()
+                activity.viewModel.reloadChapter()
+            }
+        }
+
+        @JavascriptInterface
+        fun retryInlineError() {
+            activity.runOnUiThread {
+                if (!isDestroyed) inlineFeedback.retryPendingError()
             }
         }
 
@@ -2840,7 +2839,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         val rawContent = page.text
         if (rawContent.isNullOrBlank()) {
-            displayError(Exception(activity.stringResource(TDMR.strings.novel_error_empty_chapter)))
+            showNextChapterError(Exception(activity.stringResource(TDMR.strings.novel_error_empty_chapter)))
             return false
         }
 
@@ -2910,8 +2909,47 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    /** Append the next chapter to the WebView, using the TTS prefetch when available. */
-    private suspend fun appendNextChapterIfAvailable(): Boolean {
+    private fun startNextChapterAppend() {
+        if (isDestroyed || isLoadingNext || nextLoadRequiresManualRetry || reachedNovelEnd ||
+            nextRequiresDocumentNavigation || !isInfiniteScrollEnabled() || !webChapterContentReady || webChapterIsError
+        ) {
+            return
+        }
+        isLoadingNext = true
+        appendJob = scope.launch {
+            try {
+                appendNextChapterIfAvailable()
+            } finally {
+                isLoadingNext = false
+                setJsLoadingNext()
+            }
+        }
+    }
+
+    private fun showNextChapterError(error: Throwable) {
+        nextLoadRequiresManualRetry = true
+        inlineFeedback.showInlineError(error) {
+            nextLoadRequiresManualRetry = false
+            startNextChapterAppend()
+        }
+    }
+
+    /** All append callers, including TTS, preserve the current document on a load failure. */
+    private suspend fun appendNextChapterIfAvailable(): Boolean = try {
+        val appended = appendNextChapter()
+        if (appended && nextLoadRequiresManualRetry) {
+            nextLoadRequiresManualRetry = false
+            inlineFeedback.clear()
+        }
+        appended
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        showNextChapterError(e)
+        false
+    }
+
+    private suspend fun appendNextChapter(): Boolean {
         val cached = handoffState.cachedOrNull
         if (cached != null) {
             handoffState = TtsHandoffState.Idle
@@ -2955,8 +2993,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             logcat(LogPriority.ERROR) {
                 "NovelWebViewViewer: appendNext failed, no anchor chapter (loadedCount=${loadedChapters.size})"
             }
-            inlineFeedback.showInlineError("No anchor chapter for infinite scroll")
-            return false
+            throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_no_anchor_chapter))
         }
         logcat(LogPriority.DEBUG) {
             "NovelWebViewViewer: appendNext starting from anchor=${anchor.chapter.id}/${anchor.chapter.name}"
@@ -2965,7 +3002,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val preparedChapter = activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: run {
             logcat(LogPriority.WARN) { "NovelWebViewViewer: No next chapter available after ${anchor.chapter.name}" }
             if (activity.viewModel.hasNextPagedPage(anchor)) {
-                inlineFeedback.showInlineError("Unable to load next page")
+                throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_couldnt_load_next_chapter))
             } else {
                 // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
                 if (!reachedNovelEnd) {
@@ -2978,8 +3015,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
         val nextId = preparedChapter.chapter.id ?: run {
             logcat(LogPriority.ERROR) { "NovelWebViewViewer: prepared next chapter has null id" }
-            inlineFeedback.showInlineError("Chapter has no id")
-            return false
+            throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_chapter_no_id))
         }
         logcat(LogPriority.DEBUG) { "NovelWebViewViewer: prepared next=$nextId/${preparedChapter.chapter.name}" }
 
@@ -2990,13 +3026,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         val page = preparedChapter.pages?.firstOrNull() ?: run {
             logcat(LogPriority.ERROR) { "NovelWebViewViewer: No page in prepared next chapter" }
-            inlineFeedback.showInlineError("No page in next chapter")
-            return false
+            throw (preparedChapter.state as? ReaderChapter.State.Error)?.error
+                ?: IllegalStateException(activity.stringResource(TDMR.strings.novel_error_no_page_in_next_chapter))
         }
         val loader = page.chapter.pageLoader ?: run {
             logcat(LogPriority.ERROR) { "NovelWebViewViewer: No page loader for next chapter" }
-            inlineFeedback.showInlineError("No loader for next chapter")
-            return false
+            throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_no_loader_next_chapter))
         }
 
         try {
@@ -3005,22 +3040,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
             val loaded = try {
                 awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
-            } catch (_: TimeoutCancellationException) {
+            } catch (e: TimeoutCancellationException) {
                 logcat(LogPriority.ERROR) { "NovelWebViewViewer: Timed out loading next chapter page after 30s" }
-                inlineFeedback.showInlineError("Timeout loading next chapter")
-                false
-            } catch (_: CancellationException) {
-                logcat(LogPriority.DEBUG) { "NovelWebViewViewer: appendNext cancelled" }
-                false
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "NovelWebViewViewer: Error loading next chapter page: ${e.message}" }
-                inlineFeedback.showInlineError(
-                    "Error: ${e.message ?: activity.stringResource(MR.strings.unknown_error)}",
-                )
-                false
+                throw java.util.concurrent.TimeoutException(
+                    activity.stringResource(TDMR.strings.novel_error_timeout_next_chapter),
+                ).initCause(e)
             }
 
-            if (!loaded) return false
+            if (!loaded) {
+                throw (page.status as? Page.State.Error)?.error
+                    ?: IllegalStateException(activity.stringResource(TDMR.strings.novel_error_empty_chapter))
+            }
 
             logcat(LogPriority.DEBUG) {
                 "NovelWebViewViewer: appending content for chapter $nextId ts=${System.currentTimeMillis()} ttsCurrentChunkIndex=${ttsController.ttsCurrentChunkIndex} ttsResumeChunkIndex=${ttsController.ttsResumeChunkIndex} ttsPlaybackChapterIndex=${ttsController.ttsPlaybackChapterIndex} ttsPlaybackChapterId=${ttsController.ttsPlaybackChapterId}"

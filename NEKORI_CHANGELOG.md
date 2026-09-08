@@ -40,6 +40,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Settings preview uses the actual reader without saving sample history or progress.
 - TTS controls have consistent spacing; highlighting preserves paragraph layout and Android TTS no longer retains a destroyed activity.
 - Paged updates refresh the first page, previous tail and new pages while keeping other pages lazy-loaded.
+- Chapter load failures offer Retry and Copy actions; failed automatic chapter loads keep the current content on screen.
+- Inline loading and error banners no longer count toward the last chapter's height, so scroll progress stays accurate while they are visible.
+- Moving back one page in a short chapter now saves the reading position correctly.
 - Translation progress estimates now use a 60-second curve so slower parallel requests do not appear nearly complete too early.
 
 ## [v0.0.8] - 2026-08-31
@@ -262,6 +265,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## Upstream Sync
 
-Nekori tracks Tsundoku through commit `fe54f05ae038cbc2ae72713c6ac68a2fbccb11af` as of 2026-09-05.
+Nekori tracks Tsundoku through commit `3cbd993ba634a00813e0c192bea3aab52bc11d83` as of 2026-09-08.
+The reader fixes are adapted to Nekori's existing pagination and navigation.
 
 Upstream changes from Tsundoku are tracked in [CHANGELOG.md](./CHANGELOG.md).

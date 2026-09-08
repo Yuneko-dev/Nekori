@@ -70,4 +70,28 @@ class NovelProgressTest {
         assertEquals(emptyList<Int>(), NovelProgress.forwardChaptersToMarkRead(-1, 2, 5))
         assertEquals(emptyList<Int>(), NovelProgress.forwardChaptersToMarkRead(9, 12, 4))
     }
+
+    @Test
+    fun `paged backward allowance covers one short chapter page`() {
+        assertEquals(100, NovelProgress.backwardJumpAllowancePercent(2))
+        assertEquals(34, NovelProgress.backwardJumpAllowancePercent(4))
+    }
+
+    @Test
+    fun `paged backward allowance uses unit count for double spread`() {
+        assertEquals(25, NovelProgress.backwardJumpAllowancePercent(5))
+    }
+
+    @Test
+    fun `paged backward allowance never tightens the existing ten percent tolerance`() {
+        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(20))
+        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(200))
+    }
+
+    @Test
+    fun `paged backward allowance falls back for invalid unit counts`() {
+        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(null))
+        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(0))
+        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(1))
+    }
 }

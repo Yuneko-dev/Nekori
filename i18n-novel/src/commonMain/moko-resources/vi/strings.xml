@@ -657,6 +657,14 @@
     <string name="novel_chapter_translating_from_cache">Đang tải bản dịch từ mục tải xuống…</string>
     <string name="novel_reader_renderer_gone">Trình đọc đã hết bộ nhớ. Hãy mở lại chương để tiếp tục.</string>
     <string name="novel_error_copied">Đã sao chép</string>
+    <string name="novel_error_tap_to_dismiss">chạm để đóng</string>
+    <string name="novel_error_technical_details">Chi tiết kỹ thuật</string>
+    <string name="novel_error_no_anchor_chapter">Không có chương để tiếp tục cuộn vô hạn</string>
+    <string name="novel_error_chapter_no_id">Chương tiếp theo không có mã định danh</string>
+    <string name="novel_error_no_page_in_next_chapter">Không tìm thấy trang trong chương tiếp theo</string>
+    <string name="novel_error_no_loader_next_chapter">Không có bộ tải cho chương tiếp theo</string>
+    <string name="novel_error_timeout_next_chapter">Hết thời gian tải chương tiếp theo</string>
+    <string name="novel_error_couldnt_load_next_chapter">Không thể tải chương tiếp theo</string>
     <string name="novel_error_empty_chapter">Chương trống — nguồn không trả về văn bản. Hãy thử làm mới hoặc kiểm tra nguồn/phần mở rộng.</string>
     <string name="novel_error_no_video_player">Không có ứng dụng nào có thể phát video này.</string>
     <string name="video_download_error_iframe">Không thể tải chapter video dạng iframe.</string>
