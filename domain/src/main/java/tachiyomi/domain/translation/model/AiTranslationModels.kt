@@ -111,7 +111,6 @@ enum class AIProviderType {
 
     val endpointEditable: Boolean get() = this == GEMINI || this == CUSTOM_OPENAI
     val supportsApiMode: Boolean get() = apiFamily == AIApiFamily.OPENAI_COMPATIBLE
-
 }
 
 enum class AIApiFamily {
