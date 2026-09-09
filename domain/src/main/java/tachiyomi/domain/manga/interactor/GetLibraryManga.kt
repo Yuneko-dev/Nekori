@@ -269,16 +269,28 @@ class GetLibraryManga(
         mangaId: Long,
         updater: (tachiyomi.domain.manga.model.Manga) -> tachiyomi.domain.manga.model.Manga,
     ) {
+        applyBatchMangaDetailUpdates(mapOf(mangaId to updater))
+    }
+
+    /**
+     * Apply batch manga detail updates for multiple manga at once.
+     * More efficient than calling applyMangaDetailUpdate individually.
+     */
+    suspend fun applyBatchMangaDetailUpdates(
+        updates: Map<Long, (tachiyomi.domain.manga.model.Manga) -> tachiyomi.domain.manga.model.Manga>,
+    ) {
+        if (updates.isEmpty()) return
         mutex.withLock {
             val current = _libraryState.value
             val result = ArrayList<LibraryManga>(current.size)
             var changed = false
             for (item in current) {
-                if (item.id != mangaId) {
-                    result.add(item)
-                } else {
+                val updater = updates[item.id]
+                if (updater != null) {
                     result.add(item.copy(manga = updater(item.manga)))
                     changed = true
+                } else {
+                    result.add(item)
                 }
             }
             if (changed) _libraryState.value = result

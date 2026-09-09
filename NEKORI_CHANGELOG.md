@@ -29,6 +29,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Font selection uses sample previews and radio buttons, with direct deletion and a compact named download indicator.
 
 ### Fixed
+- Refreshing novel metadata preserves custom fields and memo data; bulk refreshes update the Library cache together.
+- EPUB chapter titles omit redundant single-parent book headings while preserving volume and section distinctions.
 - Google Fonts search uses the full catalog, with cached results, cancellation and retry on failure.
 - Font pickers share built-in choices and report unavailable fonts instead of showing misleading fallback previews; reopening the manager refreshes the selection.
 - Font operations follow the ViewModel lifecycle, report HTTP failures and clean up incomplete imports/downloads.

@@ -2,12 +2,11 @@ package mihon.domain.source.interactor
 
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.chapter.model.toSChapter
-import eu.kanade.domain.manga.model.hasCustomCover
+import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
@@ -18,19 +17,17 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.novel.model.NovelLayout
 import tachiyomi.domain.novel.repository.NovelStructureRepository
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.source.local.isLocal
-import kotlin.time.Clock
 
 class UpdateMangaFromRemote(
     private val sourceManager: SourceManager,
     private val chapterRepository: ChapterRepository,
     private val mangaRepository: MangaRepository,
     private val syncChaptersWithSource: SyncChaptersWithSource,
+    private val updateManga: UpdateManga,
     private val coverCache: CoverCache,
     private val libraryPreferences: LibraryPreferences,
     private val downloadManager: DownloadManager,
@@ -42,6 +39,7 @@ class UpdateMangaFromRemote(
         fetchChapters: Boolean = false,
         manualFetch: Boolean = false,
         fetchWindow: Pair<Long, Long> = Pair(0, 0),
+        onLibraryCacheUpdate: ((Long, (Manga) -> Manga) -> Unit)? = null,
     ): Result<RemoteMangaUpdate> {
         val source = sourceManager.getOrStub(manga.source)
         return invoke(
@@ -50,6 +48,7 @@ class UpdateMangaFromRemote(
             fetchDetails = fetchDetails,
             fetchChapters = fetchChapters,
             manualFetch = manualFetch,
+            onLibraryCacheUpdate = onLibraryCacheUpdate,
         )
     }
 
@@ -61,6 +60,7 @@ class UpdateMangaFromRemote(
         manualFetch: Boolean = false,
         fetchWindow: Pair<Long, Long> = Pair(0, 0),
         forceRefresh: Boolean = false,
+        onLibraryCacheUpdate: ((Long, (Manga) -> Manga) -> Unit)? = null,
     ): Result<RemoteMangaUpdate> {
         return try {
             val chapters = if (forceRefresh) {
@@ -89,7 +89,15 @@ class UpdateMangaFromRemote(
                 null
             }
             if (fetchDetails) {
-                awaitUpdateFromSource(manga, update.manga, manualFetch)
+                updateManga.awaitUpdateFromSource(
+                    manga,
+                    update.manga,
+                    manualFetch,
+                    coverCache,
+                    libraryPreferences,
+                    downloadManager,
+                    onLibraryCacheUpdate,
+                )
             }
             val newChapters = if (fetchChapters) {
                 syncChaptersWithSource.await(
@@ -125,63 +133,5 @@ class UpdateMangaFromRemote(
             logcat(LogPriority.ERROR, e)
             Result.failure(e)
         }
-    }
-
-    private suspend fun awaitUpdateFromSource(
-        localManga: Manga,
-        remoteManga: SManga,
-        manualFetch: Boolean,
-    ): Boolean {
-        val remoteTitle = try {
-            remoteManga.title
-        } catch (_: UninitializedPropertyAccessException) {
-            ""
-        }
-
-        // if the manga isn't a favorite (or 'update titles' preference is enabled), set its title from source and update in db
-        val title =
-            if (remoteTitle.isNotEmpty() && (!localManga.favorite || libraryPreferences.updateMangaTitles.get())) {
-                remoteTitle
-            } else {
-                null
-            }
-
-        val coverLastModified = when {
-            // Never refresh covers if the url is empty to avoid "losing" existing covers
-            remoteManga.thumbnail_url.isNullOrEmpty() -> null
-            !manualFetch && localManga.thumbnailUrl == remoteManga.thumbnail_url -> null
-            localManga.isLocal() -> Clock.System.now().toEpochMilliseconds()
-            localManga.hasCustomCover(coverCache) -> {
-                coverCache.deleteFromCache(localManga, false)
-                null
-            }
-            else -> {
-                coverCache.deleteFromCache(localManga, false)
-                Clock.System.now().toEpochMilliseconds()
-            }
-        }
-
-        val thumbnailUrl = remoteManga.thumbnail_url?.takeIf { it.isNotEmpty() }
-
-        val success = mangaRepository.update(
-            MangaUpdate(
-                id = localManga.id,
-                title = title,
-                coverLastModified = coverLastModified,
-                author = remoteManga.author,
-                artist = remoteManga.artist,
-                description = remoteManga.description,
-                genre = remoteManga.getGenres(),
-                thumbnailUrl = thumbnailUrl,
-                status = remoteManga.status.toLong(),
-                updateStrategy = remoteManga.update_strategy,
-                initialized = true,
-                memo = remoteManga.memo,
-            ),
-        )
-        if (success && title != null) {
-            downloadManager.renameManga(localManga, title)
-        }
-        return success
     }
 }

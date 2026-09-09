@@ -77,6 +77,7 @@ class UpdateManga(
         coverCache: CoverCache = Injekt.get(),
         libraryPreferences: LibraryPreferences = Injekt.get(),
         downloadManager: DownloadManager = Injekt.get(),
+        onLibraryCacheUpdate: ((Long, (Manga) -> Manga) -> Unit)? = null,
     ): Boolean {
         val remoteTitle = try {
             remoteManga.title
@@ -177,7 +178,7 @@ class UpdateManga(
             downloadManager.renameManga(localManga, title)
         }
         if (success && localManga.favorite) {
-            getLibraryManga.applyMangaDetailUpdate(localManga.id) { manga ->
+            val cacheUpdater: (Manga) -> Manga = { manga ->
                 manga.copy(
                     title = title ?: manga.title,
                     thumbnailUrl = thumbnailUrl ?: manga.thumbnailUrl,
@@ -189,6 +190,11 @@ class UpdateManga(
                     status = status,
                     alternativeTitles = mergedAltTitles ?: manga.alternativeTitles,
                 )
+            }
+            if (onLibraryCacheUpdate != null) {
+                onLibraryCacheUpdate(localManga.id, cacheUpdater)
+            } else {
+                getLibraryManga.applyMangaDetailUpdate(localManga.id, cacheUpdater)
             }
         }
         return success

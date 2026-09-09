@@ -32,6 +32,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -103,6 +104,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
+        val libraryCacheUpdates = ConcurrentHashMap<Long, (Manga) -> Manga>()
 
         coroutineScope {
             mangaToUpdate.groupBy { it.manga.source }
@@ -125,6 +127,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                                             source = source,
                                             manga = manga,
                                             fetchDetails = true,
+                                            onLibraryCacheUpdate = { id, updater -> libraryCacheUpdates[id] = updater },
                                         ).getOrThrow()
                                     } catch (e: Throwable) {
                                         // Ignore errors and continue
@@ -136,6 +139,10 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                     }
                 }
                 .awaitAll()
+        }
+
+        if (libraryCacheUpdates.isNotEmpty()) {
+            getLibraryManga.applyBatchMangaDetailUpdates(libraryCacheUpdates)
         }
 
         notifier.cancelProgressNotification()

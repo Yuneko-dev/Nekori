@@ -656,6 +656,7 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
         }
 
         private fun normalizeByDepth(toc: List<EpubChapter>): List<EpubChapter> {
+            val hasSibling = computeSiblingPresence(toc)
             val ancestors = mutableListOf<String>()
 
             return toc.mapIndexed { index, chapter ->
@@ -673,9 +674,34 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
                     else -> rawTitle
                 }
 
-                ancestors.add(rawTitle)
+                ancestors.add(if (hasSibling[index]) rawTitle else "")
                 chapter.copy(title = normalizedTitle)
             }
+        }
+
+        /**
+         * For each TOC entry, returns whether it has at least one sibling under the same parent
+         * (same ancestor chain), based on [EpubChapter.depth]. Tolerates gaps in the depth sequence
+         * (an entry that is 2+ levels deeper than the previous one, or a first entry at depth > 0) —
+         * these occur when [buildTocFromNcxNavMap] skips a label-only grouping navPoint but still
+         * emits its children at depth + 1.
+         */
+        private fun computeSiblingPresence(toc: List<EpubChapter>): BooleanArray {
+            val parentIndexOf = IntArray(toc.size)
+            // Monotonic stack of ancestor indices with strictly increasing depth; parent is the top.
+            val ancestors = mutableListOf<Int>()
+
+            toc.forEachIndexed { index, chapter ->
+                val depth = chapter.depth.coerceAtLeast(0)
+                while (ancestors.isNotEmpty() && toc[ancestors.last()].depth.coerceAtLeast(0) >= depth) {
+                    ancestors.removeAt(ancestors.lastIndex)
+                }
+                parentIndexOf[index] = ancestors.lastOrNull() ?: -1
+                ancestors.add(index)
+            }
+
+            val childCountByParent = parentIndexOf.toList().groupingBy { it }.eachCount()
+            return BooleanArray(toc.size) { index -> (childCountByParent[parentIndexOf[index]] ?: 0) > 1 }
         }
 
         private fun normalizeByHeuristic(toc: List<EpubChapter>): List<EpubChapter> {

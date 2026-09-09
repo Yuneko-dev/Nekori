@@ -80,6 +80,57 @@ class EpubReaderTocParseTest {
     }
 
     @Test
+    fun `ncx root navPoint wrapping the entire toc is not prefixed onto every chapter`() {
+        val navMap = ncx(
+            """
+            <ncx><navMap>
+              <navPoint><navLabel><text>Some Book Title</text></navLabel><content src="half-title.xhtml"/>
+                <navPoint><navLabel><text>Synopsis</text></navLabel><content src="synopsis.xhtml"/></navPoint>
+                <navPoint><navLabel><text>Copyright</text></navLabel><content src="copyright.xhtml"/></navPoint>
+                <navPoint><navLabel><text>Chapter 1: Foo</text></navLabel><content src="chap1.xhtml"/></navPoint>
+                <navPoint><navLabel><text>Chapter 2: Bar</text></navLabel><content src="chap2.xhtml"/></navPoint>
+              </navPoint>
+            </navMap></ncx>
+            """.trimIndent(),
+        )
+
+        val toc = EpubReader.buildTocFromNcxNavMap(navMap, "toc.ncx", identityResolve)
+
+        assertEquals(listOf(0, 1, 1, 1, 1), toc.map { it.depth })
+
+        val names = EpubReader.normalizeTableOfContents(toc).map { it.title }
+        assertEquals(
+            listOf("Some Book Title", "Synopsis", "Copyright", "Chapter 1: Foo", "Chapter 2: Bar"),
+            names,
+        )
+    }
+
+    @Test
+    fun `ncx grouping navPoint with no content is skipped but its children still normalize`() {
+        // The outer navPoint carries a <navLabel> but no <content>, so it is not emitted as an entry
+        // while its children are still walked at depth + 1. The TOC then starts at depth 1 with no
+        // depth-0 entry; normalization must handle that gap instead of throwing.
+        val navMap = ncx(
+            """
+            <ncx><navMap>
+              <navPoint><navLabel><text>Untitled Group</text></navLabel>
+                <navPoint><navLabel><text>Chapter 1</text></navLabel><content src="c1.xhtml"/></navPoint>
+                <navPoint><navLabel><text>Chapter 2</text></navLabel><content src="c2.xhtml"/></navPoint>
+              </navPoint>
+            </navMap></ncx>
+            """.trimIndent(),
+        )
+
+        val toc = EpubReader.buildTocFromNcxNavMap(navMap, "toc.ncx", identityResolve)
+
+        assertEquals(listOf("Chapter 1", "Chapter 2"), toc.map { it.title })
+        assertEquals(listOf(1, 1), toc.map { it.depth })
+
+        val names = EpubReader.normalizeTableOfContents(toc).map { it.title }
+        assertEquals(listOf("Chapter 1", "Chapter 2"), names)
+    }
+
+    @Test
     fun `fragment-only ncx entry reuses the previous file path`() {
         val navMap = ncx(
             """
@@ -138,6 +189,7 @@ class EpubReaderTocParseTest {
                 <li><span>Section</span>
                   <ol><li><a href="c1.xhtml">Chapter 1</a></li></ol>
                 </li>
+                <li><a href="appendix.xhtml">Appendix</a></li>
               </ol></nav>
             </body></html>
             """.trimIndent(),
@@ -145,13 +197,13 @@ class EpubReaderTocParseTest {
 
         val toc = EpubReader.buildTocFromNavList(root, "nav.xhtml", identityResolve)
 
-        assertEquals(listOf("Section", "Chapter 1"), toc.map { it.title })
-        assertEquals(listOf(0, 1), toc.map { it.depth })
-        assertEquals(listOf(0, 1), toc.map { it.order })
-        assertEquals(listOf("c1.xhtml", "c1.xhtml"), toc.map { it.href })
+        assertEquals(listOf("Section", "Chapter 1", "Appendix"), toc.map { it.title })
+        assertEquals(listOf(0, 1, 0), toc.map { it.depth })
+        assertEquals(listOf(0, 1, 2), toc.map { it.order })
+        assertEquals(listOf("c1.xhtml", "c1.xhtml", "appendix.xhtml"), toc.map { it.href })
 
         val names = EpubReader.normalizeTableOfContents(toc).map { it.title }
-        assertEquals(listOf("Section", "Section - Chapter 1"), names)
+        assertEquals(listOf("Section", "Section - Chapter 1", "Appendix"), names)
     }
 
     @Test
