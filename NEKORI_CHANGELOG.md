@@ -19,6 +19,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.0.9] - 2026-09-09
+
 ### Added
 - Paged novel reading with automatic, single-page and double-page layouts, reading direction and page-turn effects.
 - Customizable reader toolbar actions for chapter search, reload and summary.
