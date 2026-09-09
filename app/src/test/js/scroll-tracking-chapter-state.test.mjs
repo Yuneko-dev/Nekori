@@ -9,12 +9,16 @@ function createHarness() {
     const frames = [];
     const listeners = new Map();
     const chapterUpdates = [];
+    const sliderUpdates = [];
+    const savedProgress = [];
+    let now = 1_000;
     let nextLoads = 0;
     let dividers = [divider('1', 0), divider('2', 1_000)];
     let banner = null;
     let chapterOffset = 0;
 
     const window = {
+        onscrollend: null,
         innerHeight: 800,
         scrollY: 0,
         pageYOffset: 0,
@@ -54,8 +58,8 @@ function createHarness() {
         onChapterScrollUpdate(chapterId) {
             chapterUpdates.push(chapterId);
         },
-        onScrollProgress() {},
-        onScrollUpdate() {},
+        onScrollProgress(progress) { savedProgress.push(progress); },
+        onScrollUpdate(progress) { sliderUpdates.push(progress); },
     };
 
     const source = readFileSync(assetUrl, 'utf8')
@@ -75,7 +79,7 @@ function createHarness() {
                 this.detail = init?.detail;
             }
         },
-        Date,
+        Date: { now: () => now },
         clearTimeout,
         console,
         document,
@@ -89,6 +93,10 @@ function createHarness() {
 
     return {
         chapterUpdates,
+        sliderUpdates,
+        savedProgress,
+        advanceTime(ms) { now += ms; },
+        settle() { window.dispatchEvent({ type: 'scrollend' }); },
         get nextLoads() {
             return nextLoads;
         },
@@ -162,6 +170,24 @@ function finishInitialFrames(harness) {
     harness.drainFrame();
     assert.deepEqual(harness.chapterUpdates, ['1']);
 }
+
+test('settling at the chapter start publishes zero even inside the slider throttle window', () => {
+    const harness = createHarness();
+    finishInitialFrames(harness);
+    harness.advanceTime(100);
+    harness.scrollTo(3_200);
+    harness.drainFrame();
+    harness.advanceTime(100);
+    harness.scrollTo(20);
+    harness.drainFrame();
+    assert.equal(harness.sliderUpdates.at(-1), 0.02);
+    harness.advanceTime(10);
+    harness.scrollTo(0);
+    harness.drainFrame();
+    harness.settle();
+    assert.equal(harness.sliderUpdates.at(-1), 0);
+    assert.equal(harness.savedProgress.at(-1), 0);
+});
 
 test('reports a new stable chapter id when a boundary keeps the same numeric index', () => {
     const harness = createHarness();

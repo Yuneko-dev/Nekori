@@ -29,6 +29,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Font selection uses sample previews and radio buttons, with direct deletion and a compact named download indicator.
 
 ### Fixed
+- Vertical reading progress reaches the exact settled position, including 0% after scrolling back to the chapter start.
+- Paged chapters are no longer mistaken for short vertical chapters and marked 100%, preventing a jump to the end when switching to vertical scrolling.
 - Refreshing novel metadata preserves custom fields and memo data; bulk refreshes update the Library cache together.
 - EPUB chapter titles omit redundant single-parent book headings while preserving volume and section distinctions.
 - Google Fonts search uses the full catalog, with cached results, cancellation and retry on failure.

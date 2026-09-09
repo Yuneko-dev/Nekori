@@ -90,8 +90,12 @@ class NovelProgressTest {
 
     @Test
     fun `paged backward allowance falls back for invalid unit counts`() {
-        assertEquals(10, NovelProgress.backwardJumpAllowancePercent(null))
         assertEquals(10, NovelProgress.backwardJumpAllowancePercent(0))
         assertEquals(10, NovelProgress.backwardJumpAllowancePercent(1))
+    }
+
+    @Test
+    fun `vertical scroll can persist a settled jump from the end to the start`() {
+        assertEquals(100, NovelProgress.backwardJumpAllowancePercent(null))
     }
 }

@@ -202,7 +202,14 @@
             setTimeout(function () { persistCurrent(retriesLeft - 1); }, SETTLE_MS);
             return;
         }
-        Android.onScrollProgress(computeState().chapterProgress);
+        var s = computeState();
+        publishProgress(s);
+        // The final frame may fall inside the slider throttle window (including a return to 0%).
+        // Publish the settled value before persisting so the UI and resume position agree.
+        lastSliderProgress = s.chapterProgress;
+        Android.onScrollUpdate(s.chapterProgress);
+        dispatchProgress(s);
+        Android.onScrollProgress(s.chapterProgress);
     }
     if ('onscrollend' in window) {
         window.addEventListener('scrollend', function () { persistCurrent(); }, { passive: true });

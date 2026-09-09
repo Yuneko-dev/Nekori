@@ -1331,6 +1331,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             """
             (function() {
                 function checkIfShortChapter() {
+                    // CSS columns fit the vertical viewport even when there are many horizontal pages.
+                    if (window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.enabled) return false;
                     var docHeight = Math.max(
                         document.documentElement.scrollHeight,
                         document.body ? document.body.scrollHeight : 0

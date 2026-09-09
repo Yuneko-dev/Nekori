@@ -31,12 +31,18 @@ object NovelProgress {
     /**
      * Allow one deliberate backward page turn when paged progress is persisted. A paged unit's
      * progress is indexed from zero, so each step is one of (count - 1) intervals.
+     * A null count denotes vertical scrolling: one settled fling can span the entire chapter.
+     * The viewer's restore guard, not distance travelled, filters loading/restore samples.
      */
     fun backwardJumpAllowancePercent(pagedUnitCount: Int?): Int =
-        pagedUnitCount
-            ?.takeIf { it > 1 }
-            ?.let { ceil(100.0 / (it - 1)).toInt().coerceIn(10, 100) }
-            ?: 10
+        if (pagedUnitCount == null) {
+            100
+        } else {
+            pagedUnitCount
+                ?.takeIf { it > 1 }
+                ?.let { ceil(100.0 / (it - 1)).toInt().coerceIn(10, 100) }
+                ?: 10
+        }
 
     /**
      * Chapters to mark 100% read when the visible chapter moves forward from [oldIndex] to
