@@ -1,10 +1,13 @@
 # Nekori Changelog
 
-All notable changes **this fork** makes on top of Tsundoku are documented in this file.
+User-facing changes in Nekori releases, including adopted upstream improvements, are documented here.
 
 `CHANGELOG.md` is Tsundoku's own release record and is kept byte-identical to upstream so it can be
-merged without conflict — nothing about Nekori belongs in it. Everything below is work that exists
-only here.
+merged without conflict — Nekori release notes belong here.
+
+Each release describes the final changes since the previous release, not individual development
+commits. List new and removed features once; fold fixes made while developing a new feature into its
+feature entry. Reserve `Fixed` for bugs affecting previously released functionality.
 
 The format is a modified version of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Added` - for new features.
@@ -17,37 +20,29 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
-- Paged novel reading with single/double-page layouts, reading direction and page-turn effects.
+- Paged novel reading with automatic, single-page and double-page layouts, reading direction and page-turn effects.
 - Customizable reader toolbar actions for chapter search, reload and summary.
-- Global reader controls for default rotation, opening hints, chapter skipping, tap zones, scrollbars and E-Ink.
+- Optional reading-mode and tap-zone hints when opening the reader.
+- TTS notification controls support paragraph-based progress and seeking.
+- Chapter load errors offer Retry and Copy actions.
 
 ### Changed
-- AI connection buttons keep their size while loading; model selection uses Material 3 radio rows and a scrollbar.
-- AI connection testing sends a short prompt to the selected model and verifies a text response.
-- AI providers no longer expose or send temperature; fixed endpoints show a lock and an explanation.
-- Standalone reader settings use standard preference rows; TTS color choices show swatches and a Custom palette icon.
-- Font selection uses sample previews and radio buttons, with direct deletion and a compact named download indicator.
+- Global novel-reader settings use standard preference rows and expose rotation, chapter skipping, tap zones, scrollbars and E-Ink controls; TTS highlight colors include preset swatches and a custom picker.
+- Settings preview uses the actual reader, without saving sample history or progress.
+- Font selection offers sample previews, consistent built-in choices, unavailable-font indicators and direct deletion; Google Fonts search covers the full catalog.
+- AI connection testing verifies a text response from the selected model; provider settings clarify locked endpoints and simplify model selection.
+
+### Removed
+- The AI provider temperature setting and temperature parameter in generation requests.
 
 ### Fixed
-- Vertical reading progress reaches the exact settled position, including 0% after scrolling back to the chapter start.
-- Paged chapters are no longer mistaken for short vertical chapters and marked 100%, preventing a jump to the end when switching to vertical scrolling.
-- Refreshing novel metadata preserves custom fields and memo data; bulk refreshes update the Library cache together.
-- EPUB chapter titles omit redundant single-parent book headings while preserving volume and section distinctions.
-- Google Fonts search uses the full catalog, with cached results, cancellation and retry on failure.
-- Font pickers share built-in choices and report unavailable fonts instead of showing misleading fallback previews; reopening the manager refreshes the selection.
-- Font operations follow the ViewModel lifecycle, report HTTP failures and clean up incomplete imports/downloads.
-- Tap-zone options keep Disabled last and normalize inversion for center/bottom layouts; scrollbar modes stay consistent across settings and the reader.
-- Reader reset includes hidden controls without deleting custom scripts or replacement rules.
-- Reader labels reuse existing translations; text alignment and stepper controls are localized.
-- Paged layout and E-Ink flashing apply only to eligible novel content; scrolling, mixed and video content remain unaffected.
-- Chapter links and summaries reveal the correct page without shifting paged text vertically.
-- Settings preview uses the actual reader without saving sample history or progress.
-- TTS controls have consistent spacing; highlighting preserves paragraph layout and Android TTS no longer retains a destroyed activity.
-- Paged updates refresh the first page, previous tail and new pages while keeping other pages lazy-loaded.
-- Chapter load failures offer Retry and Copy actions; failed automatic chapter loads keep the current content on screen.
-- Inline loading and error banners no longer count toward the last chapter's height, so scroll progress stays accurate while they are visible.
-- Moving back one page in a short chapter now saves the reading position correctly.
-- Translation progress estimates now use a 60-second curve so slower parallel requests do not appear nearly complete too early.
+- Vertical reading progress saves the settled position, including 0% after returning to the chapter start; loading and error banners no longer distort chapter progress.
+- Failed automatic chapter loads keep the current content on screen.
+- Refreshing novel metadata preserves custom fields and memo data, and bulk refreshes update the Library consistently.
+- EPUB chapter titles omit redundant book headings while preserving volume and section distinctions.
+- Update checks for sources with paginated chapter lists discover new chapters without reloading every page.
+- TTS highlighting no longer shifts paragraph layout, and Android TTS releases the reader activity correctly.
+- Translation progress no longer appears nearly complete too early during slow parallel requests.
 
 ## [v0.0.8] - 2026-08-31
 

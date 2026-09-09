@@ -20,7 +20,7 @@ body {
     --reader-margin-inline-start: var(--reader-margin-left);
     --reader-margin-inline-end: var(--reader-margin-right);
 
-    margin-inline: 0;
+    margin: 0;
     padding-block-start: var(--reader-margin-top);
     padding-block-end: calc(40px + var(--reader-margin-bottom));
 
@@ -59,7 +59,6 @@ body:not(.page-reader) .transition-chapter {
 body.page-reader {
     block-size: 100vh;
     block-size: 100dvh;
-    margin-block: 0;
     padding-block: 0;
     overflow: hidden;
     overscroll-behavior: none;
