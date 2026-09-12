@@ -1216,8 +1216,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         pushReaderChrome()
         if (isVideoChapter()) {
             pagedController.disable()
-            pendingTtsAutoStartOnLoad = false
-            ttsController.pendingStartRequest = null
+            stopTts(preserveChapterLoad = true)
             val progress = currentPage?.chapter?.chapter?.last_page_read?.coerceIn(0, 100) ?: 0
             lastSavedProgress = progress / 100f
             lastPersistedPercent = progress
@@ -1996,7 +1995,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun currentTtsState(): TtsPlaybackState = when {
         ttsController.isPaused() -> TtsPlaybackState.PAUSED
-        ttsController.isTtsAutoPlay || ttsController.isSpeaking() || ttsController.isStarting() ->
+        pendingTtsAutoStartOnLoad || ttsController.isTtsAutoPlay ||
+            ttsController.isSpeaking() || ttsController.isStarting() ->
             TtsPlaybackState.PLAYING
         else -> TtsPlaybackState.STOPPED
     }
@@ -2087,6 +2087,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun dispatchTtsState() {
         val state = currentTtsState()
         _ttsPlaybackState.value = state
+        activity.onNovelTtsStateChanged()
         dispatchTsundokuEvent(
             NovelWebViewChapterMeta.EVENT_TTS_STATE,
             "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_TTS_STATE_KEY} = '${state.wireValue}';",
@@ -3266,6 +3267,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         if (!ttsController.ttsInitialized) {
             logcat(LogPriority.WARN) { "TTS (WebView): Not initialized yet, waiting..." }
             ttsController.pendingStartRequest = TtsController.StartRequest.NORMAL
+            dispatchTtsState()
             return
         }
 
@@ -3372,13 +3374,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     /**
      * High-level "TTS session active" flag for the background-notification
-     * sync. Stays `true` across the brief stop/restart gap inside
-     * `stepParagraph` so the periodic sync doesn't tear down the foreground
-     * service mid-step.
+     * sync. Includes a pending document handoff so resetting the speech queue
+     * while the next chapter loads cannot tear down the foreground service.
      */
-    fun isTtsActive(): Boolean =
-        ttsController.isTtsAutoPlay || ttsController.isSpeaking() ||
-            ttsController.isPaused() || ttsController.isStarting()
+    fun isTtsActive(): Boolean = currentTtsState() != TtsPlaybackState.STOPPED
 
     /** (paragraphIndex, paragraphCount) for the media notification's "paragraph N of M". */
     fun getTtsParagraphProgress(): Pair<Int, Int> = ttsController.getParagraphProgress()

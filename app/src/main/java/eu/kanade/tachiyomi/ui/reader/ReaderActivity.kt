@@ -1374,6 +1374,11 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
+    internal fun onNovelTtsStateChanged() {
+        if (currentNovelTtsState()?.active == true) startBackgroundTtsIfEnabled()
+        syncBackgroundTtsState()
+    }
+
     private fun stopBackgroundTtsIfRunning() {
         TtsPlaybackService.stop(this)
         stopTtsNotificationSync()
@@ -1405,7 +1410,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun startTtsNotificationSync() {
-        ttsNotificationSyncJob?.cancel()
+        if (ttsNotificationSyncJob?.isActive == true) return
         ttsNotificationSyncJob = lifecycleScope.launch {
             // First pass runs before the caller sets TTS state. Don't stop the service
             // until TTS has been active once: stopping it before startForeground() crashes
