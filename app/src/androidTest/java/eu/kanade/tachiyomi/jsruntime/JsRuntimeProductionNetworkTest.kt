@@ -71,7 +71,12 @@ class JsRuntimeProductionNetworkTest {
 
             val requestHeaders = response.await()
             assertEquals(networkHelper.defaultUserAgentProvider(), requestHeaders["user-agent"])
-            assertEquals("<p>production-client</p>", result)
+            assertEquals(
+                "<p>production-client</p>",
+                kotlinx.serialization.json.Json.decodeFromString<eu.kanade.tachiyomi.source.model.ChapterContent>(
+                    result,
+                ).html,
+            )
         }
     }
 

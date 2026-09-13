@@ -10,6 +10,7 @@
     "format": "prettier --write \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
     "type-check": "tsc --noEmit",
+    "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
     "check": "pnpm run type-check && pnpm run lint && pnpm run format:check"
   },
   "codegenConfig": {

@@ -49,7 +49,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelPageLoader
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
@@ -950,12 +949,12 @@ class ReaderViewModel @JvmOverloads constructor(
         (state.value.viewer as? NovelWebViewViewer)?.isInfiniteScrollEnabled() == true
 
     private suspend fun translateChapterAhead(chapter: ReaderChapter, chapterId: Long) {
-        // The marker is a plugin saying its chapters must be fetched as they are read; honouring it
-        // for infinite scroll but spending a translation on the next chapter anyway would be odd.
-        // Read off the current chapter's text, which is already in memory, and parsed here rather
-        // than at the call site so the Jsoup pass stays off the thread that commits chapters.
-        val currentText = getCurrentChapter()?.pages?.firstOrNull()?.text
-        if (currentText != null && NovelWebViewChapterDirectives.parse(currentText).noPrefetch) return
+        // The viewer retains policy after noCache clears the page payload.
+        if ((state.value.viewer as? NovelWebViewViewer)?.currentDocumentNoPrefetch == true ||
+            getCurrentChapter()?.pages?.firstOrNull()?.chapterContent?.noPrefetch == true
+        ) {
+            return
+        }
         if (hasCachedTranslation(chapterId)) return
 
         preloadChapterPages(chapter)
@@ -964,6 +963,7 @@ class ReaderViewModel @JvmOverloads constructor(
         if (page.text.isNullOrBlank()) {
             NovelPageLoader.awaitPageText("ReaderViewModel", page, loader, PREFETCH_TEXT_TIMEOUT_MS, viewModelScope)
         }
+        if (page.chapterContent?.isCheckpoint == true) return
         val raw = page.text?.takeUnless { it.isBlank() } ?: return
 
         // Translate what the reader would have sent, not the raw file: the cache is keyed by chapter,

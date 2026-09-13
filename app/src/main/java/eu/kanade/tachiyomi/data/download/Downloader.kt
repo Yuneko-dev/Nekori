@@ -564,7 +564,7 @@ class Downloader(
                     throw (firstPage.status as? Page.State.Error)?.error
                         ?: Exception("Chapter is empty - the source returned no text")
                 }
-                firstPage.text?.let(NovelWebViewChapterDirectives::parse)?.takeIf { it.video != null }
+                firstPage.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)?.takeIf { it.video != null }
             } else {
                 null
             }
@@ -827,13 +827,19 @@ class Downloader(
         if (page.text == null) {
             logcat { "  -> Fetching novel page text for page ${page.number}" }
             try {
-                page.text = download.source.fetchPageText(page)
+                page.chapterContent = download.source.fetchChapterContent(page)
                 logcat { "  -> Fetched text, length=${page.text?.length ?: 0}" }
             } catch (error: Throwable) {
                 logcat(LogPriority.ERROR, error) { "  -> Error fetching novel page text" }
                 page.status = Page.State.Error(error)
                 return false
             }
+        }
+        val content = page.chapterContent
+        if (content?.isCheckpoint == true) {
+            page.text = null
+            page.status = Page.State.Error(Exception(content.checkpointMessage ?: "Chapter requires interaction"))
+            return false
         }
         if (page.text.isNullOrBlank() && page.imageUrl.isNullOrEmpty()) {
             logcat(LogPriority.ERROR) { "  -> Novel page ${page.number} returned no text; failing download" }

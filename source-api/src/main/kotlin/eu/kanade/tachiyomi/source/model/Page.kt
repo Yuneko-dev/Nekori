@@ -21,7 +21,14 @@ open class Page(
      * upstream 4-param Page(index, url, imageUrl, uri) constructor.
      */
     @Transient
-    var text: String? = null
+    var chapterContent: ChapterContent? = null
+
+    /** Compatibility view for text-only consumers; chapter policy stays on the page. */
+    var text: String?
+        get() = chapterContent?.html
+        set(value) {
+            chapterContent = value?.let { chapterContent?.copy(html = it) ?: ChapterContent.fromLegacy(it) }
+        }
 
     val number: Int
         get() = index + 1

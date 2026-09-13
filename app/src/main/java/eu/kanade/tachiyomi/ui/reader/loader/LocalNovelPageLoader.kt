@@ -61,7 +61,7 @@ class LocalNovelPageLoader(
                 // A reload from source must outlive the plugin's chapter-text cache, or it replays
                 // the same HTML for as long as that entry stays fresh.
                 if (forceRefresh) (source as? JsSource)?.invalidateChapterText(page.url)
-                page.text = source.fetchPageText(Page(page.index, page.url, page.imageUrl))
+                page.chapterContent = source.fetchChapterContent(page)
                 page.status = Page.State.Ready
             } else {
                 throw IllegalStateException("Source is not a NovelSource")

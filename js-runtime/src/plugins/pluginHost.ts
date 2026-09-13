@@ -101,20 +101,46 @@ const packages: Record<string, unknown> = {
   '@libs/isAbsoluteUrl': { isUrlAbsolute },
   '@libs/filterInputs': { FilterTypes },
   '@libs/defaultCover': { defaultCover },
-  '@libs/aes': { ctr, ecb, cbc, cfb, gcm, gcmsiv, aeskw, aeskwp, cmac, aessiv },
-  '@libs/utils': {
-    utf8ToBytes,
-    bytesToUtf8,
+  '@libs/aes': { gcm },
+  '@libs/utils': { utf8ToBytes, bytesToUtf8 },
+};
+
+const nekoriPackages: Record<string, unknown> = {
+  '@nekori/aes': {
+    ctr,
+    ecb,
+    cbc,
+    cfb,
+    gcm,
+    gcmsiv,
+    aeskw,
+    aeskwp,
+    cmac,
+    aessiv,
+  },
+  '@nekori/utils': {
     Buffer,
+    NodeCrypto,
     encodeHtmlEntities,
     decodeHtmlEntities,
-    NodeCrypto,
     getUserAgent,
   },
-  '@libs/cookie': CookieManager,
-  '@libs/pluginMetadata': {
-    ContentWarning: PluginContentWarning,
+  '@nekori/cookie': {
+    set: CookieManager.set,
+    get: CookieManager.get,
+    setFromResponse: CookieManager.setFromResponse,
+    flush: CookieManager.flush,
+    removeSessionCookies: CookieManager.removeSessionCookies,
+  },
+  '@nekori/pluginMetadata': {
     ContentType: PluginContentType,
+    ContentWarning: PluginContentWarning,
+  },
+  '@nekori/webview': {
+    solveCloudflare: async () => false,
+    solveCloudflareTurnstile: async () => {
+      throw new Error('solveCloudflareTurnstile not implemented');
+    },
   },
 };
 
@@ -125,7 +151,7 @@ function makeRequire(runtimeKey: string): (name: string) => unknown {
     if (name === '@libs/storage') {
       return storageModule(runtimeKey);
     }
-    const module = packages[name];
+    const module = nekoriPackages[name] ?? packages[name];
     if (module === undefined) {
       console.warn(
         `Plugin "${runtimeKey}" tried to require unknown module "${name}"`,
@@ -159,6 +185,17 @@ export async function initPlugin(
     if (validateId && plugin.id !== pluginId) {
       throw new Error(
         `Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`,
+      );
+    }
+
+    if (
+      plugin.minApiVersion !== undefined &&
+      (!Number.isInteger(plugin.minApiVersion) ||
+        plugin.minApiVersion < 1 ||
+        plugin.minApiVersion > 1)
+    ) {
+      throw new Error(
+        'Unsupported Nekori API version: ' + plugin.minApiVersion,
       );
     }
 

@@ -196,7 +196,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private var currentPage: ReaderPage? = null
     private var currentChapters: ViewerChapters? = null
     private var currentDocumentIsVideo = false
-    private var currentDocumentNoPrefetch = false
+    internal var currentDocumentNoPrefetch = false
+        private set
     private var currentDocumentDirection = NovelContentDirection.LTR
     private var currentLocalVideo: Pair<Long, UniFile>? = null
 
@@ -1545,8 +1546,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.viewModel.getSource()?.lang.orEmpty()
         }
         val prepared = withContext(Dispatchers.Default) {
-            val directives = NovelWebViewChapterDirectives.parse(rawContent)
-            var processed = contentPipeline.process(rawContent, cfg, translator)
+            val directives = page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
+                ?: NovelWebViewChapterDirectives.parse(rawContent)
+            var processed = contentPipeline.process(rawContent, cfg, if (directives.checkpoint) null else translator)
             if (isAppend && processed.text.contains(NovelWebViewImageCache.URL_SCHEME_NOVEL_IMAGE)) {
                 processed = processed.copy(
                     text = processed.text.replace(
@@ -1967,7 +1969,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
         }
         val html = page.text
-        if (!html.isNullOrBlank() && NovelWebViewChapterDirectives.parse(html).noCache) {
+        if (!html.isNullOrBlank() && page.chapterContent?.noCache == true) {
             page.text = null
         }
         return html

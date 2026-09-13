@@ -85,7 +85,7 @@ internal class HttpPageLoader(
         }
         return pages.mapIndexed { index, page ->
             // Don't trust sources and use our own indexing
-            ReaderPage(index, page.url, page.imageUrl, page.text)
+            ReaderPage(index, page.url, page.imageUrl, page.text).apply { chapterContent = page.chapterContent }
         }
     }
 
@@ -199,7 +199,7 @@ internal class HttpPageLoader(
 
             if (treatAsNovel) {
                 page.status = Page.State.LoadPage
-                page.text = source.fetchPageText(page)
+                page.chapterContent = source.fetchChapterContent(page)
                 page.status = Page.State.Ready
                 return
             }

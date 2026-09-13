@@ -119,6 +119,8 @@ export interface PluginItem {
   iconUrl: string;
   customJS?: string;
   customCSS?: string;
+  isNekoriPlugin?: boolean;
+  minApiVersion?: number;
   hasUpdate?: boolean;
   hasSettings?: boolean;
   contentWarning?: PluginContentWarning;
@@ -142,8 +144,27 @@ export interface Plugin extends Omit<PluginItem, 'lang'> {
   ) => Promise<NovelItem[]>;
   parseNovel: (novelPath: string) => Promise<SourceNovel>;
   parsePage?: (novelPath: string, page: string) => Promise<SourcePage>;
-  parseChapter: (chapterPath: string) => Promise<string>;
+  parseChapter: (chapterPath: string) => Promise<string | ChapterContent>;
   searchNovels: (searchTerm: string, pageNo: number) => Promise<NovelItem[]>;
   resolveUrl?: (path: string, isNovel?: boolean) => string;
   webStorageUtilized?: boolean;
 }
+
+/** Nekori API v1 chapter response; identical to the authoring contract. */
+export type ChapterContentType = 'novel' | 'mixed' | 'image' | 'video';
+export type ChapterContent =
+  | {
+      state: 'ready';
+      type: ChapterContentType;
+      html: string;
+      noCache?: boolean;
+      noPrefetch?: boolean;
+    }
+  | {
+      state: 'checkpoint';
+      type: ChapterContentType;
+      html: string;
+      checkpointMessage?: string;
+      noCache: true;
+      noPrefetch: true;
+    };

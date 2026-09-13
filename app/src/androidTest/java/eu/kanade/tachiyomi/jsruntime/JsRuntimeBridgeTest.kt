@@ -586,7 +586,7 @@ class JsRuntimeBridgeTest {
             const { NodeHtmlMarkdown } = require('node-html-markdown');
             const aes = require('@libs/aes');
             const fetchHelpers = require('@libs/fetch');
-            const utils = require('@libs/utils');
+            const utils = require('@nekori/utils');
 
             exports.default = {
               id: 'modules.test',
@@ -646,7 +646,7 @@ class JsRuntimeBridgeTest {
         val expected = networkHelper.defaultUserAgentProvider()
         val runtime = createRuntime()
         val code = """
-            const { getUserAgent } = require('@libs/utils');
+            const { getUserAgent } = require('@nekori/utils');
             exports.default = {
               id: 'user-agent.test',
               name: 'User agent test',
@@ -674,7 +674,7 @@ class JsRuntimeBridgeTest {
         val pluginId = "cookie.test.$suffix"
         val url = "https://cookie-$suffix.example.invalid/"
         val code = """
-            const cookies = require('@libs/cookie');
+            const cookies = require('@nekori/cookie');
             exports.default = {
               id: '$pluginId',
               name: 'Cookie test',
@@ -698,25 +698,15 @@ class JsRuntimeBridgeTest {
                 );
                 await cookies.flush();
                 const stored = await cookies.get('$url');
-                const storedAsArray = await cookies.getAsArray('$url');
+                const storedAsArray = Object.values(stored);
                 return {
                   fromResponse,
                   fromObject,
                   responseValue: stored.responseCookie?.value,
                   objectValue: stored.objectCookie?.value,
                   arrayValues: storedAsArray.map(cookie => cookie.value).sort().join(','),
-                  header: await cookies.getCookieHeader('$url'),
-                  fullApi: [
-                    cookies.getAll,
-                    cookies.getAllAsArray,
-                    cookies.clearAll,
-                    cookies.clearAllStores,
-                    cookies.clearByName,
-                    cookies.getAsArray,
-                    cookies.getCookieHeader,
-                    cookies.getFromResponse,
-                    cookies.removeSessionCookies,
-                  ].every(value => typeof value === 'function'),
+                  header: storedAsArray.map(cookie => cookie.name + '=' + cookie.value).join('; '),
+                  fullApi: [cookies.set, cookies.get, cookies.setFromResponse, cookies.flush, cookies.removeSessionCookies].every(value => typeof value === 'function'),
                 };
               },
               cleanup: async () => {

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source
 
+import eu.kanade.tachiyomi.source.model.ChapterContent
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
@@ -161,6 +162,10 @@ interface Source {
      * @return the pages for the chapter.
      */
     suspend fun getPageList(chapter: SChapter): List<Page>
+
+    /** Official chapter API. Legacy/local sources are normalized upward. */
+    suspend fun fetchChapterContent(page: Page): ChapterContent =
+        ChapterContent.fromLegacy(fetchPageText(page))
 
     /**
      * Fetches the text content for a novel page. Only meaningful when [isNovelSource] is true;

@@ -7,6 +7,16 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class JsPluginModelTest {
+    @Test
+    fun apiFloorRejectsUnsupportedVersions() {
+        plugin().requireSupportedApi()
+        plugin().copy(isNekoriPlugin = true, minApiVersion = 1).requireSupportedApi()
+        listOf(0, -1, 2).forEach { version ->
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+                plugin().copy(minApiVersion = version).requireSupportedApi()
+            }
+        }
+    }
 
     @Test
     fun `runtime metadata does not invent a repository language`() {

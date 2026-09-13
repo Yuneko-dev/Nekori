@@ -785,7 +785,7 @@ class TranslationService(
         _progressState.update { it.copy(currentChapterProgress = PROGRESS_FETCH_START) }
 
         val content = try {
-            source.fetchPageText(page)
+            source.fetchChapterContent(page).also { it.requireDownloadable() }.html
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to fetch novel page text for chapter: ${chapter.name}" }
             throw e

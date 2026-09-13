@@ -128,6 +128,19 @@ class JsPluginManagerTest {
             ]
         """.trimIndent()
 
+        for (invalid in listOf("0", "-1", "1.5", "true", "\"1\"")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                JsPluginManager.decodeRepositoryManifest(
+                    manifest.replace("\"id\":", "\"minApiVersion\": $invalid, \"id\":"),
+                    allowEmpty = false,
+                )
+            }
+        }
+        val future = JsPluginManager.decodeRepositoryManifest(
+            manifest.replace("\"id\":", "\"minApiVersion\": 2, \"id\":"),
+            allowEmpty = false,
+        ).single()
+        assertThrows(IllegalArgumentException::class.java) { future.requireSupportedApi() }
         assertEquals("example", JsPluginManager.decodeRepositoryManifest(manifest, allowEmpty = false).single().id)
         assertEquals(emptyList<JsPlugin>(), JsPluginManager.decodeRepositoryManifest("[]", allowEmpty = true))
         assertThrows(IllegalArgumentException::class.java) {

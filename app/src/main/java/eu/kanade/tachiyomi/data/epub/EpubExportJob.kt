@@ -1098,7 +1098,9 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                 images = localExport.images,
             )
             isLocalSource -> ChapterContentReader.ExportContent(
-                content = source.fetchPageText(Page(0, content.chapter.url)),
+                content = source.fetchChapterContent(Page(0, content.chapter.url)).also {
+                    it.requireDownloadable()
+                }.html,
                 images = emptyMap(),
             )
             else -> content.resolvedDownload?.let(reader::readExportContent)

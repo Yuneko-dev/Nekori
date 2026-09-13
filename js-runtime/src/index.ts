@@ -4,7 +4,6 @@
  * There is no React component tree here and there never will be — the UI is Kotlin/Compose. This
  * bundle exists so plugin code can run on Hermes with npm libraries resolved by Metro.
  */
-
 // MUST be first. React Native's polyfills — `setImmediate`, timers, `console`, error handling — are
 // installed by setup-env, and `react-native/index.js` does NOT pull it in. A React Native app
 // gets it because Metro's `getModulesRunBeforeMainModule` prepends it for the standard entry point;
@@ -17,11 +16,8 @@ import './polyfills/textEncoding';
 
 import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
-import {
-  registerHandler,
-  registerTextHandler,
-  startBridge,
-} from './bridge/nativeHost';
+import { registerHandler, startBridge } from './bridge/nativeHost';
+import { normalizeChapterContent } from './plugins/helpers/chapterContent';
 import {
   normalizePluginChapters,
   normalizePluginNovel,
@@ -113,6 +109,8 @@ registerHandler('plugin.load', async args => {
     id: plugin.id,
     name: plugin.name,
     version: plugin.version,
+    isNekoriPlugin: plugin.isNekoriPlugin === true,
+    minApiVersion: plugin.minApiVersion,
     site: typeof site === 'string' && site.trim() ? site : 'about:blank',
     contentWarning: plugin.contentWarning ?? PluginContentWarning.UNSPECIFIED,
     contentType: plugin.contentType ?? PluginContentType.NOVEL,
@@ -317,7 +315,7 @@ registerHandler('plugin.resolveUrl', args => {
   return { url: resolvePluginUrl(key ?? id, path, isNovel) };
 });
 
-registerTextHandler('plugin.parseChapter', async args => {
+registerHandler('plugin.parseChapter', async args => {
   const { id, key, path } = args as {
     id: string;
     key?: string;
@@ -325,7 +323,11 @@ registerTextHandler('plugin.parseChapter', async args => {
   };
   const runtimeKey = key ?? id;
   try {
-    return await getPlugin(runtimeKey).parseChapter(path);
+    const plugin = getPlugin(runtimeKey);
+    return normalizeChapterContent(
+      await plugin.parseChapter(path),
+      plugin.isNekoriPlugin === true,
+    );
   } finally {
     await flushPluginStorage(runtimeKey);
   }

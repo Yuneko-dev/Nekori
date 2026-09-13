@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import eu.kanade.tachiyomi.source.model.ChapterContent
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -8,6 +9,7 @@ import org.jsoup.parser.Tag
 internal const val LOCAL_VIDEO_BUTTON_ID = "tsundoku-play-local-video"
 
 internal data class NovelWebViewChapterDirectives(
+    val checkpoint: Boolean = false,
     val noCache: Boolean = false,
     val noPrefetch: Boolean = false,
     val video: VideoChapter? = null,
@@ -17,14 +19,13 @@ internal data class NovelWebViewChapterDirectives(
     val isVideo: Boolean get() = video != null || localVideo != null
 
     companion object {
-        fun parse(html: String): NovelWebViewChapterDirectives {
-            val document = Jsoup.parse(html)
-            val noCache = document.selectFirst("meta#no-cache-marker") != null
-            val noPrefetch = document.selectFirst("meta#no-prefetch-marker") != null
-            val isVideo = document
-                .selectFirst("meta[name=lnreader-chapter-type]")
-                ?.attr("content")
-                ?.equals("video", ignoreCase = true) == true
+        fun parse(html: String): NovelWebViewChapterDirectives = fromContent(ChapterContent.fromLegacy(html))
+
+        fun fromContent(content: ChapterContent): NovelWebViewChapterDirectives {
+            val document = Jsoup.parse(content.html)
+            val noCache = content.noCache || content.isCheckpoint
+            val noPrefetch = content.noPrefetch || content.isCheckpoint
+            val isVideo = content.type == "video"
             val localVideo = document.metaContent("lnreader-video-local")
                 .takeIf(String::isNotBlank)
                 ?.takeIf { '/' !in it && '\\' !in it }
@@ -58,6 +59,7 @@ internal data class NovelWebViewChapterDirectives(
             }
 
             return NovelWebViewChapterDirectives(
+                checkpoint = content.isCheckpoint,
                 noCache = noCache,
                 noPrefetch = noPrefetch,
                 video = video,

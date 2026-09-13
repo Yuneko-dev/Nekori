@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.jsruntime.JsRuntime
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.ChapterContent
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -96,7 +97,7 @@ class JsSource(
     private val parseNovelMutex = kotlinx.coroutines.sync.Mutex()
     private val pageCache = java.util.concurrent.ConcurrentHashMap<String, Pair<List<SChapter>, Long>>()
     private val parsePageMutex = kotlinx.coroutines.sync.Mutex()
-    private val chapterTextCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+    private val chapterTextCache = java.util.concurrent.ConcurrentHashMap<String, Pair<ChapterContent, Long>>()
     private val chapterTextMutex = kotlinx.coroutines.sync.Mutex()
 
     // inferHasNextPage probe result, reused when the user pages forward.
@@ -892,7 +893,7 @@ class JsSource(
     }
 
     /** plugin.parseChapter with raw-result caching and in-flight dedup. */
-    private suspend fun parseChapterCached(chapterUrl: String): String {
+    private suspend fun parseChapterCached(chapterUrl: String): ChapterContent {
         val path = chapterUrl
         return chapterTextMutex.withLock {
             val now = System.currentTimeMillis()
@@ -906,14 +907,17 @@ class JsSource(
             val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
                 hermesRuntime.call("plugin.parseChapter", payload)
             }
-            chapterTextCache[path] = result to now
+            val content = json.decodeFromString<ChapterContent>(result)
+            if (!content.noCache && !content.isCheckpoint) {
+                chapterTextCache[path] = content to now
+            }
             trimRawCache(chapterTextCache)
-            result
+            content
         }
     }
 
     /** Keep raw caches small; chapter HTML payloads can be large. */
-    private fun trimRawCache(cache: java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>) {
+    private fun <T> trimRawCache(cache: java.util.concurrent.ConcurrentHashMap<String, Pair<T, Long>>) {
         val maxEntries = 8
         if (cache.size <= maxEntries) return
         cache.entries.sortedBy { it.value.second }
@@ -1444,10 +1448,15 @@ class JsSource(
         }
     }
 
-    override suspend fun fetchPageText(page: Page): String = withContext(Dispatchers.IO) {
+    /** Text-only consumers (export/translation) cannot consume a checkpoint. */
+    override suspend fun fetchPageText(page: Page): String = fetchChapterContent(page).also {
+        it.requireDownloadable()
+    }.html
+
+    override suspend fun fetchChapterContent(page: Page): ChapterContent = withContext(Dispatchers.IO) {
         // If the page already has text content (set by getPageList), return it directly
         if (!page.text.isNullOrBlank()) {
-            return@withContext page.text!!
+            return@withContext page.chapterContent!!
         }
 
         // Validate URL before calling plugin - avoid fetching base URL with empty path
@@ -1457,7 +1466,9 @@ class JsSource(
         }
 
         try {
-            normalizePluginContent(parseChapterCached(page.url))
+            parseChapterCached(page.url).let {
+                if (plugin.isNekoriPlugin) it else it.copy(html = normalizePluginContent(it.html))
+            }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Error fetching page text for ${plugin.name}" }
             throw e

@@ -4,7 +4,7 @@
 
 # Nekori [App](#)
 
-### Novel reader for LNReader plugins
+### Reader for Nekori and LNReader plugins
 A personal fork of [Tsundoku](https://github.com/tsundoku-otaku/tsundoku), built around the LNReader plugin ecosystem.
 
 [![GitHub downloads](https://img.shields.io/github/downloads/Yuneko-dev/Nekori/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://github.com/Yuneko-dev/Nekori/releases)
@@ -15,7 +15,7 @@ A personal fork of [Tsundoku](https://github.com/tsundoku-otaku/tsundoku), built
 
 > [!IMPORTANT]
 > **Nekori does not support Kotlin extensions.** Nothing built against `tachiyomix` will load — not
-> Tachiyomi's, not Mihon's, not Tsundoku's. The only content sources are **LNReader plugins**.
+> Tachiyomi's, not Mihon's, not Tsundoku's. Online content sources are **LNReader and Nekori API v1 JavaScript plugins**.
 >
 > So yes: this is a fork of a fork of Tachiyomi that cannot run a single Tachiyomi extension. Funny, isn't it.
 

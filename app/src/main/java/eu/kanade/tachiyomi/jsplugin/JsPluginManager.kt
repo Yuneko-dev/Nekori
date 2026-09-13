@@ -103,6 +103,15 @@ class JsPluginManager(
                 listOf("name", "site", "lang", "version", "url", "iconUrl").forEach {
                     objectValue.requiredRepositoryString(it, index)
                 }
+                require(
+                    plugin.minApiVersion == null ||
+                        (
+                            (objectValue["minApiVersion"] as? JsonPrimitive)?.isString == false &&
+                                plugin.minApiVersion > 0
+                            ),
+                ) {
+                    "Plugin entry $index has invalid minApiVersion"
+                }
                 plugin
             }
         }
@@ -337,6 +346,7 @@ class JsPluginManager(
      */
     suspend fun installPlugin(plugin: JsPlugin, repositoryUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            plugin.requireSupportedApi()
             val dir = pluginsDir ?: throw Exception("Plugin directory not available")
             require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
             val previousAssets = _installedPlugins.value

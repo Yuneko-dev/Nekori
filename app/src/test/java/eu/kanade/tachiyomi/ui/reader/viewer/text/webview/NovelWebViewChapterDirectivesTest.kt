@@ -7,6 +7,33 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NovelWebViewChapterDirectivesTest {
+    @Test
+    fun checkpointPolicyComesFromStructuredContent() {
+        val content = eu.kanade.tachiyomi.source.model.ChapterContent(
+            state = "checkpoint",
+            type = "novel",
+            html = "<div>Captcha</div>",
+            noCache = true,
+            noPrefetch = true,
+            checkpointMessage = "Solve & retry",
+        )
+        val directives = NovelWebViewChapterDirectives.fromContent(content)
+        assertTrue(directives.checkpoint)
+        assertTrue(directives.noCache)
+        assertTrue(directives.noPrefetch)
+        assertEquals("", directives.metadataHtml)
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
+            content.requireDownloadable()
+        }
+        content.copy(state = "ready").requireDownloadable()
+    }
+
+    @Test
+    fun videoTypeDoesNotRequireAnHtmlMarker() {
+        val content = eu.kanade.tachiyomi.source.model.ChapterContent(type = "video", html = "<div>Player</div>")
+        assertTrue(NovelWebViewChapterDirectives.fromContent(content).isVideo)
+        assertEquals("", NovelWebViewChapterDirectives.fromContent(content).metadataHtml)
+    }
 
     @Test
     fun `markers and direct video metadata are parsed from top level html`() {
