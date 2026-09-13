@@ -20,7 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
-- Add support for [Nekori-plugins API v1](https://github.com/Yuneko-dev/Nekori-plugins), including structured chapter content and API compatibility checks. Verification chapters can render in the reader but are excluded from downloads and prefetch.
+- Add support for [Nekori-plugins API v1](https://github.com/Yuneko-dev/Nekori-plugins)
 
 ### Fixed
 - TTS media controls appear when playback starts, including from the reader overlay, and remain available while automatically loading the next chapter in the background [#4](https://github.com/Yuneko-dev/Nekori/issues/4)
