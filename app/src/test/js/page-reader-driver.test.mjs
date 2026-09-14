@@ -75,6 +75,7 @@ function createHarness({ spread = 'single', direction = 'ltr', scrollWidth = 300
         get previousLoads() { return previousLoads; },
         get nextLoads() { return nextLoads; },
         triggerScroll() { listeners.scroll(); },
+        flushFrames() { while (frames.length) frames.shift()(); },
     };
 }
 
@@ -191,4 +192,16 @@ test('preview can install the shared page engine without an Android bridge', () 
 
     assert.equal(harness.pageReader.page.val, 1);
     assert.equal(harness.pageReader.totalPages.val, 3);
+});
+
+test('restoring 50 or 63 percent keeps page 5 or 6 of 9 when layout precedes the scroll callback', () => {
+    for (const [percent, unit] of [[50, 4], [63, 5]]) {
+        const h = createHarness({ scrollWidth: 900 });
+        h.layout.seekPercent(percent);
+        assert.equal(h.container.scrollLeft, unit * 100);
+        h.layout.reflow();
+        h.flushFrames();
+        assert.equal(h.container.scrollLeft, unit * 100);
+        assert.equal(h.pageReader.page.val, unit + 1);
+    }
 });

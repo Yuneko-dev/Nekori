@@ -259,6 +259,8 @@
             var chapter = math.chapterForLeaf(pageMap, currentUnit() * spreadSize());
             if (!chapter) return false;
             var local = math.unitFromProgress(Number(percent) / 100, math.unitCount(chapter.leafCount, config.spread));
+            // Reflow may run before the scroll callback reports the restored page.
+            lastChapterProgress = math.progressForUnit(local, math.unitCount(chapter.leafCount, config.spread));
             scrollToUnit(Math.floor(chapter.startLeaf / spreadSize()) + local, "instant");
             return true;
         },

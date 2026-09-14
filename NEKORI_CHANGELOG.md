@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add support for [Nekori-plugins API v1](https://github.com/Yuneko-dev/Nekori-plugins)
 
 ### Fixed
+- Restore the saved reading position reliably when reopening chapters in paged mode.
 - Reader font settings show a loading label instead of briefly displaying the saved font URI.
 - TTS media controls appear when playback starts, including from the reader overlay, and remain available while automatically loading the next chapter in the background [#4](https://github.com/Yuneko-dev/Nekori/issues/4)
 
