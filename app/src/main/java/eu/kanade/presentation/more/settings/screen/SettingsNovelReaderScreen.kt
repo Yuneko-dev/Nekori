@@ -472,7 +472,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         subtitle = if (selectedOption != null && selectedOption.fontFamily == null) {
                             stringResource(TDMR.strings.settings_font_manager_font_unavailable)
                         } else {
-                            selectedOption?.label ?: selected
+                            selectedOption?.label ?: stringResource(MR.strings.loading)
                         },
                         onPreferenceClick = { showDialog = true },
                     )

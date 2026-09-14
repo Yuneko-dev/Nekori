@@ -118,7 +118,7 @@ internal fun NovelFontSelectItem(
             text = if (selectedOption != null && selectedOption.fontFamily == null) {
                 stringResource(TDMR.strings.settings_font_manager_font_unavailable)
             } else {
-                selectedOption?.label ?: selected
+                selectedOption?.label ?: stringResource(MR.strings.loading)
             },
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = selectedOption?.fontFamily,
