@@ -19,6 +19,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.0.10] - 2026-09-15
+
+> Just another patch release, still no minor update ;-;
+
 ### Added
 - Add support for [Nekori-plugins API v1](https://github.com/Yuneko-dev/Nekori-plugins)
 
