@@ -38,6 +38,7 @@ import {
   TranslatorCollection,
 } from './modules/node-html-markdown';
 import {
+  NEKORI_API_VERSION,
   NovelStatus,
   Plugin,
   PluginContentType,
@@ -195,7 +196,7 @@ export async function initPlugin(
       plugin.minApiVersion !== undefined &&
       (!Number.isInteger(plugin.minApiVersion) ||
         plugin.minApiVersion < 1 ||
-        plugin.minApiVersion > 1)
+        plugin.minApiVersion > NEKORI_API_VERSION)
     ) {
       throw new Error(
         'Unsupported Nekori API version: ' + plugin.minApiVersion,

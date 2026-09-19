@@ -346,7 +346,6 @@ class JsPluginManager(
      */
     suspend fun installPlugin(plugin: JsPlugin, repositoryUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            plugin.requireSupportedApi()
             val dir = pluginsDir ?: throw Exception("Plugin directory not available")
             require(isSafePluginId(plugin.id)) { "Unsafe plugin id: ${plugin.id}" }
             val previousAssets = _installedPlugins.value

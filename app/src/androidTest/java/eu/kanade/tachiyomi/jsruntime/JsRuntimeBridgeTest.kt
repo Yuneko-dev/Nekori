@@ -253,6 +253,30 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun pluginApiCompatibilityIsCheckedByTheRuntime() = runBlocking {
+        val runtime = createRuntime()
+        for (version in listOf("undefined", "1", "0", "-1", "2", "1.5", "null", "'1'")) {
+            val code = """
+                exports.default = {
+                  id: 'api.test', name: 'API test', version: '1', site: 'https://example.invalid',
+                  isNekoriPlugin: true, minApiVersion: $version,
+                };
+            """.trimIndent()
+            val payload = """{"id":"api.test","code":${quote(code)}}"""
+            if (version == "undefined" || version == "1") {
+                runtime.call("plugin.load", payload)
+            } else {
+                try {
+                    runtime.call("plugin.load", payload)
+                    fail("Unsupported API version $version was accepted")
+                } catch (error: JsRuntimeException) {
+                    assertTrue(error.message.orEmpty().contains("Unsupported Nekori API version"))
+                }
+            }
+        }
+    }
+
+    @Test
     fun inspectingAPluginDoesNotRequireKnowingItsId() = runBlocking {
         val runtime = createRuntime()
         val code = """

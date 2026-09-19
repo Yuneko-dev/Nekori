@@ -82,7 +82,6 @@ jobs:
           mv app/build/outputs/apk/release/app-universal-release-signed.apk nekori-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-arm64-v8a-release-signed.apk nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-armeabi-v7a-release-signed.apk nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-signed.apk nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-x86_64-release-signed.apk nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
       - name: Upload APK
@@ -93,7 +92,6 @@ jobs:
             nekori-${{ needs.get_tag.outputs.tag }}.apk
             nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
             nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
             nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
   release:
@@ -137,7 +135,6 @@ jobs:
             nekori-${{ needs.get_tag.outputs.tag }}.apk
             nekori-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
             nekori-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            nekori-x86-${{ needs.get_tag.outputs.tag }}.apk
             nekori-x86_64-${{ needs.get_tag.outputs.tag }}.apk
           draft: true
           prerelease: false

@@ -94,6 +94,8 @@ if (Config.includeTelemetry) {
     }
 }
 
+val supportedAbis = providers.gradleProperty("reactNativeArchitectures").get().split(",")
+
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 
 android {
@@ -197,12 +199,15 @@ android {
             isEnable = true
             isUniversalApk = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            include(*supportedAbis.toTypedArray())
         }
     }
 
     packaging {
         jniLibs {
+            // ABI splits do not filter transitive native libraries out of the universal APK.
+            excludes += "**/x86/**"
+
             // Fresco's native image codecs. They arrive transitively through react-android because
             // `CoreReactPackage` registers `ImageLoaderModule` for rendering `<Image>`, and this
             // process renders no React UI at all — no ReactRootView, no Fabric surface. Dropping
@@ -405,6 +410,14 @@ dependencies {
 
 androidComponents {
     onVariants { variant ->
+        // Override RN's global pickFirsts so they cannot re-include x86 in universal APKs.
+        variant.packaging.jniLibs.pickFirsts.set(
+            supportedAbis.flatMap { abi ->
+                listOf("c++_shared", "fbjni", "reactnative", "jsi", "hermesvm", "hermestooling")
+                    .map { "**/$abi/lib$it.so" }
+            },
+        )
+
         val resSource = variant.sources.res ?: return@onVariants
 
         val variantName = variant.name.replaceFirstChar { it.uppercase() }

@@ -2738,7 +2738,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.runOnUiThread {
                 if (isDestroyed || !webChapterIsError) return@runOnUiThread
                 showLoadingIndicator()
-                activity.viewModel.reloadChapter()
+                activity.viewModel.reloadChapter(fromSource = true)
             }
         }
 

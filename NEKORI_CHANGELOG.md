@@ -19,6 +19,12 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+- Retry from the reader error screen clears the chapter cache and fetches fresh source content.
+
+### Removed
+- 32-bit x86 APKs; x86_64 remains supported.
+
 ### Improved
 - Run plugin crypto and Buffer operations through native Quick Crypto and Nitro Buffer.
 

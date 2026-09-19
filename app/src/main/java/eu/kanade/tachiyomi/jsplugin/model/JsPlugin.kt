@@ -34,19 +34,11 @@ data class JsPlugin(
         /** Package name prefix for novel JS plugins - unique to tsundoku fork */
         const val PKG_PREFIX = "app.tsundoku.jsplugin."
 
-        const val NEKORI_API_VERSION = 1
-
         const val CONTENT_WARNING_SAFE = 1
 
         private const val CONTENT_TYPE_IMAGE = "image"
         private const val CONTENT_TYPE_VIDEO = "video"
         private const val CONTENT_TYPE_MIXED = "mixed"
-    }
-
-    fun requireSupportedApi() {
-        require(minApiVersion == null || minApiVersion in 1..NEKORI_API_VERSION) {
-            "Plugin $name requires Nekori API $minApiVersion; this app supports $NEKORI_API_VERSION"
-        }
     }
 
     fun displayName(): String = when (contentType) {

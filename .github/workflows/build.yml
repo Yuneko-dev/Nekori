@@ -125,7 +125,6 @@ jobs:
           mv app/build/outputs/apk/nightly/app-universal-nightly-signed.apk nekori-r${{ env.COMMIT_COUNT }}.apk
           mv app/build/outputs/apk/nightly/app-arm64-v8a-nightly-signed.apk nekori-arm64-v8a-r${{ env.COMMIT_COUNT }}.apk
           mv app/build/outputs/apk/nightly/app-armeabi-v7a-nightly-signed.apk nekori-armeabi-v7a-r${{ env.COMMIT_COUNT }}.apk
-          mv app/build/outputs/apk/nightly/app-x86-nightly-signed.apk nekori-x86-r${{ env.COMMIT_COUNT }}.apk
           mv app/build/outputs/apk/nightly/app-x86_64-nightly-signed.apk nekori-x86_64-r${{ env.COMMIT_COUNT }}.apk
 
 
@@ -159,7 +158,6 @@ jobs:
             nekori-r${{ env.COMMIT_COUNT }}.apk
             nekori-arm64-v8a-r${{ env.COMMIT_COUNT }}.apk
             nekori-armeabi-v7a-r${{ env.COMMIT_COUNT }}.apk
-            nekori-x86-r${{ env.COMMIT_COUNT }}.apk
             nekori-x86_64-r${{ env.COMMIT_COUNT }}.apk
           prerelease: false
         env:

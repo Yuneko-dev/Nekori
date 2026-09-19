@@ -140,7 +140,7 @@ class JsPluginManagerTest {
             manifest.replace("\"id\":", "\"minApiVersion\": 2, \"id\":"),
             allowEmpty = false,
         ).single()
-        assertThrows(IllegalArgumentException::class.java) { future.requireSupportedApi() }
+        assertEquals(2, future.minApiVersion) // Compatibility is checked by the JS runtime at install/load.
         assertEquals("example", JsPluginManager.decodeRepositoryManifest(manifest, allowEmpty = false).single().id)
         assertEquals(emptyList<JsPlugin>(), JsPluginManager.decodeRepositoryManifest("[]", allowEmpty = true))
         assertThrows(IllegalArgumentException::class.java) {
