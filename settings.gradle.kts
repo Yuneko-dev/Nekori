@@ -2,8 +2,7 @@ pluginManagement {
     includeBuild("gradle/build-logic")
 
     // The React Native Gradle plugin ships inside node_modules, so it has to be resolved through
-    // Node rather than a coordinate. `js-runtime/` is the npm root for this repo — see
-    // docs/superpowers/plans/2026-07-27-m0-rn-brownfield-spike.md.
+    // Node rather than a coordinate. `js-runtime/` is the npm root for this repo
     val nodeExecutable = if (System.getProperty("os.name").lowercase().contains("windows")) {
         "node.exe"
     } else {

@@ -1,0 +1,22 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 2300db0abf88ea4ee39e2a4989d554a073a9d836..c9600951d339a74b25b52a09e0ea4e9ce4d3ae4c 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -1,5 +1,5 @@
+ apply plugin: "com.android.library"
+-apply plugin: "org.jetbrains.kotlin.android"
++// AGP 9 supplies Kotlin support.
+ 
+ def reactNativeArchitectures() {
+   def value = rootProject.getProperties().get("reactNativeArchitectures")
+@@ -44,10 +44,6 @@ android {
+     targetCompatibility JavaVersion.VERSION_17
+   }
+ 
+-  kotlinOptions {
+-    jvmTarget = "17"
+-  }
+-
+   sourceSets {
+     main {
+       jniLibs.srcDirs += ['libs']

@@ -66,7 +66,5 @@ export function installSecureRandom(): void {
   global.crypto = crypto;
 }
 
-// This module is imported before crypto-browserify. Its randombytes dependency snapshots
-// global.crypto during module evaluation, so installing later in index.ts would permanently select
-// its unsupported-browser branch.
+// Install before plugins are evaluated so global.crypto.getRandomValues is available.
 installSecureRandom();

@@ -5,6 +5,7 @@ buildscript {
 }
 
 plugins {
+    id("com.facebook.react") apply false
     alias(libs.plugins.aboutLibraries) apply false
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kmp.library) apply false
@@ -20,6 +21,11 @@ plugins {
 
     alias(mihonx.plugins.spotless)
 }
+
+// Native npm libraries read these root properties instead of the app's Android DSL.
+extra["ndkVersion"] = mihonx.versions.android.ndk.get()
+extra["compileSdkVersion"] = mihonx.versions.android.sdk.compile.get().toInt()
+extra["minSdkVersion"] = mihonx.versions.android.sdk.min.get().toInt()
 
 // React Native ships against OkHttp 4.x while the rest of the app is on 5.x. OkHttp 5 keeps the
 // `okhttp3` package and stays binary compatible, so pin the whole group to one version rather than

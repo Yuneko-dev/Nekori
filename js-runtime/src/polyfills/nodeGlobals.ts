@@ -1,4 +1,4 @@
-import { Buffer } from 'buffer';
+import { Buffer } from 'react-native-nitro-buffer';
 
 declare const global: {
   Buffer?: typeof Buffer;

@@ -1,0 +1,23 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 4e32c5af4bcbc12027ab054b2d33ea003506c9ca..96c83e929d535106944a2948f04befe8153fdabd 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -22,7 +22,7 @@ def isNewArchitectureEnabled() {
+ }
+ 
+ apply plugin: "com.android.library"
+-apply plugin: "org.jetbrains.kotlin.android"
++// AGP 9 supplies Kotlin support.
+ apply from: "../nitrogen/generated/android/QuickCrypto+autolinking.gradle"
+ 
+ if (isNewArchitectureEnabled()) {
+@@ -79,9 +79,6 @@ android {
+   buildFeatures {
+     buildConfig true
+     prefab true
+-    // Explicitly disable RenderScript (deprecated since Android 12, removed in AGP 9.0)
+-    // to suppress 'isRenderscriptDebuggable is obsolete' warning. See #802.
+-    renderScript = false
+   }
+ 
+ packagingOptions {

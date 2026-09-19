@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Improved
+- Run plugin crypto and Buffer operations through native Quick Crypto and Nitro Buffer.
+
 ## [v0.0.10] - 2026-09-15
 
 > Just another patch release, still no minor update ;-;

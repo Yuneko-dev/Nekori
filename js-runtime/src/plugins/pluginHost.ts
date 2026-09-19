@@ -11,15 +11,15 @@ import {
   gcmsiv,
 } from '@noble/ciphers/aes.js';
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
-import { Buffer } from 'buffer';
 import { load } from 'cheerio';
-import NodeCrypto from 'crypto-browserify';
 import dayjs from 'dayjs';
 import {
   decode as decodeHtmlEntities,
   encode as encodeHtmlEntities,
 } from 'html-entities';
 import { Parser } from 'htmlparser2';
+import { Buffer } from 'react-native-nitro-buffer';
+import NodeCrypto from 'react-native-quick-crypto';
 import { decode, encode } from 'urlencode';
 
 import { defaultCover } from './helpers/constants';
@@ -87,11 +87,6 @@ const normalizeLoadedPluginMetadata = <T extends Plugin>(plugin: T): T => {
  * configurations, and every LNReader plugin is fetched as source at runtime.
  */
 const packages: Record<string, unknown> = {
-  'node-html-markdown': {
-    NodeHtmlMarkdown,
-    PostProcessResult,
-    TranslatorCollection,
-  },
   htmlparser2: { Parser },
   cheerio: { load },
   dayjs: dayjs,
@@ -106,6 +101,14 @@ const packages: Record<string, unknown> = {
 };
 
 const nekoriPackages: Record<string, unknown> = {
+  'node-html-markdown': {
+    NodeHtmlMarkdown,
+    PostProcessResult,
+    TranslatorCollection,
+  },
+  /**
+   * @deprecated Use "crypto" instead
+   */
   '@nekori/aes': {
     ctr,
     ecb,

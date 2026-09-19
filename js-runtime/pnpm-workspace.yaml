@@ -1,3 +1,6 @@
 patchedDependencies:
   '@react-native/gradle-plugin@0.87.0': patches/@react-native__gradle-plugin@0.87.0.patch
+  react-native-nitro-buffer@0.2.2: patches/react-native-nitro-buffer@0.2.2.patch
+  react-native-nitro-modules@0.37.1: patches/react-native-nitro-modules@0.37.1.patch
+  react-native-quick-crypto@1.1.7: patches/react-native-quick-crypto@1.1.7.patch
   whatwg-fetch@3.6.20: patches/whatwg-fetch@3.6.20.patch

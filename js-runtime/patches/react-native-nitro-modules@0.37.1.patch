@@ -1,0 +1,42 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index f564aad07f9a1bb91996331a3dafbfeea1b1f0da..7db54ad615745907cab1ca80651ea989df2fd0e4 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -21,7 +21,7 @@ def isNewArchitectureEnabled() {
+ }
+ 
+ apply plugin: "com.android.library"
+-apply plugin: 'org.jetbrains.kotlin.android'
++// AGP 9 supplies Kotlin support.
+ apply from: "./fix-prefab.gradle"
+ 
+ if (isNewArchitectureEnabled()) {
+@@ -126,11 +126,11 @@ android {
+       if (isNewArchitectureEnabled()) {
+         java.srcDirs += [
+           // React Codegen files
+-          "${project.buildDir}/generated/source/codegen/java",
+-          "src/newarch"
++          "${project.buildDir}/generated/source/codegen/java"
+         ]
++        kotlin.srcDirs += ["src/newarch"]
+       } else {
+-        java.srcDirs += ["src/oldarch"]
++        kotlin.srcDirs += ["src/oldarch"]
+       }
+     }
+   }
+diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
+index d6c010ef785bd821d8fad4ad643079f2f070a2c6..4d0b7235ead185790004c1826a44b45fa650e811 100644
+--- a/android/fix-prefab.gradle
++++ b/android/fix-prefab.gradle
+@@ -28,7 +28,8 @@ afterEvaluate {
+       return
+     }
+ 
+-    def variants = proj.android.hasProperty('applicationVariants') ? proj.android.applicationVariants : proj.android.libraryVariants
++    // Native libraries have no product flavors; use the public AGP 9 build-type DSL.
++    def variants = proj.android.buildTypes
+     // Touch the prefab_config.json files to ensure that in ExternalNativeJsonGenerator.kt we will re-trigger the prefab CLI to
+     // generate a libnameConfig.cmake file that will contain our native library (.so).
+     // See this condition: https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:build-system/gradle-core/src/main/java/com/android/build/gradle/tasks/ExternalNativeJsonGenerator.kt;l=207-219?q=createPrefabBuildSystemGlue

@@ -601,6 +601,16 @@ class JsRuntimeBridgeTest {
                 const nonce = new Uint8Array(12);
                 const encrypted = aes.gcm(key, nonce).encrypt(new Uint8Array([1, 2, 3]));
                 const decrypted = aes.gcm(key, nonce).decrypt(encrypted);
+                const cipher = utils.NodeCrypto.createCipheriv(
+                  'aes-128-cbc',
+                  utils.Buffer.from('2b7e151628aed2a6abf7158809cf4f3c', 'hex'),
+                  utils.Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex'),
+                );
+                cipher.setAutoPadding(false);
+                const ciphertext = utils.Buffer.concat([
+                  cipher.update(utils.Buffer.from('6bc1bee22e409f96e93d7e117393172a', 'hex')),
+                  cipher.final(),
+                ]);
                 return {
                   cheerio: cheerio.load('<h1>real</h1>')('h1').text(),
                   htmlparser2: parsedText,
@@ -609,6 +619,7 @@ class JsRuntimeBridgeTest {
                   markdown: NodeHtmlMarkdown.translate('<strong>bold</strong>'),
                   entities: utils.decodeHtmlEntities('&amp;'),
                   buffer: utils.Buffer.from('ok').toString('hex'),
+                  nativeCipher: ciphertext.toString('hex'),
                   crypto: utils.NodeCrypto.createHash('sha256').update('abc').digest('hex').slice(0, 8),
                   random: utils.NodeCrypto.randomBytes(8).length,
                   aes: Array.from(decrypted).join(','),
@@ -635,6 +646,7 @@ class JsRuntimeBridgeTest {
         assertTrue(result, result.contains("\"markdown\":\"**bold**\""))
         assertTrue(result, result.contains("\"entities\":\"&\""))
         assertTrue(result, result.contains("\"buffer\":\"6f6b\""))
+        assertTrue(result, result.contains("\"nativeCipher\":\"7649abac8119b246cee98e9b12e9197d\""))
         assertTrue(result, result.contains("\"crypto\":\"ba7816bf\""))
         assertTrue(result, result.contains("\"random\":8"))
         assertTrue(result, result.contains("\"aes\":\"1,2,3\""))

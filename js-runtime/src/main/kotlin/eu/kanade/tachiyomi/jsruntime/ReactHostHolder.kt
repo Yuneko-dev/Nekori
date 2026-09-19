@@ -10,6 +10,9 @@ import com.facebook.react.jstasks.HeadlessJsTaskConfig
 import com.facebook.react.jstasks.HeadlessJsTaskContext
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import com.margelo.nitro.NitroModulesPackage
+import com.margelo.nitro.buffer.NitroBufferPackage
+import com.margelo.nitro.quickcrypto.QuickCryptoPackage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -79,7 +82,8 @@ internal class ReactHostHolder(
 
         val reactHost = DefaultReactHost.getDefaultReactHost(
             context = appContext,
-            packageList = packages,
+            // These packages load JNI libraries, so construct them after SoLoader initialization.
+            packageList = packages + listOf(NitroModulesPackage(), NitroBufferPackage(), QuickCryptoPackage()),
             // Only consulted when a Metro dev server is in play, which it never is here.
             jsMainModulePath = JS_MAIN_MODULE_PATH,
             // Defaults to ReactBuildConfig.DEBUG. Left at the default, a debug build would try to

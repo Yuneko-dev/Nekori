@@ -1,5 +1,5 @@
-import { Buffer } from 'buffer';
 import { parse as parseProto } from 'protobufjs';
+import { Buffer } from 'react-native-nitro-buffer';
 
 import { getUserAgent } from './nativeHost';
 

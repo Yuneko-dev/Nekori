@@ -70,8 +70,7 @@ plugins {
     id("com.facebook.react")
 }
 
-// The npm root is js-runtime/, not the Gradle root, so every path the plugin would normally infer
-// has to be stated. See docs/superpowers/plans/2026-07-27-m0-rn-brownfield-spike.md.
+// The npm root is js-runtime/, not the Gradle root, so every path the plugin would normally infer has to be stated.
 react {
     val jsRuntime = rootProject.layout.projectDirectory.dir("js-runtime")
 

@@ -53,10 +53,12 @@ run {
 
 dependencies {
     implementation(projects.core.common)
+    implementation(project(":react-native-nitro-modules"))
+    implementation(project(":react-native-nitro-buffer"))
+    implementation(project(":react-native-quick-crypto"))
 
     // `implementation`, not `api`: React Native types must not reach :app's own code. The only
-    // thing this module exposes is a Kotlin facade — see the containment gate in
-    // docs/superpowers/plans/m0-findings.md.
+    // thing this module exposes is a Kotlin facade
     implementation("com.facebook.react:react-android:$reactNativeVersion")
     implementation("androidx.webkit:webkit:1.16.0")
     runtimeOnly("com.facebook.hermes:hermes-android:$hermesVersion")

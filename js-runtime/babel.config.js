@@ -5,5 +5,15 @@ module.exports = {
     // preset does not enable that transform, so Metro fails with "Export namespace should be first
     // transformed by @babel/plugin-transform-export-namespace-from".
     '@babel/plugin-transform-export-namespace-from',
+    [
+      'module-resolver',
+      {
+        alias: {
+          'crypto': 'react-native-quick-crypto',
+          'stream': 'readable-stream',
+          'buffer': 'react-native-nitro-buffer',
+        },
+      },
+    ],
   ],
 };
