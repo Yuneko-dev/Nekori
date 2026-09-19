@@ -1,16 +1,3 @@
-import {
-  aeskw,
-  aeskwp,
-  aessiv,
-  cbc,
-  cfb,
-  cmac,
-  ctr,
-  ecb,
-  gcm,
-  gcmsiv,
-} from '@noble/ciphers/aes.js';
-import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
 import { load } from 'cheerio';
 import dayjs from 'dayjs';
 import {
@@ -27,6 +14,15 @@ import CookieManager from './helpers/cookie';
 import { fetchApi, fetchProto, fetchText } from './helpers/fetch';
 import { isUrlAbsolute } from './helpers/isAbsoluteUrl';
 import { getUserAgent } from './helpers/nativeHost';
+import {
+  bytesToUtf8,
+  cbc,
+  cfb,
+  ctr,
+  ecb,
+  gcm,
+  utf8ToBytes,
+} from './helpers/nobleWrapper';
 import {
   hydratePluginStorage,
   removePluginStorageContext,
@@ -108,7 +104,7 @@ const nekoriPackages: Record<string, unknown> = {
     TranslatorCollection,
   },
   /**
-   * @deprecated Use "crypto" instead
+   * @deprecated Use "@nekori/utils > NodeCrypto" instead
    */
   '@nekori/aes': {
     ctr,
@@ -116,11 +112,6 @@ const nekoriPackages: Record<string, unknown> = {
     cbc,
     cfb,
     gcm,
-    gcmsiv,
-    aeskw,
-    aeskwp,
-    cmac,
-    aessiv,
   },
   '@nekori/utils': {
     Buffer,
