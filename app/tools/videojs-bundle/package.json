@@ -4,11 +4,14 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "check": "node build.mjs --check"
+    "check": "node build.mjs --check",
+    "test": "node test.mjs"
   },
   "dependencies": {
-    "@videojs/html": "10.0.0-beta.26",
-    "hls.js": "1.6.15"
+    "@videojs/dash-video": "10.0.0-rc.2",
+    "@videojs/hlsjs-video": "10.0.0-rc.2",
+    "@videojs/html": "10.0.0-rc.2",
+    "hls.js": "1.7.3"
   },
   "devDependencies": {
     "esbuild": "0.25.9"

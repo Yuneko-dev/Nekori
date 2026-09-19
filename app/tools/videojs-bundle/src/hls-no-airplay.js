@@ -1,3 +1,3 @@
-export function HlsJsMediaAirPlayMixin(BaseClass) {
+export function HlsJsAirPlayMixin(BaseClass) {
   return BaseClass;
 }

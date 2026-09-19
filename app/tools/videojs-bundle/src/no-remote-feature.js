@@ -15,3 +15,4 @@ export const exitPictureInPicture = () => Promise.resolve();
 export const isPictureInPicture = () => false;
 export const isPictureInPictureEnabled = () => false;
 export const requestPictureInPicture = () => Promise.reject(new Error("Picture-in-Picture is disabled"));
+export const isPictureInPictureCapable = () => false;

@@ -9,7 +9,7 @@ const hlsErrorTypeToCode = {
   [Hls.ErrorTypes.OTHER_ERROR]: MediaError.MEDIA_ERR_CUSTOM,
 };
 
-export function HlsJsMediaErrorsMixin(BaseClass) {
+export function HlsJsErrorsMixin(BaseClass) {
   return class extends BaseClass {
     #disconnect = null;
     #error = null;

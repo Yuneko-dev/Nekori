@@ -19,14 +19,17 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-### Fixed
-- Retry from the reader error screen clears the chapter cache and fetches fresh source content.
+### Changed
+- Update video playback to Video.js 10 RC2 and HLS.js 1.7.3.
+
+### Improved
+- Run plugin crypto and Buffer operations through native Quick Crypto and Nitro Buffer.
 
 ### Removed
 - 32-bit x86 APKs; x86_64 remains supported.
 
-### Improved
-- Run plugin crypto and Buffer operations through native Quick Crypto and Nitro Buffer.
+### Fixed
+- Retry from the reader error screen clears the chapter cache and fetches fresh source content.
 
 ## [v0.0.10] - 2026-09-15
 

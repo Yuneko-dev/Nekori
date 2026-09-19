@@ -262,6 +262,9 @@
     }
 
     destroyCurrentMedia() {
+      // Clear DASH while its video is still attached so dash.js can remove native listeners.
+      // RC2 detaches the view before destroying the engine, which otherwise leaves them behind.
+      if (this.dashInstance) this.dashInstance.attachSource(null);
       this.hlsInstance = null;
       this.dashInstance = null;
       if (this.playerElement) this.playerElement.remove();
@@ -939,31 +942,36 @@
       const strings = readerProp("strings") || {};
 
       const style = document.createElement("style");
-      // `media-surface` carries the background but never a foreground, which is why upstream's own
-      // error dialog sets `color` itself. These sit outside `media-controls--root`, so they have to
-      // do the same or they inherit the document's dark reader text and vanish.
+      // Above RC2 controls (30), below its error dialog (40/50). Reader buttons size to their labels.
       style.textContent = `
-        .lnreader-overlay, .lnreader-nextup { position: absolute; z-index: 20; color: oklch(1 0 0); }
+        .lnreader-overlay, .lnreader-nextup { position: absolute; z-index: 35; color: oklch(1 0 0); }
         .lnreader-overlay[hidden], .lnreader-nextup[hidden] { display: none; }
         .lnreader-overlay {
           inset: 0; display: grid; place-content: center;
-          padding: 1.5rem; background: oklch(0 0 0 / .6);
+          padding: .75rem; background: oklch(0 0 0 / .6); overflow: auto;
         }
         .lnreader-overlay__card {
-          display: grid; gap: .75rem; justify-items: center; text-align: center;
-          padding: 1.5rem; border-radius: 1rem; max-width: 32rem;
+          position: relative; display: grid; gap: .5rem; justify-items: center; text-align: center;
+          padding: .75rem; border-radius: 1rem; max-width: 32rem;
         }
         .lnreader-overlay__time { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
         .lnreader-overlay__actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
         /* Left, because the top-right corner already holds fullscreen and the skip button. */
         .lnreader-nextup {
           left: var(--inset, .75rem); bottom: 5rem;
+          width: max-content; max-width: calc(100% - 1.5rem);
           display: grid; gap: .25rem; padding: .75rem 1rem; border-radius: .75rem;
         }
         .lnreader-nextup__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
         .lnreader-nextup__label { font-size: .8rem; opacity: .8; }
         .lnreader-nextup__count { font-size: .8rem; opacity: .6; font-variant-numeric: tabular-nums; }
-        .lnreader-nextup__dismiss { padding: 0 .35rem; line-height: 1; font-size: 1.1rem; }
+        .lnreader-action {
+          width: auto; flex: none; padding: .5rem 1rem; white-space: nowrap;
+        }
+        .lnreader-action--primary {
+          background: var(--media-primary, white); color: var(--media-primary-foreground, black);
+        }
+        .lnreader-nextup__dismiss { padding: .5rem; line-height: 1; font-size: 1.1rem; }
         .lnreader-nextup__actions { display: flex; gap: .5rem; align-items: center; }
       `;
 
@@ -976,13 +984,13 @@
       // Text nodes only, so nothing a source controls is ever parsed as markup.
       this.resumeOverlay = build(`
         <div class="lnreader-overlay" hidden>
-          <div class="lnreader-overlay__card media-surface">
+          <div class="lnreader-overlay__card media-popup-surface">
             <div class="lnreader-overlay__title"></div>
             <div class="lnreader-overlay__question"></div>
             <div class="lnreader-overlay__time"></div>
             <div class="lnreader-overlay__actions">
-              <button type="button" class="media-button media-button--primary" data-action="continue"></button>
-              <button type="button" class="media-button media-button--subtle" data-action="restart"></button>
+              <button type="button" class="media-button lnreader-action lnreader-action--primary" data-action="continue"></button>
+              <button type="button" class="media-button lnreader-action" data-action="restart"></button>
             </div>
           </div>
         </div>
@@ -993,15 +1001,15 @@
       this.nextUpPopup = !next
         ? null
         : build(`
-        <div class="lnreader-nextup media-surface" hidden>
+        <div class="lnreader-nextup media-popup-surface" hidden>
           <div class="lnreader-nextup__head">
             <span class="lnreader-nextup__label"></span>
             <span class="lnreader-nextup__count"></span>
           </div>
           <div class="lnreader-nextup__name"></div>
           <div class="lnreader-nextup__actions">
-            <button type="button" class="media-button media-button--primary" data-action="next"></button>
-            <button type="button" class="media-button media-button--subtle lnreader-nextup__dismiss" data-action="dismiss">&times;</button>
+            <button type="button" class="media-button lnreader-action lnreader-action--primary" data-action="next"></button>
+            <button type="button" class="media-button lnreader-action lnreader-nextup__dismiss" data-action="dismiss">&times;</button>
           </div>
         </div>
       `);
@@ -1052,12 +1060,12 @@
       const skip = document.createElement("media-seek-button");
       skip.seconds = SKIP_SECONDS;
       if (strings.videoSkipIntro) skip.label = strings.videoSkipIntro;
-      skip.className = "media-button media-button--subtle media-button--icon";
+      skip.className = "media-button";
       // Built as markup rather than createElementNS calls: an inline SVG is one shape either way,
       // and this keeps the glyph readable next to the path it came from.
       skip.append(
         build(`
-          <svg viewBox="0 0 24 24" class="media-icon" aria-hidden="true" fill="currentColor">
+          <svg viewBox="0 0 24 24" class="media-button-icon" aria-hidden="true" fill="currentColor">
             <path d="${SKIP_ARROW_PATH}"></path>
             <text x="12" y="16.6" text-anchor="middle" font-size="8" font-weight="600"
                   fill="currentColor" stroke="none">${SKIP_SECONDS}</text>
@@ -1067,10 +1075,8 @@
       // The secondary group is the floating cluster in the top corner. Stripping Cast/AirPlay/PiP
       // left it holding only fullscreen, so the skip sits there without crowding the seek bar.
       const cluster =
-        shadow.querySelector(
-          ".media-controls--secondary .media-button-group",
-        ) ||
-        shadow.querySelector(".media-controls--primary .media-button-group");
+        shadow.querySelector(".video-controls-secondary") ||
+        shadow.querySelector(".video-controls-primary");
       if (cluster) cluster.prepend(skip);
 
       container.append(style, this.resumeOverlay);
@@ -1083,21 +1089,29 @@
       const shadow = skin.shadowRoot;
       if (!shadow)
         throw new Error(`${skin.localName} shadow root is unavailable`);
+      // RC2 tooltip ids are generated; remove each control's associated tooltip first.
+      shadow
+        .querySelectorAll("media-cast-button, media-airplay-button, media-pip-button")
+        .forEach((control) => {
+          shadow.querySelectorAll("media-tooltip[trigger]").forEach((tooltip) => {
+            if (tooltip.getAttribute("trigger") === control.id) tooltip.remove();
+          });
+        });
       shadow
         .querySelectorAll(
           "media-cast-button, media-airplay-button, media-pip-button, " +
             "#cast-tooltip, #airplay-tooltip, #pip-tooltip, " +
             'media-hotkey[action="togglePictureInPicture"], ' +
-            ".media-icon--pip-enter, .media-icon--pip-exit",
+            'media-icon[name="pip-enter"], media-icon[name="pip-exit"]',
         )
         .forEach((element) => element.remove());
       shadow
         .querySelectorAll("media-status-indicator[actions]")
         .forEach((element) => {
           const actions = (element.getAttribute("actions") || "")
-            .split(/\s+/)
+            .split(/[\s,]+/)
             .filter((action) => action && action !== "togglePictureInPicture");
-          element.setAttribute("actions", actions.join(" "));
+          element.setAttribute("actions", actions.join(","));
         });
       const container = shadow.querySelector("media-container");
       if (container) {
@@ -1270,14 +1284,16 @@
         // Chromium has no native HLS, so hls.js over MSE is the only playback path here.
         if (!window.Hls || !Hls.isSupported())
           throw new Error("hls.js is unavailable");
-        video.config = {
+        video.source = {
           preferPlayback: "mse",
-          contentType: "application/vnd.apple.mpegurl",
+          type: "application/vnd.apple.mpegurl",
           // The download-capture patch must stay off during playback; it forwards every decrypted
           // fragment and only the headless download WebView has a sink to receive them.
-          hlsJs: Object.assign({ debug: this.isDebugMode }, customHlsConfig, {
-            tsundokuCaptureFragments: false,
-          }),
+          engine: {
+            hlsJs: Object.assign({ debug: this.isDebugMode }, customHlsConfig, {
+              tsundokuCaptureFragments: false,
+            }),
+          },
         };
         this.hlsInstance = video.engine || null;
       });

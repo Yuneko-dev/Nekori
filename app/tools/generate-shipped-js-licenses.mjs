@@ -250,8 +250,8 @@ function customLibrary() {
       funding: [],
     },
     {
-      uniqueId: "npm:hls.js@1.6.15",
-      artifactVersion: "1.6.15",
+      uniqueId: "npm:hls.js@1.7.3",
+      artifactVersion: "1.7.3",
       name: "hls.js",
       description:
         "JavaScript HLS client using MediaSourceExtension. Adapted to work within the Nekori application.",

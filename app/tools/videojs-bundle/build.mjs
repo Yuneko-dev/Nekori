@@ -33,12 +33,12 @@ const adapterOverrides = {
   name: "tsundoku-videojs-adapter-overrides",
   setup(buildApi) {
     buildApi.onResolve({ filter: /airplay-bridge\.js$/ }, (args) => {
-      if (args.importer.replaceAll("\\", "/").includes("@videojs/media")) return { path: noAirPlay };
+      if (args.importer.replaceAll("\\", "/").includes("@videojs/hlsjs-video")) return { path: noAirPlay };
       return null;
     });
     buildApi.onResolve({ filter: /errors\.js$/ }, (args) => {
       const importer = args.importer.replaceAll("\\", "/");
-      if (importer.includes("@videojs/media") && importer.includes("hls-js")) {
+      if (importer.includes("@videojs/hlsjs-video")) {
         return { path: hlsErrors };
       }
       return null;
@@ -49,12 +49,12 @@ const adapterOverrides = {
     });
     buildApi.onResolve({ filter: /pip\.js$/ }, (args) => {
       const importer = args.importer.replaceAll("\\", "/");
-      if (importer.includes("@videojs/core") && importer.includes("/dom/")) {
+      if (importer.includes("@videojs/core") && (importer.includes("/dom/") || args.path.includes("/dom/"))) {
         return { path: noRemoteFeature };
       }
       return null;
     });
-    buildApi.onResolve({ filter: /(airplay|cast|pip)-button-element\.js$/ }, (args) => {
+    buildApi.onResolve({ filter: /(airplay|cast|pip)-button(?:\/element)?\.js$/ }, (args) => {
       if (args.importer.replaceAll("\\", "/").includes("@videojs/html")) {
         return { path: noRemoteElements };
       }
@@ -137,7 +137,7 @@ for (const requiredSymbol of [
   "media-live-button",
   "media-fullscreen-button",
   "media-error-dialog",
-  "media-default-skin",
+  'data-theme="default"',
   "media-poster",
   "media-slider-thumbnail",
   "media-hotkey",
@@ -176,15 +176,17 @@ for (const requiredSymbol of [
     throw new Error("Locale packs are bundled but never registered: import locales/all/register");
   }
 }
-if (playerOutput.includes("media-minimal-skin")) throw new Error("Unexpected minimal skin markup");
+if ([...bundledInputs].some(([input, bytes]) => bytes > 0 && /skins\/minimal-[^/]+\/template\.js$/.test(input))) {
+  throw new Error("Unexpected minimal skin markup");
+}
 
 const hlsPackage = JSON.parse(await readFile(path.resolve(toolDir, "node_modules/hls.js/package.json"), "utf8"));
-if (hlsPackage.version !== "1.6.15") throw new Error(`Expected hls.js 1.6.15, found ${hlsPackage.version}`);
+if (hlsPackage.version !== "1.7.3") throw new Error(`Expected hls.js 1.7.3, found ${hlsPackage.version}`);
 const videoPackage = JSON.parse(
   await readFile(path.resolve(toolDir, "node_modules/@videojs/html/package.json"), "utf8"),
 );
-if (videoPackage.version !== "10.0.0-beta.26") {
-  throw new Error(`Expected @videojs/html 10.0.0-beta.26, found ${videoPackage.version}`);
+if (videoPackage.version !== "10.0.0-rc.2") {
+  throw new Error(`Expected @videojs/html 10.0.0-rc.2, found ${videoPackage.version}`);
 }
 
 let hlsSource = await readFile(path.resolve(toolDir, "node_modules/hls.js/dist/hls.js"), "utf8");
@@ -205,10 +207,7 @@ const initPatch = `        if (this.config.tsundokuCaptureFragments && tracks.au
 if (!hlsSource.includes(initAnchor)) throw new Error("hls.js combined init patch anchor changed");
 hlsSource = hlsSource.replace(initAnchor, initAnchor + initPatch);
 
-const workerAnchor = `        var observer = new EventEmitter();\n        observer.on(Events.FRAG_DECRYPTED, forwardMessage);\n        observer.on(Events.ERROR, forwardMessage);\n`;
-const workerPatch = `        var observer = new EventEmitter();\n        var forwardObserverMessage = function forwardObserverMessage(event, data) {\n          return forwardMessage(event, data, instanceNo);\n        };\n        observer.on(Events.FRAG_DECRYPTED, forwardObserverMessage);\n        observer.on(Events.ERROR, forwardObserverMessage);\n`;
-if (!hlsSource.includes(workerAnchor)) throw new Error("hls.js worker patch anchor changed");
-hlsSource = hlsSource.replace(workerAnchor, workerPatch);
+// hls.js 1.7.3 forwards worker events with instanceNo upstream; no local worker patch.
 
 const hlsResult = await transform(hlsSource, {
   minify: true,
