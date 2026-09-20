@@ -19,6 +19,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-09-20
+
+> Finally, the app’s first minor release is here! It may be a little heavier now, but performance should be slightly better… probably.
+
 ### Added
 - Added global and per-novel find-and-replace rule management, with search, reordering and bulk actions.
 
