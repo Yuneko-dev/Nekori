@@ -294,14 +294,14 @@
     <string name="novel_snippets_enabled_first">Đưa đoạn mã đã bật lên đầu</string>
     <string name="novel_snippet_move_up">Chuyển lên</string>
     <string name="novel_snippet_move_down">Chuyển xuống</string>
-    <string name="novel_regex_find_replace">Tìm và thay thế bằng Regex</string>
+    <string name="novel_regex_find_replace">Tìm và thay thế</string>
     <string name="novel_add_rule">Thêm quy tắc</string>
     <string name="novel_no_rules">Chưa thêm quy tắc. Quy tắc được áp dụng cho nội dung chương trước khi hiển thị.</string>
     <string name="novel_edit_rule">Sửa quy tắc</string>
     <string name="novel_add_rule_title">Thêm quy tắc tìm và thay thế</string>
     <string name="novel_regex_pattern">Mẫu Regex</string>
     <string name="novel_find_text">Tìm văn bản</string>
-    <string name="novel_replace_with">Thay bằng (để trống = xóa)</string>
+    <string name="novel_replace_with">Thay bằng</string>
     <string name="novel_use_regex">Dùng Regex</string>
     <string name="novel_match_whole_word">Khớp toàn bộ từ</string>
     <string name="novel_test">Kiểm tra</string>
@@ -1390,4 +1390,12 @@
     <string name="stepper_enter_value">Nhập giá trị (%1$d–%2$d)</string>
     <string name="stepper_value_range_error">Giá trị phải nằm trong khoảng %1$d đến %2$d</string>
     <string name="novel_text_align_justify">Căn đều</string>
+    <string name="replacement_scope_novel">Truyện này</string>
+    <string name="replacement_scope_global">Toàn cục</string>
+    <string name="replacement_remove_hint">Để trống để xóa nội dung khớp.</string>
+    <string name="replacement_empty_novel">Chưa có quy tắc cho truyện này. Thêm quy tắc để thay thế hoặc xóa nội dung chỉ trong truyện này.</string>
+    <string name="replacement_empty_global">Chưa có quy tắc toàn cục. Các quy tắc này áp dụng cho mọi truyện.</string>
+    <string name="replacement_load_error">Không đọc được quy tắc đã lưu. Dữ liệu của bạn chưa bị thay đổi.</string>
+    <string name="replacement_save_conflict">Quy tắc đã thay đổi bên ngoài màn hình này. Đóng để bỏ các chỉnh sửa tại đây, rồi mở lại để tải dữ liệu mới nhất.</string>
+    <string name="replacement_delete_selected">Xóa %d quy tắc đã chọn?</string>
 </resources>

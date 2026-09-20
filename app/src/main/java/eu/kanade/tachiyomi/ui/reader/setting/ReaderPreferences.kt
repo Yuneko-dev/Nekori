@@ -233,9 +233,9 @@ class ReaderPreferences(
     val novelCustomCssSnippets: Preference<String> = preferenceStore.getString("pref_novel_css_snippets", "[]")
     val novelCustomJsSnippets: Preference<String> = preferenceStore.getString("pref_novel_js_snippets", "[]")
 
-    // Regex find/replace rules stored as JSON array of {title, pattern, replacement, enabled, isRegex}
-    // Applied to chapter HTML content before rendering in both WebView and TextView modes
-    val novelRegexReplacements: Preference<String> = preferenceStore.getString("pref_novel_regex_replacements", "[]")
+    // Replacement rules are a JSON list; absent scope remains global for existing settings/backups.
+    // Applied before translation/rendering, using the current novel identity.
+    val novelRegexReplacements: Preference<String> = preferenceStore.getString(RegexReplacement.PREFERENCE_KEY, "[]")
 
     // Infinite scroll - automatically load next/previous chapters
     val novelInfiniteScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_infinite_scroll", false)

@@ -32,7 +32,7 @@ class ContentPipeline(private val preferences: ReaderPreferences) {
             HtmlUtils.normalizeContentForHtml(content, config.chapterUrl)
         }
 
-        content = RegexReplacementsProcessor.apply(content, preferences)
+        content = RegexReplacementsProcessor.apply(content, preferences, config.replacementTarget)
 
         if (config.forceLowercase) content = content.lowercase()
 

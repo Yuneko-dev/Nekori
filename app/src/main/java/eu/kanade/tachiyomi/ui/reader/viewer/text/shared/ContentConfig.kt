@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 
 /**
  * [TEXT_VIEW]: TextView renders scripts/styles as visible text, so they are always stripped.
@@ -17,6 +18,7 @@ data class ContentConfig(
     val blockMedia: Boolean = false,
     val keepEmbeddedCss: Boolean = true,
     val keepEmbeddedJs: Boolean = false,
+    val replacementTarget: ReplacementTarget? = null,
 ) {
     companion object {
         fun from(
@@ -24,9 +26,11 @@ data class ContentConfig(
             target: RenderTarget,
             chapterUrl: String?,
             chapterName: String,
+            replacementTarget: ReplacementTarget? = null,
         ): ContentConfig = ContentConfig(
             chapterUrl = chapterUrl,
             chapterName = chapterName,
+            replacementTarget = replacementTarget,
             target = target,
             hideTitle = preferences.novelHideChapterTitle.get(),
             forceLowercase = preferences.novelForceTextLowercase.get(),

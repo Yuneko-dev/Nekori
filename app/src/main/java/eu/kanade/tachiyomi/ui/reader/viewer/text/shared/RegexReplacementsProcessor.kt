@@ -1,64 +1,42 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
-import eu.kanade.presentation.reader.settings.RegexReplacement
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import logcat.LogPriority
 import logcat.logcat
 
 object RegexReplacementsProcessor {
+    private data class CacheKey(val json: String, val target: ReplacementTarget?)
+    private val cache = object : LinkedHashMap<CacheKey, List<Pair<RegexReplacement, Regex>>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, List<Pair<RegexReplacement, Regex>>>) =
+            size > 16
+    }
 
-    private val cache: MutableMap<String, List<Pair<Regex, String>>> =
-        java.util.Collections.synchronizedMap(
-            object : java.util.LinkedHashMap<String, List<Pair<Regex, String>>>(16, 0.75f, true) {
-                override fun removeEldestEntry(
-                    eldest: MutableMap.MutableEntry<String, List<Pair<Regex, String>>>,
-                ) = size > 16
-            },
-        )
-
-    fun apply(content: String, preferences: ReaderPreferences): String {
-        val rulesJson = preferences.novelRegexReplacements.get()
-        if (rulesJson.isBlank() || rulesJson == "[]") return content
-
+    fun apply(content: String, preferences: ReaderPreferences, target: ReplacementTarget? = null): String {
+        val key = CacheKey(preferences.novelRegexReplacements.get(), target)
         val compiled = synchronized(cache) {
-            cache.computeIfAbsent(rulesJson) { json ->
+            cache.getOrPut(key) {
                 try {
-                    val rules: List<RegexReplacement> = kotlinx.serialization.json.Json.decodeFromString(json)
-                    rules.mapNotNull { rule ->
-                        if (!rule.enabled || rule.pattern.isBlank()) return@mapNotNull null
-                        try {
-                            val options = if (rule.caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
-                            if (rule.isRegex) {
-                                Regex(rule.pattern, options) to rule.replacement
-                            } else {
-                                val escapedPattern = Regex.escape(rule.pattern)
-                                val boundedPattern = if (rule.matchWholeWord) {
-                                    "(?<![\\p{L}\\p{N}_])(?:$escapedPattern)(?![\\p{L}\\p{N}_])"
-                                } else {
-                                    escapedPattern
-                                }
-                                Regex(boundedPattern, options) to rule.replacement
-                            }
-                        } catch (e: Exception) {
-                            logcat(LogPriority.WARN) { "Failed to compile regex for '${rule.title}': ${e.message}" }
-                            null
+                    RegexReplacement.decode(key.json)
+                        .filter { it.enabled && it.appliesTo(target) }
+                        .sortedBy { if (it.scope == RegexReplacement.GLOBAL) 0 else 1 }
+                        .mapNotNull { rule ->
+                            runCatching { rule to rule.compile() }.getOrNull()
                         }
-                    }
-                } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "Failed to parse regex replacements: ${e.message}" }
+                } catch (_: Exception) {
+                    logcat(LogPriority.WARN) { "Could not decode replacement rules; leaving content unchanged" }
                     emptyList()
                 }
             }
         }
-
-        var result = content
-        for ((regex, replacement) in compiled) {
+        return compiled.fold(content) { text, (rule, regex) ->
             try {
-                result = regex.replace(result, replacement)
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN) { "Regex replacement failed: ${e.message}" }
+                rule.replace(text, regex)
+            } catch (_: Exception) {
+                logcat(LogPriority.WARN) { "Could not apply replacement rule" }
+                text
             }
         }
-        return result
     }
 }

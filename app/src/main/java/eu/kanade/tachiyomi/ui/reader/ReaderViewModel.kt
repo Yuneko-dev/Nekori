@@ -44,6 +44,7 @@ import eu.kanade.tachiyomi.ui.reader.quote.Quote
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
@@ -974,6 +975,7 @@ class ReaderViewModel @JvmOverloads constructor(
             RenderTarget.WEB_VIEW,
             chapter.chapter.url,
             chapter.chapter.name,
+            replacementTarget = manga?.let { ReplacementTarget(it.source, it.url) },
         )
         translateContent(contentPipeline.preTranslate(raw, config).text, chapterId)
     }

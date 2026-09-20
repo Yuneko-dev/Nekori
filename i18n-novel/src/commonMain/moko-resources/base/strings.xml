@@ -302,14 +302,14 @@
     <string name="novel_snippets_enabled_first">Move enabled snippets first</string>
     <string name="novel_snippet_move_up">Move up</string>
     <string name="novel_snippet_move_down">Move down</string>
-    <string name="novel_regex_find_replace">Regex Find &amp; Replace</string>
+    <string name="novel_regex_find_replace">Find and replace</string>
     <string name="novel_add_rule">Add rule</string>
     <string name="novel_no_rules">No rules added. Rules apply to chapter content before rendering.</string>
     <string name="novel_edit_rule">Edit Rule</string>
     <string name="novel_add_rule_title">Add Find &amp; Replace Rule</string>
     <string name="novel_regex_pattern">Regex Pattern</string>
     <string name="novel_find_text">Find Text</string>
-    <string name="novel_replace_with">Replace With (empty = remove)</string>
+    <string name="novel_replace_with">Replace with</string>
     <string name="novel_use_regex">Use Regex</string>
     <string name="novel_match_whole_word">Match whole word</string>
     <string name="novel_test">Test</string>
@@ -1393,4 +1393,12 @@
     <string name="stepper_enter_value">Enter value (%1$d–%2$d)</string>
     <string name="stepper_value_range_error">Must be between %1$d and %2$d</string>
     <string name="novel_text_align_justify">Justify</string>
+    <string name="replacement_scope_novel">This novel</string>
+    <string name="replacement_scope_global">Global</string>
+    <string name="replacement_remove_hint">Leave empty to remove matching content.</string>
+    <string name="replacement_empty_novel">No rules for this novel yet. Add a rule to replace or remove content only in this novel.</string>
+    <string name="replacement_empty_global">No global rules yet. Global rules apply to every novel.</string>
+    <string name="replacement_load_error">Could not read the saved rules. Your data has not been changed.</string>
+    <string name="replacement_save_conflict">Rules changed outside this screen. Close to discard these edits and reopen to load the latest rules.</string>
+    <string name="replacement_delete_selected">Delete %d selected rules?</string>
 </resources>

@@ -14,13 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignRight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Css
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.FormatAlignCenter
 import androidx.compose.material.icons.outlined.FormatAlignJustify
 import androidx.compose.material.icons.outlined.Javascript
@@ -63,7 +61,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
@@ -99,18 +96,6 @@ private val UNSAFE_TITLE_CHARS = Regex("[^A-Za-z0-9._-]")
 fun safeTitleOf(title: String): String = title.replace(UNSAFE_TITLE_CHARS, "-")
 
 fun CodeSnippet.safeTitle(): String = safeTitleOf(title)
-
-@Serializable
-data class RegexReplacement(
-    val title: String,
-    val pattern: String,
-    val replacement: String,
-    val enabled: Boolean = true,
-    val isRegex: Boolean = true,
-    val matchWholeWord: Boolean = false,
-    val caseSensitive: Boolean = false,
-    val id: String = java.util.UUID.randomUUID().toString(),
-)
 
 internal val novelThemes = listOf(
     TDMR.strings.novel_theme_app to "app",
@@ -728,8 +713,19 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
 }
 
 @Composable
-internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel) {
-    RegexReplacementSection(screenModel)
+internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel, onManageRules: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onManageRules)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(TDMR.strings.novel_regex_find_replace),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
+    }
 
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
     ReaderSwitchItem(
@@ -1129,416 +1125,6 @@ private fun SnippetEditDialog(
                             id = initialSnippet?.id ?: java.util.UUID.randomUUID().toString(),
                         ),
                     )
-                },
-            ) {
-                Text(stringResource(MR.strings.action_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
-}
-
-/**
- * Regex find/replace section — available for both WebView and TextView modes.
- * Rules are applied to chapter HTML content before rendering.
- */
-@Composable
-private fun ColumnScope.RegexReplacementSection(screenModel: ReaderSettingsViewModel) {
-    val regexJson by screenModel.preferences.novelRegexReplacements.collectAsState()
-
-    var showAddDialog by remember { mutableStateOf(false) }
-    var editingRule by remember { mutableStateOf<RegexReplacement?>(null) }
-    var pendingDelete by remember { mutableStateOf<String?>(null) }
-
-    val rules = remember(regexJson) {
-        try {
-            Json.decodeFromString<List<RegexReplacement>>(regexJson)
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.FindReplace,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Text(
-                    text = stringResource(TDMR.strings.novel_regex_find_replace),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            IconButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Outlined.Add, contentDescription = stringResource(TDMR.strings.novel_add_rule))
-            }
-        }
-
-        rules.forEachIndexed { index, rule ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clickable {
-                        val updated = rules.toMutableList().apply {
-                            this[index] = this[index].copy(enabled = !this[index].enabled)
-                        }
-                        screenModel.preferences.novelRegexReplacements.set(Json.encodeToString(updated))
-                    },
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = rule.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (rule.enabled) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            },
-                        )
-                        Text(
-                            text = buildString {
-                                append(if (rule.isRegex) "regex" else "text")
-                                if (!rule.isRegex) {
-                                    if (rule.matchWholeWord) append(" • whole-word")
-                                    if (rule.caseSensitive) append(" • case-sensitive")
-                                }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (rule.enabled) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            },
-                        )
-                        Text(
-                            text = "/${rule.pattern}/ → ${rule.replacement.ifEmpty { "(remove)" }}",
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        )
-                    }
-                    Row {
-                        IconButton(onClick = { editingRule = rule }) {
-                            Icon(Icons.Outlined.Edit, contentDescription = stringResource(MR.strings.action_edit))
-                        }
-                        IconButton(onClick = { pendingDelete = rule.id }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = stringResource(MR.strings.action_delete))
-                        }
-                    }
-                }
-            }
-        }
-
-        if (rules.isEmpty()) {
-            Text(
-                text = stringResource(TDMR.strings.novel_no_rules),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-        }
-    }
-
-    if (showAddDialog || editingRule != null) {
-        RegexEditDialog(
-            initialRule = editingRule,
-            onDismiss = {
-                showAddDialog = false
-                editingRule = null
-            },
-            onConfirm = { rule ->
-                val editingId = editingRule?.id
-                val updated = if (editingId != null) {
-                    rules.map { if (it.id == editingId) rule else it }
-                } else {
-                    rules + rule
-                }
-                screenModel.preferences.novelRegexReplacements.set(Json.encodeToString(updated))
-                showAddDialog = false
-                editingRule = null
-            },
-        )
-    }
-
-    pendingDelete?.let { id ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(MR.strings.action_delete)) },
-            text = { Text(stringResource(TDMR.strings.novel_delete_rule_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val updated = rules.filterNot { it.id == id }
-                        screenModel.preferences.novelRegexReplacements.set(Json.encodeToString(updated))
-                        pendingDelete = null
-                    },
-                ) {
-                    Text(stringResource(MR.strings.action_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(MR.strings.action_cancel))
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun RegexEditDialog(
-    initialRule: RegexReplacement?,
-    onDismiss: () -> Unit,
-    onConfirm: (RegexReplacement) -> Unit,
-) {
-    var title by remember { mutableStateOf(initialRule?.title ?: "") }
-    var pattern by remember { mutableStateOf(initialRule?.pattern ?: "") }
-    var replacement by remember { mutableStateOf(initialRule?.replacement ?: "") }
-    var isRegex by remember { mutableStateOf(initialRule?.isRegex ?: true) }
-    var matchWholeWord by remember { mutableStateOf(initialRule?.matchWholeWord ?: false) }
-    var caseSensitive by remember { mutableStateOf(initialRule?.caseSensitive ?: false) }
-    var testInput by remember { mutableStateOf("") }
-    var testOutput by remember { mutableStateOf<String?>(null) }
-    var testError by remember { mutableStateOf<String?>(null) }
-
-    // Pre-compute strings for non-composable onClick callbacks
-    val patternEmptyText = stringResource(TDMR.strings.novel_pattern_empty)
-    val invalidRegexText = stringResource(TDMR.strings.novel_invalid_regex)
-    val invalidRegexFormatText = stringResource(TDMR.strings.novel_invalid_regex_format, "%s")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                if (initialRule !=
-                    null
-                ) {
-                    stringResource(TDMR.strings.novel_edit_rule)
-                } else {
-                    stringResource(TDMR.strings.novel_add_rule_title)
-                },
-            )
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(MR.strings.title)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = pattern,
-                    onValueChange = {
-                        pattern = it
-                        testOutput = null
-                        testError = null
-                    },
-                    label = {
-                        Text(
-                            if (isRegex) {
-                                stringResource(
-                                    TDMR.strings.novel_regex_pattern,
-                                )
-                            } else {
-                                stringResource(TDMR.strings.novel_find_text)
-                            },
-                        )
-                    },
-                    singleLine = false,
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-                OutlinedTextField(
-                    value = replacement,
-                    onValueChange = {
-                        replacement = it
-                        testOutput = null
-                    },
-                    label = { Text(stringResource(TDMR.strings.novel_replace_with)) },
-                    singleLine = false,
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Switch(
-                        checked = isRegex,
-                        onCheckedChange = {
-                            isRegex = it
-                            testOutput = null
-                            testError = null
-                            // Reset whole-word/case-sensitive when switching regex mode
-                            if (it) {
-                                matchWholeWord = false
-                                caseSensitive = false
-                            }
-                        },
-                    )
-                    Text(stringResource(TDMR.strings.novel_use_regex), modifier = Modifier.padding(start = 4.dp))
-                }
-
-                // Hint text for current mode
-                Text(
-                    text = stringResource(
-                        if (isRegex) TDMR.strings.novel_regex_pattern else TDMR.strings.novel_find_text,
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-
-                if (!isRegex) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Switch(
-                            checked = matchWholeWord,
-                            onCheckedChange = {
-                                matchWholeWord = it
-                                testOutput = null
-                                testError = null
-                            },
-                        )
-                        Text(
-                            stringResource(TDMR.strings.novel_match_whole_word),
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Switch(
-                            checked = caseSensitive,
-                            onCheckedChange = {
-                                caseSensitive = it
-                                testOutput = null
-                                testError = null
-                            },
-                        )
-                        Text(
-                            stringResource(TDMR.strings.label_case_sensitive_matching),
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
-                }
-
-                // Test section
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text(
-                    text = stringResource(TDMR.strings.novel_test),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                OutlinedTextField(
-                    value = testInput,
-                    onValueChange = {
-                        testInput = it
-                        testOutput = null
-                        testError = null
-                    },
-                    label = { Text(stringResource(TDMR.strings.novel_sample_input)) },
-                    minLines = 2,
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
-                TextButton(
-                    onClick = {
-                        if (pattern.isBlank()) {
-                            testError = patternEmptyText
-                            return@TextButton
-                        }
-                        try {
-                            testOutput = if (isRegex) {
-                                val regex = Regex(pattern)
-                                regex.replace(testInput, replacement)
-                            } else {
-                                val escapedPattern = Regex.escape(pattern)
-                                val boundedPattern = if (matchWholeWord) {
-                                    "(?<![\\p{L}\\p{N}_])(?:$escapedPattern)(?![\\p{L}\\p{N}_])"
-                                } else {
-                                    escapedPattern
-                                }
-                                val options = if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)
-                                Regex(boundedPattern, options).replace(testInput) { replacement }
-                            }
-                            testError = null
-                        } catch (e: Exception) {
-                            testError = e.message ?: invalidRegexText
-                            testOutput = null
-                        }
-                    },
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    Text(stringResource(TDMR.strings.novel_run_test))
-                }
-                testOutput?.let {
-                    Text(
-                        text = stringResource(TDMR.strings.novel_output_format, it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-                testError?.let {
-                    Text(
-                        text = stringResource(TDMR.strings.novel_error_format, it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (title.isNotBlank() && pattern.isNotBlank()) {
-                        if (isRegex) {
-                            try {
-                                Regex(pattern)
-                            } catch (e: Exception) {
-                                testError = invalidRegexFormatText.replace("%s", e.message ?: "")
-                                return@TextButton
-                            }
-                        }
-                        onConfirm(
-                            RegexReplacement(
-                                title = title.trim(),
-                                pattern = pattern,
-                                replacement = replacement,
-                                enabled = initialRule?.enabled ?: true,
-                                isRegex = isRegex,
-                                matchWholeWord = if (isRegex) false else matchWholeWord,
-                                caseSensitive = if (isRegex) false else caseSensitive,
-                                id = initialRule?.id ?: java.util.UUID.randomUUID().toString(),
-                            ),
-                        )
-                    }
                 },
             ) {
                 Text(stringResource(MR.strings.action_save))

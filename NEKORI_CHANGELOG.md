@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Added global and per-novel find-and-replace rule management, with search, reordering and bulk actions.
+
 ### Changed
 - Update video playback to Video.js 10 RC2 and HLS.js 1.7.3.
 
@@ -29,6 +32,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - 32-bit x86 APKs; x86_64 remains supported.
 
 ### Fixed
+- Find-and-replace tests now match reader behavior for case sensitivity and escaped replacement characters.
 - Retry from the reader error screen clears the chapter cache and fetches fresh source content.
 
 ## [v0.0.10] - 2026-09-15

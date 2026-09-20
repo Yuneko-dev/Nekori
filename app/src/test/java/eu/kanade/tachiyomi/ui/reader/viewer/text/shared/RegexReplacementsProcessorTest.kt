@@ -11,6 +11,12 @@ import tachiyomi.core.common.preference.Preference
 
 class RegexReplacementsProcessorTest {
 
+    @Test
+    fun `literal replacement preserves dollar signs and backslashes`() {
+        val rules = rulesJson(rule("price", "\$5\\item"))
+        assertEquals("\$5\\item", RegexReplacementsProcessor.apply("price", prefs(rules)))
+    }
+
     private fun prefs(rulesJson: String): ReaderPreferences {
         val pref: Preference<String> = mockk { every { get() } returns rulesJson }
         return mockk<ReaderPreferences>().apply {

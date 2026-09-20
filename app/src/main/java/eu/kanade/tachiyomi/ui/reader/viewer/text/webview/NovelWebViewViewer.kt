@@ -58,6 +58,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.NovelWebViewNetworkMode
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.NovelConfig
@@ -1533,6 +1534,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             RenderTarget.WEB_VIEW,
             chapter.chapter.url,
             chapter.chapter.name,
+            replacementTarget = activity.viewModel.manga?.let { ReplacementTarget(it.source, it.url) },
         )
         val translator: (suspend (String) -> String)? =
             if (activity.isTranslationEnabled()) {

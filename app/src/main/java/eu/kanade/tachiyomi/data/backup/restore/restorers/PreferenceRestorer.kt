@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
+import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -50,7 +51,7 @@ class PreferenceRestorer(
         }
     }
 
-    private suspend fun restorePreferences(
+    internal suspend fun restorePreferences(
         toRestore: List<BackupPreference>,
         preferenceStore: PreferenceStore,
         backupCategories: List<BackupCategory>? = null,
@@ -86,6 +87,8 @@ class PreferenceRestorer(
                     }
                     is StringPreferenceValue -> {
                         if (prefs[key] is String?) {
+                            // Validate before replacing the existing list; malformed backups must not erase rules.
+                            if (key == RegexReplacement.PREFERENCE_KEY) RegexReplacement.decode(value.value)
                             preferenceStore.getString(key).set(value.value)
                         }
                     }

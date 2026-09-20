@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.setting
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
@@ -18,6 +19,8 @@ class ReaderSettingsViewModel(
     val preferences: ReaderPreferences = Injekt.get(),
 ) : ViewModel() {
 
+    internal var replacementRulesDraft: ReplacementRulesDraft? = null
+
     val viewerFlow = readerState
         .map { it.viewer }
         .distinctUntilChanged()
@@ -35,4 +38,9 @@ class ReaderSettingsViewModel(
         }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Lazily, false)
+}
+
+// Keep large editing sessions across rotation without putting the entire JSON list into a Bundle.
+internal class ReplacementRulesDraft(val original: String, val initial: List<RegexReplacement>) {
+    val rules = mutableStateOf(initial)
 }

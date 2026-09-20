@@ -62,44 +62,54 @@ fun TabbedDialog(
         onDismissRequest = onDismissRequest,
         properties = properties,
     ) {
-        val scope = rememberCoroutineScope()
+        TabbedDialogContent(tabTitles, pagerState, tabOverflowMenuContent, content)
+    }
+}
 
-        Column {
-            Row {
-                PrimaryTabRow(
-                    modifier = Modifier.weight(1f),
-                    selectedTabIndex = pagerState.currentPage,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ) {
-                    tabTitles.fastForEachIndexed { index, tab ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = if (tab is TabTitle.Text) ({ TabText(text = tab.value) }) else null,
-                            icon = if (tab is TabTitle.Icon) {
-                                (
-                                    {
-                                        Icon(imageVector = tab.imageVector, contentDescription = null)
-                                    }
-                                    )
-                            } else {
-                                null
-                            },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+@Composable
+fun TabbedDialogContent(
+    tabTitles: List<TabTitle>,
+    pagerState: PagerState,
+    tabOverflowMenuContent: (@Composable ColumnScope.(() -> Unit) -> Unit)? = null,
+    content: @Composable (Int) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+
+    Column {
+        Row {
+            PrimaryTabRow(
+                modifier = Modifier.weight(1f),
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                tabTitles.fastForEachIndexed { index, tab ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                        text = if (tab is TabTitle.Text) ({ TabText(text = tab.value) }) else null,
+                        icon = if (tab is TabTitle.Icon) {
+                            (
+                                {
+                                    Icon(imageVector = tab.imageVector, contentDescription = null)
+                                }
+                                )
+                        } else {
+                            null
+                        },
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
-
-                tabOverflowMenuContent?.let { MoreMenu(it) }
             }
 
-            HorizontalPager(
-                modifier = Modifier.animateContentSize(),
-                state = pagerState,
-                verticalAlignment = Alignment.Top,
-                pageContent = { page -> content(page) },
-            )
+            tabOverflowMenuContent?.let { MoreMenu(it) }
         }
+
+        HorizontalPager(
+            modifier = Modifier.animateContentSize(),
+            state = pagerState,
+            verticalAlignment = Alignment.Top,
+            pageContent = { page -> content(page) },
+        )
     }
 }
 
