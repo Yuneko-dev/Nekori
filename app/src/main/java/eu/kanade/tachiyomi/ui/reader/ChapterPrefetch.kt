@@ -1,8 +1,11 @@
 package eu.kanade.tachiyomi.ui.reader
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * Runs at most one background job, for one chapter at a time.
@@ -24,7 +27,15 @@ internal class ChapterPrefetch(private val scope: CoroutineScope) {
         if (this.chapterId == chapterId && job?.isActive == true) return
         job?.cancel()
         this.chapterId = chapterId
-        job = scope.launch { block() }
+        job = scope.launch {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Chapter prefetch failed" }
+            }
+        }
     }
 
     @Synchronized

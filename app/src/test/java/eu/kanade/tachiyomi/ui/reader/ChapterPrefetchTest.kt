@@ -10,6 +10,19 @@ import org.junit.jupiter.api.Test
 class ChapterPrefetchTest {
 
     @Test
+    fun `a failed prefetch does not escape and the same chapter can be retried`() = runTest {
+        val prefetch = ChapterPrefetch(backgroundScope)
+        var retried = false
+
+        prefetch.start(7L) { error("Translation failed at chunk 1/2") }
+        runCurrent()
+        prefetch.start(7L) { retried = true }
+        runCurrent()
+
+        retried shouldBe true
+    }
+
+    @Test
     fun `asking again for the chapter already running does not start a second run`() = runTest {
         val started = mutableListOf<Long>()
         val prefetch = ChapterPrefetch(backgroundScope)

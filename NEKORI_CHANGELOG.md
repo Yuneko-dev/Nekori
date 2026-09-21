@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+- Prevent a crash when automatic next-chapter translation fails, including while reading offline [#7](https://github.com/Yuneko-dev/Nekori/issues/7)
+
 ## [v0.1.0] - 2026-09-20
 
 > Finally, the app’s first minor release is here! It may be a little heavier now, but performance should be slightly better… probably.
