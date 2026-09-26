@@ -12,6 +12,7 @@ data class ReaderChapterDrawerItem(
     val name: String,
     val dateUpload: Long,
     val read: Boolean,
+    val sectionName: String? = null,
 )
 
 @Immutable
@@ -19,9 +20,9 @@ data class ReaderChapterDrawerSnapshot(
     val sectionKey: String,
     val items: ImmutableList<ReaderChapterDrawerItem>,
     val currentChapterId: Long,
+    val isPaged: Boolean = false,
 ) {
-    val currentIndex: Int
-        get() = items.indexOfFirst { it.id == currentChapterId }
+    val currentIndex: Int = items.indexOfFirst { it.id == currentChapterId }
 }
 
 internal fun buildReaderChapterDrawerSnapshot(
@@ -29,7 +30,7 @@ internal fun buildReaderChapterDrawerSnapshot(
     structure: NovelStructureSnapshot?,
     currentChapterId: Long,
 ): ReaderChapterDrawerSnapshot? {
-    val currentItem = items.firstOrNull { it.id == currentChapterId } ?: return null
+    if (items.none { it.id == currentChapterId }) return null
     val isFlat = structure == null ||
         structure.layout == NovelLayout.FLAT ||
         (structure.layout == NovelLayout.VOLUME && structure.sections.size <= 1) ||
@@ -43,19 +44,23 @@ internal fun buildReaderChapterDrawerSnapshot(
         )
     }
 
-    val section = structure.sections.firstOrNull { currentChapterId in it.chapterIds }
-        ?: return ReaderChapterDrawerSnapshot(
-            sectionKey = "${structure.layout.name.lowercase()}:unknown:$currentChapterId",
-            items = listOf(currentItem).toImmutableList(),
-            currentChapterId = currentChapterId,
-        )
-    val chapterIds = section.chapterIds.toHashSet()
-    val sectionItems = items.filter { it.id in chapterIds }.toImmutableList()
-    val sectionPrefix = if (structure.layout == NovelLayout.PAGED) "page" else "volume"
+    val sectionNamesByChapter = buildMap {
+        structure.sections.forEach { section ->
+            section.chapterIds.forEach { put(it, section.name.takeIf(String::isNotBlank)) }
+        }
+    }
+    var previousSection: String? = null
+    val sectionItems = items.map { item ->
+        val sectionName = sectionNamesByChapter[item.id]
+        item.copy(sectionName = sectionName.takeIf { it != previousSection }).also {
+            previousSection = sectionName
+        }
+    }
 
     return ReaderChapterDrawerSnapshot(
-        sectionKey = "$sectionPrefix:${section.name}",
-        items = sectionItems,
+        sectionKey = structure.layout.name.lowercase(),
+        items = sectionItems.toImmutableList(),
         currentChapterId = currentChapterId,
+        isPaged = structure.layout == NovelLayout.PAGED,
     )
 }

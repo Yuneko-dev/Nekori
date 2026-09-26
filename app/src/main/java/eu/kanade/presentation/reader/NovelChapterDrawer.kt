@@ -82,7 +82,7 @@ private fun NovelChapterDrawerContent(
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val currentPosition by remember(listState, snapshot.currentChapterId) {
+    val currentPosition by remember(listState, snapshot) {
         derivedStateOf {
             val visibleItems = listState.layoutInfo.visibleItemsInfo
             when {
@@ -124,35 +124,51 @@ private fun NovelChapterDrawerContent(
                 key = { it.id },
             ) { chapter ->
                 val selected = chapter.id == snapshot.currentChapterId
-                NavigationDrawerItem(
-                    label = {
-                        Column {
-                            Text(
-                                text = chapter.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurface.copy(
-                                    alpha = if (chapter.read && !selected) 0.6f else 1f,
-                                ),
-                            )
-                            if (chapter.dateUpload > 0) {
+                // A heading shares its chapter item to preserve navigation and scroll indices.
+                Column {
+                    chapter.sectionName?.let { section ->
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp))
+                        Text(
+                            text = if (snapshot.isPaged) {
+                                stringResource(TDMR.strings.novel_page_label, section)
+                            } else {
+                                section
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
+                        )
+                    }
+                    NavigationDrawerItem(
+                        label = {
+                            Column {
                                 Text(
-                                    text = relativeDateText(chapter.dateUpload),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = chapter.name,
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(
+                                        alpha = if (chapter.read && !selected) 0.6f else 1f,
+                                    ),
                                 )
+                                if (chapter.dateUpload > 0) {
+                                    Text(
+                                        text = relativeDateText(chapter.dateUpload),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
                             }
-                        }
-                    },
-                    selected = selected,
-                    onClick = {
-                        if (!selectionInProgress) {
-                            onChapterSelected(chapter.id)
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
+                        },
+                        selected = selected,
+                        onClick = {
+                            if (!selectionInProgress) {
+                                onChapterSelected(chapter.id)
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                }
             }
         }
         HorizontalDivider()
