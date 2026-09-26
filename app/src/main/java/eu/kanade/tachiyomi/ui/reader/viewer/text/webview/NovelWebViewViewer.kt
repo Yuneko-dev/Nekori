@@ -2258,7 +2258,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             -> {
                 if (!preferences.novelVolumeKeysScroll.get()) return false
                 if (!isUp) {
-                    val direction = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) 1 else -1
+                    var direction = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) 1 else -1
+                    if (pagedController.enabled && preferences.novelVolumeKeysInverted.get()) direction = -direction
                     val distance = preferences.novelVolumeKeysScrollDistance.get().coerceIn(
                         ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_MIN,
                         ReaderPreferences.VOLUME_KEY_SCROLL_DISTANCE_MAX,

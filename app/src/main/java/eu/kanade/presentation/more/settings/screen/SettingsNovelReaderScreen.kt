@@ -59,6 +59,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelLineHeight,
             readerPref.novelAutoScrollSpeed,
             readerPref.novelVolumeKeysScrollDistance,
+            readerPref.novelVolumeKeysInverted,
             readerPref.novelParagraphIndent,
             readerPref.novelParagraphSpacing,
             readerPref.novelMarginLeft,
@@ -600,6 +601,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         ),
                     ),
                 )
+                if (volumeKeysScroll && readingLayout == NovelReadingLayout.PAGED) {
+                    add(
+                        Preference.PreferenceItem.SwitchPreference(
+                            preference = readerPreferences.novelVolumeKeysInverted,
+                            title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
+                        ),
+                    )
+                }
                 if (volumeKeysScroll && readingLayout == NovelReadingLayout.SCROLL) {
                     add(
                         Preference.PreferenceItem.SliderPreference(

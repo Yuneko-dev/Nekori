@@ -163,6 +163,7 @@ class ReaderPreferences(
     // Resolve the stored half-step Int to the speed level the viewers scroll at (1.0..10.0).
     fun novelAutoScrollLevel(): Float = novelAutoScrollSpeed.get().coerceIn(2, 20) / 2f
     val novelVolumeKeysScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_volume_keys_scroll", false)
+    val novelVolumeKeysInverted: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_volume_keys_inverted", false)
     val novelVolumeKeysScrollDistance: Preference<Int> = preferenceStore.getInt(
         "pref_novel_volume_keys_scroll_distance",
         VOLUME_KEY_SCROLL_DISTANCE_DEFAULT,

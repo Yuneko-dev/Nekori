@@ -593,6 +593,12 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         ),
         pref = screenModel.preferences.novelVolumeKeysScroll,
     )
+    if (volumeKeysScroll && readingLayout == NovelReadingLayout.PAGED) {
+        ReaderSwitchItem(
+            label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
+            pref = screenModel.preferences.novelVolumeKeysInverted,
+        )
+    }
     if (volumeKeysScroll && readingLayout == NovelReadingLayout.SCROLL) {
         val distance by screenModel.preferences.novelVolumeKeysScrollDistance.collectAsState()
         SliderItem(
