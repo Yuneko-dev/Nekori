@@ -565,6 +565,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
     }
 
     if (readingLayout == NovelReadingLayout.PAGED) {
+        HeadingItem(TDMR.strings.pref_novel_auto_page)
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_auto_page_interval),
             value = autoPageInterval,
@@ -573,6 +574,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
             onChange = { screenModel.preferences.novelAutoPageIntervalSeconds.set(it) },
         )
     } else {
+        HeadingItem(TDMR.strings.pref_novel_auto_scroll)
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_auto_scroll_speed),
             value = autoScrollSpeed,
@@ -582,7 +584,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         )
     }
 
-    // Volume Keys to Scroll
+    HeadingItem(MR.strings.pref_read_with_volume_keys)
     ReaderSwitchItem(
         label = stringResource(
             if (readingLayout == NovelReadingLayout.PAGED) {
