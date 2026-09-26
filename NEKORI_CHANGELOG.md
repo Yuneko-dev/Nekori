@@ -19,18 +19,20 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-09-27
+
 ### Added
 - Add an option to invert volume keys in paged novel reading, available in both reader settings and the in-reader controls.
+
+### Changed
+- Use a shared, theme-independent Catppuccin Frappé palette for publication status and storage statistics; exclude available space from the storage bar and legend.
+- Show volume names without an added prefix in the Novel Details section picker; keep page labels for paged novels.
 
 ### Improved
 - Separate E-Ink, automatic page turning or scrolling, and volume-key controls with clear section headings in the in-reader settings.
 - Expand the reader chapter drawer to include all chapters already in the filtered reader list, with labeled dividers between pages or volumes. Preserve chapter order and scroll targets without fetching unloaded pages, and avoid rescanning the chapter list for the current position while scrolling.
 - Clean decorative symbols and separator-only lines from TTS input without changing displayed text; preserve numeric punctuation and keep paragraph selection/highlighting aligned.
 - Group advanced reader switches above a divider, place find-and-replace immediately below the divider and before CSS/JS snippets with the active rule count, and keep a disabled search icon in empty rule tabs.
-
-### Changed
-- Use a shared, theme-independent Catppuccin Frappé palette for publication status and storage statistics; exclude available space from the storage bar and legend.
-- Show volume names without an added prefix in the Novel Details section picker; keep page labels for paged novels.
 
 ### Fixed
 - Fix invisible Android system bars and overlapping reader content when fullscreen is disabled.
