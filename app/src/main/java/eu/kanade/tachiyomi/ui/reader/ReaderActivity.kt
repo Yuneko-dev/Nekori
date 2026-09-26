@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
-import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -29,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.Insets
 import androidx.core.net.toUri
 import androidx.core.transition.doOnEnd
@@ -102,7 +103,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
-import eu.kanade.tachiyomi.util.system.isNightMode
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
@@ -673,7 +673,7 @@ class ReaderActivity : BaseActivity() {
                         onHeightChanged = { statusBarHeightPx = it },
                         modifier = Modifier
                             .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
-                            .then(if (statusBarAtBottom) Modifier else Modifier.statusBarsPadding()),
+                            .then(if (statusBarAtBottom) Modifier.navigationBarsPadding() else Modifier.statusBarsPadding()),
                     )
                 }
             }
@@ -1353,6 +1353,11 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun updateSystemBarsVisibility(menuVisible: Boolean) {
+        val theme = if (menuVisible) "app" else readerPreferences.novelTheme.get()
+        val background = ThemeUtils.getThemeColors(this, readerPreferences, theme).first
+        val lightBackground = ColorUtils.calculateLuminance(background) > 0.5
+        windowInsetsController.isAppearanceLightStatusBars = lightBackground
+        windowInsetsController.isAppearanceLightNavigationBars = lightBackground
         val videoFullscreen = (viewModel.state.value.viewer as? NovelWebViewViewer)?.isVideoFullscreen == true
         if (videoFullscreen || (!menuVisible && readerPreferences.fullscreen.get())) {
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
@@ -1864,7 +1869,8 @@ class ReaderActivity : BaseActivity() {
      */
     private fun updateViewerInset(fullscreen: Boolean, drawUnderCutout: Boolean) {
         if (!::binding.isInitialized) return
-        val view = binding.viewerContainer
+        // System insets belong to the parent; viewerContainer reserves the novel status bar separately.
+        val view = binding.readerContainer
 
         view.applyInsetsPadding(ViewCompat.getRootWindowInsets(view), fullscreen, drawUnderCutout)
         ViewCompat.setOnApplyWindowInsetsListener(view) { view, windowInsets ->
@@ -1917,8 +1923,6 @@ class ReaderActivity : BaseActivity() {
             }
         }
 
-        private val grayBackgroundColor = Color.rgb(0x20, 0x21, 0x25)
-
         private var brightnessJob: Job? = null
 
         /*
@@ -1930,16 +1934,13 @@ class ReaderActivity : BaseActivity() {
                 .onEach { if (viewModel.manga != null) setOrientation(viewModel.getMangaOrientation()) }
                 .launchIn(lifecycleScope)
 
-            readerPreferences.readerTheme.changes()
-                .onEach { theme ->
-                    binding.readerContainer.setBackgroundColor(
-                        when (theme) {
-                            0 -> Color.WHITE
-                            2 -> grayBackgroundColor
-                            3 -> automaticBackgroundColor()
-                            else -> Color.BLACK
-                        },
-                    )
+            combine(
+                readerPreferences.novelTheme.changes(),
+                readerPreferences.novelBackgroundColor.changes(),
+            ) { theme, _ -> ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, theme).first }
+                .onEach { background ->
+                    binding.readerContainer.setBackgroundColor(background)
+                    updateSystemBarsVisibility(viewModel.state.value.menuVisible)
                 }
                 .launchIn(lifecycleScope)
 
@@ -2002,20 +2003,10 @@ class ReaderActivity : BaseActivity() {
                 readerPreferences.drawUnderCutout.changes(),
             ) { fullscreen, drawUnderCutout -> fullscreen to drawUnderCutout }
                 .onEach { (fullscreen, drawUnderCutout) ->
+                    updateSystemBarsVisibility(viewModel.state.value.menuVisible)
                     updateViewerInset(fullscreen, drawUnderCutout)
                 }
                 .launchIn(lifecycleScope)
-        }
-
-        /**
-         * Picks background color for [ReaderActivity] based on light/dark theme preference
-         */
-        private fun automaticBackgroundColor(): Int {
-            return if (baseContext.isNightMode()) {
-                grayBackgroundColor
-            } else {
-                Color.WHITE
-            }
         }
 
         /**
