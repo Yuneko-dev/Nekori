@@ -699,7 +699,7 @@ private data class PublicationStatusItem(
 
 @Composable
 private fun LazyItemScope.PublicationStatusSection(statusCounts: Map<Long, Int>) {
-    val colorScheme = MaterialTheme.colorScheme
+    val colors = StatsChartColors
     fun status(status: Int, label: StringResource, color: Color) = PublicationStatusItem(
         status = status,
         label = label,
@@ -708,13 +708,13 @@ private fun LazyItemScope.PublicationStatusSection(statusCounts: Map<Long, Int>)
     )
 
     val statuses = listOf(
-        status(SManga.ONGOING, MR.strings.ongoing, colorScheme.primary),
-        status(SManga.COMPLETED, MR.strings.completed, colorScheme.tertiary),
-        status(SManga.ON_HIATUS, MR.strings.on_hiatus, colorScheme.secondary),
-        status(SManga.LICENSED, MR.strings.licensed, colorScheme.inversePrimary),
-        status(SManga.PUBLISHING_FINISHED, MR.strings.publishing_finished, colorScheme.onTertiaryContainer),
-        status(SManga.CANCELLED, MR.strings.cancelled, colorScheme.error),
-        status(SManga.UNKNOWN, MR.strings.unknown, colorScheme.outline),
+        status(SManga.ONGOING, MR.strings.ongoing, colors.Blue),
+        status(SManga.COMPLETED, MR.strings.completed, colors.Green),
+        status(SManga.ON_HIATUS, MR.strings.on_hiatus, colors.Yellow),
+        status(SManga.LICENSED, MR.strings.licensed, colors.Mauve),
+        status(SManga.PUBLISHING_FINISHED, MR.strings.publishing_finished, colors.Teal),
+        status(SManga.CANCELLED, MR.strings.cancelled, colors.Red),
+        status(SManga.UNKNOWN, MR.strings.unknown, colors.Overlay2),
     ).filter { it.count > 0 }
     val total = statuses.sumOf { it.count }
     var selectedStatus by remember(statusCounts) {

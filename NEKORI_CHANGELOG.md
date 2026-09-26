@@ -25,6 +25,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Group advanced reader switches above a divider, place find-and-replace immediately below the divider and before CSS/JS snippets with the active rule count, and keep a disabled search icon in empty rule tabs.
 
 ### Changed
+- Use a shared, theme-independent Catppuccin Frappé palette for publication status and storage statistics; exclude available space from the storage bar and legend.
 - Show volume names without an added prefix in the Novel Details section picker; keep page labels for paged novels.
 
 ### Fixed

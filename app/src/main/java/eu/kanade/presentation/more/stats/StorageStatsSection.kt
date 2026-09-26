@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -110,27 +109,23 @@ internal fun LazyItemScope.StorageSection(
         }
 
         val context = LocalContext.current
-        val colorScheme = MaterialTheme.colorScheme
+        val colors = StatsChartColors
         val items = listOf(
-            StorageItem(MR.strings.downloaded_chapters, data.downloadedChaptersBytes, colorScheme.primary),
+            StorageItem(MR.strings.downloaded_chapters, data.downloadedChaptersBytes, colors.Blue),
             StorageItem(
                 TDMR.strings.stats_storage_local_novels,
                 data.localNovelsBytes,
-                colorScheme.onTertiaryContainer,
+                colors.Green,
             ),
-            StorageItem(TDMR.strings.stats_storage_translations, data.translationsBytes, colorScheme.error),
+            StorageItem(TDMR.strings.stats_storage_translations, data.translationsBytes, colors.Yellow),
             StorageItem(
                 TDMR.strings.stats_storage_plugins_fonts,
                 data.pluginsAndFontsBytes,
-                colorScheme.onSecondaryContainer,
+                colors.Mauve,
             ),
-            StorageItem(TDMR.strings.stats_storage_other, data.backupsAndOtherBytes, colorScheme.onSurfaceVariant),
+            StorageItem(TDMR.strings.stats_storage_other, data.backupsAndOtherBytes, colors.Red),
         )
-        val segments = items.filter { it.bytes > 0L } + listOfNotNull(
-            data.availableBytes?.takeIf { it > 0L }?.let {
-                StorageItem(TDMR.strings.stats_storage_available, it, colorScheme.outline)
-            },
-        )
+        val segments = items.filter { it.bytes > 0L }
 
         Text(
             text = stringResource(MR.strings.pref_storage_usage),
@@ -175,26 +170,7 @@ internal fun LazyItemScope.StorageSection(
 
         Column(modifier = Modifier.padding(top = MaterialTheme.padding.medium)) {
             items.forEach { item -> StorageRow(item, Formatter.formatFileSize(context, item.bytes)) }
-            StorageRow(
-                item = StorageItem(
-                    TDMR.strings.stats_storage_available,
-                    data.availableBytes ?: 0L,
-                    MaterialTheme.colorScheme.outline,
-                ),
-                value = data.availableBytes?.let { Formatter.formatFileSize(context, it) } ?: "—",
-            )
         }
-        HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.medium))
-        DataNote(
-            text = stringResource(
-                if (data.availableBytes == null) {
-                    TDMR.strings.stats_storage_available_unavailable
-                } else {
-                    TDMR.strings.stats_storage_note
-                },
-            ),
-            modifier = Modifier.padding(top = MaterialTheme.padding.medium),
-        )
     }
 }
 
