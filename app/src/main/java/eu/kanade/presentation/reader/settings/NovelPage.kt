@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignRight
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -28,6 +27,7 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Css
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.FormatAlignCenter
 import androidx.compose.material.icons.outlined.FormatAlignJustify
 import androidx.compose.material.icons.outlined.Javascript
@@ -67,6 +67,8 @@ import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -713,20 +715,11 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
 }
 
 @Composable
-internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel, onManageRules: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onManageRules)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            stringResource(TDMR.strings.novel_regex_find_replace),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
-    }
-
+internal fun ColumnScope.NovelAdvancedTab(
+    screenModel: ReaderSettingsViewModel,
+    target: ReplacementTarget?,
+    onManageRules: () -> Unit,
+) {
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
     ReaderSwitchItem(
         label = stringResource(TDMR.strings.novel_reader_enable_embedded_css),
@@ -753,6 +746,36 @@ internal fun ColumnScope.NovelAdvancedTab(screenModel: ReaderSettingsViewModel, 
         label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_js),
         pref = screenModel.preferences.novelPluginUseCustomJs,
     )
+
+    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+    val savedRules by screenModel.preferences.novelRegexReplacements.collectAsState()
+    val activeCount = remember(savedRules, target) {
+        runCatching { RegexReplacement.decode(savedRules) }.getOrDefault(emptyList())
+            .count { it.enabled && it.appliesTo(target) }
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onManageRules),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.FindReplace, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text(
+                stringResource(TDMR.strings.novel_regex_find_replace),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            IconButton(onClick = onManageRules) {
+                Icon(Icons.Outlined.Edit, contentDescription = stringResource(TDMR.strings.novel_regex_find_replace))
+            }
+        }
+        Text(
+            stringResource(TDMR.strings.replacement_active_count, activeCount),
+            modifier = Modifier.padding(vertical = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 
     val cssSnippetsJson by screenModel.preferences.novelCustomCssSnippets.collectAsState()
     val jsSnippetsJson by screenModel.preferences.novelCustomJsSnippets.collectAsState()

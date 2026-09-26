@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -98,6 +99,13 @@ internal fun ReplacementRulesToolbar(
                 onChangeSearchQuery = onQuery,
                 navigateUp = onBack,
                 searchEnabled = hasRules,
+                actions = {
+                    if (!hasRules) {
+                        IconButton(onClick = {}, enabled = false) {
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(MR.strings.action_search))
+                        }
+                    }
+                },
                 titleContent = {
                     AppBarTitle(
                         title = stringResource(TDMR.strings.novel_regex_find_replace),

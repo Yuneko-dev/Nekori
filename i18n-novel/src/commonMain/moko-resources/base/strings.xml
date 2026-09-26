@@ -1395,6 +1395,7 @@
     <string name="replacement_scope_novel">This novel</string>
     <string name="replacement_scope_global">Global</string>
     <string name="replacement_remove_hint">Leave empty to remove matching content.</string>
+    <string name="replacement_active_count">Applying %d rules</string>
     <string name="replacement_empty_novel">No rules for this novel yet. Add a rule to replace or remove content only in this novel.</string>
     <string name="replacement_empty_global">No global rules yet. Global rules apply to every novel.</string>
     <string name="replacement_load_error">Could not read the saved rules. Your data has not been changed.</string>

@@ -1392,6 +1392,7 @@
     <string name="replacement_scope_novel">Truyện này</string>
     <string name="replacement_scope_global">Toàn cục</string>
     <string name="replacement_remove_hint">Để trống để xóa nội dung khớp.</string>
+    <string name="replacement_active_count">Đang áp dụng %d quy tắc</string>
     <string name="replacement_empty_novel">Chưa có quy tắc cho truyện này. Thêm quy tắc để thay thế hoặc xóa nội dung chỉ trong truyện này.</string>
     <string name="replacement_empty_global">Chưa có quy tắc toàn cục. Các quy tắc này áp dụng cho mọi truyện.</string>
     <string name="replacement_load_error">Không đọc được quy tắc đã lưu. Dữ liệu của bạn chưa bị thay đổi.</string>

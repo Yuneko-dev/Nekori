@@ -162,7 +162,11 @@ private fun NovelReaderSettingsDialog(
                                 1 -> NovelAppearanceTab(screenModel)
                                 2 -> NovelControlsTab(screenModel)
                                 3 -> NovelTtsTab(screenModel)
-                                4 -> NovelAdvancedTab(screenModel, onManageRules = { showRules = true })
+                                4 -> NovelAdvancedTab(
+                                    screenModel = screenModel,
+                                    target = manga?.let { ReplacementTarget(it.source, it.url) },
+                                    onManageRules = { showRules = true },
+                                )
                             }
                         }
                     }

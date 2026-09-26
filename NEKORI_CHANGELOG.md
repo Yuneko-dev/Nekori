@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Improved
+- Group advanced reader switches above a divider, place find-and-replace immediately below the divider and before CSS/JS snippets with the active rule count, and keep a disabled search icon in empty rule tabs.
+
 ### Changed
 - Show volume names without an added prefix in the Novel Details section picker; keep page labels for paged novels.
 
