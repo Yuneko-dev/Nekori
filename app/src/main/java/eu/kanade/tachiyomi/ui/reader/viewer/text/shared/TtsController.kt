@@ -224,25 +224,16 @@ class TtsController(
             .map(TtsTextUtils::normalizeText)
             .filter(String::isNotEmpty)
             .toList()
+        if (paragraphs.isEmpty()) {
+            stop()
+            return
+        }
         val chunkParagraphIndexes = mutableListOf<Int>()
 
-        val chunks = if (paragraphs.size > 1) {
-            paragraphs.flatMapIndexed { paragraphIndex, para ->
-                val c = if (para.length <= maxLength) {
-                    listOf(para)
-                } else {
-                    TtsTextUtils.splitTextForTts(para, maxLength)
-                }
-                repeat(c.size) { chunkParagraphIndexes.add(paragraphIndex) }
-                c
-            }
-        } else if (text.length <= maxLength) {
-            chunkParagraphIndexes.add(0)
-            listOf(text)
-        } else {
-            val c = TtsTextUtils.splitTextForTts(text, maxLength)
-            repeat(c.size) { chunkParagraphIndexes.add(0) }
-            c
+        val chunks = paragraphs.flatMapIndexed { paragraphIndex, paragraph ->
+            val chunks = TtsTextUtils.splitTextForTts(paragraph, maxLength)
+            repeat(chunks.size) { chunkParagraphIndexes.add(paragraphIndex) }
+            chunks
         }
         ttsChunks = chunks
         ttsChunkParagraphIndexes = chunkParagraphIndexes

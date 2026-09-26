@@ -2,16 +2,30 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
 object TtsTextUtils {
 
-    private val edgeQuotes = Regex("^[\"'“”‘’]+|[\"'“”‘’]+$")
-    private val whitespace = Regex("\\s+")
-    private val punctuationSpacing = Regex("\\s*([.,!?;:])\\s*")
+    // Shared with the WebView: extraction, selection and highlighting must omit the same paragraphs.
+    // Explicit whitespace keeps Java and JavaScript regex behavior identical (including NBSP/BOM).
+    internal val normalizationReplacements = listOf(
+        """[\u0009-\u000D\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]+""" to " ",
+        """^[ "'“”‘’]+|[ "'“”‘’]+$""" to "",
+        """\.{2,}""" to "…",
+        // Keep meaningful symbols and punctuation. Preserve format characters within words (ZWJ/ZWNJ).
+        (
+            """(?![%$+/@＠&=°§·…×÷<>≤≥≈≠±‰€£¥₹₩¢。、！？；：「」『』（）【】，．･＋／＝％＆＜＞￥＄〜～""" +
+                """√⁄⋅‱′″∞.,!?;:'"“”‘’‐‑‒–—―−⁓⸺⸻﹘﹣－-])[\p{S}\p{P}\p{Cc}\p{Cs}]"""
+            ) to " ",
+        " +" to " ",
+        """^[ "'“”‘’]+|[ "'“”‘’]+$""" to "",
+        """^(?:[‐‑‒–—―−⁓⸺⸻﹘﹣－-] *){3,}$""" to "",
+        // Emoji can leave variation selectors/joiners behind; these alone are not readable text.
+        """^[\p{M}\p{Cf} ]+$""" to "",
+    )
+    private val normalizationRegexes = normalizationReplacements.map { (pattern, replacement) ->
+        Regex(pattern) to replacement
+    }
 
-    /** Matches the text normalization used by LNReader before each native TTS request. */
-    fun normalizeText(text: String): String = text
-        .replace(edgeQuotes, "")
-        .replace(whitespace, " ")
-        .replace(punctuationSpacing, "\$1 ")
-        .trim()
+    fun normalizeText(text: String): String = normalizationRegexes.fold(text) { value, (regex, replacement) ->
+        value.replace(regex, replacement)
+    }
 
     fun splitTextForTts(text: String, maxLength: Int): List<String> {
         val chunks = mutableListOf<String>()

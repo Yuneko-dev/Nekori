@@ -20,6 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Improved
+- Clean decorative symbols and separator-only lines from TTS input without changing displayed text; preserve numeric punctuation and keep paragraph selection/highlighting aligned.
 - Group advanced reader switches above a divider, place find-and-replace immediately below the divider and before CSS/JS snippets with the active rule count, and keep a disabled search icon in empty rule tabs.
 
 ### Changed

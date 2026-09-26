@@ -27,9 +27,9 @@ class TtsTextUtilsTest {
     }
 
     @Test
-    fun `normalizeText matches LNReader punctuation and whitespace handling`() {
+    fun `normalizeText preserves punctuation spacing after collapsing whitespace`() {
         assertEquals(
-            "Hello, world! Next",
+            "Hello , world !Next",
             TtsTextUtils.normalizeText("“Hello  ,   world !Next”"),
         )
     }

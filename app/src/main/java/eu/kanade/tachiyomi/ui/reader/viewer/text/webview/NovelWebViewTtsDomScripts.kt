@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsTextUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_ID_ATTR
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TAG_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_CHAPTER_ATTR
@@ -108,7 +109,13 @@ internal object NovelWebViewTtsDomScripts {
         })();
     """
 
-    private const val HELPERS = """
+    private val normalizationScript = TtsTextUtils.normalizationReplacements.joinToString(
+        "\n",
+    ) { (pattern, replacement) ->
+        "text = text.replace(new RegExp(${quoteForJson(pattern)}, 'gu'), ${quoteForJson(replacement)});"
+    }
+
+    private val HELPERS = """
         var ttsReadableNodeNames = ['#text', 'B', 'I', 'SPAN', 'EM', 'BR', 'STRONG', 'A'];
         var ttsInternalElementIds = ['LNReader-title-novel'];
         var ttsSkippedNodeNames = ['STYLE', 'SCRIPT', 'NOSCRIPT', 'TEMPLATE', 'IFRAME'];
@@ -141,8 +148,8 @@ internal object NovelWebViewTtsDomScripts {
         }
         function ttsNormalizeText(text) {
             if (!text) return '';
-            return text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
-                .replace(/\s+/g, ' ').replace(/\s*([.,!?;:])\s*/g, '${'$'}1 ').trim();
+            $normalizationScript
+            return text;
         }
     """
 }
