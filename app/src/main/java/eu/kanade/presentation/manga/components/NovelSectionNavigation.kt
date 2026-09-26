@@ -152,14 +152,11 @@ fun NovelSectionNavigation(
                     ListItem(
                         headlineContent = {
                             Text(
-                                text = stringResource(
-                                    if (layout == NovelLayout.PAGED) {
-                                        TDMR.strings.novel_page_label
-                                    } else {
-                                        TDMR.strings.novel_volume_label
-                                    },
-                                    section,
-                                ),
+                                text = if (layout == NovelLayout.PAGED) {
+                                    stringResource(TDMR.strings.novel_page_label, section)
+                                } else {
+                                    section
+                                },
                             )
                         },
                         modifier = Modifier

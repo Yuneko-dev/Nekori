@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changed
+- Show volume names without an added prefix in the Novel Details section picker; keep page labels for paged novels.
+
 ### Fixed
 - Fix out-of-memory crashes when checking and restoring large LNReader v1/v2 backups: count library metadata with streaming JSON and restore one novel at a time instead of retaining every chapter in memory [#8](https://github.com/Yuneko-dev/Nekori/issues/8)
 - Read LNReader ZIPs through the document provider's file descriptor so unused cover/download payloads can be skipped without decompression on seekable files, with a stream fallback for providers without descriptors.
