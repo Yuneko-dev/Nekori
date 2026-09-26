@@ -14,6 +14,7 @@ import androidx.work.workDataOf
 import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -42,6 +44,10 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
         return try {
             setForegroundSafely()
             logcat(LogPriority.INFO) { "LNReaderImport: Worker started" }
+            if (!Injekt.get<SourceManager>().awaitInitialized()) {
+                logcat(LogPriority.WARN) { "LNReaderImport: Sources are not ready; retrying before restore" }
+                return Result.retry()
+            }
             val importer = LNReaderBackupImporter(context, notifier)
             val options = LNReaderBackupImporter.ImportOptions(
                 restoreNovels = inputData.getBoolean(KEY_RESTORE_NOVELS, true),
@@ -61,7 +67,7 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
 
             val summaryMessage = buildString {
                 append("Completed - ${result.novelCount} novels, ${result.categoryCount} categories, ")
-                append("${result.installedPluginCount} plugins, ${result.restoredDownloadCount} chapters, ")
+                append("${result.installedPluginCount} plugins, ${result.restoredDownloadCount} downloaded chapters, ")
                 append("${result.restoredCoverCount} covers, ")
                 append("${result.skippedCount} skipped, ${result.errorCount} errors")
                 if (result.missingPlugins.isNotEmpty()) {
@@ -97,7 +103,6 @@ class LNReaderImportJob(private val context: Context, workerParams: WorkerParame
                 Result.failure()
             }
         } finally {
-            logcat(LogPriority.INFO) { "LNReaderImport: Worker finished" }
             context.cancelNotification(Notifications.ID_RESTORE_PROGRESS)
             backupRestoreStatus.stop()
         }

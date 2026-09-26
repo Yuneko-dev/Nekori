@@ -20,6 +20,11 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Fixed
+- Fix out-of-memory crashes when checking and restoring large LNReader v1/v2 backups: count library metadata with streaming JSON and restore one novel at a time instead of retaining every chapter in memory [#8](https://github.com/Yuneko-dev/Nekori/issues/8)
+- Read LNReader ZIPs through the document provider's file descriptor so unused cover/download payloads can be skipped without decompression on seekable files, with a stream fallback for providers without descriptors.
+- Fix misleading LNReader import progress: show indeterminate progress while scanning metadata and use the actual novel-file total during restore. Label downloaded chapter counts explicitly in the completion message.
+- Preserve LNReader import cancellation, reject malformed preflight JSON and category metadata, clean temporary archives on validation failure, and wait for source initialization before restoring.
+- Fix archive stream reads with nonzero buffer offsets and zero-length reads.
 - Prevent a crash when automatic next-chapter translation fails, including while reading offline [#7](https://github.com/Yuneko-dev/Nekori/issues/7)
 
 ## [v0.1.0] - 2026-09-20

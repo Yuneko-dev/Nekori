@@ -41,3 +41,14 @@ class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
         Os.munmap(address, size)
     }
 }
+
+/** Reads a SAF descriptor directly, preserving native ZIP seeking without reopening a filesystem path. */
+suspend fun forEachArchiveEntry(pfd: ParcelFileDescriptor, block: suspend (ArchiveEntry, InputStream) -> Unit) {
+    ArchiveInputStream(pfd.fd).use { archive ->
+        var entry = archive.getNextEntry()
+        while (entry != null) {
+            block(entry, archive)
+            entry = archive.getNextEntry()
+        }
+    }
+}

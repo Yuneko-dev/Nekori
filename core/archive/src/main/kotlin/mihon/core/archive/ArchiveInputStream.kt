@@ -8,7 +8,11 @@ import java.nio.ByteBuffer
 import kotlin.concurrent.Volatile
 import mihon.core.archive.ArchiveEntry as MihonArchiveEntry
 
-internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
+internal class ArchiveInputStream private constructor(openArchive: (Long) -> Unit) : InputStream() {
+    constructor(buffer: Long, size: Long) : this({ Archive.readOpenMemoryUnsafe(it, buffer, size) })
+
+    /** Borrows the descriptor; its owner must keep it open for the lifetime of this stream. */
+    constructor(fd: Int) : this({ Archive.readOpenFd(it, fd, 64 * 1024L) })
     private val lock = Any()
 
     @Volatile
@@ -21,7 +25,7 @@ internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
             Archive.setCharset(archive, Charsets.UTF_8.name().toByteArray())
             Archive.readSupportFilterAll(archive)
             Archive.readSupportFormatAll(archive)
-            Archive.readOpenMemoryUnsafe(archive, buffer, size)
+            openArchive(archive)
         } catch (e: ArchiveException) {
             close()
             throw e
@@ -36,7 +40,8 @@ internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
     }
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
-        val buffer = ByteBuffer.wrap(b, off, len)
+        val buffer = ByteBuffer.wrap(b, off, len).slice()
+        if (len == 0) return 0
         read(buffer)
         return if (buffer.hasRemaining()) buffer.remaining() else -1
     }

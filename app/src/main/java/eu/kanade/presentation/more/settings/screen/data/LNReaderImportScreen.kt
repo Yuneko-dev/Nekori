@@ -34,6 +34,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.backup.restore.LNReaderBackupImporter
 import eu.kanade.tachiyomi.data.backup.restore.LNReaderImportJob
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CancellationException
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -49,7 +50,10 @@ class LNReaderImportScreen(private val uriString: String) : Screen() {
         LaunchedEffect(uriString) {
             state = runCatching {
                 PreflightState.Ready(LNReaderBackupImporter(context).preflight(uriString.toUri()))
-            }.getOrElse { PreflightState.Error(it.message ?: it::class.java.simpleName) }
+            }.getOrElse {
+                if (it is CancellationException) throw it
+                PreflightState.Error(it.message ?: it::class.java.simpleName)
+            }
         }
 
         Scaffold(

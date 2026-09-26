@@ -25,13 +25,14 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import logcat.LogPriority
 import mihon.core.archive.archiveReader
@@ -60,7 +61,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
@@ -225,29 +225,34 @@ class LNReaderBackupImporter(
     )
 
     suspend fun preflight(uri: Uri): PreflightSummary = withContext(Dispatchers.IO) {
-        val extracted = extractBackupData(uri, extractPluginArchive = false, extractNovelFilesArchive = false)
+        val summary = LNReaderLibrarySummary()
+        val extracted = extractBackupData(
+            uri,
+            extractPluginArchive = false,
+            extractNovelFilesArchive = false,
+            librarySummary = summary,
+        )
         PreflightSummary(
             appVersion = extracted.manifest.appVersion,
             formatVersion = extracted.manifest.formatVersion,
-            novelCount = extracted.novels.count { !it.isLocal },
-            localNovelCount = extracted.novels.count { it.isLocal },
-            chapterCount = extracted.novels.asSequence().filterNot { it.isLocal }.sumOf { it.chapters.size },
-            categoryCount = extracted.categories.size,
-            pluginCount = extracted.pluginMetadata.size,
-            downloadedChapterCount = extracted.novels.asSequence()
-                .filterNot { it.isLocal }
-                .sumOf { novel -> novel.chapters.count { it.isDownloaded } },
+            novelCount = summary.novelCount,
+            localNovelCount = summary.localNovelCount,
+            chapterCount = summary.chapterCount,
+            categoryCount = summary.categoryCount,
+            pluginCount = summary.pluginCount,
+            downloadedChapterCount = summary.downloadedChapterCount,
             hasLibrary = extracted.manifest.sections.library,
-            hasSettings = extracted.manifest.sections.settings && extracted.settings != null,
+            hasSettings = extracted.manifest.sections.settings && summary.hasSettings,
             hasPlugins = extracted.manifest.sections.plugins && extracted.hasPluginArchive,
             hasDownloadedFiles = extracted.manifest.sections.downloadedFiles && extracted.hasNovelFilesArchive,
-            hasApiKeys = extracted.apiKeys.isNotEmpty(),
+            hasApiKeys = summary.hasApiKeys,
         )
     }
 
     /**
      * Import an LNReader backup from the given URI.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     suspend fun import(uri: Uri, options: ImportOptions = ImportOptions()): ImportResult {
         errors.clear()
         var novelCount = 0
@@ -260,23 +265,16 @@ class LNReaderBackupImporter(
         val missingPlugins = mutableSetOf<String>()
         val placeholderPlugins = mutableSetOf<String>()
 
-        // Preflight must finish before any database or filesystem mutation.
-        logcat(LogPriority.INFO) { "LNReaderImport: Extracting and validating backup" }
+        // Validate the manifest and required sections before writing to the library.
         val extracted = extractBackupData(
             uri = uri,
             extractPluginArchive = options.restorePlugins || options.restoreNovels,
             extractNovelFilesArchive = options.restoreNovels &&
                 (options.restoreDownloadedChapters || options.restoreCovers || options.restoreLocalNovels),
         )
-        val novels = extracted.novels
-        val remoteNovels = novels.filterNot { it.isLocal }
         val categories = extracted.categories
 
         try {
-            logcat(LogPriority.INFO) {
-                "LNReaderImport: Found ${novels.size} novels, ${categories.size} categories (options: $options)"
-            }
-
             // Step 2: Restore categories FIRST
             val backupCategories = categories.map { lnCat ->
                 BackupCategory(
@@ -289,7 +287,6 @@ class LNReaderBackupImporter(
             if (options.restoreNovels && options.restoreCategories) {
                 categoriesRestorer(backupCategories)
                 categoryCount = categories.size
-                logcat(LogPriority.INFO) { "LNReaderImport: Restored $categoryCount categories" }
             }
 
             // Step 3: Install plugins
@@ -298,9 +295,6 @@ class LNReaderBackupImporter(
                 .toMutableMap()
             if (options.restorePlugins && extracted.repositories.isNotEmpty()) {
                 notifier?.showRestoreProgress("Restoring novel extension repositories", 0, 1)
-                logcat(LogPriority.INFO) {
-                    "LNReaderImport: Restoring ${extracted.repositories.size} novel extension repositories"
-                }
                 jsPluginManager.restoreRepositories(extracted.repositories)
             }
             val pluginMetadata = (jsPluginManager.availablePlugins.value + extracted.pluginMetadata)
@@ -308,7 +302,7 @@ class LNReaderBackupImporter(
                 .values
                 .toList()
             if ((options.restorePlugins || options.restoreNovels) && extracted.pluginArchiveFile != null) {
-                notifier?.showRestoreProgress("Restoring plugins", 0, 1)
+                notifier?.showRestoreProgress("Restoring plugins", indeterminate = true)
                 val restoredPlugins = installPluginsFromArchive(
                     extracted.pluginArchiveFile,
                     extracted.manifest.formatVersion,
@@ -319,7 +313,7 @@ class LNReaderBackupImporter(
                 backupPluginMetadata.putAll(restoredPlugins.metadataById)
             }
             if (options.restoreCompatibleSettings && extracted.settings != null) {
-                notifier?.showRestoreProgress("Restoring compatible settings", 0, 1)
+                notifier?.showRestoreProgress("Restoring compatible settings", indeterminate = true)
                 settingsRestorer.restore(
                     settings = extracted.settings,
                     apiKeys = extracted.apiKeys,
@@ -331,157 +325,125 @@ class LNReaderBackupImporter(
             // Step 4: Build plugin mapping
             val pluginIdToSourceId = buildPluginMapping().toMutableMap()
 
-            // Missing plugins get a stub. Backup metadata yields the real source ID, so installing the
-            // plugin later picks those novels up; without it the ID is synthetic and never matches, which
-            // is why [ImportOptions.restoreMissingPlugins] has to opt in to a manual migration afterwards.
-            val requiredPlugins = if (options.restoreNovels) remoteNovels.map { it.pluginId }.toSet() else emptySet()
-            val actualMissingPlugins = requiredPlugins.filter { resolveSourceId(pluginIdToSourceId, it) == null }
-            missingPlugins.addAll(actualMissingPlugins)
-
-            if (actualMissingPlugins.isNotEmpty()) {
-                actualMissingPlugins.forEach { pluginId ->
-                    val metadata = backupPluginMetadata[normalizePluginId(pluginId)]
-                    if (metadata == null && !options.restoreMissingPlugins) {
-                        errors.add(Date() to "Missing plugin '$pluginId': exact source ID cannot be derived")
-                        return@forEach
-                    }
-                    val stubSourceId = metadata?.sourceId() ?: generateStubSourceId(pluginId)
-                    try {
-                        stubSourceRepository.upsertStubSource(
-                            id = stubSourceId,
-                            lang = metadata?.lang ?: "unknown",
-                            name = metadata?.name ?: "$pluginId (Missing)",
-                            isNovel = true,
-                            isJs = true,
-                        )
-                        pluginIdToSourceId[normalizePluginId(pluginId)] = stubSourceId
-                        if (metadata == null) {
-                            placeholderPlugins.add(pluginId)
-                            errors.add(
-                                Date() to
-                                    "Missing plugin '$pluginId': imported onto placeholder source $stubSourceId; " +
-                                    "migrate these novels manually after installing the plugin",
-                            )
-                        }
-                        logcat(LogPriority.INFO) {
-                            "LNReaderImport: Created stub source for missing plugin '$pluginId' with ID $stubSourceId"
-                        }
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e) {
-                            "LNReaderImport: Failed to create stub source for '$pluginId'"
-                        }
-                        errors.add(Date() to "Failed to create stub source for '$pluginId': ${e.message}")
-                    }
-                }
-            }
-
-            // Build category name -> novel IDs mapping for assignment
             val novelIdToCategoryNames = mutableMapOf<Int, MutableList<String>>()
-            categories.forEach { cat ->
-                cat.novelIds.forEach { novelId ->
-                    novelIdToCategoryNames.getOrPut(novelId) { mutableListOf() }.add(cat.name)
+            categories.forEach { category ->
+                category.novelIds.forEach { id ->
+                    novelIdToCategoryNames.getOrPut(id) { mutableListOf() }.add(category.name)
                 }
             }
 
-            val novelsToRestore = if (options.restoreNovels) remoteNovels else emptyList()
-
-            // Pre-fetch existing manga mappings to avoid 2N DB lookups
-            val mangaCache = mutableMapOf<Pair<String, Long>, tachiyomi.domain.manga.model.Manga>()
-            novelsToRestore.forEach { novel ->
-                val sourceId = resolveSourceId(pluginIdToSourceId, novel.pluginId)
-                if (sourceId != null) {
-                    val dbManga = getMangaByUrlAndSourceId.await(novel.path, sourceId)
-                    if (dbManga != null) {
-                        mangaCache[novel.path to sourceId] = dbManga
-                    }
-                }
-            }
-
-            // Convert and restore novels
-            if (novelsToRestore.isNotEmpty()) {
-                notifier?.showRestoreProgress("Restoring novels", 0, novelsToRestore.size.coerceAtLeast(1))
-                coroutineScope {
-                    novelsToRestore.forEachIndexed { index, novel ->
-                        ensureActive()
+            // Metadata is validated first. Decode, persist and release one novel at a time.
+            if (options.restoreNovels) {
+                extracted.novelFilesArchiveFile?.let { java.util.zip.ZipFile(it) }.use { assetsZip ->
+                    val assetsByNovel = assetsZip?.indexNovelAssets(extracted.manifest.formatVersion)
+                        ?.groupBy { normalizePluginId(it.pluginId) to it.novelId }.orEmpty()
+                    val assetBudget = ArchiveSizeBudget(MAX_NOVEL_ASSET_TOTAL_BYTES)
+                    val jsonBudget = ArchiveSizeBudget(MAX_OUTER_EXPANDED_BYTES)
+                    notifier?.showRestoreProgress("Restoring novels", 0, extracted.novelFileCount)
+                    var processed = 0
+                    var lastProgress = 0L
+                    forEachLnReaderBackupEntry(context, uri) { entryName, isDirectory, input ->
+                        val name = validateLnReaderArchivePath(entryName, isDirectory)
+                        if (isDirectory || !name.startsWith("NovelAndChapters/") || !name.endsWith(".json")) {
+                            return@forEachLnReaderBackupEntry
+                        }
                         try {
-                            val sourceId = resolveSourceId(pluginIdToSourceId, novel.pluginId)
-                            if (sourceId == null) {
-                                skippedCount++
-                                errors.add(
-                                    Date() to
-                                        "${novel.name}: exact source ID for plugin '${novel.pluginId}' is unavailable; skipped",
-                                )
-                                return@forEachIndexed
-                            }
-
-                            notifier?.showRestoreProgress(
-                                novel.name,
-                                index + 1,
-                                novelsToRestore.size,
+                            val novel = json.decodeFromStream<LNNovel>(
+                                limitedEntryStream(input, MAX_JSON_BYTES, jsonBudget),
                             )
-
-                            val backupManga = convertNovel(
-                                novel,
-                                sourceId,
-                                novelIdToCategoryNames,
-                                backupCategories,
-                                includeChapters = options.restoreChapters,
-                                includeHistory = options.restoreHistory,
-                                includeCategories = options.restoreCategories,
-                            )
-
-                            val existingManga =
-                                mangaCache[novel.path to sourceId]
-                                    ?: getMangaByUrlAndSourceId.await(novel.path, sourceId)
-                            if (existingManga != null) {
-                                logcat(LogPriority.INFO) {
-                                    "LNReaderImport: Merging existing novel '${novel.name}' (id=${existingManga.id})"
+                            if (novel.name.isBlank()) return@forEachLnReaderBackupEntry
+                            val novelAssets = assetsByNovel[normalizePluginId(novel.pluginId) to novel.id].orEmpty()
+                            if (novel.isLocal) {
+                                if (options.restoreLocalNovels && assetsZip != null) {
+                                    val baseDir = localNovelFileSystem.getBaseDirectory()
+                                        ?: error("Local novel storage directory is not configured")
+                                    if (restoreLocalNovel(
+                                            assetsZip,
+                                            baseDir,
+                                            novel,
+                                            novelAssets,
+                                            assetBudget,
+                                            novelIdToCategoryNames,
+                                            backupCategories,
+                                            options,
+                                        )
+                                    ) {
+                                        novelCount++
+                                    }
                                 }
+                                return@forEachLnReaderBackupEntry
                             }
-                            mangaRestorer.restore(backupManga, backupCategories)
+
+                            var sourceId = resolveSourceId(pluginIdToSourceId, novel.pluginId)
+                            if (sourceId == null) {
+                                missingPlugins.add(novel.pluginId)
+                                val metadata = backupPluginMetadata[normalizePluginId(novel.pluginId)]
+                                if (metadata == null && !options.restoreMissingPlugins) {
+                                    skippedCount++
+                                    errors.add(
+                                        Date() to
+                                            "${novel.name}: exact source ID for plugin '${novel.pluginId}' is unavailable; skipped",
+                                    )
+                                    return@forEachLnReaderBackupEntry
+                                }
+                                sourceId = metadata?.sourceId() ?: generateStubSourceId(novel.pluginId)
+                                stubSourceRepository.upsertStubSource(
+                                    id = sourceId,
+                                    lang = metadata?.lang ?: "unknown",
+                                    name = metadata?.name ?: "${novel.pluginId} (Missing)",
+                                    isNovel = true,
+                                    isJs = true,
+                                )
+                                pluginIdToSourceId[normalizePluginId(novel.pluginId)] = sourceId
+                                if (metadata == null) placeholderPlugins.add(novel.pluginId)
+                            }
+                            mangaRestorer.restore(
+                                convertNovel(
+                                    novel,
+                                    sourceId,
+                                    novelIdToCategoryNames,
+                                    backupCategories,
+                                    includeChapters = options.restoreChapters,
+                                    includeHistory = options.restoreHistory,
+                                    includeCategories = options.restoreCategories,
+                                ),
+                                backupCategories,
+                            )
                             novelCount++
-                            logcat(LogPriority.DEBUG) {
-                                "LNReaderImport: Restored novel '${novel.name}' (${index + 1}/${novelsToRestore.size})"
+                            if (assetsZip != null && (options.restoreDownloadedChapters || options.restoreCovers)) {
+                                val restored = restoreDownloadedAssets(
+                                    assetsZip,
+                                    novel,
+                                    novelAssets,
+                                    sourceId,
+                                    options,
+                                    assetBudget,
+                                )
+                                restoredDownloadCount += restored.first
+                                restoredCoverCount += restored.second
                             }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            logcat(LogPriority.WARN, e) {
-                                "LNReaderImport: Failed to restore novel '${novel.name}' (${index + 1}/${novelsToRestore.size})"
+                            logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to restore $name" }
+                            errors.add(Date() to "$name: ${e.message}")
+                        } finally {
+                            processed++
+                            val now = System.currentTimeMillis()
+                            if (now - lastProgress >= 500 || processed == extracted.novelFileCount) {
+                                notifier?.showRestoreProgress(
+                                    "Restoring novels ($processed/${extracted.novelFileCount})",
+                                    processed,
+                                    extracted.novelFileCount,
+                                )
+                                lastProgress = now
                             }
-                            errors.add(Date() to "${novel.name} [${novel.pluginId}]: ${e.message}")
                         }
                     }
                 }
-            }
-            // Step 5: Restore downloaded chapter HTML and cached covers from LNReader download.zip
-            if (options.restoreNovels && (options.restoreDownloadedChapters || options.restoreCovers) &&
-                extracted.novelFilesArchiveFile != null
-            ) {
-                val restored = restoreDownloadedAssetsFromDownloadZip(
-                    extracted.novelFilesArchiveFile,
-                    remoteNovels,
-                    pluginIdToSourceId,
-                    options.restoreDownloadedChapters,
-                    options.restoreCovers,
-                    mangaCache,
-                    extracted.manifest.formatVersion,
-                )
-                restoredDownloadCount = restored.first
-                restoredCoverCount = restored.second
-            }
-            // Step 6: Restore local novels as files, which is where the local source reads them from.
-            if (options.restoreNovels && options.restoreLocalNovels && extracted.novelFilesArchiveFile != null) {
-                novelCount += restoreLocalNovels(
-                    extracted.novelFilesArchiveFile,
-                    novels.filter { it.isLocal },
-                    extracted.manifest.formatVersion,
-                    novelIdToCategoryNames,
-                    backupCategories,
-                    options,
-                )
             }
             if (options.restoreNovels) {
                 downloadCache.invalidateCache()
-                logcat(LogPriority.INFO) { "LNReaderImport: Refreshing library" }
                 getLibraryManga.refreshForced()
             }
         } finally {
@@ -515,11 +477,11 @@ class LNReaderBackupImporter(
     }
 
     /**
-     * Represents extracted backup data: novels, categories, and optional plugin zip bytes.
+     * Validated metadata and staged asset archives; chapter models are never retained here.
      */
     data class ExtractedBackup(
         val manifest: LNManifest,
-        val novels: List<LNNovel>,
+        val novelFileCount: Int,
         val categories: List<LNCategory>,
         val repositories: List<JsPluginRepository>,
         val pluginMetadata: List<JsPlugin>,
@@ -535,8 +497,9 @@ class LNReaderBackupImporter(
         uri: Uri,
         extractPluginArchive: Boolean,
         extractNovelFilesArchive: Boolean,
+        librarySummary: LNReaderLibrarySummary? = null,
     ): ExtractedBackup {
-        val novels = mutableListOf<LNNovel>()
+        var novelFileCount = 0
         var categories = emptyList<LNCategory>()
         var version: LNVersion? = null
         var repositories = emptyList<JsPluginRepository>()
@@ -551,142 +514,166 @@ class LNReaderBackupImporter(
         var hasNovelFilesArchive = false
         var hasPluginMetadataFile = false
         var lastNotifyTime = 0L
+        val stagedArchives = mutableListOf<File>()
         val outerBudget = ArchiveSizeBudget(MAX_OUTER_EXPANDED_BYTES)
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                var processedCount = 0
+            var processedCount = 0
+            forEachLnReaderBackupEntry(context, uri) { entryName, isDirectory, zip ->
+                currentCoroutineContext().ensureActive()
+                check(processedCount < MAX_OUTER_ENTRIES) { "LNReader backup has too many entries" }
+                val name = validateLnReaderArchivePath(entryName, isDirectory)
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastNotifyTime > 500) {
+                    notifier?.showRestoreProgress(
+                        "Reading backup metadata ($processedCount entries)",
+                        indeterminate = true,
+                    )
+                    lastNotifyTime = currentTime
+                }
 
-                ZipInputStream(inputStream).use { zip ->
-                    var entry = zip.nextEntry
-                    while (entry != null) {
-                        currentCoroutineContext().ensureActive()
-                        check(processedCount < MAX_OUTER_ENTRIES) { "LNReader backup has too many entries" }
-                        val name = validateLnReaderArchivePath(entry.name, entry.isDirectory)
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastNotifyTime > 500) {
-                            notifier?.showRestoreProgress("Extracting: $name", processedCount, processedCount + 100)
-                            lastNotifyTime = currentTime
+                when {
+                    name == "Version.json" -> {
+                        version =
+                            json.decodeFromString<LNVersion>(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
+                    }
+                    name == "Category.json" -> {
+                        if (librarySummary != null) {
+                            librarySummary.categoryCount =
+                                readLnReaderMetadataCount(limitedEntryStream(zip, MAX_JSON_BYTES, outerBudget))
+                        } else {
+                            categories = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
                         }
-
-                        when {
-                            name == "Version.json" -> {
-                                version =
-                                    json.decodeFromString<LNVersion>(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
-                            }
-                            name == "Category.json" -> {
-                                try {
-                                    categories = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
-                                } catch (e: Exception) {
-                                    logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to parse Category.json" }
-                                }
-                            }
-                            name.startsWith("NovelAndChapters/") && name.endsWith(".json") -> {
-                                try {
-                                    val novel = json.decodeFromString<LNNovel>(
-                                        readEntryText(zip, MAX_JSON_BYTES, outerBudget),
-                                    )
-                                    if (novel.name.isNotBlank()) {
-                                        novels.add(novel)
-                                    }
-                                } catch (e: Exception) {
-                                    logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to parse $name" }
-                                    errors.add(Date() to "Parse error for $name: ${e.message}")
-                                }
-                            }
-                            name == "Repository.json" -> {
-                                repositories = json.decodeFromString<List<LNRepository>>(
-                                    readEntryText(zip, MAX_JSON_BYTES, outerBudget),
-                                )
-                                    .map { JsPluginRepository(JsPluginRepository.nameFromUrl(it.url), it.url) }
-                            }
-                            name == "Plugins.json" -> {
-                                hasPluginMetadataFile = true
-                                pluginMetadata = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
-                            }
-                            name == "Setting.json" -> {
-                                settings = json.parseToJsonElement(
-                                    readEntryText(zip, MAX_JSON_BYTES, outerBudget),
-                                ).jsonObject
-                            }
-                            name == "ApiKeys.json" -> {
-                                apiKeys = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
-                            }
-                            name == "download.zip" -> {
-                                hasLegacyArchive = true
-                                if (extractPluginArchive || extractNovelFilesArchive) {
-                                    notifier?.showRestoreProgress("Extracting downloaded files", 0, 1)
-                                    logcat(LogPriority.INFO) { "LNReaderImport: Extracting legacy downloaded files" }
-                                    val tempFile = context.createFileInCacheDir("lnreader_download.zip")
-                                    copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
-                                    legacyArchiveFile = tempFile
-                                }
-                            }
-                            name == "plugins.zip" -> {
-                                hasPluginArchive = true
-                                if (extractPluginArchive) {
-                                    val tempFile = context.createFileInCacheDir("lnreader_plugins.zip")
-                                    copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
-                                    pluginArchiveFile = tempFile
-                                }
-                            }
-                            name == "novel-files.zip" -> {
-                                hasNovelFilesArchive = true
-                                if (extractNovelFilesArchive) {
-                                    notifier?.showRestoreProgress("Extracting downloaded files", 0, 1)
-                                    logcat(LogPriority.INFO) { "LNReaderImport: Extracting downloaded files" }
-                                    val tempFile = context.createFileInCacheDir("lnreader_novel_files.zip")
-                                    copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
-                                    novelFilesArchiveFile = tempFile
-                                }
-                            }
+                    }
+                    !isDirectory && name.startsWith("NovelAndChapters/") && name.endsWith(".json") -> {
+                        novelFileCount++
+                        if (librarySummary != null) {
+                            librarySummary.add(
+                                readLnReaderNovelSummary(limitedEntryStream(zip, MAX_JSON_BYTES, outerBudget)),
+                            )
                         }
-                        zip.closeEntry()
-                        entry = zip.nextEntry
-                        processedCount++
+                    }
+                    name == "Repository.json" && librarySummary == null -> {
+                        repositories = json.decodeFromString<List<LNRepository>>(
+                            readEntryText(zip, MAX_JSON_BYTES, outerBudget),
+                        )
+                            .map { JsPluginRepository(JsPluginRepository.nameFromUrl(it.url), it.url) }
+                    }
+                    name == "Plugins.json" -> {
+                        hasPluginMetadataFile = true
+                        if (librarySummary != null) {
+                            librarySummary.pluginCount =
+                                readLnReaderMetadataCount(limitedEntryStream(zip, MAX_JSON_BYTES, outerBudget))
+                        } else {
+                            pluginMetadata = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
+                        }
+                    }
+                    name == "Setting.json" -> {
+                        if (librarySummary != null) {
+                            readLnReaderMetadataCount(
+                                limitedEntryStream(zip, MAX_JSON_BYTES, outerBudget),
+                                objectRoot = true,
+                            )
+                            librarySummary.hasSettings = true
+                        } else {
+                            settings =
+                                json.parseToJsonElement(readEntryText(zip, MAX_JSON_BYTES, outerBudget)).jsonObject
+                        }
+                    }
+                    name == "ApiKeys.json" -> {
+                        if (librarySummary != null) {
+                            librarySummary.hasApiKeys = readLnReaderMetadataCount(
+                                limitedEntryStream(zip, MAX_JSON_BYTES, outerBudget),
+                                objectRoot = true,
+                            ) > 0
+                        } else {
+                            apiKeys = json.decodeFromString(readEntryText(zip, MAX_JSON_BYTES, outerBudget))
+                        }
+                    }
+                    name == "download.zip" -> {
+                        hasLegacyArchive = true
+                        if (extractPluginArchive || extractNovelFilesArchive) {
+                            notifier?.showRestoreProgress("Extracting downloaded files", indeterminate = true)
+                            val tempFile = File.createTempFile(
+                                "lnreader-download-",
+                                ".zip",
+                                context.cacheDir,
+                            ).also(stagedArchives::add)
+                            copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
+                            legacyArchiveFile = tempFile
+                        }
+                    }
+                    name == "plugins.zip" -> {
+                        hasPluginArchive = true
+                        if (extractPluginArchive) {
+                            val tempFile = File.createTempFile(
+                                "lnreader-plugins-",
+                                ".zip",
+                                context.cacheDir,
+                            ).also(stagedArchives::add)
+                            copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
+                            pluginArchiveFile = tempFile
+                        }
+                    }
+                    name == "novel-files.zip" -> {
+                        hasNovelFilesArchive = true
+                        if (extractNovelFilesArchive) {
+                            notifier?.showRestoreProgress("Extracting downloaded files", 0, 1)
+                            val tempFile = File.createTempFile(
+                                "lnreader-novel-files-",
+                                ".zip",
+                                context.cacheDir,
+                            ).also(stagedArchives::add)
+                            copyEntryToFile(zip, tempFile, MAX_NESTED_ARCHIVE_BYTES, outerBudget)
+                            novelFilesArchiveFile = tempFile
+                        }
                     }
                 }
+                processedCount++
             }
+            val parsedVersion = version ?: error("LNReader backup is missing Version.json")
+            val appVersion = parsedVersion.appVersion ?: parsedVersion.version
+                ?: error("LNReader backup has an invalid Version.json")
+            require(isSupportedLnReaderVersion(appVersion)) {
+                "LNReader $appVersion is not supported; version 2.0.2 or newer is required"
+            }
+            val formatVersion = parsedVersion.formatVersion ?: 1
+            require(formatVersion in 1..2) { "Unsupported LNReader backup format: $formatVersion" }
+            val sections = parsedVersion.sections ?: LNSections()
+            if (formatVersion == 2) {
+                require(!sections.plugins || (hasPluginMetadataFile && hasPluginArchive)) {
+                    "LNReader backup declares plugins but Plugins.json/plugins.zip is missing"
+                }
+                require(!sections.downloadedFiles || hasNovelFilesArchive) {
+                    "LNReader backup declares downloaded files but novel-files.zip is missing"
+                }
+            } else {
+                pluginArchiveFile = legacyArchiveFile.takeIf { extractPluginArchive }
+                novelFilesArchiveFile = legacyArchiveFile.takeIf { extractNovelFilesArchive }
+                hasPluginArchive = hasLegacyArchive
+                hasNovelFilesArchive = hasLegacyArchive
+            }
+
+            stagedArchives
+                .filterNot { it == pluginArchiveFile || it == novelFilesArchiveFile }
+                .forEach { it.delete() }
+            return ExtractedBackup(
+                manifest = LNManifest(appVersion, formatVersion, sections),
+                novelFileCount = novelFileCount,
+                categories = categories,
+                repositories = repositories,
+                pluginMetadata = pluginMetadata,
+                settings = settings,
+                apiKeys = apiKeys,
+                pluginArchiveFile = pluginArchiveFile,
+                novelFilesArchiveFile = novelFilesArchiveFile,
+                hasPluginArchive = hasPluginArchive,
+                hasNovelFilesArchive = hasNovelFilesArchive,
+            )
         } catch (e: Exception) {
-            listOf(legacyArchiveFile, pluginArchiveFile, novelFilesArchiveFile).forEach { it?.delete() }
+            stagedArchives.forEach { it.delete() }
             throw e
         }
-        val parsedVersion = version ?: error("LNReader backup is missing Version.json")
-        val appVersion = parsedVersion.appVersion ?: parsedVersion.version
-            ?: error("LNReader backup has an invalid Version.json")
-        require(isSupportedLnReaderVersion(appVersion)) {
-            "LNReader $appVersion is not supported; version 2.0.2 or newer is required"
-        }
-        val formatVersion = parsedVersion.formatVersion ?: 1
-        require(formatVersion in 1..2) { "Unsupported LNReader backup format: $formatVersion" }
-        val sections = parsedVersion.sections ?: LNSections()
-        if (formatVersion == 2) {
-            require(!sections.plugins || (hasPluginMetadataFile && hasPluginArchive)) {
-                "LNReader backup declares plugins but Plugins.json/plugins.zip is missing"
-            }
-            require(!sections.downloadedFiles || hasNovelFilesArchive) {
-                "LNReader backup declares downloaded files but novel-files.zip is missing"
-            }
-        } else {
-            pluginArchiveFile = legacyArchiveFile.takeIf { extractPluginArchive }
-            novelFilesArchiveFile = legacyArchiveFile.takeIf { extractNovelFilesArchive }
-            hasPluginArchive = hasLegacyArchive
-            hasNovelFilesArchive = hasLegacyArchive
-        }
-
-        return ExtractedBackup(
-            manifest = LNManifest(appVersion, formatVersion, sections),
-            novels = novels,
-            categories = categories,
-            repositories = repositories,
-            pluginMetadata = pluginMetadata,
-            settings = settings,
-            apiKeys = apiKeys,
-            pluginArchiveFile = pluginArchiveFile,
-            novelFilesArchiveFile = novelFilesArchiveFile,
-            hasPluginArchive = hasPluginArchive,
-            hasNovelFilesArchive = hasNovelFilesArchive,
-        )
     }
 
     private data class PluginFiles(
@@ -757,6 +744,7 @@ class LNReaderBackupImporter(
                     if (result.installed) installedCount++
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to install plugin '$pluginId'" }
                 errors.add(Date() to "Failed to install plugin '$pluginId': ${e.message}")
             }
@@ -764,158 +752,42 @@ class LNReaderBackupImporter(
         return PluginRestoreResult(installedCount, resolvedMetadata)
     }
 
-    private suspend fun restoreDownloadedAssetsFromDownloadZip(
-        zipFile: File,
-        novels: List<LNNovel>,
-        pluginIdToSourceId: Map<String, Long>,
-        restoreDownloadedChapters: Boolean,
-        restoreCovers: Boolean,
-        mangaCache: Map<Pair<String, Long>, tachiyomi.domain.manga.model.Manga>,
-        formatVersion: Int,
-    ): Pair<Int, Int> {
-        val startedAt = System.currentTimeMillis()
-        logcat(LogPriority.INFO) {
-            "LNReaderImport: Indexing downloaded assets (${zipFile.length()} bytes)"
-        }
-        notifier?.showRestoreProgress("Indexing downloaded assets", 0, 100)
-        val novelByPluginAndId = novels.associateBy { normalizePluginId(it.pluginId) to it.id }
-        val downloadedChapterByKey = buildMap {
-            novels.forEach { novel ->
-                novel.chapters
-                    .filter { it.isDownloaded }
-                    .forEach { chapter ->
-                        put(Triple(normalizePluginId(novel.pluginId), novel.id, chapter.id), chapter)
-                    }
-            }
-        }
-        var restoredChapters = 0
-        var restoredCovers = 0
-        var processedChapters = 0
-        var lastNotifyTime = 0L
-        val archiveBudget = ArchiveSizeBudget(MAX_NOVEL_ASSET_TOTAL_BYTES)
-        java.util.zip.ZipFile(zipFile).use { zip ->
-            val assets = zip.indexNovelAssets(formatVersion)
-            val assetsByNovel = assets.groupBy { normalizePluginId(it.pluginId) to it.novelId }
-            logcat(LogPriority.INFO) {
-                "LNReaderImport: Indexed ${assets.size} asset files for ${assetsByNovel.size} novels"
-            }
-
-            assetsByNovel.forEach { (key, novelAssets) ->
-                currentCoroutineContext().ensureActive()
-                val novel = novelByPluginAndId[key] ?: return@forEach
-                if (novel.isLocal) return@forEach
-                val sourceId = resolveSourceId(pluginIdToSourceId, novel.pluginId) ?: return@forEach
-                val manga = mangaCache[novel.path to sourceId]
-                    ?: getMangaByUrlAndSourceId.await(novel.path, sourceId)
-                    ?: return@forEach
-
-                val cachedCover = coverCache.getCustomCoverFile(manga.id)
-                if (restoreCovers && (!cachedCover.exists() || cachedCover.length() == 0L)) {
-                    val cover = novelAssets.firstOrNull {
-                        it.relativePath.size == 1 && it.relativePath.first().startsWith("cover.", true)
-                    }
-                    if (
-                        cover != null && zip.getInputStream(cover.entry).use {
-                            restoreCoverToCache(novel, manga, it, archiveBudget)
-                        }
-                    ) {
-                        restoredCovers++
-                    }
-                }
-
-                if (!restoreDownloadedChapters) return@forEach
-                val mangaDir = downloadProvider.getMangaDir(manga.title, sourceManager.getOrStub(sourceId)).getOrNull()
-                    ?: return@forEach
-                novelAssets.filter { it.relativePath.size >= 2 }
-                    .groupBy { it.relativePath.first().toIntOrNull() }
-                    .forEach chapterLoop@{ (chapterId, chapterAssets) ->
-                        val chapter = chapterId?.let {
-                            downloadedChapterByKey[Triple(key.first, key.second, it)]
-                        } ?: return@chapterLoop
-                        if (processedChapters % ASSET_PROGRESS_LOG_INTERVAL == 0) {
-                            logcat(LogPriority.INFO) {
-                                "LNReaderImport: Restoring chapter ${processedChapters + 1}/${downloadedChapterByKey.size} " +
-                                    "'${chapter.name}' (${chapterAssets.size} files)"
-                            }
-                        }
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastNotifyTime >= ASSET_PROGRESS_NOTIFY_INTERVAL_MS) {
-                            notifier?.showRestoreProgress(
-                                "Restoring assets: ${novel.name} - ${chapter.name}",
-                                processedChapters,
-                                downloadedChapterByKey.size.coerceAtLeast(1),
-                            )
-                            lastNotifyTime = currentTime
-                        }
-                        if (restoreDownloadedChapterArchive(zip, mangaDir, chapter, chapterAssets, archiveBudget)) {
-                            restoredChapters++
-                        }
-                        processedChapters++
-                    }
-            }
-        }
-        logcat(LogPriority.INFO) {
-            "LNReaderImport: Asset restore finished in ${System.currentTimeMillis() - startedAt} ms: " +
-                "$processedChapters processed, $restoredChapters restored, $restoredCovers covers"
-        }
-        return restoredChapters to restoredCovers
-    }
-
-    /**
-     * Writes local novels into the local source directory and restores their database rows.
-     *
-     * LNReader stores a local novel as `local/{novelId}/{chapterId}/index.html` with the assets those
-     * chapters share sitting at the novel root. The local source reads a novel directory as a flat list
-     * of chapter files, and resolves an image relative to the chapter's own directory without ever
-     * climbing above it, so the chapters are flattened into sibling files next to the assets they use.
-     *
-     * Every chapter is read, rewritten and written back one file at a time, so a backup holding several
-     * local novels spends most of the import here - the sample backup alone is 327 chapters for one novel.
-     */
-    private suspend fun restoreLocalNovels(
-        archiveFile: File,
-        novels: List<LNNovel>,
-        formatVersion: Int,
-        novelIdToCategoryNames: Map<Int, List<String>>,
-        backupCategories: List<BackupCategory>,
+    private suspend fun restoreDownloadedAssets(
+        zip: java.util.zip.ZipFile,
+        novel: LNNovel,
+        assets: List<NovelAsset>,
+        sourceId: Long,
         options: ImportOptions,
-    ): Int {
-        if (novels.isEmpty()) return 0
-        val baseDir = localNovelFileSystem.getBaseDirectory()
-        if (baseDir == null) {
-            errors.add(Date() to "Local novels skipped: no local novel storage directory is configured")
-            return 0
-        }
-        val budget = ArchiveSizeBudget(MAX_NOVEL_ASSET_TOTAL_BYTES)
-        var restored = 0
-        java.util.zip.ZipFile(archiveFile).use { zip ->
-            val assetsByNovel = zip.indexNovelAssets(formatVersion)
-                .filter { it.pluginId.equals(LOCAL_PLUGIN_ID, true) }
-                .groupBy { it.novelId }
-            novels.forEachIndexed { index, novel ->
-                currentCoroutineContext().ensureActive()
-                notifier?.showRestoreProgress("Restoring local novels", index + 1, novels.size)
-                try {
-                    val imported = restoreLocalNovel(
-                        zip,
-                        baseDir,
-                        novel,
-                        assetsByNovel[novel.id].orEmpty(),
-                        budget,
-                        novelIdToCategoryNames,
-                        backupCategories,
-                        options,
-                    )
-                    if (imported) restored++
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    logcat(LogPriority.WARN, e) { "LNReaderImport: Failed to restore local novel '${novel.name}'" }
-                    errors.add(Date() to "${novel.name} [local]: ${e.message}")
-                }
+        budget: ArchiveSizeBudget,
+    ): Pair<Int, Int> {
+        if (assets.isEmpty()) return 0 to 0
+        val manga = getMangaByUrlAndSourceId.await(novel.path, sourceId) ?: return 0 to 0
+        var covers = 0
+        var chapters = 0
+        val cachedCover = coverCache.getCustomCoverFile(manga.id)
+        if (options.restoreCovers && (!cachedCover.exists() || cachedCover.length() == 0L)) {
+            val cover = assets.firstOrNull {
+                it.relativePath.size == 1 && it.relativePath.first().startsWith("cover.", true)
+            }
+            if (cover != null &&
+                zip.getInputStream(cover.entry).use { restoreCoverToCache(novel, manga, it, budget) }
+            ) {
+                covers++
             }
         }
-        logcat(LogPriority.INFO) { "LNReaderImport: Restored $restored of ${novels.size} local novels" }
-        return restored
+        if (options.restoreDownloadedChapters) {
+            val mangaDir = downloadProvider.getMangaDir(manga.title, sourceManager.getOrStub(sourceId)).getOrNull()
+                ?: return 0 to covers
+            val downloaded = novel.chapters.filter { it.isDownloaded }.associateBy { it.id }
+            assets.filter { it.relativePath.size >= 2 }
+                .groupBy { it.relativePath.first().toIntOrNull() }
+                .forEach { (id, chapterAssets) ->
+                    currentCoroutineContext().ensureActive()
+                    val chapter = downloaded[id] ?: return@forEach
+                    if (restoreDownloadedChapterArchive(zip, mangaDir, chapter, chapterAssets, budget)) chapters++
+                }
+        }
+        return chapters to covers
     }
 
     private suspend fun restoreLocalNovel(
@@ -1002,9 +874,6 @@ class LNReaderBackupImporter(
             ),
             backupCategories,
         )
-        logcat(LogPriority.DEBUG) {
-            "LNReaderImport: Restored local novel '${novel.name}' as '$novelDirName' (${written.size} chapters)"
-        }
         return true
     }
 
@@ -1375,6 +1244,30 @@ class LNReaderBackupImporter(
         }
     }
 
+    /** Keep streaming JSON reads cancellable and subject to the same archive limits as extraction. */
+    private suspend fun limitedEntryStream(input: InputStream, maxBytes: Long, budget: ArchiveSizeBudget): InputStream {
+        val coroutineContext = currentCoroutineContext()
+        return object : InputStream() {
+            private var consumed = 0L
+
+            override fun read(): Int {
+                val buffer = ByteArray(1)
+                return if (read(buffer, 0, 1) < 0) -1 else buffer[0].toInt() and 0xff
+            }
+
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                coroutineContext.ensureActive()
+                val read = input.read(buffer, offset, length)
+                if (read > 0) {
+                    consumed += read
+                    require(consumed <= maxBytes) { "Archive entry exceeds size limit" }
+                    budget.consume(read.toLong())
+                }
+                return read
+            }
+        }
+    }
+
     private suspend fun readEntryText(
         input: InputStream,
         maxBytes: Long,
@@ -1443,8 +1336,6 @@ class LNReaderBackupImporter(
         const val MAX_OUTER_EXPANDED_BYTES = 5L * 1024 * 1024 * 1024
         const val MAX_PLUGIN_ARCHIVE_EXPANDED_BYTES = 512L * 1024 * 1024
         const val MAX_NOVEL_ASSET_TOTAL_BYTES = 16L * 1024 * 1024 * 1024
-        const val ASSET_PROGRESS_LOG_INTERVAL = 25
-        const val ASSET_PROGRESS_NOTIFY_INTERVAL_MS = 500L
         val DATE_FORMATS =
             listOf("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd")
         val HTML_EXTENSIONS = setOf("html", "htm", "xhtml")

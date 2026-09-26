@@ -97,9 +97,10 @@ class BackupNotifier(private val context: Context) {
         progress: Int = 0,
         maxAmount: Int = 100,
         sync: Boolean = false,
+        indeterminate: Boolean = false,
     ): NotificationCompat.Builder {
         if (!sync) {
-            backupRestoreStatus.updateProgress(progress, maxAmount)
+            backupRestoreStatus.updateProgress(progress, if (indeterminate) 0 else maxAmount)
         }
         val builder = with(progressNotificationBuilder) {
             val contentTitle = if (sync) {
@@ -113,7 +114,7 @@ class BackupNotifier(private val context: Context) {
                 setContentText(content)
             }
 
-            setProgress(maxAmount, progress, false)
+            setProgress(maxAmount, progress, indeterminate)
             setOnlyAlertOnce(true)
 
             clearActions()
