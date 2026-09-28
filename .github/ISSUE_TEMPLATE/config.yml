@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: ❌ Help with Extensions
-    url: https://tsundoku-otaku.github.io/docs/faq/browse/extensions
+    url: https://nekori.yuneko.dev/docs/faq/browse/extensions
     about: For extension-related questions/issues
-  - name: 🖥️ Tsundoku website
-    url: https://tsundoku-otaku.github.io/
+  - name: 🖥️ Nekori website
+    url: https://nekori.yuneko.dev/
     about: Guides, troubleshooting, and answers to common questions

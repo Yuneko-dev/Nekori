@@ -388,7 +388,7 @@ class LibraryUpdateNotifier(
 
     companion object {
         const val HELP_WARNING_URL =
-            "https://tsundoku-otaku.github.io/docs/faq/library#why-am-i-warned-about-large-bulk-updates-and-downloads"
+            "https://nekori.yuneko.dev/docs/faq/library#why-am-i-warned-about-large-bulk-updates-and-downloads"
     }
 }
 

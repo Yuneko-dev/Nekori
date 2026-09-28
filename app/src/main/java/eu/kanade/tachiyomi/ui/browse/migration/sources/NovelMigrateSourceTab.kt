@@ -31,7 +31,7 @@ fun Screen.novelMigrateSourceTab(): TabContent {
                 title = stringResource(MR.strings.migration_help_guide),
                 icon = Icons.AutoMirrored.Outlined.HelpOutline,
                 onClick = {
-                    uriHandler.openUri("https://tsundoku-otaku.github.io/docs/guides/source-migration")
+                    uriHandler.openUri("https://nekori.yuneko.dev/docs/guides/source-migration")
                 },
             ),
         ),

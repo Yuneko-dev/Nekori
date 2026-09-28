@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changed
+- Changed Nekori's official website domain and updated related source files and GitHub Actions workflows accordingly.
+
 ## [v0.1.1] - 2026-09-27
 
 ### Added

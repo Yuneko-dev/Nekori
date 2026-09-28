@@ -531,7 +531,7 @@ class LocalNovelSource : CatalogueSource, UnmeteredSource {
 
     companion object {
         const val ID = 1L // Different from LocalSource ID (0L)
-        const val HELP_URL = "https://tsundoku-otaku.github.io/docs/guides/local-source/novels"
+        const val HELP_URL = "https://nekori.yuneko.dev/docs/guides/local-source"
 
         private val LATEST_THRESHOLD = 7.days.inWholeMilliseconds
 
