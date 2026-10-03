@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import com.hippo.unifile.UniFile
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -83,6 +84,40 @@ class ChapterContentReaderTest {
         assertArrayEquals(byteArrayOf(1, 2, 3), export.images.getValue("cover.jpg"))
         verify(exactly = 1) { archive.forEachEntry(any()) }
         verify(exactly = 0) { archive.getInputStream(any()) }
+    }
+
+    @Test
+    fun `text scan reuses a resolved directory without loading image data or querying every image`() {
+        val contentUri = mockk<Uri>()
+        val imageUri = mockk<Uri>()
+        val directory = directory(file("001.html", contentUri), file("cover.jpg", imageUri))
+        every { directory.name } returns "chapter"
+        every { resolver.openInputStream(contentUri) } returns stream("<p>Text</p><img src=\"cover.jpg\">")
+
+        assertTrue(reader.readDownloadedContent(directory)!!.contains("tsundoku-novel-image://cover.jpg"))
+        verify(exactly = 1) { directory.listFiles() }
+        verify(exactly = 0) { directory.findFile(any()) }
+        verify(exactly = 0) { resolver.openInputStream(imageUri) }
+    }
+
+    @Test
+    fun `text scan reads archive text in one pass without consuming images`() {
+        val archive = mockk<ArchiveReader>()
+        val imageStream = mockk<InputStream>()
+        every { archive.forEachEntry(any()) } answers {
+            val visit = firstArg<(ArchiveEntry, InputStream) -> Unit>()
+            visit(ArchiveEntry("002.html", true), stream("<p>Second</p>"))
+            visit(ArchiveEntry("cover.jpg", true), imageStream)
+            visit(ArchiveEntry("001.html", true), stream("<p>First</p><img src=\"cover.jpg\">"))
+        }
+
+        val result = reader.readExportContentFromArchive(archive, includeImages = false)!!
+        assertTrue(result.content.startsWith("<p>First</p>"))
+        assertTrue(result.content.endsWith("<p>Second</p>"))
+        assertTrue(result.images.isEmpty())
+        verify(exactly = 1) { archive.forEachEntry(any()) }
+        verify(exactly = 0) { archive.getInputStream(any()) }
+        verify { imageStream wasNot Called }
     }
 
     private fun directory(vararg files: UniFile): UniFile = mockk {

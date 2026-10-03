@@ -185,6 +185,16 @@ class ReaderViewModel @JvmOverloads constructor(
     val mangaId = savedState.get<Long>("manga") ?: -1L
     private val initialChapterId = savedState.get<Long>("chapter") ?: -1L
 
+    fun takeInitialPosition(chapterId: Long): Float? =
+        if (chapterId == initialChapterId) {
+            savedState.get<Float>(ReaderActivity.INITIAL_POSITION)?.also {
+                // Keep the null in saved state so process restoration cannot replay the launch default.
+                savedState[ReaderActivity.INITIAL_POSITION] = null
+            }?.takeIf { it.isFinite() && it in 0f..1f }
+        } else {
+            null
+        }
+
     val hasValidArgs = isPreview || (mangaId != -1L && initialChapterId != -1L)
 
     private val eventChannel = Channel<Event>()

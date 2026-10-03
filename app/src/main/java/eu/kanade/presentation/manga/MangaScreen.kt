@@ -128,6 +128,8 @@ fun MangaScreen(
     onTranslateClicked: (() -> Unit)? = null,
     onTranslateDownloadedClicked: (() -> Unit)? = null,
     onExportEpubClicked: (() -> Unit)? = null,
+    onSearchChaptersClicked: (() -> Unit)? = null,
+    onWordCountClicked: (() -> Unit)? = null,
     showSourceName: Boolean = true,
     onToggleSourceNameVisibility: (() -> Unit)? = null,
 
@@ -194,6 +196,8 @@ fun MangaScreen(
             onTranslateClicked = onTranslateClicked,
             onTranslateDownloadedClicked = onTranslateDownloadedClicked,
             onExportEpubClicked = onExportEpubClicked,
+            onSearchChaptersClicked = onSearchChaptersClicked,
+            onWordCountClicked = onWordCountClicked,
             showSourceName = showSourceName,
             onToggleSourceNameVisibility = onToggleSourceNameVisibility,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
@@ -247,6 +251,8 @@ fun MangaScreen(
             onTranslateClicked = onTranslateClicked,
             onTranslateDownloadedClicked = onTranslateDownloadedClicked,
             onExportEpubClicked = onExportEpubClicked,
+            onSearchChaptersClicked = onSearchChaptersClicked,
+            onWordCountClicked = onWordCountClicked,
             showSourceName = showSourceName,
             onToggleSourceNameVisibility = onToggleSourceNameVisibility,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
@@ -310,6 +316,8 @@ private fun MangaScreenSmallImpl(
     onTranslateClicked: (() -> Unit)?,
     onTranslateDownloadedClicked: (() -> Unit)?,
     onExportEpubClicked: (() -> Unit)?,
+    onSearchChaptersClicked: (() -> Unit)?,
+    onWordCountClicked: (() -> Unit)?,
     showSourceName: Boolean,
     onToggleSourceNameVisibility: (() -> Unit)?,
 
@@ -382,6 +390,8 @@ private fun MangaScreenSmallImpl(
                 onClickTranslate = onTranslateClicked,
                 onClickTranslateDownloaded = onTranslateDownloadedClicked,
                 onClickExportEpub = onExportEpubClicked,
+                onClickSearchChapters = onSearchChaptersClicked,
+                onClickWordCount = onWordCountClicked,
                 onClickScrollToTop = {
                     scrollScope.launch { chapterListState.animateScrollToItem(0) }
                 },
@@ -491,6 +501,7 @@ private fun MangaScreenSmallImpl(
                             onAddToLibraryClicked = onAddToLibraryClicked,
                             onWebViewClicked = onWebViewClicked,
                             onWebViewLongClicked = onWebViewLongClicked,
+                            onSearchChaptersClicked = onSearchChaptersClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
@@ -619,6 +630,8 @@ fun MangaScreenLargeImpl(
     onTranslateClicked: (() -> Unit)?,
     onTranslateDownloadedClicked: (() -> Unit)?,
     onExportEpubClicked: (() -> Unit)?,
+    onSearchChaptersClicked: (() -> Unit)?,
+    onWordCountClicked: (() -> Unit)?,
     showSourceName: Boolean,
     onToggleSourceNameVisibility: (() -> Unit)?,
 
@@ -684,6 +697,8 @@ fun MangaScreenLargeImpl(
                 onClickTranslate = onTranslateClicked,
                 onClickTranslateDownloaded = onTranslateDownloadedClicked,
                 onClickExportEpub = onExportEpubClicked,
+                onClickSearchChapters = onSearchChaptersClicked,
+                onClickWordCount = onWordCountClicked,
                 onClickScrollToTop = {
                     scrollScope.launch { chapterListState.animateScrollToItem(0) }
                 },
@@ -788,6 +803,7 @@ fun MangaScreenLargeImpl(
                             onAddToLibraryClicked = onAddToLibraryClicked,
                             onWebViewClicked = onWebViewClicked,
                             onWebViewLongClicked = onWebViewLongClicked,
+                            onSearchChaptersClicked = onSearchChaptersClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,

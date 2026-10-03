@@ -21,6 +21,7 @@ import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.manga.model.WordDensity
 import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.domain.manga.model.downloadedFilter
 import eu.kanade.domain.track.interactor.AddTracks
@@ -31,8 +32,10 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.tachiyomi.data.download.ChapterContentReader
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.epub.EpubExportJob
 import eu.kanade.tachiyomi.data.library.LibraryClearJob
@@ -42,6 +45,7 @@ import eu.kanade.tachiyomi.data.translation.TranslationJob
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.network.interceptor.InteractiveRateLimitBypass
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.source.rateLimitHost
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
@@ -52,6 +56,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -1533,12 +1538,20 @@ class MangaViewModel(
         data object ClearCustomInfo : Dialog
         data class TranslateMangaDetails(val manga: Manga) : Dialog
         data class ExportEpub(val manga: Manga, val chapters: List<Chapter>) : Dialog
+
+        /** [result] is null while counting is in progress. */
+        data class WordCount(
+            val checkedChapters: Int,
+            val chaptersToCount: Int,
+            val result: WordDensity? = null,
+        ) : Dialog
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullCover : Dialog
     }
 
     fun dismissDialog() {
+        wordCountJob?.cancel()
         updateSuccessState { it.copy(dialog = null) }
     }
 
@@ -1702,6 +1715,72 @@ class MangaViewModel(
             it.downloadState == Download.State.DOWNLOADED || it.hasTranslation
         }.map { it.chapter }
         updateSuccessState { it.copy(dialog = Dialog.ExportEpub(manga, exportableChapters)) }
+    }
+
+    private var wordCountJob: Job? = null
+
+    /**
+     * Count the words of every downloaded chapter (every chapter for local entries) off the main
+     * thread, reporting progress and the resulting [WordDensity] through [Dialog.WordCount].
+     */
+    fun showWordCountDialog() {
+        val state = successState ?: return
+        val manga = state.manga
+        val isLocalEntry = manga.isLocal() || manga.isLocalNovel()
+        val chapters = state.readableChapters.map { it.chapter }
+        val totalChapters = state.processedChapters.size
+
+        wordCountJob?.cancel()
+        updateSuccessState {
+            it.copy(dialog = Dialog.WordCount(checkedChapters = 0, chaptersToCount = chapters.size))
+        }
+        if (chapters.isEmpty()) return
+
+        wordCountJob = viewModelScope.launchIO {
+            val source = sourceManager.getOrStub(manga.source)
+            val contentReader = ChapterContentReader(context, Injekt.get<DownloadProvider>())
+            val chapterFiles = if (isLocalEntry) emptyMap() else contentReader.findChapterFiles(manga, chapters, source)
+            var totalWords = 0L
+            var countedChapters = 0
+            var unreadableChapters = 0
+            chapters.forEachIndexed { index, chapter ->
+                ensureActive()
+                val content = try {
+                    if (isLocalEntry) {
+                        source.fetchPageText(Page(0, chapter.url))
+                    } else {
+                        chapterFiles[chapter.id]?.let(contentReader::readDownloadedContent)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN, e) { "Word count: failed to read chapter ${chapter.name}" }
+                    null
+                }
+                if (content != null) {
+                    totalWords += WordDensity.countWords(content)
+                    countedChapters++
+                } else {
+                    unreadableChapters++
+                }
+                ensureActive()
+                updateWordCountDialog { it.copy(checkedChapters = index + 1) }
+            }
+            val result = WordDensity(
+                totalWords = totalWords,
+                countedChapters = countedChapters,
+                totalChapters = totalChapters,
+                unreadableChapters = unreadableChapters,
+            )
+            updateWordCountDialog { it.copy(result = result) }
+        }
+    }
+
+    private inline fun updateWordCountDialog(func: (Dialog.WordCount) -> Dialog.WordCount) {
+        updateSuccessState { state ->
+            val dialog = state.dialog as? Dialog.WordCount ?: return@updateSuccessState state
+            state.copy(dialog = func(dialog))
+        }
     }
 
     /**
@@ -1954,6 +2033,12 @@ class MangaViewModel(
         ) : State {
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()
+            }
+
+            /** One scope for the offline tools and their menu visibility. */
+            val readableChapters by lazy {
+                val readsLocally = manga.isLocal() || manga.isLocalNovel()
+                processedChapters.filter { readsLocally || it.isDownloaded }
             }
 
             val sectionNames by lazy {

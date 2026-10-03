@@ -13,15 +13,20 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 ### Added
 - Webview paged reader [@mrissaoussama](https://github.com/mrissaoussama) [#420](https://github.com/tsundoku-otaku/tsundoku/pull/420)
+- Search text (optionally regex) across all downloaded chapters of an entry [@RibatTRW](https://github.com/RibatTRW) [#433](https://github.com/tsundoku-otaku/tsundoku/issues/433)
+- Word count and word density indicator for downloaded novel chapters [@RibatTRW](https://github.com/RibatTRW) [#434](https://github.com/tsundoku-otaku/tsundoku/pull/434)
 
 
 ### Improved
 - TTS media notification for pause/resume with headset buttons. Old notification available in advanced settings. [@mrissaoussama](https://github.com/mrissaoussama) [#421](https://github.com/tsundoku-otaku/tsundoku/pull/421)
 
 ### Fixed
+- Fix "Update all" doing nothing on the novel extensions screen when JS plugin updates are pending [@RibatTRW](https://github.com/RibatTRW) [#431](https://github.com/tsundoku-otaku/tsundoku/pull/431)
 - EPUB parser no longer includes novel title in chapter title [@mrissaoussama](https://github.com/mrissaoussama) [#422](https://github.com/tsundoku-otaku/tsundoku/pull/422)
 - Fix extension restoring from cold state [@mrissaoussama](https://github.com/mrissaoussama) [#422](https://github.com/tsundoku-otaku/tsundoku/pull/422)
 - Fix manga custom metadata reset on refresh [@mrissaoussama](https://github.com/mrissaoussama) [#423](https://github.com/tsundoku-otaku/tsundoku/pull/423)
+- Font family selector dialog is now scrollable and long font names no longer squash the setting label [#427](https://github.com/tsundoku-otaku/tsundoku/issues/427)
+- Fix novel reader crash when opening a chapter on Android 8.0/8.1 [@RibatTRW](https://github.com/RibatTRW) [#432](https://github.com/tsundoku-otaku/tsundoku/pull/432)
 
 
 ## [v0.3.3] - 2026-08-30

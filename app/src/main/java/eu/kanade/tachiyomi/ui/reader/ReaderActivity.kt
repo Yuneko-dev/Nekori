@@ -154,10 +154,15 @@ class ReaderActivity : BaseActivity() {
         fun newPreviewIntent(context: Context): Intent =
             Intent(context, ReaderActivity::class.java).putExtra(NovelReaderPreview.EXTRA, true)
 
-        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
+        const val INITIAL_POSITION = "initial_position"
+
+        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?, initialPosition: Float? = null): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
+                initialPosition?.takeIf { it.isFinite() && it in 0f..1f }?.let {
+                    putExtra(INITIAL_POSITION, it)
+                }
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
@@ -308,9 +313,16 @@ class ReaderActivity : BaseActivity() {
         dismissFindInPageIme()
     }
 
-    /**
-     * Called when the activity is created. Initializes the presenter and configuration.
-     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.hasExtra(INITIAL_POSITION)) {
+            // singleTask can reuse an existing reader whose ViewModel owns different launch arguments.
+            finish()
+            startActivity(intent)
+        }
+    }
+
+    /** Called when the activity is created. Initializes the presenter and configuration. */
     override fun onCreate(savedInstanceState: Bundle?) {
         registerSecureActivity(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -673,7 +685,13 @@ class ReaderActivity : BaseActivity() {
                         onHeightChanged = { statusBarHeightPx = it },
                         modifier = Modifier
                             .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
-                            .then(if (statusBarAtBottom) Modifier.navigationBarsPadding() else Modifier.statusBarsPadding()),
+                            .then(
+                                if (statusBarAtBottom) {
+                                    Modifier.navigationBarsPadding()
+                                } else {
+                                    Modifier.statusBarsPadding()
+                                },
+                            ),
                     )
                 }
             }

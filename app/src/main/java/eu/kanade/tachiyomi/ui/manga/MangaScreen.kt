@@ -57,6 +57,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.NovelGlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
+import eu.kanade.tachiyomi.ui.manga.search.ChapterSearchScreen
 import eu.kanade.tachiyomi.ui.manga.track.TrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
@@ -241,6 +242,14 @@ class MangaScreen(
                 null
             },
             onExportEpubClicked = viewModel::showExportEpubDialog.takeIf { successState.isNovel },
+            onSearchChaptersClicked = {
+                navigator.push(
+                    ChapterSearchScreen(successState.manga.id, successState.readableChapters.map { it.id }),
+                )
+            }.takeIf { successState.isNovel && successState.readableChapters.isNotEmpty() },
+            onWordCountClicked = viewModel::showWordCountDialog.takeIf {
+                successState.isNovel && successState.readableChapters.isNotEmpty()
+            },
             showSourceName = successState.showSourceName,
             onToggleSourceNameVisibility = viewModel::toggleSourceNameVisibility,
             onMultiBookmarkClicked = viewModel::bookmarkChapters,
@@ -469,6 +478,14 @@ class MangaScreen(
                     onExport = { uri, options ->
                         viewModel.exportAsEpub(dialog.manga, dialog.chapters, uri, options)
                     },
+                )
+            }
+            is MangaViewModel.Dialog.WordCount -> {
+                eu.kanade.presentation.manga.components.WordCountDialog(
+                    checkedChapters = dialog.checkedChapters,
+                    chaptersToCount = dialog.chaptersToCount,
+                    result = dialog.result,
+                    onDismissRequest = onDismissRequest,
                 )
             }
         }

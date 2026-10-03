@@ -1398,4 +1398,24 @@
     <string name="replacement_load_error">Không đọc được quy tắc đã lưu. Dữ liệu của bạn chưa bị thay đổi.</string>
     <string name="replacement_save_conflict">Quy tắc đã thay đổi bên ngoài màn hình này. Đóng để bỏ các chỉnh sửa tại đây, rồi mở lại để tải dữ liệu mới nhất.</string>
     <string name="replacement_delete_selected">Xóa %d quy tắc đã chọn?</string>
+    <string name="action_search_chapters">Tìm trong chương</string>
+    <string name="chapter_search_hint">Tìm trong các chương đã tải…</string>
+    <string name="chapter_search_progress">Đã tìm trong %1$d trên %2$d chương</string>
+    <string name="chapter_search_no_chapters">Không có chương đã tải để tìm kiếm</string>
+    <string name="chapter_search_empty">Tìm nội dung trong các chương đã tải thuộc bộ lọc hiện tại</string>
+    <string name="chapter_search_open_match">Đến đoạn khớp</string>
+    <string name="action_word_count">Số từ</string>
+    <string name="word_count_progress">Đang đếm từ trong %1$d trên %2$d chương…</string>
+    <string name="word_count_no_downloads">Không có chương đã tải để đếm từ.</string>
+    <string name="word_count_unreadable">Không đọc được nội dung của các chương.</string>
+    <string name="word_count_total_words">Tổng số từ</string>
+    <string name="word_count_average_words">Số từ trung bình mỗi chương</string>
+    <string name="word_count_chapters_counted">Số chương đã đếm</string>
+    <string name="word_count_chapters_counted_value">%1$s trên %2$s</string>
+    <string name="word_count_not_downloaded">%1$s trên %2$s chương chưa được tải nên không được tính.</string>
+    <string name="word_count_unreadable_some">Không đọc được %1$s trên %2$s chương nên đã bỏ qua.</string>
+    <string name="word_density_indicator">Mật độ từ: bậc %1$d</string>
+    <string name="word_density_indicator_range">Bậc mật độ từ %1$d trên %2$d: trung bình %3$s–%4$s từ mỗi chương.</string>
+    <string name="word_density_indicator_range_top">Bậc mật độ từ %1$d trên %2$d: trung bình trên %3$s từ mỗi chương.</string>
+    <string name="chapter_search_regex_hint">Cú pháp RE2: không hỗ trợ lookaround và tham chiếu ngược.</string>
 </resources>

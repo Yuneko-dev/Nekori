@@ -43,6 +43,8 @@ fun MangaToolbar(
     onClickTranslate: (() -> Unit)? = null,
     onClickTranslateDownloaded: (() -> Unit)? = null,
     onClickExportEpub: (() -> Unit)? = null,
+    onClickSearchChapters: (() -> Unit)? = null,
+    onClickWordCount: (() -> Unit)? = null,
     onClickScrollToTop: (() -> Unit)? = null,
     onClickScrollToBottom: (() -> Unit)? = null,
 
@@ -213,11 +215,27 @@ fun MangaToolbar(
                             ),
                         )
                     }
+                    if (onClickSearchChapters != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(TDMR.strings.action_search_chapters),
+                                onClick = onClickSearchChapters,
+                            ),
+                        )
+                    }
                     if (onClickExportEpub != null) {
                         add(
                             AppBar.OverflowAction(
                                 title = stringResource(TDMR.strings.action_export_epub),
                                 onClick = onClickExportEpub,
+                            ),
+                        )
+                    }
+                    if (onClickWordCount != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(TDMR.strings.action_word_count),
+                                onClick = onClickWordCount,
                             ),
                         )
                     }

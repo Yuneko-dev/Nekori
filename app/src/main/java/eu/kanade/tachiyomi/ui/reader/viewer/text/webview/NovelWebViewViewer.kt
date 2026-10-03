@@ -1048,16 +1048,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             liftRestoreGuard(scrollRestoreToken)
             return
         }
-        val savedProgress = page.chapter.chapter.last_page_read
+        val initialPosition = activity.viewModel.takeInitialPosition(page.chapter.chapter.id ?: -1L)
+        val savedProgress = initialPosition?.let { (it * 100).toInt() } ?: page.chapter.chapter.last_page_read
         val isRead = page.chapter.chapter.read
 
-        val shouldRestore = if (!isRead) {
+        val shouldRestore = if (initialPosition != null) {
+            true
+        } else if (!isRead) {
             savedProgress > 0 && savedProgress <= 100
         } else {
             libraryPreferences.novelReadProgress100.get() && savedProgress > 0 && savedProgress <= 100
         }
         if (pagedController.enabled) {
-            val percent = if (shouldRestore) savedProgress.coerceIn(0, 100) else 0
+            val percent = if (shouldRestore) {
+                initialPosition?.times(100) ?: savedProgress.coerceIn(0, 100).toFloat()
+            } else {
+                0f
+            }
             lastSavedProgress = percent / 100f
             activity.onNovelProgressChanged(lastSavedProgress)
             isRestoringScroll = true
@@ -1076,7 +1083,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         if (shouldRestore) {
-            val progress = savedProgress / 100f
+            val progress = initialPosition ?: savedProgress / 100f
             lastSavedProgress = progress
             activity.onNovelProgressChanged(progress)
             isRestoringScroll = true

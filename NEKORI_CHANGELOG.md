@@ -19,6 +19,16 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- Search downloaded and local chapters with case-sensitive, whole-word, and RE2 regex matching, including jump-to-excerpt navigation.
+- Word count statistics and length distribution tiers (with CJK/Kana/Hangul support) for filtered chapters.
+
+### Fixed
+- Prevent long selected font names from squeezing the reader settings label.
+
+### Improved
+- Optimize search and word count indexing with single-pass archive text reads, batch file resolution, and lazy excerpt rendering.
+
 ### Changed
 - Changed Nekori's official website domain and updated related source files and GitHub Actions workflows accordingly.
 

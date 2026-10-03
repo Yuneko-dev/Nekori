@@ -42,6 +42,18 @@ class ChapterContentReader(
 
     // ── Public API ──────────────────────────────────────────────────
 
+    fun findChapterFiles(
+        manga: Manga,
+        chapters: List<Chapter>,
+        source: eu.kanade.tachiyomi.source.Source,
+    ): Map<Long, UniFile> =
+        try {
+            downloadProvider.findChapterDirs(chapters, manga, source).second
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to list downloaded chapters" }
+            emptyMap()
+        }
+
     /**
      * Read the text content for [chapter] from its downloaded files.
      *
@@ -59,6 +71,18 @@ class ChapterContentReader(
             logcat(LogPriority.ERROR, e) { "Failed to read downloaded chapter: ${chapter.name}" }
             null
         }
+    }
+
+    /** Read a location from [DownloadProvider.findChapterDirs] without repeating SAF lookups. */
+    fun readDownloadedContent(resolvedFile: UniFile): String? = try {
+        if (resolvedFile.name.isArchiveFile()) {
+            readContentFromCbz(resolvedFile)
+        } else {
+            readContentFromDirectory(resolvedFile)
+        }
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to read downloaded chapter: ${resolvedFile.name}" }
+        null
     }
 
     /**
@@ -95,11 +119,7 @@ class ChapterContentReader(
             source,
         ) ?: return null
 
-        return if (chapterDirOrCbz.name.isArchiveFile()) {
-            readContentFromCbz(chapterDirOrCbz)
-        } else {
-            readContentFromDirectory(chapterDirOrCbz)
-        }
+        return readDownloadedContent(chapterDirOrCbz)
     }
 
     /**
@@ -147,11 +167,11 @@ class ChapterContentReader(
     private fun readExportContentFromArchive(cbzFile: UniFile): ExportContent? {
         val descriptor = context.contentResolver.openFileDescriptor(cbzFile.uri, "r") ?: return null
         return descriptor.use {
-            ArchiveReader(it).use(::readExportContentFromArchive)
+            ArchiveReader(it).use { reader -> readExportContentFromArchive(reader) }
         }
     }
 
-    internal fun readExportContentFromArchive(reader: ArchiveReader): ExportContent? {
+    internal fun readExportContentFromArchive(reader: ArchiveReader, includeImages: Boolean = true): ExportContent? {
         val contentEntries = mutableListOf<Pair<String, String>>()
         val images = linkedMapOf<String, ByteArray>()
         val entryBaseNames = mutableSetOf<String>()
@@ -166,7 +186,7 @@ class ChapterContentReader(
                     entry.name.lowercase().isContentFile() -> {
                         contentEntries += entry.name to input.bufferedReader().readText()
                     }
-                    baseName.isImageFile() -> images[baseName] = input.readBytes()
+                    includeImages && baseName.isImageFile() -> images[baseName] = input.readBytes()
                 }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to read archive entry ${entry.name}" }
@@ -197,7 +217,8 @@ class ChapterContentReader(
      */
     private fun readContentFromDirectory(dir: UniFile): String? {
         val allFiles = dir.listFiles() ?: return null
-        return readContentFromFiles(allFiles.asList()) { name -> dir.findFile(name) != null }
+        val fileNames = allFiles.mapNotNull { it.name }.toSet()
+        return readContentFromFiles(allFiles.asList(), fileNames::contains)
     }
 
     /**
@@ -213,19 +234,7 @@ class ChapterContentReader(
             val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
             pfd.use { descriptor ->
                 ArchiveReader(descriptor).use { reader ->
-                    val contentFileNames = mutableListOf<String>()
-                    val entryBaseNames = mutableSetOf<String>()
-                    reader.useEntries { seq ->
-                        seq.forEach { entry ->
-                            if (!entry.isFile) return@forEach
-                            entryBaseNames.add(entry.name.substringAfterLast('/'))
-                            val name = entry.name.lowercase()
-                            if (name.isContentFile()) {
-                                contentFileNames.add(entry.name)
-                            }
-                        }
-                    }
-                    readContentFromArchive(reader, contentFileNames, entryBaseNames)
+                    readExportContentFromArchive(reader, includeImages = false)?.content
                 }
             }
         } catch (e: Exception) {
@@ -257,25 +266,6 @@ class ChapterContentReader(
                 context.contentResolver.openInputStream(file.uri)?.use { name to it.readBytes() }
             }
             .toMap()
-    }
-
-    private fun readContentFromArchive(
-        reader: ArchiveReader,
-        contentFileNames: List<String>,
-        entryBaseNames: Set<String>,
-    ): String? {
-        val entries = contentFileNames.mapNotNull { fileName ->
-            try {
-                reader.getInputStream(fileName)?.use { fileName to it.bufferedReader().readText() }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "CBZ: failed to read entry $fileName" }
-                null
-            }
-        }
-        return entries.sortedBy { it.first }
-            .joinToString("\n\n") { it.second }
-            .ifEmpty { null }
-            ?.let { rewriteResolvedAssetRefs(it, entryBaseNames::contains) }
     }
 
     private fun String?.isArchiveFile(): Boolean =

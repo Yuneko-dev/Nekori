@@ -357,6 +357,7 @@ dependencies {
 
     // HTML parser
     implementation(libs.jsoup)
+    implementation(libs.re2j) // Bounded-time chapter search, including cancellation on Android.
 
     // Disk
     implementation(libs.diskLruCache)

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="chapter_search_matches">
+        <item quantity="other">%d kết quả</item>
+    </plurals>
+    <plurals name="chapter_search_matched_chapters">
+        <item quantity="other">trong %d chương</item>
+    </plurals>
+    <plurals name="chapter_search_failed_chapters">
+        <item quantity="other">Không đọc được %d chương</item>
+    </plurals>
+</resources>

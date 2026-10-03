@@ -162,6 +162,26 @@
     <!-- Translate manga details dialog -->
     <string name="action_export_epub">Export as EPUB</string>
     <string name="export_epub_started">EPUB export started</string>
+    <!-- Entry chapter content search -->
+    <string name="action_search_chapters">Search chapters</string>
+    <string name="chapter_search_hint">Search downloaded chapters…</string>
+    <string name="chapter_search_progress">Searched %1$d of %2$d chapters</string>
+    <string name="chapter_search_no_chapters">No downloaded chapters to search</string>
+    <string name="chapter_search_empty">Search text in downloaded chapters matching the current filters</string>
+    <string name="chapter_search_regex_hint">RE2 syntax: lookaround and backreferences are not supported.</string>
+    <string name="action_word_count">Word count</string>
+    <string name="word_count_progress">Counting words in %1$d of %2$d chapters…</string>
+    <string name="word_count_no_downloads">No downloaded chapters to count. Download some chapters first.</string>
+    <string name="word_count_unreadable">None of the chapters could be read.</string>
+    <string name="word_count_total_words">Total words</string>
+    <string name="word_count_average_words">Average words per chapter</string>
+    <string name="word_count_chapters_counted">Chapters counted</string>
+    <string name="word_count_chapters_counted_value">%1$s of %2$s</string>
+    <string name="word_count_not_downloaded">%1$s of %2$s chapters are not downloaded and were not counted.</string>
+    <string name="word_count_unreadable_some">%1$s of %2$s chapters could not be read and were skipped.</string>
+    <string name="word_density_indicator">Word density %1$d</string>
+    <string name="word_density_indicator_range">Word density indicator %1$d of %2$d: averages of %3$s–%4$s words per chapter.</string>
+    <string name="word_density_indicator_range_top">Word density indicator %1$d of %2$d: averages above %3$s words per chapter.</string>
     <string name="action_clear_covers">Clear covers</string>
     <string name="action_clear_descriptions">Clear descriptions</string>
     <string name="action_clear_tags">Clear tags</string>
@@ -1401,4 +1421,5 @@
     <string name="replacement_load_error">Could not read the saved rules. Your data has not been changed.</string>
     <string name="replacement_save_conflict">Rules changed outside this screen. Close to discard these edits and reopen to load the latest rules.</string>
     <string name="replacement_delete_selected">Delete %d selected rules?</string>
+    <string name="chapter_search_open_match">Go to match</string>
 </resources>
