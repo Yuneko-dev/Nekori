@@ -768,6 +768,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     val url = request?.url?.toString() ?: return null
                     assetLoader.intercept(url)?.let { return it }
                     styler.interceptFont(url)?.let { return it }
+                    styler.interceptBackground(url)?.let { return it }
                     val fallbackChapterId =
                         currentPage?.chapter?.chapter?.id ?: currentChapters?.currChapter?.chapter?.id
                     val fallbackLoader = activity.viewModel.state.value.viewerChapters?.currChapter?.pageLoader

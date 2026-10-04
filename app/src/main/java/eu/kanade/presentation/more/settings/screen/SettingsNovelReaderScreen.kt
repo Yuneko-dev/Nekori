@@ -13,6 +13,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.reader.settings.ColorPickerDialog
+import eu.kanade.presentation.reader.settings.NovelBackgroundManagerScreen
 import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
 import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
 import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
@@ -56,6 +57,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelFontFamily,
             readerPref.novelFontColor,
             readerPref.novelBackgroundColor,
+            readerPref.novelBackground,
             readerPref.novelLineHeight,
             readerPref.novelAutoScrollSpeed,
             readerPref.novelVolumeKeysScrollDistance,
@@ -207,6 +209,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     @Composable
     private fun getDisplayGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val navigator = LocalNavigator.currentOrThrow
         val readingLayout = readerPreferences.novelReadingLayout.collectAsState().value
         val fullscreen by readerPreferences.fullscreen.collectAsState()
         val customBrightness by readerPreferences.novelCustomBrightness.collectAsState()
@@ -274,6 +277,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     add(colorPreference(readerPreferences, background = false))
                     add(colorPreference(readerPreferences, background = true))
                 }
+                add(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(TDMR.strings.novel_background_title),
+                        onClick = { navigator.push(NovelBackgroundManagerScreen()) },
+                    ),
+                )
                 add(
                     Preference.PreferenceItem.SwitchPreference(
                         preference = readerPreferences.fullscreen,

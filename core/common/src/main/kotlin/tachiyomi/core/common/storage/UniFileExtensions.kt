@@ -1,8 +1,24 @@
 package tachiyomi.core.common.storage
 
+import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.hippo.unifile.UniFile
+
+/** Avoid provider-added extensions while preserving the requested filename on SAF and raw storage. */
+fun UniFile.createFileWithExactName(context: Context, name: String): UniFile? {
+    val created = if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
+        DocumentsContract.createDocument(context.contentResolver, uri, "application/octet-stream", name)
+            ?.let { UniFile.fromUri(context, it) }
+    } else {
+        createFile(name)
+    }
+    return created?.takeIf { it.name == name } ?: run {
+        created?.delete()
+        null
+    }
+}
 
 val UniFile.extension: String?
     get() = name?.substringAfterLast('.')

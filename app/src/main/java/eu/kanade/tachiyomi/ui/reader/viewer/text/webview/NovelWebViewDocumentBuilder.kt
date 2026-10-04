@@ -162,6 +162,8 @@ internal object NovelWebViewDocumentBuilder {
                 <script id="lnreader-compat-config" type="application/json">${input.compatConfigJson}</script>
                 <script src="$ASSET_ROOT/lnreader-compat.js"></script>
                 <script src="$ASSET_ROOT/chapter-summary.js"></script>
+                <script id="reader-background-config" type="application/json">${input.style.backgroundConfig.escapeForScriptTag()}</script>
+                <script src="$ASSET_ROOT/reader-background.js"></script>
                 $videoAssets
                 $localVideoScript
                 ${if (pluginScript.isNotBlank() && input.chapterDirectives.localVideo == null) "<script>$pluginScript</script>" else ""}

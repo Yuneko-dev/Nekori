@@ -34,10 +34,15 @@ internal class NovelWebViewStyler(
     private val evaluateJs: (String) -> Unit,
 ) {
 
+    private val background = NovelWebViewBackground(context, preferences)
+
+    fun interceptBackground(url: String) = background.intercept(url)
+
     data class CustomStylePayload(
         val css: String,
         val bodyClasses: String,
         val backgroundColor: Int,
+        val backgroundConfig: String = "{}",
     )
 
     fun applyScrollbarSettings(target: WebView = webView) {
@@ -128,6 +133,7 @@ internal class NovelWebViewStyler(
                 if (useOriginalFonts) add("tsundoku-reader-original-font")
             }.joinToString(" "),
             backgroundColor = finalBgColor,
+            backgroundConfig = background.configJson(),
         )
     }
 
@@ -220,6 +226,7 @@ internal class NovelWebViewStyler(
             ),
         )
         evaluateJs(js)
+        evaluateJs("window.readerBackground?.apply(${background.configJson()});")
     }
 
     fun injectScript(

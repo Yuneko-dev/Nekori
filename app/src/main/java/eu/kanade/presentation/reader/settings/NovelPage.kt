@@ -268,7 +268,7 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
 }
 
 @Composable
-internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel) {
+internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel, onManageBackgrounds: () -> Unit) {
     val preferences = screenModel.preferences
     val theme by preferences.novelTheme.collectAsState()
     val fontColor by preferences.novelFontColor.collectAsState()
@@ -325,6 +325,8 @@ internal fun ColumnScope.NovelAppearanceTab(screenModel: ReaderSettingsViewModel
             )
         }
     }
+
+    NovelBackgroundButton(onManageBackgrounds)
 
     // Font Color
     SettingsChipRow(TDMR.strings.pref_novel_font_color) {

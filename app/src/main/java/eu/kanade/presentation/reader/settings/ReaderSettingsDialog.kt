@@ -119,6 +119,7 @@ private fun NovelReaderSettingsDialog(
     screenModel: ReaderSettingsViewModel,
 ) {
     var showRules by rememberSaveable { mutableStateOf(false) }
+    var showBackgrounds by rememberSaveable { mutableStateOf(false) }
     val manga by screenModel.mangaFlow.collectAsState()
     val tabTitles = listOf(
         TabTitle.Icon(imageVector = Icons.Outlined.TextFields), // Reading
@@ -133,10 +134,16 @@ private fun NovelReaderSettingsDialog(
         onShowMenus()
     }
     Dialog(
-        onDismissRequest = { if (!showRules) dismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !showRules),
+        onDismissRequest = { if (!showRules && !showBackgrounds) dismiss() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress =
+            !showRules && !showBackgrounds,
+        ),
     ) {
-        if (showRules) {
+        if (showBackgrounds) {
+            NovelBackgroundScreen(screenModel.preferences) { showBackgrounds = false }
+        } else if (showRules) {
             ReplacementRulesScreen(
                 screenModel = screenModel,
                 target = manga?.let { ReplacementTarget(it.source, it.url) },
@@ -159,7 +166,7 @@ private fun NovelReaderSettingsDialog(
                         ) {
                             when (page) {
                                 0 -> NovelReadingTab(screenModel)
-                                1 -> NovelAppearanceTab(screenModel)
+                                1 -> NovelAppearanceTab(screenModel, onManageBackgrounds = { showBackgrounds = true })
                                 2 -> NovelControlsTab(screenModel)
                                 3 -> NovelTtsTab(screenModel)
                                 4 -> NovelAdvancedTab(

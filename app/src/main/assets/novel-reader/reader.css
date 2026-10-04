@@ -17,6 +17,7 @@ html {
 }
 
 body {
+    isolation: isolate;
     --reader-margin-inline-start: var(--reader-margin-left);
     --reader-margin-inline-end: var(--reader-margin-right);
 
@@ -32,6 +33,15 @@ body {
     text-align: var(--reader-text-align);
     -webkit-user-select: var(--reader-user-select);
     user-select: var(--reader-user-select);
+}
+
+/* Outside the chapter tree: decoration cannot change paragraph indices or page columns. */
+#reader-background {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-repeat: no-repeat;
 }
 
 body:not(.page-reader) .transition-chapter {

@@ -183,6 +183,8 @@ class ReaderPreferences(
     // Background color (stored as ARGB int, 0 means use theme default)
     val novelBackgroundColor: Preference<Int> = preferenceStore.getInt("pref_novel_background_color", 0)
 
+    val novelBackground: Preference<String> = preferenceStore.getString("pref_novel_background", "{}")
+
     // Paragraph indentation in em units (0 = no indent, default 2em)
     val novelParagraphIndent: Preference<Float> = preferenceStore.getFloat("pref_novel_paragraph_indent", 0f)
 

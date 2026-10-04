@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.jsplugin
 
-import android.content.ContentResolver
 import android.content.Context
-import android.provider.DocumentsContract
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
@@ -43,6 +41,7 @@ import okhttp3.CacheControl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
+import tachiyomi.core.common.storage.createFileWithExactName
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import uy.kohesive.injekt.Injekt
@@ -1147,22 +1146,7 @@ class JsPluginManager(
     }
 
     private fun UniFile.createExactFile(name: String): UniFile? {
-        val created = runCatching {
-            if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
-                DocumentsContract.createDocument(
-                    context.contentResolver,
-                    uri,
-                    "application/octet-stream",
-                    name,
-                )?.let { UniFile.fromUri(context, it) }
-            } else {
-                createFile(name)
-            }
-        }.getOrNull()
-        return created?.takeIf { it.name == name } ?: run {
-            created?.delete()
-            null
-        }
+        return runCatching { createFileWithExactName(context, name) }.getOrNull()
     }
 
     private fun UniFile.readText(): String {

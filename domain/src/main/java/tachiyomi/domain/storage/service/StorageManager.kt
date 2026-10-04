@@ -50,6 +50,7 @@ class StorageManager(
                         DiskUtil.createNoMediaFile(it, context)
                     }
                     getOrCreateDirectory(parent, FONTS_PATH)
+                    getOrCreateDirectory(parent, BACKGROUNDS_PATH).also { DiskUtil.createNoMediaFile(it, context) }
                     getOrCreateDirectory(parent, TRANSLATIONS_PATH)
                     getOrCreateDirectory(parent, DOWNLOADS_PATH).also {
                         DiskUtil.createNoMediaFile(it, context)
@@ -92,6 +93,10 @@ class StorageManager(
         return getOrCreateDirectory(baseDir, FONTS_PATH)
     }
 
+    fun getBackgroundsDirectory(): UniFile? {
+        return getOrCreateDirectory(baseDir, BACKGROUNDS_PATH).also { DiskUtil.createNoMediaFile(it, context) }
+    }
+
     fun getTranslationsDirectory(): UniFile? {
         return getOrCreateDirectory(baseDir, TRANSLATIONS_PATH)
     }
@@ -124,6 +129,7 @@ class StorageManager(
                 LOCAL_SOURCE_PATH,
                 MASS_IMPORT_PATH,
                 QUOTES_PATH,
+                BACKGROUNDS_PATH,
             ),
             availableBytes = DiskUtil.getAvailableStorageSpace(root).takeIf { it >= 0L },
         )
@@ -216,6 +222,7 @@ private const val LOCAL_SOURCE_PATH = "local"
 private const val LOCAL_NOVEL_SOURCE_PATH = "localnovels"
 private const val LNREADER_PLUGINS_PATH = "lnreader_plugins"
 private const val FONTS_PATH = "fonts"
+private const val BACKGROUNDS_PATH = "backgrounds"
 private const val TRANSLATIONS_PATH = "translations"
 private const val MASS_IMPORT_PATH = "mass_import"
 private const val QUOTES_PATH = "quotes"
@@ -227,6 +234,7 @@ private val MANAGED_PATHS = setOf(
     LOCAL_NOVEL_SOURCE_PATH,
     LNREADER_PLUGINS_PATH,
     FONTS_PATH,
+    BACKGROUNDS_PATH,
     TRANSLATIONS_PATH,
     MASS_IMPORT_PATH,
     QUOTES_PATH,

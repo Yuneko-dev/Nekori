@@ -20,17 +20,18 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Added custom novel reader backgrounds with bundled defaults, local image/SVG import, thumbnail selection, rename/delete management, multiple display modes, positioning, opacity, and blur controls.
 - Search downloaded and local chapters with case-sensitive, whole-word, and RE2 regex matching, including jump-to-excerpt navigation.
 - Word count statistics and length distribution tiers (with CJK/Kana/Hangul support) for filtered chapters.
 
-### Fixed
-- Prevent long selected font names from squeezing the reader settings label.
+### Changed
+- Changed Nekori's official website domain and updated related source files and GitHub Actions workflows accordingly.
 
 ### Improved
 - Optimize search and word count indexing with single-pass archive text reads, batch file resolution, and lazy excerpt rendering.
 
-### Changed
-- Changed Nekori's official website domain and updated related source files and GitHub Actions workflows accordingly.
+### Fixed
+- Prevent long selected font names from squeezing the reader settings label.
 
 ## [v0.1.1] - 2026-09-27
 
