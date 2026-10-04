@@ -1447,4 +1447,5 @@
     <string name="novel_background_folder_error">No file manager could open this folder.</string>
     <string name="novel_background_selected">Selected background</string>
     <string name="novel_background_image_actions">Image actions</string>
+    <string name="novel_vertical_text">Vertical text (right to left)</string>
 </resources>

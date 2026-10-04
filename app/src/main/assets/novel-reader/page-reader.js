@@ -1,4 +1,4 @@
-// Horizontal CSS-column driver. Native code owns gestures/chrome and configures this facade.
+// CSS-column driver. Native code owns gestures/chrome and configures this facade.
 (function () {
     "use strict";
 
@@ -18,7 +18,7 @@
     var math = layout._math;
     var config = {
         enabled: false, spread: "single", direction: "ltr", infinite: false,
-        threshold: 0.8, chapterId: "",
+        threshold: 0.8, chapterId: "", vertical: false,
     };
     var pageMap = [];
     var totalLeaves = 1;
@@ -37,8 +37,16 @@
     var resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(scheduleReflow) : null;
 
     function spreadSize() { return config.spread === "double" ? 2 : 1; }
-    function viewport() { return Math.max(container.clientWidth, 1); }
-    function logicalOffset() { return math.logicalOffset(container.scrollLeft || 0, config.direction); }
+    function viewport() { return Math.max(config.vertical ? container.clientHeight : container.clientWidth, 1); }
+    function logicalOffset() {
+        return config.vertical ? container.scrollTop || 0 : math.logicalOffset(container.scrollLeft || 0, config.direction);
+    }
+    function contentExtent() { return config.vertical ? container.scrollHeight : container.scrollWidth; }
+    function scrollToOffset(offset, behavior) {
+        var options = { behavior: behavior === "smooth" ? "smooth" : "auto" };
+        options[config.vertical ? "top" : "left"] = config.vertical ? offset : math.physicalOffset(offset, config.direction);
+        container.scrollTo(options);
+    }
     function currentUnit() {
         return math.unitFromOffset(logicalOffset(), viewport(), math.unitCount(totalLeaves, config.spread));
     }
@@ -48,16 +56,13 @@
     function scrollToUnit(unit, behavior) {
         var count = math.unitCount(totalLeaves, config.spread);
         var target = Math.min(Math.max(unit, 0), count - 1) * viewport();
-        container.scrollTo({
-            left: math.physicalOffset(target, config.direction),
-            behavior: behavior === "smooth" ? "smooth" : "auto",
-        });
+        scrollToOffset(target, behavior);
     }
     function clampToPageBounds() {
         var offset = logicalOffset();
         var clamped = Math.min(Math.max(offset, 0), maxLogicalOffset());
         if (Math.abs(offset - clamped) <= 0.5) return;
-        container.scrollTo({ left: math.physicalOffset(clamped, config.direction), behavior: "auto" });
+        scrollToOffset(clamped);
     }
     function setCompatState(name, value) {
         if (!window.pageReader) return;
@@ -80,7 +85,7 @@
         }
     }
     function leafForRect(rect, hostRect, offset, leafWidth) {
-        var position = config.direction === "rtl"
+        var position = config.vertical ? rect.top - hostRect.top + offset : config.direction === "rtl"
             ? hostRect.right - rect.right + offset
             : rect.left - hostRect.left + offset;
         return Math.max(0, Math.floor((position + 1) / leafWidth));
@@ -174,6 +179,37 @@
             emitPosition(true);
         }, 180);
     }
+    function combineShortNumbers() {
+        if (!config.vertical) return;
+        // ponytail: only isolated two ASCII digits are automatic. Authors opt other short text in
+        // with .tcy or text-combine-upright; never rewrite text content or paragraph elements.
+        var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+        var nodes = [];
+        while (walker.nextNode()) {
+            var node = walker.currentNode;
+            if (/[0-9]{2}/.test(node.data) &&
+                !node.parentElement.closest(".tcy, script, style, textarea, code, pre, rt, rp, svg, math, [contenteditable]") &&
+                getComputedStyle(node.parentElement).textCombineUpright !== "all") nodes.push(node);
+        }
+        nodes.forEach(function (node) {
+            var pattern = /(^|[^0-9A-Za-z])([0-9]{2})(?![0-9A-Za-z])/g;
+            var fragment = document.createDocumentFragment();
+            var cursor = 0;
+            var match;
+            while ((match = pattern.exec(node.data))) {
+                var start = match.index + match[1].length;
+                fragment.appendChild(document.createTextNode(node.data.slice(cursor, start)));
+                var span = document.createElement("span");
+                span.className = "tcy";
+                span.textContent = match[2];
+                fragment.appendChild(span);
+                cursor = start + match[2].length;
+            }
+            if (!cursor) return;
+            fragment.appendChild(document.createTextNode(node.data.slice(cursor)));
+            node.replaceWith(fragment);
+        });
+    }
     function doReflow() {
         reflowPending = false;
         if (!config.enabled) return;
@@ -182,16 +218,17 @@
             chapterId: (math.chapterForLeaf(pageMap, currentUnit() * spreadSize()) || {}).chapterId,
             progress: lastChapterProgress,
         } : null);
+        combineShortNumbers();
         rebuildBlankLeaves();
         pageMap = measureMap();
-        var contentLeaves = Math.max(1, Math.round(container.scrollWidth / (viewport() / spreadSize())));
+        var contentLeaves = Math.max(1, Math.round(contentExtent() / (viewport() / spreadSize())));
         if (!pageMap.length && config.spread === "double" && contentLeaves % 2 !== 0) {
             var blank = document.createElement("div");
             blank.className = BLANK_CLASS;
             blank.setAttribute("aria-hidden", "true");
             container.appendChild(blank);
         }
-        totalLeaves = Math.max(1, Math.round(container.scrollWidth / (viewport() / spreadSize())));
+        totalLeaves = Math.max(1, Math.round(contentExtent() / (viewport() / spreadSize())));
         if (!pageMap.length) {
             var readerChapter = window.reader && window.reader.chapter;
             pageMap = [{
@@ -225,7 +262,8 @@
     var driver = {
         configure: function (value) {
             config.enabled = !!value.enabled;
-            config.spread = value.spread === "double" ? "double" : "single";
+            config.vertical = !!value.vertical;
+            config.spread = !config.vertical && value.spread === "double" ? "double" : "single";
             config.direction = value.direction === "rtl" ? "rtl" : "ltr";
             config.infinite = !!value.infinite;
             config.chapterId = value.chapterId == null ? "" : String(value.chapterId);
@@ -233,7 +271,10 @@
             config.threshold = Number.isFinite(threshold) ? Math.min(Math.max(threshold, 0), 1) : 0.8;
             document.body.classList.toggle("page-reader", config.enabled);
             container.dataset.readerSpread = config.spread;
-            if (config.enabled) container.dir = config.direction;
+            container.dataset.readerWritingMode = config.vertical ? "vertical-rl" : "horizontal-tb";
+            // Vertical columns paginate down the inline axis. RTL is a native page-turn direction,
+            // not bidi direction: setting dir=rtl here would make those columns overflow upwards.
+            if (config.enabled) container.dir = config.vertical ? "ltr" : config.direction;
             else container.removeAttribute("dir");
             if (config.enabled) scheduleReflow();
             else container.querySelectorAll("." + BLANK_CLASS).forEach(function (blank) { blank.remove(); });

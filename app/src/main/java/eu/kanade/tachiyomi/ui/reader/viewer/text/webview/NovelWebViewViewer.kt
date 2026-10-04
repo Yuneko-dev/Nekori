@@ -334,7 +334,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun isVideoChapter(): Boolean = currentDocumentIsVideo
 
     private fun isPagedLayoutEnabled(): Boolean =
-        preferences.novelReadingLayout.get() == NovelReadingLayout.PAGED && !currentDocumentIsVideo &&
+        preferences.novelReadingLayout.get().isPaged && !currentDocumentIsVideo &&
             ((activity.viewModel.getSource() as? JsSource)?.allowsPagedReading ?: true)
 
     private val ttsController: TtsController
@@ -385,7 +385,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     velocityY,
                     onPrevious = {
                         if (pagedController.enabled) {
-                            pageScrollBy(if (currentDocumentDirection == NovelContentDirection.RTL) 1 else -1)
+                            pageScrollBy(if (isRtlPageFlow()) 1 else -1)
                         } else {
                             loadedChapters.getOrNull(currentChapterIndex - 1)?.chapter?.id
                                 ?.let { chapterId -> scope.launch { scrollToLoadedChapter(chapterId) } }
@@ -393,7 +393,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     },
                     onNext = {
                         if (pagedController.enabled) {
-                            pageScrollBy(if (currentDocumentDirection == NovelContentDirection.RTL) -1 else 1)
+                            pageScrollBy(if (isRtlPageFlow()) -1 else 1)
                         } else {
                             activity.loadNextChapter()
                         }
@@ -437,7 +437,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.RIGHT -> {
                         pageScrollBy(
                             if (pagedController.enabled &&
-                                currentDocumentDirection == NovelContentDirection.RTL
+                                isRtlPageFlow()
                             ) {
                                 -1
                             } else {
@@ -448,7 +448,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.LEFT -> {
                         pageScrollBy(
                             if (pagedController.enabled &&
-                                currentDocumentDirection == NovelContentDirection.RTL
+                                isRtlPageFlow()
                             ) {
                                 1
                             } else {
@@ -3120,7 +3120,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    private fun curlReadingDirection() = if (currentDocumentDirection == NovelContentDirection.RTL) {
+    private fun isRtlPageFlow(): Boolean =
+        preferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL ||
+            currentDocumentDirection == NovelContentDirection.RTL
+
+    private fun curlReadingDirection() = if (isRtlPageFlow()) {
         NovelPageCurlReadingDirection.RTL
     } else {
         NovelPageCurlReadingDirection.LTR

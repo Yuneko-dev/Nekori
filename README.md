@@ -54,6 +54,10 @@ what the app does, not what this fork added. For the fork's own changes, see
 
 * Paged and volume novel navigation, a chapter drawer, native find in page, and a font preview in settings.
 * Configurable reading margins, volume-key scroll distance and WebView network handling.
+* Vertical text with right-to-left page turns for EPUB, TXT and source chapters, in any language.
+  Select **Vertical text (right to left)** in the reader type settings. Uses one page per screen,
+  native vertical punctuation and upright two-digit numbers; HTML can opt other short runs in with
+  `<span class="tcy">12</span>` or `text-combine-upright: all`.
 
 **Translation and AI**
 

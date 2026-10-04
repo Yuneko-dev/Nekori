@@ -1581,7 +1581,14 @@ class ReaderActivity : BaseActivity() {
         if (readingModeShownInSession || viewModel.isPreview || !readerPreferences.showReadingMode.get()) return
         readingModeShownInSession = true
         menuToggleToast?.cancel()
-        menuToggleToast = toast(if (isPaged) MR.strings.pager_viewer else MR.strings.webtoon_viewer)
+        menuToggleToast = toast(
+            when {
+                !isPaged -> MR.strings.webtoon_viewer
+                readerPreferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL ->
+                    TDMR.strings.novel_vertical_text
+                else -> MR.strings.pager_viewer
+            },
+        )
     }
 
     private fun openMangaScreen() {
@@ -1790,7 +1797,7 @@ class ReaderActivity : BaseActivity() {
     /** Flashes the existing display-refresh overlay after a settled WebView page turn. */
     fun onNovelVisualPageChanged() {
         if (
-            readerPreferences.novelReadingLayout.get() == NovelReadingLayout.PAGED &&
+            readerPreferences.novelReadingLayout.get().isPaged &&
             readerPreferences.flashOnPageChange.get()
         ) {
             displayRefreshHost.flash()

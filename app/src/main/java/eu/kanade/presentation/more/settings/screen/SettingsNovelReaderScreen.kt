@@ -133,7 +133,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             getContentGroup(readerPref),
             getStatusBarGroup(readerPref, navigator),
             getTtsGroup(readerPref),
-            getEInkGroup(readerPref).takeIf { readingLayout == NovelReadingLayout.PAGED },
+            getEInkGroup(readerPref).takeIf { readingLayout.isPaged },
         )
     }
 
@@ -228,6 +228,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         entries = mapOf(
                             NovelReadingLayout.SCROLL to stringResource(MR.strings.webtoon_viewer),
                             NovelReadingLayout.PAGED to stringResource(MR.strings.pager_viewer),
+                            NovelReadingLayout.VERTICAL to stringResource(TDMR.strings.novel_vertical_text),
                         ),
                         title = stringResource(MR.strings.pref_viewer_type),
                     ),
@@ -244,6 +245,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                             title = stringResource(TDMR.strings.pref_novel_page_spread),
                         ),
                     )
+                }
+                if (readingLayout.isPaged) {
                     add(
                         Preference.PreferenceItem.ListPreference(
                             preference = readerPreferences.novelPageEffect,
@@ -602,7 +605,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     Preference.PreferenceItem.SwitchPreference(
                         preference = readerPreferences.novelVolumeKeysScroll,
                         title = stringResource(
-                            if (readingLayout == NovelReadingLayout.PAGED) {
+                            if (readingLayout.isPaged) {
                                 TDMR.strings.pref_novel_volume_keys_page
                             } else {
                                 TDMR.strings.pref_novel_volume_keys_scroll
@@ -610,7 +613,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         ),
                     ),
                 )
-                if (volumeKeysScroll && readingLayout == NovelReadingLayout.PAGED) {
+                if (volumeKeysScroll && readingLayout.isPaged) {
                     add(
                         Preference.PreferenceItem.SwitchPreference(
                             preference = readerPreferences.novelVolumeKeysInverted,
@@ -633,20 +636,20 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 }
                 add(
                     Preference.PreferenceItem.SwitchPreference(
-                        preference = if (readingLayout == NovelReadingLayout.PAGED) {
+                        preference = if (readingLayout.isPaged) {
                             readerPreferences.novelPagedSwipeNavigation
                         } else {
                             readerPreferences.novelSwipeNavigation
                         },
                         title = stringResource(
-                            if (readingLayout == NovelReadingLayout.PAGED) {
+                            if (readingLayout.isPaged) {
                                 TDMR.strings.pref_novel_paged_swipe_navigation
                             } else {
                                 TDMR.strings.settings_reader_swipe_navigation_title
                             },
                         ),
                         subtitle = stringResource(
-                            if (readingLayout == NovelReadingLayout.PAGED) {
+                            if (readingLayout.isPaged) {
                                 TDMR.strings.pref_novel_paged_swipe_navigation_summary
                             } else {
                                 TDMR.strings.settings_reader_swipe_navigation_summary
@@ -695,13 +698,13 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(
-                if (readingLayout == NovelReadingLayout.PAGED) {
+                if (readingLayout.isPaged) {
                     TDMR.strings.pref_novel_auto_page
                 } else {
                     TDMR.strings.pref_novel_auto_scroll
                 },
             ),
-            preferenceItems = if (readingLayout == NovelReadingLayout.PAGED) {
+            preferenceItems = if (readingLayout.isPaged) {
                 listOf(
                     Preference.PreferenceItem.SliderPreference(
                         value = autoPageInterval,

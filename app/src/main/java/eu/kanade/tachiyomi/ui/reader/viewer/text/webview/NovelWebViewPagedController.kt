@@ -6,13 +6,14 @@ import android.webkit.WebView
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
+import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Owns ephemeral horizontal-page state and the small command surface sent to the WebView. */
+/** Owns ephemeral page state and the small command surface sent to the WebView. */
 internal class NovelWebViewPagedController(
     private val context: Context,
     private val webView: WebView,
@@ -114,12 +115,15 @@ internal class NovelWebViewPagedController(
 
     fun isDoubleSpread(): Boolean = effectiveSpread() == NovelPageSpread.DOUBLE
 
-    private fun effectiveSpread(): NovelPageSpread = when (val setting = preferences.novelPageSpread.get()) {
-        NovelPageSpread.AUTO -> {
-            val widthDp = webView.width / context.resources.displayMetrics.density
-            if (widthDp >= DOUBLE_PAGE_MIN_WIDTH_DP) NovelPageSpread.DOUBLE else NovelPageSpread.SINGLE
+    private fun effectiveSpread(): NovelPageSpread {
+        if (preferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL) return NovelPageSpread.SINGLE
+        return when (val setting = preferences.novelPageSpread.get()) {
+            NovelPageSpread.AUTO -> {
+                val widthDp = webView.width / context.resources.displayMetrics.density
+                if (widthDp >= DOUBLE_PAGE_MIN_WIDTH_DP) NovelPageSpread.DOUBLE else NovelPageSpread.SINGLE
+            }
+            else -> setting
         }
-        else -> setting
     }
 
     private fun applyConfig() {
@@ -127,10 +131,11 @@ internal class NovelWebViewPagedController(
         val spread = effectiveSpread()
         appliedSpread = spread
         val threshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0
+        val vertical = preferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL
         evaluateJs(
             "window.$TSUNDOKU_OBJECT_NAME.runtime.readerLayout.configure({" +
                 "enabled:$enabled,spread:'${spread.name.lowercase()}',direction:'${direction.htmlValue}'," +
-                "infinite:$infinite,threshold:$threshold,chapterId:'$chapterId'});",
+                "vertical:$vertical,infinite:$infinite,threshold:$threshold,chapterId:'$chapterId'});",
         )
     }
 

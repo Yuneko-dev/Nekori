@@ -521,6 +521,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         listOf(
             NovelReadingLayout.SCROLL to MR.strings.webtoon_viewer,
             NovelReadingLayout.PAGED to MR.strings.pager_viewer,
+            NovelReadingLayout.VERTICAL to TDMR.strings.novel_vertical_text,
         ).forEach { (value, label) ->
             FilterChip(
                 selected = readingLayout == value,
@@ -530,21 +531,23 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         }
     }
 
-    if (readingLayout == NovelReadingLayout.PAGED) {
+    if (readingLayout.isPaged) {
         val pageSpread by screenModel.preferences.novelPageSpread.collectAsState()
         val pageEffect by screenModel.preferences.novelPageEffect.collectAsState()
 
-        SettingsChipRow(TDMR.strings.pref_novel_page_spread) {
-            listOf(
-                NovelPageSpread.AUTO to TDMR.strings.novel_page_spread_auto,
-                NovelPageSpread.SINGLE to TDMR.strings.novel_page_spread_single,
-                NovelPageSpread.DOUBLE to TDMR.strings.novel_page_spread_double,
-            ).forEach { (value, label) ->
-                FilterChip(
-                    selected = pageSpread == value,
-                    onClick = { screenModel.preferences.novelPageSpread.set(value) },
-                    label = { Text(stringResource(label)) },
-                )
+        if (readingLayout == NovelReadingLayout.PAGED) {
+            SettingsChipRow(TDMR.strings.pref_novel_page_spread) {
+                listOf(
+                    NovelPageSpread.AUTO to TDMR.strings.novel_page_spread_auto,
+                    NovelPageSpread.SINGLE to TDMR.strings.novel_page_spread_single,
+                    NovelPageSpread.DOUBLE to TDMR.strings.novel_page_spread_double,
+                ).forEach { (value, label) ->
+                    FilterChip(
+                        selected = pageSpread == value,
+                        onClick = { screenModel.preferences.novelPageSpread.set(value) },
+                        label = { Text(stringResource(label)) },
+                    )
+                }
             }
         }
 
@@ -566,7 +569,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         EInkFlashSettings(screenModel.preferences)
     }
 
-    if (readingLayout == NovelReadingLayout.PAGED) {
+    if (readingLayout.isPaged) {
         HeadingItem(TDMR.strings.pref_novel_auto_page)
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_auto_page_interval),
@@ -589,7 +592,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
     HeadingItem(MR.strings.pref_read_with_volume_keys)
     ReaderSwitchItem(
         label = stringResource(
-            if (readingLayout == NovelReadingLayout.PAGED) {
+            if (readingLayout.isPaged) {
                 TDMR.strings.pref_novel_volume_keys_page
             } else {
                 TDMR.strings.pref_novel_volume_keys_scroll
@@ -597,7 +600,7 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
         ),
         pref = screenModel.preferences.novelVolumeKeysScroll,
     )
-    if (volumeKeysScroll && readingLayout == NovelReadingLayout.PAGED) {
+    if (volumeKeysScroll && readingLayout.isPaged) {
         ReaderSwitchItem(
             label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
             pref = screenModel.preferences.novelVolumeKeysInverted,
@@ -620,13 +623,13 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
     // Swipe Navigation
     ReaderSwitchItem(
         label = stringResource(
-            if (readingLayout == NovelReadingLayout.PAGED) {
+            if (readingLayout.isPaged) {
                 TDMR.strings.pref_novel_paged_swipe_navigation
             } else {
                 TDMR.strings.pref_novel_swipe_navigation
             },
         ),
-        pref = if (readingLayout == NovelReadingLayout.PAGED) {
+        pref = if (readingLayout.isPaged) {
             screenModel.preferences.novelPagedSwipeNavigation
         } else {
             screenModel.preferences.novelSwipeNavigation

@@ -3,6 +3,10 @@ package eu.kanade.tachiyomi.ui.reader.setting
 enum class NovelReadingLayout {
     SCROLL,
     PAGED,
+    VERTICAL,
+    ;
+
+    val isPaged: Boolean get() = this != SCROLL
 }
 
 enum class NovelPageSpread {

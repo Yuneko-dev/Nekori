@@ -32,4 +32,17 @@ class NovelPagedReaderSettingsTest {
         preferences.novelPageEffect.set(NovelPageEffect.HORIZONTAL)
         assertEquals(NovelPageEffect.HORIZONTAL, preferences.novelPageEffect.get())
     }
+
+    @Test
+    fun `vertical reading uses persisted paged controls without changing stored spread`() {
+        val preferences = ReaderPreferences(InMemoryPreferenceStore())
+        preferences.novelPageSpread.set(NovelPageSpread.DOUBLE)
+        preferences.novelReadingLayout.set(NovelReadingLayout.VERTICAL)
+
+        assertEquals(NovelReadingLayout.VERTICAL, preferences.novelReadingLayout.get())
+        assertEquals(true, preferences.novelReadingLayout.get().isPaged)
+        assertEquals(NovelPageSpread.DOUBLE, preferences.novelPageSpread.get())
+        assertEquals(false, NovelReadingLayout.SCROLL.isPaged)
+        assertEquals(true, NovelReadingLayout.PAGED.isPaged)
+    }
 }

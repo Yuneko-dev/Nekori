@@ -20,6 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Add multilingual vertical reading with right-to-left navigation and upright short numbers.
 - Added custom novel reader backgrounds with bundled defaults, local image/SVG import, thumbnail selection, rename/delete management, multiple display modes, positioning, opacity, and blur controls [#9](https://github.com/Yuneko-dev/Nekori/issues/9)
 - Search downloaded and local chapters with case-sensitive, whole-word, and RE2 regex matching, including jump-to-excerpt navigation.
 - Word count statistics and length distribution tiers (with CJK/Kana/Hangul support) for filtered chapters.

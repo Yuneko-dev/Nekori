@@ -109,6 +109,33 @@ body.page-reader #LNReader-chapter::-webkit-scrollbar {
     display: none;
 }
 
+/* Native gestures turn these columns as RTL pages; WebView lays out all glyphs itself.
+   Keep physical screen dimensions/margins while the CSS inline axis becomes vertical. */
+body.page-reader #LNReader-chapter[data-reader-writing-mode="vertical-rl"] {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    inline-size: 100vh;
+    inline-size: 100dvh;
+    block-size: 100vw;
+    min-block-size: 100vw;
+    max-block-size: 100vw;
+    padding: var(--reader-margin-top) var(--reader-margin-right)
+        calc(40px + var(--reader-margin-bottom)) var(--reader-margin-left);
+    column-gap: calc(var(--reader-margin-top) + var(--reader-margin-bottom) + 40px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    touch-action: none;
+}
+
+body.page-reader #LNReader-chapter[data-reader-writing-mode="vertical-rl"] img {
+    max-block-size: 100%;
+    max-inline-size: 100%;
+}
+
+#LNReader-chapter .tcy {
+    text-combine-upright: all;
+}
+
 body.page-reader tsundoku-chapter {
     contain: none;
     break-before: column;
