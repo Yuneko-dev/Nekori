@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.discord
 
+import android.content.Context
+import androidx.core.content.ContextCompat
 import eu.kanade.domain.base.BasePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,14 +22,17 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.source.local.metadata.DEFAULT_EPUB_COVER_URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 class DiscordRpcManager internal constructor(
+    private val context: Context,
     private val client: OkHttpClient,
     private val json: Json,
     private val scope: CoroutineScope,
@@ -36,6 +41,8 @@ class DiscordRpcManager internal constructor(
     private val basePreferences: BasePreferences,
     private val sensitiveContentPolicy: SensitiveContentPolicy,
 ) {
+    private val localizedContext get() = ContextCompat.getContextForLanguage(context)
+
     private var gateway: DiscordGateway? = null
     private var connecting = false
     private var ready = false
@@ -122,12 +129,12 @@ class DiscordRpcManager internal constructor(
 
     fun showApp() = publishSimple(
         enabled = preferences.showAppAndLibrary.get(),
-        state = "Browsing App",
+        state = localizedContext.stringResource(TDMR.strings.discord_activity_app),
     )
 
     fun showLibrary() = publishSimple(
         enabled = preferences.showAppAndLibrary.get(),
-        state = "Browsing Library",
+        state = localizedContext.stringResource(TDMR.strings.discord_activity_library),
     )
 
     fun showSource(
@@ -140,13 +147,15 @@ class DiscordRpcManager internal constructor(
             val icon = resolveExternalAsset(sourceIcon)
             if (id != requestId.get()) return@publishAsync null
             basePresence(
-                details = "Browsing Source",
+                details = localizedContext.stringResource(TDMR.strings.discord_activity_source),
                 state = sourceName,
                 largeImage = DiscordProtocol.APP_LOGO_ASSET_ID,
                 largeText = "Nekori",
                 smallImage = icon,
                 smallText = sourceName,
-                action = sourceUrl?.let { "View source" to it },
+                action = sourceUrl?.let {
+                    localizedContext.stringResource(TDMR.strings.discord_view_source) to it
+                },
             )
         }
     }
@@ -161,13 +170,15 @@ class DiscordRpcManager internal constructor(
             val resolvedCover = resolveCoverAsset(cover)
             if (id != requestId.get()) return@publishAsync null
             basePresence(
-                details = "Browsing Novel",
+                details = localizedContext.stringResource(TDMR.strings.discord_activity_novel),
                 state = novelName,
                 largeImage = resolvedCover,
                 largeText = novelName,
                 smallImage = DiscordProtocol.APP_LOGO_ASSET_ID,
                 smallText = "Nekori",
-                action = novelUrl?.let { "View novel" to it },
+                action = novelUrl?.let {
+                    localizedContext.stringResource(TDMR.strings.discord_view_novel) to it
+                },
             )
         }
     }
@@ -185,12 +196,15 @@ class DiscordRpcManager internal constructor(
             if (id != requestId.get()) return@publishAsync null
             basePresence(
                 details = novelName,
-                state = "Reading: $chapterName",
+                state = localizedContext
+                    .stringResource(TDMR.strings.discord_activity_chapter, chapterName),
                 largeImage = resolvedCover,
                 largeText = chapterPage?.let { "[$it]: $chapterName" } ?: chapterName,
                 smallImage = DiscordProtocol.APP_LOGO_ASSET_ID,
                 smallText = "Nekori",
-                action = chapterUrl?.let { "Read chapter" to it },
+                action = chapterUrl?.let {
+                    localizedContext.stringResource(TDMR.strings.discord_read_chapter) to it
+                },
             )
         }
     }
@@ -256,7 +270,10 @@ class DiscordRpcManager internal constructor(
         action: Pair<String, String>? = null,
     ): JsonObject {
         val buttons = buildList {
-            add("Read on Nekori" to "https://github.com/Yuneko-dev/Nekori")
+            add(
+                localizedContext.stringResource(TDMR.strings.discord_read_on_nekori) to
+                    "https://github.com/Yuneko-dev/Nekori",
+            )
             action?.takeIf { isHttpUrl(it.second) }?.let(::add)
         }
         return DiscordPresence(

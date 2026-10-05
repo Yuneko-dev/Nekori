@@ -28,6 +28,7 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.i18n.novel.TDMR
 
 class DiscordAuth internal constructor(
     private val context: Context,
@@ -83,7 +84,8 @@ class DiscordAuth internal constructor(
             )
         }.onFailure {
             store.delete(PENDING_KEY)
-            mutableState.value = DiscordAuthState.Error(it.message ?: "Could not open Discord authorization")
+            logcat(LogPriority.ERROR, it) { "Could not open Discord authorization" }
+            mutableState.value = DiscordAuthState.Error(TDMR.strings.discord_auth_open_failed)
             return
         }
 
@@ -93,7 +95,7 @@ class DiscordAuth internal constructor(
             val current = readPending()
             if (current?.state == pending.state) {
                 store.delete(PENDING_KEY)
-                mutableState.value = DiscordAuthState.Error("Timeout waiting for Discord authorization")
+                mutableState.value = DiscordAuthState.Error(TDMR.strings.discord_auth_timeout)
             }
         }
     }
@@ -154,7 +156,7 @@ class DiscordAuth internal constructor(
             mutableState.value = loadProfileState(token)
         } catch (error: Exception) {
             logcat(LogPriority.ERROR, error) { "Discord OAuth callback failed" }
-            mutableState.value = DiscordAuthState.Error(error.message ?: "Discord authorization failed")
+            mutableState.value = DiscordAuthState.Error(TDMR.strings.discord_auth_failed)
         }
     }
 
@@ -220,7 +222,7 @@ class DiscordAuth internal constructor(
         } catch (error: Exception) {
             error.let {
                 logcat(LogPriority.ERROR, it) { "Discord profile load failed" }
-                DiscordAuthState.Error(it.message ?: "Could not load Discord profile")
+                DiscordAuthState.Error(TDMR.strings.discord_profile_failed)
             }
         }
     }

@@ -729,6 +729,19 @@
     <string name="discord_show_reading_summary">Hiện tiểu thuyết và chương đang đọc</string>
     <string name="discord_authorizing">Đang chờ ủy quyền Discord…</string>
     <string name="discord_error">Lỗi Discord: %1$s</string>
+    <string name="discord_activity_app">Đang duyệt ứng dụng</string>
+    <string name="discord_activity_library">Đang duyệt thư viện</string>
+    <string name="discord_activity_source">Đang duyệt nguồn</string>
+    <string name="discord_activity_novel">Đang xem tiểu thuyết</string>
+    <string name="discord_activity_chapter">Đang đọc: %1$s</string>
+    <string name="discord_view_source">Xem nguồn</string>
+    <string name="discord_view_novel">Xem tiểu thuyết</string>
+    <string name="discord_read_chapter">Đọc chương</string>
+    <string name="discord_read_on_nekori">Đọc trên Nekori</string>
+    <string name="discord_auth_open_failed">Không thể mở trang ủy quyền Discord. Hãy thử lại.</string>
+    <string name="discord_auth_timeout">Đã hết thời gian chờ ủy quyền Discord. Hãy đăng nhập lại.</string>
+    <string name="discord_auth_failed">Ủy quyền Discord thất bại. Hãy đăng nhập lại.</string>
+    <string name="discord_profile_failed">Không thể tải hồ sơ Discord. Hãy kiểm tra kết nối và thử lại.</string>
 
     <!-- Sensitive content privacy -->
     <string name="sensitive_content">Nội dung nhạy cảm</string>

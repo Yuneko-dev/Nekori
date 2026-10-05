@@ -85,7 +85,7 @@ object SettingsDiscordScreen : SearchableSettings {
                 is DiscordAuthState.Error,
                 -> LoggedOutContent(
                     padding = padding,
-                    error = (state as? DiscordAuthState.Error)?.message,
+                    error = (state as? DiscordAuthState.Error)?.message?.let { stringResource(it) },
                     onLogin = auth::startLogin,
                 )
                 DiscordAuthState.Authorizing -> LoadingContent(

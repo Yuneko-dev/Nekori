@@ -189,6 +189,7 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { SensitiveContentPolicy(get(), get(), get()) }
         addSingletonFactory {
             DiscordRpcManager(
+                context = app,
                 client = get<NetworkHelper>().client,
                 json = get(),
                 scope = get(),

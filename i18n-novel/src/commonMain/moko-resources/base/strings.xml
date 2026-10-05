@@ -763,6 +763,19 @@
     <string name="discord_show_reading_summary">Show the novel or chapter currently open</string>
     <string name="discord_authorizing">Waiting for Discord authorization…</string>
     <string name="discord_error">Discord error: %1$s</string>
+    <string name="discord_activity_app">Browsing App</string>
+    <string name="discord_activity_library">Browsing Library</string>
+    <string name="discord_activity_source">Browsing Source</string>
+    <string name="discord_activity_novel">Browsing Novel</string>
+    <string name="discord_activity_chapter">Reading: %1$s</string>
+    <string name="discord_view_source">View source</string>
+    <string name="discord_view_novel">View novel</string>
+    <string name="discord_read_chapter">Read chapter</string>
+    <string name="discord_read_on_nekori">Read on Nekori</string>
+    <string name="discord_auth_open_failed">Could not open Discord authorization. Try again.</string>
+    <string name="discord_auth_timeout">Discord authorization timed out. Try logging in again.</string>
+    <string name="discord_auth_failed">Discord authorization failed. Try logging in again.</string>
+    <string name="discord_profile_failed">Could not load your Discord profile. Check your connection and try again.</string>
 
     <!-- Sensitive content privacy -->
     <string name="sensitive_content">Sensitive content</string>

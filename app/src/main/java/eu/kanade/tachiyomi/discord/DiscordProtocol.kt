@@ -8,6 +8,7 @@
 
 package eu.kanade.tachiyomi.discord
 
+import dev.icerock.moko.resources.StringResource
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -145,7 +146,7 @@ sealed interface DiscordAuthState {
     data object Disconnected : DiscordAuthState
     data object Authorizing : DiscordAuthState
     data class Connected(val profile: DiscordProfile) : DiscordAuthState
-    data class Error(val message: String) : DiscordAuthState
+    data class Error(val message: StringResource) : DiscordAuthState
 }
 
 internal data class DiscordPresence(

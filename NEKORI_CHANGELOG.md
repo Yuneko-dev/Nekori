@@ -26,6 +26,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Word count statistics and length distribution tiers for downloaded and local novels.
 
 ### Changed
+- Localize Discord Rich Presence activity, buttons and login errors.
 - Changed Nekori's official website domain and updated related source files and GitHub Actions workflows accordingly.
 
 ### Fixed
