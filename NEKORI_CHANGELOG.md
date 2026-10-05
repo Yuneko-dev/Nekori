@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+- Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.
+
 ## [v0.1.2] - 2026-10-05
 
 ### Added

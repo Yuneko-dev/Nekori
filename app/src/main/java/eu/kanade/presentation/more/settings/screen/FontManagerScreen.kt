@@ -431,7 +431,7 @@ private fun FontItem(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ListItem(
+        Row(
             modifier = Modifier
                 .weight(1f)
                 .selectable(
@@ -440,32 +440,42 @@ private fun FontItem(
                     role = Role.RadioButton,
                     onClick = onClick,
                 ),
-            headlineContent = {
-                Text(
-                    text = fontInfo.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            supportingContent = {
-                when (val currentPreview = preview) {
-                    FontPreview.Loading -> Text(stringResource(MR.strings.loading))
-                    FontPreview.Unavailable -> Text(
-                        text = stringResource(TDMR.strings.settings_font_manager_font_unavailable),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    is FontPreview.Ready -> Text(
-                        text = stringResource(TDMR.strings.settings_font_manager_preview_sample),
-                        fontFamily = currentPreview.family,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ListItem(
+                modifier = Modifier.weight(1f),
+                headlineContent = {
+                    Text(
+                        text = fontInfo.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                }
-            },
-            trailingContent = { RadioButton(selected = isSelected, onClick = null, enabled = ready != null) },
-        )
+                },
+                supportingContent = {
+                    when (val currentPreview = preview) {
+                        FontPreview.Loading -> Text(stringResource(MR.strings.loading))
+                        FontPreview.Unavailable -> Text(
+                            text = stringResource(TDMR.strings.settings_font_manager_font_unavailable),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        is FontPreview.Ready -> Text(
+                            text = stringResource(TDMR.strings.settings_font_manager_preview_sample),
+                            fontFamily = currentPreview.family,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
+            )
+            RadioButton(
+                selected = isSelected,
+                onClick = null,
+                enabled = ready != null,
+                modifier = Modifier.padding(end = 16.dp),
+            )
+        }
         if (onDelete != null) {
             IconButton(onClick = onDelete, modifier = Modifier.padding(end = 8.dp)) {
                 Icon(
