@@ -26,7 +26,7 @@ const server = createServer(async (req, res) => {
             <script src="reader-background.js"></script></body></html>`);
     } else {
         try {
-            res.setHeader('Content-Type', name.endsWith('.css') ? 'text/css' : name.endsWith('.js') ? 'text/javascript' : 'image/png');
+            res.setHeader('Content-Type', name.endsWith('.css') ? 'text/css' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.webp') ? 'image/webp' : 'image/png');
             res.end(await readFile(new URL(name, assets)));
         } catch { res.writeHead(404).end(); }
     }
@@ -76,8 +76,17 @@ try {
         });
         assert.deepEqual(actual, [expectedSize, expectedRepeat]);
     }
-    await apply({ ...config, image: `${origin}/backgrounds/default_1.png` });
+    await apply({ ...config, image: `${origin}/backgrounds/default_01.webp` });
     await page.waitForFunction(() => getComputedStyle(document.getElementById('reader-background')).backgroundImage !== 'none');
+    // System/status-bar reserves belong to prose margins, not the background viewport.
+    await page.evaluate(() => {
+        document.documentElement.style.setProperty('--reader-margin-top', '64px');
+        document.documentElement.style.setProperty('--reader-margin-bottom', '72px');
+        document.documentElement.style.setProperty('--reader-margin-left', '48px');
+        scrollTo(0, 0);
+    });
+    assert.deepEqual(await page.locator('#reader-background').boundingBox(), { x: 0, y: 0, width: 412, height: 820 });
+    assert.equal(await page.locator('body').evaluate(el => getComputedStyle(el).paddingTop), '64px');
     // Verify fixed decoration in the actual column CSS, retaining every paragraph.
     await page.evaluate(() => {
         scrollTo(0, 0);
@@ -85,6 +94,10 @@ try {
         document.getElementById('LNReader-chapter').dataset.readerSpread = 'single';
     });
     assert.equal(await page.locator('#LNReader-chapter p').count(), 60);
+    assert.deepEqual(await page.locator('#LNReader-chapter').evaluate(el => {
+        const css = getComputedStyle(el);
+        return [css.paddingTop, css.paddingBottom, css.paddingLeft];
+    }), ['64px', '112px', '48px']);
     const first = await page.locator('#reader-background').boundingBox();
     await page.locator('#LNReader-chapter').evaluate(el => { el.scrollLeft = 400; });
     assert.deepEqual(await page.locator('#reader-background').boundingBox(), first);

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -21,6 +22,7 @@ import android.view.WindowManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.widget.Toast
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -94,11 +96,13 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.service.TtsPlaybackService
+import eu.kanade.tachiyomi.ui.reader.setting.NovelBackgroundSettings
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.backgroundSettings
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
@@ -209,6 +213,10 @@ class ReaderActivity : BaseActivity() {
             false
         }
     }
+
+    internal var novelContentInsets: Insets = Insets.NONE
+        private set
+    private var novelStatusInsets: Insets = Insets.NONE
 
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, window.decorView) }
 
@@ -478,6 +486,8 @@ class ReaderActivity : BaseActivity() {
         val novelStatusBarOrderRaw by readerPreferences.novelStatusBarOrder.collectAsState()
         val novelTheme by readerPreferences.novelTheme.collectAsState()
         val novelBgColorInt by readerPreferences.novelBackgroundColor.collectAsState()
+        val novelBackground by readerPreferences.novelBackground.collectAsState()
+        val customBackground = NovelBackgroundSettings.decode(novelBackground).image.isNotEmpty()
         val novelFontColorInt by readerPreferences.novelFontColor.collectAsState()
         var statusBarCollapsed by remember { mutableStateOf(false) }
         val density = LocalDensity.current
@@ -601,15 +611,20 @@ class ReaderActivity : BaseActivity() {
             }
         }
 
-        // Pad viewer_container by the status bar's height on its docked edge so content never renders
-        // under it. Reserved while enabled (not on menu visibility) so menu toggles don't resize the
-        // WebView and jump its scroll.
+        // Reserve the status bar while enabled, independently of menu visibility. Custom backgrounds
+        // use document margins so the image can extend behind the bar without shrinking the WebView.
         val statusBarReservePx = if (isNovelViewer && novelStatusBarEnabled) statusBarHeightPx else 0
-        LaunchedEffect(statusBarReservePx, statusBarAtBottomEdge) {
+        LaunchedEffect(statusBarReservePx, statusBarAtBottomEdge, customBackground, isNovelViewer) {
             val top = if (statusBarAtBottomEdge) 0 else statusBarReservePx
             val bottom = if (statusBarAtBottomEdge) statusBarReservePx else 0
+            novelStatusInsets = Insets.of(0, top, 0, bottom)
             val vc = binding.viewerContainer
-            if (vc.paddingTop != top || vc.paddingBottom != bottom) vc.setPadding(0, top, 0, bottom)
+            val nativeTop = if (customBackground) 0 else top
+            val nativeBottom = if (customBackground) 0 else bottom
+            if (vc.paddingTop != nativeTop || vc.paddingBottom != nativeBottom) {
+                vc.setPadding(0, nativeTop, 0, nativeBottom)
+            }
+            updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
         }
 
         NovelChapterDrawer(
@@ -658,7 +673,7 @@ class ReaderActivity : BaseActivity() {
                     val (bgInt, textInt) = remember(novelTheme, novelBgColorInt, novelFontColorInt) {
                         ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, novelTheme)
                     }
-                    val readerBgColor = ComposeColor(bgInt)
+                    val readerBgColor = if (customBackground) ComposeColor.Transparent else ComposeColor(bgInt)
                     val readerTextColor = ComposeColor(textInt)
                     val statusBarOrder = remember(novelStatusBarOrderRaw) {
                         novelStatusBarOrderRaw.deserializeStatusBarOrder()
@@ -1916,7 +1931,19 @@ class ReaderActivity : BaseActivity() {
         }
             ?: Insets.NONE
 
-        setPadding(insets.left, insets.top, insets.right, insets.bottom)
+        // The image needs the full WebView viewport. Reserve safe space in document margins instead.
+        val customBackground = readerPreferences.backgroundSettings().image.isNotEmpty()
+        val padding = if (customBackground) Insets.NONE else insets
+        setPadding(padding.left, padding.top, padding.right, padding.bottom)
+        val contentInsets = if (customBackground) {
+            Insets.add(insets, novelStatusInsets)
+        } else {
+            Insets.NONE
+        }
+        if (novelContentInsets != contentInsets) {
+            novelContentInsets = contentInsets
+            (viewModel.state.value.viewer as? NovelWebViewViewer)?.onContentInsetsChanged()
+        }
     }
 
     /**
@@ -1966,6 +1993,23 @@ class ReaderActivity : BaseActivity() {
                 .onEach { background ->
                     binding.readerContainer.setBackgroundColor(background)
                     updateSystemBarsVisibility(viewModel.state.value.menuVisible)
+                }
+                .launchIn(lifecycleScope)
+
+            readerPreferences.novelBackground.changes()
+                .map { NovelBackgroundSettings.decode(it).image.isNotEmpty() }
+                .distinctUntilChanged()
+                .onEach { customBackground ->
+                    if (customBackground) {
+                        enableEdgeToEdge(navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
+                    } else {
+                        enableEdgeToEdge()
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        window.isNavigationBarContrastEnforced = false
+                    }
+                    updateSystemBarsVisibility(viewModel.state.value.menuVisible)
+                    updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
                 }
                 .launchIn(lifecycleScope)
 

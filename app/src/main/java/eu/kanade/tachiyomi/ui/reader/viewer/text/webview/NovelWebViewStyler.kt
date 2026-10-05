@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 import android.content.Context
 import android.view.View
 import android.webkit.WebView
+import androidx.core.graphics.Insets
 import androidx.core.net.toUri
 import eu.kanade.presentation.reader.settings.CodeSnippet
 import eu.kanade.presentation.reader.settings.safeTitle
@@ -58,10 +59,12 @@ internal class NovelWebViewStyler(
         val fontSize = preferences.novelFontSize.get()
         val fontFamily = preferences.novelFontFamily.get()
         val lineHeight = preferences.novelLineHeight.get()
-        val marginLeft = preferences.novelMarginLeft.get()
-        val marginRight = preferences.novelMarginRight.get()
-        val marginTop = preferences.novelMarginTop.get()
-        val marginBottom = preferences.novelMarginBottom.get()
+        val insets = (context as? ReaderActivity)?.novelContentInsets ?: Insets.NONE
+        val density = context.resources.displayMetrics.density
+        val marginLeft = preferences.novelMarginLeft.get() + insets.left / density
+        val marginRight = preferences.novelMarginRight.get() + insets.right / density
+        val marginTop = preferences.novelMarginTop.get() + insets.top / density
+        val marginBottom = preferences.novelMarginBottom.get() + insets.bottom / density
         val paragraphIndent = preferences.novelParagraphIndent.get()
         val paragraphSpacing = preferences.novelParagraphSpacing.get()
         val textAlign = preferences.novelTextAlign.get()

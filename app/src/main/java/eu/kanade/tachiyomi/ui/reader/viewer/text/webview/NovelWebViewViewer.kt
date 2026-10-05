@@ -1008,6 +1008,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
+    fun onContentInsetsChanged() {
+        styler.injectStyles()
+        pagedController.reflow()
+    }
+
     private fun observePreferences() {
         NovelWebViewPreferenceObserver(
             preferences = preferences,
