@@ -104,8 +104,8 @@ android {
     defaultConfig {
         applicationId = "app.yuneko.nekori"
 
-        versionCode = 12
-        versionName = "0.1.1"
+        versionCode = 13
+        versionName = "0.1.2"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")

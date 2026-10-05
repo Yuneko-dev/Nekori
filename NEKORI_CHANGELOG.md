@@ -19,6 +19,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-10-05
+
 ### Added
 - Add multilingual vertical reading with right-to-left navigation and upright short numbers.
 - Added custom novel reader backgrounds with bundled defaults, local image/SVG import, thumbnail selection, rename/delete management, multiple display modes, positioning, opacity, and blur controls [#9](https://github.com/Yuneko-dev/Nekori/issues/9)
