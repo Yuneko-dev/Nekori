@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Improved
+- Dock the floating TTS control to either edge and remember its position per site.
+
 ### Fixed
 - Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.
 

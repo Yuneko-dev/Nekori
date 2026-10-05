@@ -97,6 +97,26 @@
     controller.appendChild(ttsButton);
     readerUi.appendChild(controller);
 
+    var positionKey = "nekori.tts.position";
+    var dockPosition = { right: false, top: window.innerHeight / 2 };
+    try {
+        var savedPosition = JSON.parse(localStorage.getItem(positionKey));
+        if (savedPosition && typeof savedPosition.right === "boolean" &&
+            Number.isFinite(savedPosition.top)) {
+            dockPosition = savedPosition;
+        }
+    } catch (_) { /* Storage may be unavailable for this origin. */ }
+
+    function applyDockPosition() {
+        controller.style.left = dockPosition.right ? "calc(100% - 20px)" : "20px";
+        controller.style.transform = dockPosition.right ? "translateX(-100%)" : "translateX(0)";
+        var margin = Math.min(120, window.innerHeight / 2);
+        controller.style.top = Math.max(margin,
+            Math.min(dockPosition.top, window.innerHeight - margin)) + "px";
+    }
+    applyDockPosition();
+    window.addEventListener("resize", applyDockPosition);
+
     var pointerStart = null;
     var hoverElement = null;
     var ttsEnabled = __TTS_ENABLED__;
@@ -177,6 +197,7 @@
             pointerStart.moved = true;
         }
         if (!pointerStart.moved) return;
+        controller.style.transform = "translateX(0)";
         controller.style.left = event.clientX + "px";
         controller.style.top = event.clientY + "px";
         updateHover(event.clientX, event.clientY);
@@ -187,11 +208,14 @@
         pointerStart = null;
         controller.style.transition = "1s";
         controller.classList.remove("active");
-        controller.style.left = "20px";
         if (moved) {
-            var top = event.clientY < 120 ? 120 : event.clientY;
-            if (top + 120 > window.innerHeight) top = window.innerHeight - 120;
-            controller.style.top = top + "px";
+            dockPosition = {
+                right: event.clientX > window.innerWidth / 2,
+                top: event.clientY,
+            };
+            try {
+                localStorage.setItem(positionKey, JSON.stringify(dockPosition));
+            } catch (_) { /* Keep docking even when storage is unavailable. */ }
             // Tag the drop target and let the app resolve its index: the paragraph list TTS
             // reads from is built there, and a second list built here would not agree with it.
             if (
@@ -205,12 +229,13 @@
         } else if (window.Android && window.Android.toggleTts) {
             window.Android.toggleTts();
         }
+        applyDockPosition();
         clearHighlight();
     });
     controller.addEventListener("pointercancel", function () {
         pointerStart = null;
         controller.classList.remove("active");
-        controller.style.left = "20px";
+        applyDockPosition();
         clearHighlight();
     });
 

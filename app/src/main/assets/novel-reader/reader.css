@@ -354,6 +354,7 @@ td {
 
 #TTS-Controller {
     position: fixed;
+    width: max-content;
     top: 50%;
     left: 20px;
     opacity: .5;
