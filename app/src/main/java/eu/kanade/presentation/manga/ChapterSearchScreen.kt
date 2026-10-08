@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.tachiyomi.ui.manga.search.ChapterSearchOptions
 import eu.kanade.tachiyomi.ui.manga.search.ChapterSearchResult
@@ -190,10 +192,12 @@ private fun SearchResults(
                     modifier = Modifier.clickable { onResultClick(result.chapter, snippet) },
                     content = { SnippetText(snippet) },
                     trailingContent = {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = stringResource(TDMR.strings.chapter_search_open_match),
-                        )
+                        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = stringResource(TDMR.strings.chapter_search_open_match),
+                            )
+                        }
                     },
                 )
             }
@@ -264,7 +268,7 @@ private fun SearchResultHeader(
         },
         trailingContent = {
             if (result.matchCount > COLLAPSED_SNIPPETS) {
-                IconButton(onClick = onToggleExpanded) {
+                IconButton(onClick = onToggleExpanded, modifier = Modifier.size(48.dp)) {
                     Icon(
                         if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = stringResource(

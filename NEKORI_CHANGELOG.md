@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Dock the floating TTS control to either edge and remember its position per site.
 
 ### Fixed
+- Align expand/collapse buttons with result arrows in chapter search.
 - Show custom reader backgrounds behind the system bars and reading status bar while reserving safe space for text.
 - Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.
 
