@@ -72,6 +72,8 @@ what the app does, not what this fork added. For the fork's own changes, see
 * DNS over HTTPS and DPI bypass, applied locally.
 * Domain forwarding rules, and request throttling scoped to plugin traffic so covers, trackers and translation are
   not paced by source settings.
+* Optional download-only throttling reuses the same per-source settings to pace chapters instead of individual
+  requests, leaving browsing and reading unpaced.
 
 **Library**
 

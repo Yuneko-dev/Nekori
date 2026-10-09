@@ -176,10 +176,13 @@
     <string name="pref_novel_request_throttling_summary">Thêm khoảng chờ giữa các yêu cầu đến nguồn để tránh bị giới hạn tần suất</string>
     <string name="pref_novel_request_throttling_js_only">Chỉ áp dụng với JS Plugin</string>
     <string name="pref_novel_request_throttling_js_only_summary">Chỉ điều tiết các yêu cầu do plugin tự gửi. Mọi thứ khác của ứng dụng — ảnh bìa, theo dõi, dịch, kho plugin — vẫn chạy hết tốc độ.</string>
-    <string name="pref_novel_request_permits">Số yêu cầu trước khi chờ</string>
-    <string name="pref_novel_request_permits_summary">Số yêu cầu đến nguồn có thể thực hiện nhanh trước khi áp dụng thời gian chờ. 1 sẽ giãn cách từng yêu cầu; số lớn hơn cho phép một vài yêu cầu (ví dụ mỗi chương một yêu cầu) trước khi tạm dừng.</string>
-    <string name="pref_novel_request_delay">Thời gian chờ yêu cầu</string>
-    <string name="pref_novel_request_delay_summary">Khoảng chờ cơ bản giữa các yêu cầu đến cùng nguồn (ms). Áp dụng cho mỗi yêu cầu, nên tiểu thuyết nhiều chương sẽ tự nhiên mất lâu hơn tiểu thuyết ít chương.</string>
+    <string name="pref_novel_request_throttling_downloads_only">Chỉ áp dụng khi tải xuống</string>
+    <string name="pref_novel_request_throttling_downloads_only_summary">Áp dụng giới hạn nguồn hiện có theo từng chương tải xuống thay vì từng yêu cầu HTTP.</string>
+    <string name="pref_novel_request_throttling_downloads_only_info">Mỗi chương tải xuống tính là một lượt, dùng chung thời gian chờ, dao động và cấu hình riêng của nguồn. Các yêu cầu bên trong chương không bị điều tiết riêng. Duyệt, đọc truyện và các yêu cầu HTTP khác đều không bị giãn nhịp, kể cả yêu cầu từ JS plugin. Chế độ chỉ JS không có tác dụng khi chế độ chỉ tải xuống đang hoạt động.</string>
+    <string name="pref_novel_request_permits">Số lượt trước khi chờ</string>
+    <string name="pref_novel_request_permits_summary">Số yêu cầu đến nguồn có thể bắt đầu trong khoảng thời gian chờ. Khi chỉ điều tiết tải xuống, mỗi chương tải được tính là một lượt.</string>
+    <string name="pref_novel_request_delay">Thời gian chờ</string>
+    <string name="pref_novel_request_delay_summary">Khoảng thời gian điều tiết cho cùng nguồn (ms). Tính theo từng yêu cầu HTTP, hoặc theo chương khi chỉ điều tiết tải xuống.</string>
     <string name="pref_novel_request_jitter">Dao động ngẫu nhiên</string>
     <string name="pref_novel_request_jitter_summary">Khoảng ngẫu nhiên cộng thêm vào thời gian chờ cơ bản (ms), khiến yêu cầu giống người dùng tự nhiên thay vì bot chờ đúng một khoảng cố định</string>
     <string name="pref_clear_rate_limit_history">Xóa lịch sử giới hạn tần suất</string>

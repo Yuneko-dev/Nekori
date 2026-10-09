@@ -88,4 +88,6 @@ class RateLimitResolver(
      * throttling is on at all - with the toggle off nothing is paced either way.
      */
     fun isJsPluginOnly(): Boolean = prefs.throttleJsPluginOnly().get()
+
+    fun isDownloadsOnly(): Boolean = prefs.throttleDownloadsOnly().get()
 }

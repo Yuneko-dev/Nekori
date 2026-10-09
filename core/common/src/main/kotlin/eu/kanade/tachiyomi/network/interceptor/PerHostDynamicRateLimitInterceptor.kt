@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import android.os.SystemClock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import okhttp3.Call
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -16,6 +19,8 @@ import kotlin.random.Random
  * what gives the app real per-request throttling: a novel needing 50 requests naturally takes
  * proportionally longer than one needing 1, since every request goes through this gate, not
  * just once per job item.
+ * In download-only mode HTTP requests bypass this gate; the downloader calls [awaitDownload]
+ * once per chapter using the same host policy and rolling window.
  *
  * Within each host's [RateLimitSpec], up to `permits` requests are allowed through in a burst
  * (a sliding window over the last `delayMillis`) before a request has to wait - so a source
@@ -44,6 +49,8 @@ class PerHostDynamicRateLimitInterceptor : Interceptor {
         val request = chain.request()
         val host = request.url.host.normalizedRateLimitHost()
 
+        if (policy.downloadsOnly()) return chain.proceed(request)
+
         // Throttling scoped to plugin JavaScript: anything the app itself sends through the shared
         // client is left alone, even on a host a source claims.
         if (policy.jsPluginOnly() && !request.isJsPluginOrigin) return chain.proceed(request)
@@ -52,8 +59,19 @@ class PerHostDynamicRateLimitInterceptor : Interceptor {
             return chain.proceed(request)
         }
 
-        val spec = policy.specFor(host)
+        awaitPermit(host, policy.specFor(host)) { waitCancellably(it, call) }
+        return chain.proceed(request)
+    }
 
+    /** Called once per queued chapter; HTTP requests never share this wait with browsing. */
+    suspend fun awaitDownload(host: String?) {
+        if (host == null || !policy.downloadsOnly()) return
+        currentCoroutineContext().ensureActive()
+        val normalized = host.normalizedRateLimitHost()
+        awaitPermit(normalized, policy.specFor(normalized)) { delay(it) }
+    }
+
+    private inline fun awaitPermit(host: String, spec: RateLimitSpec, waitFor: (Long) -> Unit) {
         if (spec.delayMillis > 0) {
             val lock = hostLocks.computeIfAbsent(host) { Any() }
             // Compute the required wait under the lock, then sleep with the lock released so other
@@ -100,14 +118,12 @@ class PerHostDynamicRateLimitInterceptor : Interceptor {
 
                 RateLimitWaitTracker.startWaiting(host, SystemClock.elapsedRealtime() + wait)
                 try {
-                    waitCancellably(wait, call)
+                    waitFor(wait)
                 } finally {
                     RateLimitWaitTracker.stopWaiting(host)
                 }
             }
         }
-
-        return chain.proceed(request)
     }
 
     /**

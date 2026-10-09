@@ -261,6 +261,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
         prefs: NovelDownloadPreferences,
     ): Preference.PreferenceGroup {
         val enabled = prefs.enableRequestThrottling().collectAsState().value
+        val downloadsOnly = prefs.throttleDownloadsOnly().collectAsState().value
         val requestDelay = prefs.requestDelay().collectAsState().value
         val requestJitter = prefs.requestJitter().collectAsState().value
         val requestPermits = prefs.requestPermits().collectAsState().value
@@ -273,7 +274,7 @@ object SettingsNovelDownloadScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.pref_novel_request_throttling_category),
-            preferenceItems = listOf(
+            preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.enableRequestThrottling(),
                     title = stringResource(TDMR.strings.pref_novel_request_throttling),
@@ -283,8 +284,21 @@ object SettingsNovelDownloadScreen : SearchableSettings {
                     preference = prefs.throttleJsPluginOnly(),
                     title = stringResource(TDMR.strings.pref_novel_request_throttling_js_only),
                     subtitle = stringResource(TDMR.strings.pref_novel_request_throttling_js_only_summary),
+                    enabled = enabled && !downloadsOnly,
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.throttleDownloadsOnly(),
+                    title = stringResource(TDMR.strings.pref_novel_request_throttling_downloads_only),
+                    subtitle = stringResource(TDMR.strings.pref_novel_request_throttling_downloads_only_summary),
                     enabled = enabled,
                 ),
+                if (enabled && downloadsOnly) {
+                    Preference.PreferenceItem.InfoPreference(
+                        stringResource(TDMR.strings.pref_novel_request_throttling_downloads_only_info),
+                    )
+                } else {
+                    null
+                },
                 Preference.PreferenceItem.SliderPreference(
                     value = requestPermits,
                     valueRange = 1..20,

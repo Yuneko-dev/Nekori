@@ -22,6 +22,32 @@ class SourceRateLimitPolicyTest {
         return RateLimitResolver(preferences)
     }
 
+    @Test
+    fun `download-only uses existing host overrides and respects the master toggle`() {
+        val prefs = NovelDownloadPreferences(InMemoryPreferenceStore())
+        val sourceManager = mockk<SourceManager> {
+            every { getRateLimitCandidates() } returns listOf(novelCandidate("example.com"))
+            every { isInitialized } returns MutableStateFlow(true)
+        }
+        val policy = SourceRateLimitPolicy(sourceManager, RateLimitResolver(prefs))
+        policy.downloadsOnly() shouldBe false
+        prefs.throttleDownloadsOnly().set(true)
+        prefs.enableRequestThrottling().set(true)
+        prefs.setSourceOverride(
+            NovelDownloadPreferences.Companion.SourceOverride(
+                sourceId = 1L,
+                delayMillis = 4500,
+                jitterMillis = 500,
+                permits = 3,
+            ),
+        )
+
+        policy.downloadsOnly() shouldBe true
+        policy.specFor("www.example.com") shouldBe RateLimitSpec(4500, 500, 3)
+        prefs.enableRequestThrottling().set(false)
+        policy.specFor("example.com") shouldBe RateLimitSpec.NONE
+    }
+
     private fun policy(vararg candidates: RateLimitCandidate, isInitialized: Boolean = true): SourceRateLimitPolicy {
         val sourceManager = mockk<SourceManager> {
             every { getRateLimitCandidates() } returns candidates.toList()

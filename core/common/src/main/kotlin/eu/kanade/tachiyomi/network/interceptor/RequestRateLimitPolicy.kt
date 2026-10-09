@@ -16,4 +16,7 @@ fun interface RequestRateLimitPolicy {
      * translations, the plugin repo itself - goes out unpaced regardless of [specFor].
      */
     fun jsPluginOnly(): Boolean = false
+
+    /** Pace chapter downloads instead of individual HTTP requests, regardless of JS origin. */
+    fun downloadsOnly(): Boolean = false
 }

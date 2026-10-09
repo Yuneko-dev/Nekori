@@ -53,9 +53,8 @@ class NovelDownloadPreferences(
     val epubCompressionLevel: Preference<Int> = preferenceStore.getInt("epub_compression_level", -1)
 
     /**
-     * Enable per-request delay throttling for novel sources.
-     * Applies once per outgoing HTTP request (via the app's shared network client),
-     * regardless of which job (download, library update, mass import) triggered it.
+     * Enable throttling for novel sources: per HTTP request, or per downloaded chapter
+     * when [throttleDownloadsOnly] is enabled.
      */
     fun enableRequestThrottling() = preferenceStore.getBoolean(
         "novel_request_throttling_enabled",
@@ -70,6 +69,12 @@ class NovelDownloadPreferences(
      */
     fun throttleJsPluginOnly() = preferenceStore.getBoolean(
         "novel_request_throttling_js_plugin_only",
+        false,
+    )
+
+    /** Reuse the request limits per chapter download; bypass individual HTTP requests. */
+    fun throttleDownloadsOnly() = preferenceStore.getBoolean(
+        "novel_request_throttling_downloads_only",
         false,
     )
 

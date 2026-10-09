@@ -531,6 +531,9 @@ class Downloader(
         var isVideoDownload = false
 
         try {
+            if (!download.bypassRateLimit) {
+                networkHelper.rateLimitInterceptor.awaitDownload(download.source.rateLimitHost())
+            }
             // If the page list already exists, start from the file
             val pageList = download.pages ?: run {
                 // Otherwise, pull page list from network and add them to download object

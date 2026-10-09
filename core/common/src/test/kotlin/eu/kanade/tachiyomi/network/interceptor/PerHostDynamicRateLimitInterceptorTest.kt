@@ -6,6 +6,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Interceptor
@@ -39,11 +42,15 @@ class PerHostDynamicRateLimitInterceptorTest {
         @Volatile
         private var jsPluginOnlyFlag = false
 
+        @Volatile
+        private var downloadsOnlyFlag = false
+
         init {
             Injekt.addSingletonFactory<RequestRateLimitPolicy> {
                 object : RequestRateLimitPolicy {
                     override fun specFor(host: String) = specs[host] ?: RateLimitSpec.NONE
                     override fun jsPluginOnly() = jsPluginOnlyFlag
+                    override fun downloadsOnly() = downloadsOnlyFlag
                 }
             }
         }
@@ -53,6 +60,7 @@ class PerHostDynamicRateLimitInterceptorTest {
     fun setUp() {
         specs.clear()
         jsPluginOnlyFlag = false
+        downloadsOnlyFlag = false
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } returns 0L
     }
@@ -324,6 +332,82 @@ class PerHostDynamicRateLimitInterceptorTest {
         for (i in 1 until dispatchTimes.size) {
             (dispatchTimes[i] - dispatchTimes[i - 1] >= 250L) shouldBe true
         }
+    }
+
+    @Test
+    fun `download-only paces chapters but bypasses concurrent app and plugin requests`() = runBlocking<Unit> {
+        downloadsOnlyFlag = true
+        val host = "example.com"
+        specs[host] = RateLimitSpec(delayMillis = 300L, permits = 2)
+        val interceptor = PerHostDynamicRateLimitInterceptor()
+        val chains = listOf(false, true).map { fakeChain("https://$host/browse", fromJsPlugin = it) }
+
+        for (jsOnly in listOf(false, true)) {
+            jsPluginOnlyFlag = jsOnly
+            interceptor.clearState()
+            interceptor.awaitDownload(host)
+            interceptor.awaitDownload("www.$host")
+            val pending = launch(start = CoroutineStart.UNDISPATCHED) { interceptor.awaitDownload(host) }
+            pending.isCompleted shouldBe false
+            BackgroundRateLimitGuard.active(host) {
+                val elapsed = measureMillis { chains.forEach { interceptor.intercept(it) } }
+                (elapsed < 150L) shouldBe true
+            }
+            pending.join()
+            RateLimitWaitTracker.remainingMillisFor(host) shouldBe null
+        }
+    }
+
+    @Test
+    fun `download gate is inactive outside download-only mode or with no host or no limit`() = runBlocking<Unit> {
+        val interceptor = PerHostDynamicRateLimitInterceptor()
+        specs["example.com"] = RateLimitSpec(delayMillis = 5000L)
+        val elapsed = measureMillis {
+            repeat(2) { interceptor.awaitDownload("example.com") }
+            downloadsOnlyFlag = true
+            repeat(2) { interceptor.awaitDownload(null) }
+            repeat(2) { interceptor.awaitDownload("unmetered.com") }
+        }
+        (elapsed < 500L) shouldBe true
+    }
+
+    @Test
+    fun `canceling a chapter wait clears feedback and does not consume its permit`() = runBlocking<Unit> {
+        downloadsOnlyFlag = true
+        val host = "example.com"
+        specs[host] = RateLimitSpec(delayMillis = 5000L)
+        val interceptor = PerHostDynamicRateLimitInterceptor()
+        interceptor.awaitDownload(host)
+        every { SystemClock.elapsedRealtime() } returns 1000L
+        val pending = launch(start = CoroutineStart.UNDISPATCHED) { interceptor.awaitDownload(host) }
+        pending.isCompleted shouldBe false
+        (RateLimitWaitTracker.remainingMillisFor(host) != null) shouldBe true
+        pending.cancelAndJoin()
+        RateLimitWaitTracker.remainingMillisFor(host) shouldBe null
+
+        every { SystemClock.elapsedRealtime() } returns 5000L
+        val next = launch(start = CoroutineStart.UNDISPATCHED) { interceptor.awaitDownload(host) }
+        next.isCompleted shouldBe true
+        next.join()
+    }
+
+    @Test
+    fun `concurrent chapter downloads share the same host window`() = runBlocking<Unit> {
+        downloadsOnlyFlag = true
+        specs["example.com"] = RateLimitSpec(delayMillis = 200L)
+        val start = System.nanoTime()
+        every { SystemClock.elapsedRealtime() } answers { (System.nanoTime() - start) / 1_000_000 }
+        val interceptor = PerHostDynamicRateLimitInterceptor()
+        val dispatchTimes = mutableListOf<Long>()
+        val jobs = List(3) {
+            launch {
+                interceptor.awaitDownload("example.com")
+                dispatchTimes.add((System.nanoTime() - start) / 1_000_000)
+            }
+        }
+        jobs.forEach { it.join() }
+        dispatchTimes.size shouldBe 3
+        dispatchTimes.zipWithNext { previous, next -> (next - previous >= 170L) shouldBe true }
     }
 
     private inline fun measureMillis(block: () -> Unit): Long {

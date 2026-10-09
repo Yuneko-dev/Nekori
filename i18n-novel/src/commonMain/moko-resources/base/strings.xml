@@ -201,10 +201,13 @@
     <string name="pref_novel_request_throttling_summary">Add delays between requests to a source to avoid rate limiting</string>
     <string name="pref_novel_request_throttling_js_only">Only apply to JS plugins</string>
     <string name="pref_novel_request_throttling_js_only_summary">Throttle only the requests plugins make themselves. Everything else the app does — covers, trackers, translation, plugin repos — goes out at full speed.</string>
-    <string name="pref_novel_request_permits">Requests before delay</string>
-    <string name="pref_novel_request_permits_summary">How many requests to a source can go through in a quick burst before the delay is enforced. 1 paces every request individually; higher values allow a handful (e.g. one per chapter) before pausing.</string>
-    <string name="pref_novel_request_delay">Request delay</string>
-    <string name="pref_novel_request_delay_summary">Base delay between requests to the same source (ms). Applies once per request, so a novel needing many chapters naturally takes longer than one needing few.</string>
+    <string name="pref_novel_request_throttling_downloads_only">Only apply to downloads</string>
+    <string name="pref_novel_request_throttling_downloads_only_summary">Apply the existing source limits per downloaded chapter instead of per HTTP request.</string>
+    <string name="pref_novel_request_throttling_downloads_only_info">Each chapter download counts as one burst allowance, using the existing delay, jitter and per-source overrides. Requests within a chapter are not individually throttled. Browsing, reading and other HTTP requests remain unpaced, including JS plugin requests. JS-only mode has no effect while download-only mode is active.</string>
+    <string name="pref_novel_request_permits">Burst allowance</string>
+    <string name="pref_novel_request_permits_summary">How many requests to a source can start within the delay window. In download-only mode, each chapter download counts as one instead.</string>
+    <string name="pref_novel_request_delay">Delay</string>
+    <string name="pref_novel_request_delay_summary">Delay window for the same source (ms). Applies per HTTP request, or per chapter download in download-only mode.</string>
     <string name="pref_novel_request_jitter">Random jitter</string>
     <string name="pref_novel_request_jitter_summary">Random amount added on top of the base delay (ms), so requests look like a natural user rather than a bot waiting an exact interval</string>
     <string name="pref_clear_rate_limit_history">Clear rate limit history</string>

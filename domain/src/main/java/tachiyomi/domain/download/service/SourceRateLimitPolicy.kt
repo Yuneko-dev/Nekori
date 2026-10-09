@@ -31,6 +31,8 @@ class SourceRateLimitPolicy(
 
     override fun jsPluginOnly(): Boolean = resolver.isJsPluginOnly()
 
+    override fun downloadsOnly(): Boolean = resolver.isDownloadsOnly()
+
     override fun specFor(host: String): RateLimitSpec {
         val normalized = host.normalizedRateLimitHost()
         val (byHost, byDomain) = indexes()
