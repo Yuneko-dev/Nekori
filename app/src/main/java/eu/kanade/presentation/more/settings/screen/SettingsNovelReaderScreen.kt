@@ -103,6 +103,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelStatusBarShowChapterNumber,
             readerPref.novelStatusBarShowChapterTitle,
             readerPref.novelStatusBarShowCharging,
+            readerPref.novelStatusBarShowWordCount,
             readerPref.drawUnderCutout,
         )
     }

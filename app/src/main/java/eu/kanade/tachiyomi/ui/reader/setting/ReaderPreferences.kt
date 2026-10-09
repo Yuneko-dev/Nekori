@@ -411,6 +411,10 @@ class ReaderPreferences(
         "pref_novel_status_bar_order",
         DefaultStatusBarOrder.serializeStatusBarOrder(),
     )
+    val novelStatusBarShowWordCount: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_status_bar_show_word_count",
+        false,
+    )
     // endregion
 
     companion object {

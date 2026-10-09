@@ -39,6 +39,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
 import com.hippo.unifile.UniFile
+import eu.kanade.domain.manga.model.WordDensity
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
@@ -1526,6 +1527,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         rawContent: String,
         isAppend: Boolean,
     ): PreparedChapterContent {
+        chapter.wordCount.value = null
         val chapterId = chapter.chapter.id ?: -1L
         val cfg = ContentConfig.from(
             preferences,
@@ -1548,6 +1550,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val prepared = withContext(Dispatchers.Default) {
             val directives = page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
                 ?: NovelWebViewChapterDirectives.parse(rawContent)
+            // Keep only the count so enabling the bar later never refetches no-cache content.
+            // TODO: Skip counting when disabled and avoid delaying chapter preparation, while preserving no-cache behavior.
+            chapter.wordCount.value = if (directives.checkpoint) {
+                null
+            } else {
+                WordDensity.countWordsAsync(rawContent)
+            }
             var processed = contentPipeline.process(rawContent, cfg, if (directives.checkpoint) null else translator)
             if (isAppend && processed.text.contains(NovelWebViewImageCache.URL_SCHEME_NOVEL_IMAGE)) {
                 processed = processed.copy(
@@ -1869,6 +1878,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun getCurrentTsundokuChapter(): ReaderChapter? =
         loadedChapters.getOrNull(currentChapterIndex) ?: currentChapters?.currChapter
+
+    fun wordCountFor(chapterId: Long?): StateFlow<Int?>? = (
+        currentChapters?.currChapter?.takeIf { it.chapter.id == chapterId }
+            ?: loadedChapters.firstOrNull { it.chapter.id == chapterId }
+        )?.wordCount
 
     /** Summarizes the chapter currently in view, or scrolls to the summary it already has. */
     fun requestChapterSummary() {

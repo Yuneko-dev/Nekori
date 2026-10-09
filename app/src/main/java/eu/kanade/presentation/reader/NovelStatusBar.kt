@@ -68,7 +68,7 @@ val EstimatedStatusBarHeight = 40.dp
 /**
  * Full-width reading status bar that overlays the top or bottom of the novel reading view.
  *
- * Elements (time, chapter, progress, battery) are rendered left-to-right in [order], each
+ * Elements (time, chapter, progress, battery, word count) are rendered left-to-right in [order], each
  * gated by its own show* flag. A collapse toggle is pinned to the far end. The battery
  * element optionally reflects charging state.
  *
@@ -90,6 +90,7 @@ val EstimatedStatusBarHeight = 40.dp
 fun NovelStatusBar(
     chapterText: String?,
     progressText: String?,
+    wordCountText: String?,
     order: List<StatusBarItem>,
     showTime: Boolean,
     showChapter: Boolean,
@@ -171,7 +172,7 @@ fun NovelStatusBar(
                     .fillMaxWidth()
                     .padding(end = 22.dp)
                     .align(Alignment.Center),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 order.forEach { item ->
@@ -187,12 +188,16 @@ fun NovelStatusBar(
                                 color = contentColor,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = chapterMaxWidth),
+                                modifier = Modifier.weight(1f, fill = false).widthIn(max = chapterMaxWidth),
                             )
                         }
 
                         StatusBarItem.PROGRESS -> if (showProgress && progressText != null) {
                             Text(text = progressText, style = labelStyle, color = contentColor)
+                        }
+
+                        StatusBarItem.WORD_COUNT -> if (wordCountText != null) {
+                            Text(text = wordCountText, style = labelStyle, color = contentColor, maxLines = 1)
                         }
 
                         StatusBarItem.BATTERY -> if (showBattery && batteryPercent >= 0) {

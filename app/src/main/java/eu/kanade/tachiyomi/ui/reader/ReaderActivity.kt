@@ -480,6 +480,7 @@ class ReaderActivity : BaseActivity() {
         val novelStatusBarShowChapterNumber by readerPreferences.novelStatusBarShowChapterNumber.collectAsState()
         val novelStatusBarShowChapterTitle by readerPreferences.novelStatusBarShowChapterTitle.collectAsState()
         val novelStatusBarShowProgress by readerPreferences.novelStatusBarShowProgress.collectAsState()
+        val novelStatusBarShowWordCount by readerPreferences.novelStatusBarShowWordCount.collectAsState()
         val novelStatusBarPosition by readerPreferences.novelStatusBarPosition.collectAsState()
         val novelStatusBarSize by readerPreferences.novelStatusBarSize.collectAsState()
         val novelStatusBarShowCharging by readerPreferences.novelStatusBarShowCharging.collectAsState()
@@ -656,6 +657,11 @@ class ReaderActivity : BaseActivity() {
 
                 if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
                     val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
+                    val countFlow = state.currentChapter?.takeIf { it.chapter.id == chapter?.id }?.wordCount
+                        ?: (state.viewer as? NovelWebViewViewer)?.wordCountFor(chapter?.id)
+                    val wordCount = androidx.compose.runtime.key(countFlow) {
+                        countFlow?.collectAsState()?.value
+                    }
                     val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
                     val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
                         val numStr = if (novelStatusBarShowChapterNumber && ch.chapter_number >= 0f) {
@@ -686,6 +692,12 @@ class ReaderActivity : BaseActivity() {
                     NovelStatusBar(
                         chapterText = chapterText,
                         progressText = progressText,
+                        wordCountText = wordCount?.takeIf { novelStatusBarShowWordCount }?.let {
+                            stringResource(
+                                TDMR.strings.novel_status_bar_word_count,
+                                java.text.NumberFormat.getIntegerInstance().format(it),
+                            )
+                        },
                         order = statusBarOrder,
                         showTime = novelStatusBarShowTime,
                         showChapter = showChapterSegment,

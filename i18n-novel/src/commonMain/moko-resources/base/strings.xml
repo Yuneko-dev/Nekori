@@ -724,6 +724,8 @@
     <string name="pref_bypass_dpi_summary">(Experimental) Split initial HTTP and TLS traffic to bypass DPI filtering.</string>
 
     <string name="pref_novel_status_bar">Reading status bar</string>
+    <string name="pref_novel_status_bar_show_word_count">Show chapter word count</string>
+    <string name="novel_status_bar_word_count">%1$s words</string>
     <string name="pref_novel_status_bar_show_time">Show current time</string>
     <string name="pref_novel_status_bar_show_battery">Show battery percentage</string>
     <string name="pref_novel_status_bar_show_progress">Show reading progress</string>
@@ -739,11 +741,12 @@
     <string name="pref_novel_status_bar_show_charging">Show charging indicator</string>
     <string name="pref_novel_status_bar_show_charging_summary">Battery icon reflects charging state when plugged in</string>
     <string name="pref_novel_status_bar_customize">Customize status bar elements</string>
-    <string name="pref_novel_status_bar_customize_summary">Reorder and toggle time, chapter, progress and battery</string>
+    <string name="pref_novel_status_bar_customize_summary">Reorder and toggle time, chapter, progress, battery and word count</string>
     <string name="novel_status_bar_element_time">Time</string>
     <string name="novel_status_bar_element_chapter">Chapter</string>
     <string name="novel_status_bar_element_progress">Progress</string>
     <string name="novel_status_bar_element_battery">Battery</string>
+    <string name="novel_status_bar_element_word_count">Word count</string>
     <!-- Discord Rich Presence -->
     <string name="pref_category_discord">Discord Rich Presence</string>
     <string name="pref_discord_summary">Share browsing and reading activity with Discord</string>

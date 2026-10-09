@@ -1,5 +1,8 @@
 package eu.kanade.domain.manga.model
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import tachiyomi.core.common.util.lang.countReadableWords
 
@@ -29,6 +32,17 @@ data class WordDensity(
         get() = densityTier(averageWords)
 
     companion object {
+        /** Optional reader statistic: a counting failure must not prevent opening the chapter. */
+        suspend fun countWordsAsync(content: String): Int? = withContext(Dispatchers.Default) {
+            try {
+                countWords(content)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+
         const val MAX_TIER = 10
         private val tierUpperBounds = longArrayOf(400, 600, 900, 1300, 1800, 2500, 3500, 5000, 7000)
 

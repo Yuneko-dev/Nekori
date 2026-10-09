@@ -1,10 +1,34 @@
 package eu.kanade.domain.manga.model
 
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class WordDensityTest {
+    @Test
+    fun `optional async count hides failures but preserves cancellation`() {
+        mockkObject(WordDensity.Companion)
+        try {
+            every { WordDensity.countWords(any()) } throws IllegalArgumentException("count failed")
+            assertNull(runBlocking { WordDensity.countWordsAsync("chapter") })
+            every { WordDensity.countWords(any()) } throws CancellationException("cancelled")
+            assertThrows<CancellationException> { runBlocking { WordDensity.countWordsAsync("chapter") } }
+        } finally {
+            unmockkObject(WordDensity.Companion)
+        }
+    }
+
+    @Test
+    fun `async counter shares HTML and Unicode counting`() = runBlocking {
+        assertEquals(5, WordDensity.countWordsAsync("<p>Xin chào bạn 世界</p><script>ignored</script>"))
+        assertEquals(0, WordDensity.countWordsAsync("<p>!!!</p>"))
+    }
 
     @Test
     fun `countWords ignores markup and decodes entities`() {

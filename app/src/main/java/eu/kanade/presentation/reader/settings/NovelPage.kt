@@ -711,6 +711,10 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
             pref = screenModel.preferences.novelStatusBarShowProgress,
         )
         val statusBarSize by screenModel.preferences.novelStatusBarSize.collectAsState()
+        ReaderSwitchItem(
+            label = stringResource(TDMR.strings.pref_novel_status_bar_show_word_count),
+            pref = screenModel.preferences.novelStatusBarShowWordCount,
+        )
         val statusBarSizeOptions = listOf(
             stringResource(TDMR.strings.novel_status_bar_size_small) to "small",
             stringResource(TDMR.strings.novel_status_bar_size_medium) to "medium",

@@ -46,7 +46,6 @@ class StatusBarElementsScreen : Screen {
 
     private data class ElementRow(val item: StatusBarItem, val enabled: Boolean)
 
-    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -62,6 +61,7 @@ class StatusBarElementsScreen : Screen {
                     preferences.novelStatusBarShowChapterTitle.get()
             StatusBarItem.PROGRESS -> preferences.novelStatusBarShowProgress.get()
             StatusBarItem.BATTERY -> preferences.novelStatusBarShowBattery.get()
+            StatusBarItem.WORD_COUNT -> preferences.novelStatusBarShowWordCount.get()
         }
 
         fun setItemEnabled(item: StatusBarItem, enabled: Boolean) {
@@ -73,6 +73,7 @@ class StatusBarElementsScreen : Screen {
                 }
                 StatusBarItem.PROGRESS -> preferences.novelStatusBarShowProgress.set(enabled)
                 StatusBarItem.BATTERY -> preferences.novelStatusBarShowBattery.set(enabled)
+                StatusBarItem.WORD_COUNT -> preferences.novelStatusBarShowWordCount.set(enabled)
             }
         }
 
@@ -163,6 +164,7 @@ class StatusBarElementsScreen : Screen {
             StatusBarItem.CHAPTER -> TDMR.strings.novel_status_bar_element_chapter
             StatusBarItem.PROGRESS -> TDMR.strings.novel_status_bar_element_progress
             StatusBarItem.BATTERY -> TDMR.strings.novel_status_bar_element_battery
+            StatusBarItem.WORD_COUNT -> TDMR.strings.novel_status_bar_element_word_count
         },
     )
 }

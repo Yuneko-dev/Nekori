@@ -7,6 +7,7 @@ enum class StatusBarItem(val id: String) {
     CHAPTER("chapter"),
     PROGRESS("progress"),
     BATTERY("battery"),
+    WORD_COUNT("word_count"),
 }
 
 val DefaultStatusBarOrder = listOf(
@@ -14,6 +15,7 @@ val DefaultStatusBarOrder = listOf(
     StatusBarItem.CHAPTER,
     StatusBarItem.PROGRESS,
     StatusBarItem.BATTERY,
+    StatusBarItem.WORD_COUNT,
 )
 
 fun List<StatusBarItem>.serializeStatusBarOrder(): String = Json.encodeToString(map { it.id })

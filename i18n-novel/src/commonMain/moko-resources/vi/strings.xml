@@ -690,6 +690,8 @@
     <string name="pref_bypass_dpi_summary">(Thử nghiệm) Chia tách lưu lượng HTTP và TLS ban đầu để vượt lọc DPI.</string>
 
     <string name="pref_novel_status_bar">Thanh trạng thái đọc</string>
+    <string name="pref_novel_status_bar_show_word_count">Hiện số từ của chương</string>
+    <string name="novel_status_bar_word_count">%1$s từ</string>
     <string name="pref_novel_status_bar_show_time">Hiện giờ hiện tại</string>
     <string name="pref_novel_status_bar_show_battery">Hiện phần trăm pin</string>
     <string name="pref_novel_status_bar_show_progress">Hiện tiến độ đọc</string>
@@ -705,11 +707,12 @@
     <string name="pref_novel_status_bar_show_charging">Hiện chỉ báo đang sạc</string>
     <string name="pref_novel_status_bar_show_charging_summary">Biểu tượng pin phản ánh trạng thái sạc khi cắm nguồn</string>
     <string name="pref_novel_status_bar_customize">Tùy chỉnh thành phần thanh trạng thái</string>
-    <string name="pref_novel_status_bar_customize_summary">Sắp xếp lại và bật/tắt thời gian, chương, tiến độ và pin</string>
+    <string name="pref_novel_status_bar_customize_summary">Sắp xếp lại và bật/tắt thời gian, chương, tiến độ, pin và số từ</string>
     <string name="novel_status_bar_element_time">Thời gian</string>
     <string name="novel_status_bar_element_chapter">Chương</string>
     <string name="novel_status_bar_element_progress">Tiến độ</string>
     <string name="novel_status_bar_element_battery">Pin</string>
+    <string name="novel_status_bar_element_word_count">Số từ</string>
     <!-- Discord Rich Presence -->
     <string name="pref_category_discord">Discord Rich Presence</string>
     <string name="pref_discord_summary">Chia sẻ hoạt động duyệt và đọc với Discord</string>

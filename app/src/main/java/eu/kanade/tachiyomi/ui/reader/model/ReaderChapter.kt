@@ -9,6 +9,7 @@ import tachiyomi.core.common.util.system.logcat
 data class ReaderChapter(val chapter: Chapter) {
 
     val stateFlow = MutableStateFlow<State>(State.Wait)
+    val wordCount = MutableStateFlow<Int?>(null)
     var state: State
         get() = stateFlow.value
         set(value) {
@@ -39,6 +40,7 @@ data class ReaderChapter(val chapter: Chapter) {
             pageLoader?.recycle()
             pageLoader = null
             state = State.Wait
+            wordCount.value = null
         }
     }
 
