@@ -97,16 +97,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import logcat.logcat
@@ -302,9 +301,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val config = NovelConfig(scope)
     private val navigator get() = config.navigator
 
-    private var handoffState: TtsHandoffState<Pair<ReaderChapter, ReaderPage>> = TtsHandoffState.Idle
-
-    private val prefetchCompletedSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val handoffState = TtsHandoffState<Pair<ReaderChapter, ReaderPage>>(scope)
+    private var ttsChapterJob: Job? = null
 
     // Survives ttsController.stop() - set when TTS triggers a non-inf-scroll chapter load.
     private var pendingTtsAutoStartOnLoad = false
@@ -502,9 +500,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     }
                 }
 
-                override fun onHighlightChunk(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int) {
-                    applyTtsHighlight(chunkIndex, paragraphIndex)
+                override fun onChunkStarted(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int) {
+                    if (preferences.novelTtsEnableHighlight.get()) applyTtsHighlight(chunkIndex, paragraphIndex)
                     saveTtsProgressForChunk(chunkIndex)
+                    preFetchNextChapterForTts()
                 }
 
                 override fun onClearHighlights() {
@@ -514,13 +513,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onLastChunkDone() {
                     if (!isTtsEnabled) return
-                    val nextAlreadyLoaded = isInfiniteScrollEnabled() &&
-                        loadedChapters.getOrNull(ttsController.ttsPlaybackChapterIndex + 1) != null
-                    if (nextAlreadyLoaded) {
-                        advanceTtsToNextLoadedChapter()
-                    } else {
-                        loadNextChapterForTts(ttsController.ttsPlaybackChapterIndex)
-                    }
+                    loadNextChapterForTts()
                 }
 
                 override fun onError(error: Throwable) {
@@ -585,15 +578,19 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         evaluateJavascriptSafe(NovelWebViewTtsDomScripts.CLEAR_HIGHLIGHT)
     }
 
-    private fun loadNextChapterForTts(_anchorChapterIndex: Int = ttsController.ttsPlaybackChapterIndex) {
+    private fun loadNextChapterForTts() {
+        if (!ttsController.isTtsAutoPlay || ttsChapterJob?.isActive == true) return
         logcat(LogPriority.DEBUG) {
             "TTS (WebView): Auto-loading next chapter ts=${System.currentTimeMillis()} ttsPlaybackChapterIndex=${ttsController.ttsPlaybackChapterIndex} ttsPlaybackChapterId=${ttsController.ttsPlaybackChapterId}"
         }
 
-        scope.launch {
+        ttsChapterJob = scope.launch {
             if (isInfiniteScrollEnabled()) {
-                val appended = withTimeoutOrNull(30_000L) { appendNextChapterIfAvailable() }
-                if (appended == true) {
+                // A foreground append may already be translating the next chapter.
+                appendJob?.join()
+                val nextLoaded = loadedChapters.getOrNull(ttsController.ttsPlaybackChapterIndex + 1) != null
+                // Source fetches retain their timeout; translation uses its own request timeouts.
+                if (nextLoaded || appendNextChapterIfAvailable()) {
                     advanceTtsToNextLoadedChapter()
                 } else if (nextRequiresDocumentNavigation) {
                     navigateNextChapterForTts()
@@ -615,27 +612,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         activity.loadNextChapterForTtsHandoff()
     }
 
-    private fun advanceTtsToNextLoadedChapter() {
+    private suspend fun advanceTtsToNextLoadedChapter() {
         val currentIdx = ttsController.ttsPlaybackChapterIndex
         val nextIdx = currentIdx + 1
         val nextChapter = loadedChapters.getOrNull(nextIdx) ?: return
         val nextChapterId = nextChapter.chapter.id ?: return
 
-        scope.launch {
-            if (!scrollToLoadedChapter(nextChapterId)) {
-                stopTts()
-                return@launch
-            }
-            nextChapter.pages?.firstOrNull()?.let { page ->
-                currentPage = page
-                activity.viewModel.setNovelVisibleChapter(nextChapter.chapter)
-                activity.onPageSelected(page)
-                activity.onNovelProgressChanged(0f)
-                updateChapterMetaJs()
-            }
-            clearWebViewTtsHighlight()
-            startTts()
+        if (!scrollToLoadedChapter(nextChapterId)) {
+            stopTts()
+            return
         }
+        nextChapter.pages?.firstOrNull()?.let { page ->
+            currentPage = page
+            activity.viewModel.setNovelVisibleChapter(nextChapter.chapter)
+            activity.onPageSelected(page)
+            activity.onNovelProgressChanged(0f)
+            updateChapterMetaJs()
+        }
+        clearWebViewTtsHighlight()
+        startTts()
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -1380,26 +1375,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     fun reloadWithTranslation() {
         val page = currentPage ?: return
-        val chapter = currentChapters?.currChapter ?: return
-        val content = page.text ?: run {
+        if (page.text.isNullOrBlank()) {
             activity.viewModel.reloadChapter(fromSource = true)
             return
         }
-
-        contentJob?.cancel()
-        contentJob = scope.launch {
-            if (activity.isTranslationEnabled()) loadingIndicator?.show()
-            val prepared = prepareChapterContent(chapter, page, content, isAppend = false)
-            loadingIndicator?.hide()
-            loadHtmlContent(
-                prepared.processed,
-                chapter,
-                prepared.directives,
-                prepared.direction,
-                prepared.language,
-            )
-            if (prepared.directives.noCache) page.text = null
-        }
+        // Reuse the full document path, including queue reset and stale append cancellation.
+        stopTts(preserveChapterLoad = true)
+        displayContent(page.chapter, page)
     }
 
     override fun setChapters(chapters: ViewerChapters) {
@@ -1415,6 +1397,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         if (chapterError != null) {
             contentJob?.cancel()
             appendJob?.cancel()
+            cancelTtsChapterPreparation()
             ttsController.stop()
             currentPage = null
             chapterQueue.clear()
@@ -1433,6 +1416,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
 
+        cancelTtsChapterPreparation()
         ttsController.stop()
 
         if (!isInfiniteScrollEnabled() || loadedChapterIds.isEmpty()) {
@@ -1490,6 +1474,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val chapterId = chapter.chapter.id ?: return
 
         contentJob?.cancel()
+        cancelTtsChapterPreparation()
         // An in-flight append targets the DOM this base load is about to replace; cancelling it
         // avoids splicing a stale chapter's content onto the newly loaded one when it resumes.
         appendJob?.cancel()
@@ -2726,9 +2711,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 } else if (ttsController.isTtsAutoPlay) {
                     // Don't append while TTS is active, pre-fetch so the next chapter is ready when
                     // TTS calls appendNextChapterIfAvailable.
-                    if (handoffState.isIdle) {
-                        scope.launch { preFetchNextChapterForTts() }
-                    }
+                    preFetchNextChapterForTts(thresholdReached = true)
                 } else {
                     startNextChapterAppend()
                 }
@@ -2892,42 +2875,54 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    /**
-     * Fetch and cache the next chapter without appending to the DOM.
-     * Called when the JS scroll threshold fires during TTS auto-play so the chapter is
-     * immediately available when TTS finishes the current one.
-     */
-    private suspend fun preFetchNextChapterForTts() {
-        if (!handoffState.isIdle) return
-        val anchor = loadedChapters.lastOrNull() ?: currentChapters?.currChapter ?: return
-        val preparedChapter = activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: return
-        val nextId = preparedChapter.chapter.id ?: return
-        if (loadedChapterIds.contains(nextId)) return
-
-        val page = preparedChapter.pages?.firstOrNull() ?: return
-        val loader = page.chapter.pageLoader ?: return
-
-        handoffState = TtsHandoffState.PreFetching(anchorChapterId = anchor.chapter.id)
-        logcat(LogPriority.DEBUG) { "TTS (WebView): Pre-fetching next chapter ${preparedChapter.chapter.name}" }
-        try {
-            val loaded = awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
-            if (loaded) {
-                withContext(Dispatchers.Main) {
-                    if (handoffState.isPreFetching) {
-                        handoffState = TtsHandoffState.Cached(Pair(preparedChapter, page))
-                        prefetchCompletedSignal.tryEmit(Unit)
-                        logcat(LogPriority.DEBUG) {
-                            "TTS (WebView): Cached next chapter ${preparedChapter.chapter.name}"
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.WARN) { "TTS (WebView): Pre-fetch failed: ${e.message}" }
-        } finally {
-            // Drop back to Idle if we never reached Cached (e.g. load failed).
-            if (handoffState.isPreFetching) handoffState = TtsHandoffState.Idle
+    /** Native speech progress keeps read-ahead running even when WebView frames are suspended. */
+    private fun preFetchNextChapterForTts(thresholdReached: Boolean = false) {
+        if (!ttsController.isTtsAutoPlay || !isInfiniteScrollEnabled() || !webChapterContentReady ||
+            webChapterIsError || isLoadingNext || ttsChapterJob?.isActive == true ||
+            reachedNovelEnd || nextRequiresDocumentNavigation
+        ) {
+            return
         }
+        val index = ttsController.ttsPlaybackChapterIndex
+        if (loadedChapters.getOrNull(index + 1) != null) return
+        val anchor = loadedChapters.getOrNull(index) ?: currentChapters?.currChapter ?: return
+        val anchorId = anchor.chapter.id ?: return
+        val progress = if (thresholdReached) {
+            1f
+        } else {
+            ttsController.ttsCurrentChunkIndex.toFloat() / ttsController.ttsChunks.size.coerceAtLeast(1)
+        }
+        val threshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100f
+        handoffState.prefetch(anchorId, progress, threshold) {
+            try {
+                val cached = withTimeout(30_000L) {
+                    val chapter =
+                        activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: return@withTimeout null
+                    val page = chapter.pages?.firstOrNull() ?: return@withTimeout null
+                    val loader = chapter.pageLoader ?: return@withTimeout null
+                    if (!awaitPageText(page, loader, 30_000)) return@withTimeout null
+                    chapter to page
+                } ?: return@prefetch null
+                if (activity.isTranslationEnabled() && translationPreferences.autoTranslateNextChapter().get()) {
+                    activity.viewModel.translateChapterAhead(cached.first, cached.first.chapter.id!!)
+                }
+                cached
+            } catch (e: TimeoutCancellationException) {
+                logcat(LogPriority.WARN) { "TTS chapter prefetch timed out" }
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN) { "TTS chapter prefetch failed: ${e.javaClass.simpleName}" }
+                null
+            }
+        }
+    }
+
+    private fun cancelTtsChapterPreparation() {
+        handoffState.cancel()
+        ttsChapterJob?.cancel()
+        ttsChapterJob = null
     }
 
     private fun startNextChapterAppend() {
@@ -2963,6 +2958,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             inlineFeedback.clear()
         }
         appended
+    } catch (e: TimeoutCancellationException) {
+        showNextChapterError(
+            java.util.concurrent.TimeoutException(
+                activity.stringResource(TDMR.strings.novel_error_timeout_next_chapter),
+            )
+                .initCause(e),
+        )
+        false
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -2971,9 +2974,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private suspend fun appendNextChapter(): Boolean {
-        val cached = handoffState.cachedOrNull
+        val anchor = loadedChapters.lastOrNull() ?: currentChapters?.currChapter ?: run {
+            throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_no_anchor_chapter))
+        }
+        val cached = anchor.chapter.id?.let { handoffState.take(it) }
         if (cached != null) {
-            handoffState = TtsHandoffState.Idle
             val (preparedChapter, page) = cached
             val nextId = preparedChapter.chapter.id ?: return false
             if (!loadedChapterIds.contains(nextId)) {
@@ -2995,32 +3000,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return true
         }
 
-        // Coalesce with an in-flight TTS pre-fetch instead of starting a duplicate fetch.
-        if (handoffState.isPreFetching) {
-            logcat(LogPriority.DEBUG) { "NovelWebViewViewer: TTS append waiting on in-flight pre-fetch" }
-            withTimeoutOrNull(5_000L) { prefetchCompletedSignal.first() }
-            if (handoffState.cachedOrNull != null) {
-                // Cache populated while we waited - recurse to take the cache path.
-                return appendNextChapterIfAvailable()
-            }
-            // Timed out: the prefetch is still running but we're proceeding with a
-            // cold fetch. Clear PreFetching now so the racing prefetch coroutine
-            // cannot later set handoffState = Cached for a chapter we're about to
-            // load here - that stale entry would confuse the *next* TTS handoff.
-            handoffState = TtsHandoffState.Idle
-        }
-
-        val anchor = loadedChapters.lastOrNull() ?: currentChapters?.currChapter ?: run {
-            logcat(LogPriority.ERROR) {
-                "NovelWebViewViewer: appendNext failed, no anchor chapter (loadedCount=${loadedChapters.size})"
-            }
-            throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_no_anchor_chapter))
-        }
         logcat(LogPriority.DEBUG) {
             "NovelWebViewViewer: appendNext starting from anchor=${anchor.chapter.id}/${anchor.chapter.name}"
         }
 
-        val preparedChapter = activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: run {
+        val preparedChapter = withTimeout(30_000L) {
+            activity.viewModel.prepareNextChapterForInfiniteScroll(anchor)
+        } ?: run {
             logcat(LogPriority.WARN) { "NovelWebViewViewer: No next chapter available after ${anchor.chapter.name}" }
             if (activity.viewModel.hasNextPagedPage(anchor)) {
                 throw IllegalStateException(activity.stringResource(TDMR.strings.novel_error_couldnt_load_next_chapter))
@@ -3261,7 +3247,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      * Drops the loaded-chapter queue so the next [setChapters] re-renders the chapter instead of
      * taking the already-loaded early return.
      */
-    fun invalidateLoadedChapters() = chapterQueue.clear()
+    fun invalidateLoadedChapters() {
+        cancelTtsChapterPreparation()
+        chapterQueue.clear()
+    }
 
     fun reloadChapter() {
         val chapters = currentChapters ?: return
@@ -3302,19 +3291,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
         val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
-            if (!isTtsEnabled) return@evaluateJavascriptSafe
+            if (!isTtsEnabled || !ttsController.isTtsAutoPlay || getTtsChapterContext().second != chapterId) {
+                return@evaluateJavascriptSafe
+            }
             val text = unescapeJsResult(result)
 
             if (text.isNotBlank() && text != "null") {
                 logcat(LogPriority.DEBUG) { "TTS (WebView): Starting to speak ${text.length} characters" }
                 ttsController.speak(text, chapterIdx, chapterId)
 
-                if (isInfiniteScrollEnabled() &&
-                    handoffState.isIdle &&
-                    loadedChapters.getOrNull(currentChapterIndex + 1) == null
-                ) {
-                    scope.launch { preFetchNextChapterForTts() }
-                }
+                preFetchNextChapterForTts()
                 dispatchTtsState()
             } else {
                 logcat(LogPriority.WARN) { "TTS (WebView): No text to speak" }
@@ -3332,7 +3318,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // committed READY/ERROR document intact.
         if (!preserveChapterLoad && docState == DocState.LOADING_REAL) docState = DocState.LOADING
         ttsController.stop()
-        handoffState = TtsHandoffState.Idle
+        cancelTtsChapterPreparation()
         dispatchTtsState()
         // The loadNextChapter TTS branch skips the JS-latch release, so after a threshold hit during
         // playback runtime.loadingNext stays true and scroll-driven appending never re-fires. Clear
@@ -3488,7 +3474,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         if (!ttsController.isPaused()) dispatchTtsState()
         val (chapterIdx, chapterId) = getTtsChapterContext()
         evaluateJavascriptSafe(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
-            if (!isTtsEnabled) return@evaluateJavascriptSafe
+            if (!isTtsEnabled || !ttsController.isTtsAutoPlay || getTtsChapterContext().second != chapterId) {
+                return@evaluateJavascriptSafe
+            }
             val text = unescapeJsResult(result)
             if (text.isBlank() || text == "null") {
                 logcat(LogPriority.WARN) { "TTS (WebView): No text available for selected paragraph" }
@@ -3498,6 +3486,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             ttsController.ttsViewportParagraphIndex = index.coerceAtLeast(0)
             ttsController.hasViewportStartOverride = true
             ttsController.speak(text, chapterIdx, chapterId)
+            preFetchNextChapterForTts()
             dispatchTtsState()
         }
     }

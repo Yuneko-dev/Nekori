@@ -959,7 +959,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private fun isInfiniteScrollActive(): Boolean =
         (state.value.viewer as? NovelWebViewViewer)?.isInfiniteScrollEnabled() == true
 
-    private suspend fun translateChapterAhead(chapter: ReaderChapter, chapterId: Long) {
+    internal suspend fun translateChapterAhead(chapter: ReaderChapter, chapterId: Long) {
         // The viewer retains policy after noCache clears the page payload.
         if ((state.value.viewer as? NovelWebViewViewer)?.currentDocumentNoPrefetch == true ||
             getCurrentChapter()?.pages?.firstOrNull()?.chapterContent?.noPrefetch == true
@@ -974,7 +974,7 @@ class ReaderViewModel @JvmOverloads constructor(
         if (page.text.isNullOrBlank()) {
             NovelPageLoader.awaitPageText("ReaderViewModel", page, loader, PREFETCH_TEXT_TIMEOUT_MS, viewModelScope)
         }
-        if (page.chapterContent?.isCheckpoint == true) return
+        if (page.chapterContent?.let { it.isCheckpoint || it.noPrefetch } == true) return
         val raw = page.text?.takeUnless { it.isBlank() } ?: return
 
         // Translate what the reader would have sent, not the raw file: the cache is keyed by chapter,

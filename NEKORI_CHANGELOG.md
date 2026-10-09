@@ -23,6 +23,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Dock the floating TTS control to either edge and remember its position per site.
 
 ### Fixed
+- Keep TTS on the displayed chapter after toggling translation with infinite scroll.
+- Preload and pre-translate the next TTS chapter at the configured threshold, including in the background with highlighting disabled; reuse in-flight preparation during chapter handoff.
 - Align expand/collapse buttons with result arrows in chapter search.
 - Show custom reader backgrounds behind the system bars and reading status bar while reserving safe space for text.
 - Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.

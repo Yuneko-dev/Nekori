@@ -1,12 +1,43 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
-sealed class TtsHandoffState<out P> {
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 
-    object Idle : TtsHandoffState<Nothing>()
-    data class PreFetching(val anchorChapterId: Long?) : TtsHandoffState<Nothing>()
-    data class Cached<out P>(val payload: P) : TtsHandoffState<P>()
+/** Main-thread owned preparation shared by native TTS progress and the WebView load threshold. */
+class TtsHandoffState<P>(private val scope: CoroutineScope) {
 
-    val isIdle: Boolean get() = this is Idle
-    val isPreFetching: Boolean get() = this is PreFetching
-    val cachedOrNull: P? get() = (this as? Cached<P>)?.payload
+    private var anchorChapterId: Long? = null
+    private var task: Deferred<P?>? = null
+
+    fun prefetch(anchorChapterId: Long, progress: Float, threshold: Float, prepare: suspend () -> P?) {
+        if (progress < threshold) return
+        if (this.anchorChapterId == anchorChapterId && task != null) return
+        cancel()
+        this.anchorChapterId = anchorChapterId
+        task = scope.async { prepare() }
+    }
+
+    suspend fun take(anchorChapterId: Long): P? {
+        if (this.anchorChapterId != anchorChapterId) {
+            cancel()
+            return null
+        }
+        val pending = task ?: return null
+        return try {
+            pending.await()
+        } finally {
+            pending.cancel()
+            if (task === pending) {
+                task = null
+                this.anchorChapterId = null
+            }
+        }
+    }
+
+    fun cancel() {
+        task?.cancel()
+        task = null
+        anchorChapterId = null
+    }
 }

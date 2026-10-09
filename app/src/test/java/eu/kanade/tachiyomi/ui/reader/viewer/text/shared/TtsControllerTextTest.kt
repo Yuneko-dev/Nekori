@@ -26,6 +26,7 @@ class TtsControllerTextTest {
         }
         val engine = mockk<TextToSpeech>(relaxed = true)
         val callbacks = mockk<TtsController.Callbacks>(relaxed = true)
+        every { callbacks.runOnUiThread(any()) } answers { firstArg<() -> Unit>().invoke() }
         val controller = TtsController(
             context,
             preferences,
@@ -42,11 +43,18 @@ class TtsControllerTextTest {
             assertEquals(listOf(0, 1, 1, 1), controller.ttsChunkParagraphIndexes)
             controller.seekToParagraph(1)
             assertEquals(1, controller.ttsCurrentChunkIndex)
-            verify { callbacks.onHighlightChunk(1, any(), any(), 1) }
+            verify { callbacks.onChunkStarted(1, any(), any(), 1) }
             controller.speak("***\n[\"Only text\"]\n---")
             assertEquals(listOf("Only text"), controller.ttsChunks)
             assertEquals(listOf(0), controller.ttsChunkParagraphIndexes)
             verify { engine.speak("Only text", TextToSpeech.QUEUE_FLUSH, null, any()) }
+            every { preferences.novelTtsEnableHighlight.get() } returns false
+            val generation = TtsController::class.java.getDeclaredField("playbackGeneration")
+                .apply { isAccessible = true }.getLong(controller)
+            TtsController::class.java.getDeclaredMethod("handleUtteranceStart", String::class.java)
+                .apply { isAccessible = true }.invoke(controller, "$generation:0")
+            // Native progress must keep driving preload even with visual highlighting disabled.
+            verify { callbacks.onChunkStarted(0, "Only text", any(), 0) }
             controller.isTtsAutoPlay = true
             controller.speak("***\n\"\"\"\n---")
             assertEquals(emptyList<String>(), controller.ttsChunks)

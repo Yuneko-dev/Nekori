@@ -30,7 +30,7 @@ class TtsController(
 
     interface Callbacks {
         fun onInitialized(pendingRequest: StartRequest?)
-        fun onHighlightChunk(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int)
+        fun onChunkStarted(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int)
         fun onClearHighlights()
         fun onLastChunkDone()
         fun onError(error: Throwable)
@@ -153,12 +153,11 @@ class TtsController(
     private fun handleUtteranceStart(utteranceId: String) {
         val chunkIndex = utteranceId.chunkIndex() ?: return
         ttsCurrentChunkIndex = chunkIndex
-        if (!preferences.novelTtsEnableHighlight.get()) return
         val chunk = ttsChunks.getOrNull(chunkIndex) ?: return
         val startOffset = ttsChunkStartOffsets.getOrElse(chunkIndex) { 0 }
         val paragraphIndex = ttsChunkParagraphIndexes.getOrElse(chunkIndex) { chunkIndex }
         callbacks.runOnUiThread {
-            callbacks.onHighlightChunk(chunkIndex, chunk, startOffset, paragraphIndex)
+            callbacks.onChunkStarted(chunkIndex, chunk, startOffset, paragraphIndex)
         }
     }
 
@@ -378,15 +377,13 @@ class TtsController(
             tts?.stop()
         }
         speakChunksFrom(target)
-        if (preferences.novelTtsEnableHighlight.get()) {
-            val chunk = ttsChunks.getOrNull(target) ?: return
-            callbacks.onHighlightChunk(
-                target,
-                chunk,
-                ttsChunkStartOffsets.getOrElse(target) { 0 },
-                ttsChunkParagraphIndexes.getOrElse(target) { 0 },
-            )
-        }
+        val chunk = ttsChunks.getOrNull(target) ?: return
+        callbacks.onChunkStarted(
+            target,
+            chunk,
+            ttsChunkStartOffsets.getOrElse(target) { 0 },
+            ttsChunkParagraphIndexes.getOrElse(target) { 0 },
+        )
     }
 
     fun isSpeaking(): Boolean = ttsInitialized && if (usesTikTok()) {
