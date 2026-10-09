@@ -1,5 +1,6 @@
 package eu.kanade.presentation.reader.settings
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
@@ -33,6 +34,8 @@ import eu.kanade.presentation.components.toTabTitles
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
+import soup.compose.material.motion.animation.materialSharedAxisX
+import soup.compose.material.motion.animation.rememberSlideDistance
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.AdaptiveSheet
 import tachiyomi.presentation.core.i18n.stringResource
@@ -118,8 +121,8 @@ private fun NovelReaderSettingsDialog(
     onShowMenus: () -> Unit,
     screenModel: ReaderSettingsViewModel,
 ) {
-    var showRules by rememberSaveable { mutableStateOf(false) }
-    var showBackgrounds by rememberSaveable { mutableStateOf(false) }
+    var selectedPage by rememberSaveable { mutableStateOf(NovelSettingsPage.Settings) }
+    val slideDistance = rememberSlideDistance()
     val manga by screenModel.mangaFlow.collectAsState()
     val tabTitles = listOf(
         TabTitle.Icon(imageVector = Icons.Outlined.TextFields), // Reading
@@ -134,46 +137,59 @@ private fun NovelReaderSettingsDialog(
         onShowMenus()
     }
     Dialog(
-        onDismissRequest = { if (!showRules && !showBackgrounds) dismiss() },
+        onDismissRequest = { if (selectedPage == NovelSettingsPage.Settings) dismiss() },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            dismissOnBackPress =
-            !showRules && !showBackgrounds,
+            dismissOnBackPress = selectedPage == NovelSettingsPage.Settings,
         ),
     ) {
-        if (showBackgrounds) {
-            NovelBackgroundScreen(screenModel.preferences) { showBackgrounds = false }
-        } else if (showRules) {
-            ReplacementRulesScreen(
-                screenModel = screenModel,
-                target = manga?.let { ReplacementTarget(it.source, it.url) },
-                novelTitle = manga?.title.orEmpty(),
-                onBack = { showRules = false },
-            )
-        } else {
-            BoxWithConstraints {
-                AdaptiveSheet(
-                    isTabletUi = isTabletUi(),
-                    enableImplicitDismiss = true,
-                    modifier = Modifier.heightIn(max = maxHeight * 0.75f),
-                    onDismissRequest = dismiss,
-                ) {
-                    TabbedDialogContent(tabTitles = tabTitles, pagerState = pagerState) { page ->
-                        Column(
-                            modifier = Modifier
-                                .padding(vertical = TabbedDialogPaddings.Vertical)
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            when (page) {
-                                0 -> NovelReadingTab(screenModel)
-                                1 -> NovelAppearanceTab(screenModel, onManageBackgrounds = { showBackgrounds = true })
-                                2 -> NovelControlsTab(screenModel)
-                                3 -> NovelTtsTab(screenModel)
-                                4 -> NovelAdvancedTab(
-                                    screenModel = screenModel,
-                                    target = manga?.let { ReplacementTarget(it.source, it.url) },
-                                    onManageRules = { showRules = true },
-                                )
+        AnimatedContent(
+            targetState = selectedPage,
+            transitionSpec = {
+                materialSharedAxisX(
+                    forward = targetState != NovelSettingsPage.Settings,
+                    slideDistance = slideDistance,
+                )
+            },
+            label = "readerSettings",
+        ) { currentPage ->
+            if (currentPage == NovelSettingsPage.Backgrounds) {
+                NovelBackgroundScreen(screenModel.preferences) { selectedPage = NovelSettingsPage.Settings }
+            } else if (currentPage == NovelSettingsPage.Rules) {
+                ReplacementRulesScreen(
+                    screenModel = screenModel,
+                    target = manga?.let { ReplacementTarget(it.source, it.url) },
+                    novelTitle = manga?.title.orEmpty(),
+                    onBack = { selectedPage = NovelSettingsPage.Settings },
+                )
+            } else {
+                BoxWithConstraints {
+                    AdaptiveSheet(
+                        isTabletUi = isTabletUi(),
+                        enableImplicitDismiss = selectedPage == NovelSettingsPage.Settings,
+                        modifier = Modifier.heightIn(max = maxHeight * 0.75f),
+                        onDismissRequest = dismiss,
+                    ) {
+                        TabbedDialogContent(tabTitles = tabTitles, pagerState = pagerState) { page ->
+                            Column(
+                                modifier = Modifier
+                                    .padding(vertical = TabbedDialogPaddings.Vertical)
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                when (page) {
+                                    0 -> NovelReadingTab(screenModel)
+                                    1 -> NovelAppearanceTab(
+                                        screenModel,
+                                        onManageBackgrounds = { selectedPage = NovelSettingsPage.Backgrounds },
+                                    )
+                                    2 -> NovelControlsTab(screenModel)
+                                    3 -> NovelTtsTab(screenModel)
+                                    4 -> NovelAdvancedTab(
+                                        screenModel = screenModel,
+                                        target = manga?.let { ReplacementTarget(it.source, it.url) },
+                                        onManageRules = { selectedPage = NovelSettingsPage.Rules },
+                                    )
+                                }
                             }
                         }
                     }
@@ -182,3 +198,5 @@ private fun NovelReaderSettingsDialog(
         }
     }
 }
+
+private enum class NovelSettingsPage { Settings, Rules, Backgrounds }

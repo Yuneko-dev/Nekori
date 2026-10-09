@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Dock the floating TTS control to either edge and remember its position per site.
 
 ### Fixed
+- Animate opening and returning from Find and replace and Custom background in reader settings.
 - Keep TTS on the displayed chapter after toggling translation with infinite scroll.
 - Preload and pre-translate the next TTS chapter at the configured threshold, including in the background with highlighting disabled; reuse in-flight preparation during chapter handoff.
 - Align expand/collapse buttons with result arrows in chapter search.
