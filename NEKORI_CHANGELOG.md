@@ -26,6 +26,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Dock the floating TTS control to either edge and remember its position per site.
 
 ### Fixed
+- Remove redundant bottom padding in the novel reader, including paged mode with the reading status bar enabled [#10](https://github.com/Yuneko-dev/Nekori/issues/10)
 - Distinguish Stable, Nightly and Debug/Benchmark launcher icons by ring shape when Android themed icons are enabled.
 - Animate opening and returning from Find and replace and Custom background in reader settings.
 - Keep TTS on the displayed chapter after toggling translation with infinite scroll.

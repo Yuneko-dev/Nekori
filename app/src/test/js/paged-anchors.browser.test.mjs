@@ -13,6 +13,37 @@ try {
         );
     if (!process.env.CHROMIUM_PATH || !chromium) throw new Error("Playwright not available, skipping browser tests");
 
+    test("paged bottom margins do not add a second status bar reserve", async () => {
+        const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+        try {
+            const page = await browser.newPage({ viewport: { width: 384, height: 832 } });
+            for (const mode of ["horizontal-tb", "vertical-rl"])
+                for (const bottom of [0, 24, 54]) {
+                    await page.setContent(`<style>
+                        :root { --reader-margin-top: 30px; --reader-margin-bottom: ${bottom}px;
+                            --reader-margin-left: 20px; --reader-margin-right: 20px;
+                            --reader-font-size: 18px; --reader-line-height: 1.6; }
+                        ${asset("reader.css")}
+                    </style><body class="page-reader"><div id="LNReader-chapter"
+                        data-reader-spread="single" data-reader-writing-mode="${mode}">
+                        <tsundoku-chapter>${"<p>Continuous text filling multiple pages.</p>".repeat(80)}
+                        </tsundoku-chapter></div></body>`);
+                    const dimensions = await page.evaluate(() => {
+                        const root = document.getElementById("LNReader-chapter");
+                        const style = getComputedStyle(root);
+                        return { bottom: parseFloat(style.paddingBottom), gap: parseFloat(style.columnGap),
+                            height: root.clientHeight, width: root.clientWidth };
+                    });
+                    assert.equal(dimensions.bottom, bottom, `${mode}: no extra bottom reserve`);
+                    assert.equal(dimensions.height, 832);
+                    assert.equal(dimensions.width, 384);
+                    assert.equal(dimensions.gap, mode === "vertical-rl" ? 30 + bottom : 40);
+                }
+        } finally {
+            await browser.close();
+        }
+    });
+
     test("vertical fragments resolve duplicate ids inside the clicked chapter", async () => {
         const browser = await chromium.launch({
             executablePath: process.env.CHROMIUM_PATH,
