@@ -19,6 +19,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Other
+- Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.
+
 ### Improved
 - Dock the floating TTS control to either edge and remember its position per site.
 
