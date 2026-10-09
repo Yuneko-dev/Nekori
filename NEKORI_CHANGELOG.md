@@ -19,9 +19,6 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-### Other
-- Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.
-
 ### Improved
 - Dock the floating TTS control to either edge and remember its position per site.
 
@@ -33,6 +30,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Align expand/collapse buttons with result arrows in chapter search.
 - Show custom reader backgrounds behind the system bars and reading status bar while reserving safe space for text.
 - Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.
+
+### Other
+- Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.
 
 ## [v0.1.2] - 2026-10-05
 
