@@ -51,11 +51,13 @@ fun TranslateMangaDetailsDialog(
     var translatedDescription by remember { mutableStateOf<String?>(null) }
     var translatedGenres by remember { mutableStateOf<List<String>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var addToAltTitles by remember { mutableStateOf(true) }
-    var saveTagsToNotes by remember { mutableStateOf(false) }
-    var saveDescriptionToNotes by remember { mutableStateOf(true) }
-    var translateGenres by remember { mutableStateOf(true) }
-    var mergeGenres by remember { mutableStateOf(true) } // Default to merge (add to existing)
+    var addToAltTitles by remember { mutableStateOf(translationPreferences.saveTranslatedTitleAsAlternative().get()) }
+    var saveTagsToNotes by remember { mutableStateOf(translationPreferences.saveMetadataTagsToNotes().get()) }
+    var saveDescriptionToNotes by remember {
+        mutableStateOf(translationPreferences.saveMetadataDescriptionToNotes().get())
+    }
+    var translateGenres by remember { mutableStateOf(translationPreferences.saveMetadataGenres().get()) }
+    var mergeGenres by remember { mutableStateOf(!translationPreferences.replaceTagsInsteadOfMerge().get()) }
 
     // Start translation on dialog open
     LaunchedEffect(Unit) {
@@ -274,6 +276,11 @@ fun TranslateMangaDetailsDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    translationPreferences.saveTranslatedTitleAsAlternative().set(addToAltTitles)
+                    translationPreferences.saveMetadataTagsToNotes().set(saveTagsToNotes)
+                    translationPreferences.saveMetadataDescriptionToNotes().set(saveDescriptionToNotes)
+                    translationPreferences.saveMetadataGenres().set(translateGenres)
+                    translationPreferences.replaceTagsInsteadOfMerge().set(!mergeGenres)
                     onConfirm(
                         TranslatedMangaDetails(
                             translatedTitle = translatedTitle,

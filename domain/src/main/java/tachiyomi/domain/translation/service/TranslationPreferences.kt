@@ -204,6 +204,12 @@ class TranslationPreferences(
         true,
     )
 
+    fun saveMetadataDescriptionToNotes() = preferenceStore.getBoolean("translation_metadata_description_notes", true)
+
+    fun saveMetadataTagsToNotes() = preferenceStore.getBoolean("translation_metadata_tags_notes", false)
+
+    fun saveMetadataGenres() = preferenceStore.getBoolean("translation_metadata_save_genres", true)
+
     /** Whether LLM chapter translation is split into multiple requests. */
     fun splitLargeChapters() = preferenceStore.getBoolean(
         "translation_split_large_chapters",

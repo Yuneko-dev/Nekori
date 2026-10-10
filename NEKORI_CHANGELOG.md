@@ -28,6 +28,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Update video playback from Video.js 10 RC2 to stable 10.0.1.
 
 ### Improved
+- Remember novel information translation checkboxes across novels and app restarts when Save is pressed; Cancel keeps the previous choices.
 - Dock the floating TTS control to either edge and remember its position per site.
 
 ### Fixed
