@@ -23,7 +23,6 @@ const noAirPlay = path.join(sourceDir, "hls-no-airplay.js");
 const hlsErrors = path.join(sourceDir, "hls-errors.js");
 const noRemoteFeature = path.join(sourceDir, "no-remote-feature.js");
 const noRemoteElements = path.join(sourceDir, "no-remote-elements.js");
-const noPipHotkeys = path.join(sourceDir, "no-pip-hotkeys.js");
 for (const feature of [pipFeature, remotePlaybackFeature]) {
   if (typeof feature.state !== "function") {
     throw new Error(`Disabled feature ${feature.name} must retain the PlayerFeature shape`);
@@ -60,16 +59,12 @@ const adapterOverrides = {
       }
       return null;
     });
-    buildApi.onResolve({ filter: /actions\.js$/ }, (args) => {
-      const importer = args.importer.replaceAll("\\", "/");
-      if (
-        !args.path.includes("media-actions") &&
-        importer.includes("@videojs/core") &&
-        (args.path.replaceAll("\\", "/").includes("hotkey/actions") || importer.includes("/dom/hotkey/"))
-      ) {
-        return { path: noPipHotkeys };
-      }
-      return null;
+    // Keep upstream's state selectors and error handling; only disable the PiP hotkey.
+    buildApi.onLoad({ filter: /@videojs[\\/]core[\\/].*[\\/]hotkey[\\/]actions\.js$/ }, async (args) => {
+      const source = await readFile(args.path, "utf8");
+      const pipAction = "togglePictureInPicture: MEDIA_INPUT_ACTION_OVERRIDES.togglePictureInPicture,";
+      if (!source.includes(pipAction)) throw new Error("Video.js PiP hotkey patch anchor changed");
+      return { contents: source.replace(pipAction, ""), loader: "js" };
     });
   },
 };
@@ -185,8 +180,8 @@ if (hlsPackage.version !== "1.7.3") throw new Error(`Expected hls.js 1.7.3, foun
 const videoPackage = JSON.parse(
   await readFile(path.resolve(toolDir, "node_modules/@videojs/html/package.json"), "utf8"),
 );
-if (videoPackage.version !== "10.0.0-rc.2") {
-  throw new Error(`Expected @videojs/html 10.0.0-rc.2, found ${videoPackage.version}`);
+if (videoPackage.version !== "10.0.1") {
+  throw new Error(`Expected @videojs/html 10.0.1, found ${videoPackage.version}`);
 }
 
 let hlsSource = await readFile(path.resolve(toolDir, "node_modules/hls.js/dist/hls.js"), "utf8");

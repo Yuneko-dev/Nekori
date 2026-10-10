@@ -8,9 +8,9 @@
     "test": "node test.mjs"
   },
   "dependencies": {
-    "@videojs/dash-video": "10.0.0-rc.2",
-    "@videojs/hlsjs-video": "10.0.0-rc.2",
-    "@videojs/html": "10.0.0-rc.2",
+    "@videojs/dash-video": "10.0.1",
+    "@videojs/hlsjs-video": "10.0.1",
+    "@videojs/html": "10.0.1",
     "hls.js": "1.7.3"
   },
   "devDependencies": {

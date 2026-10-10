@@ -1,6 +1,6 @@
 # Video.js reader bundle
 
-Pinned Video.js 10 RC2 and HLS.js 1.7.3. Run `npm ci`, then `npm run build`
+Pinned Video.js 10.0.1 stable and HLS.js 1.7.3. Run `npm ci`, then `npm run build`
 from this directory. `npm run check` validates patches, locale registration,
 required controls and exclusion of Cast/AirPlay/PiP without writing assets.
 

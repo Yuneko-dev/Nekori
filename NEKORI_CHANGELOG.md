@@ -24,6 +24,9 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Show chapter word counts in the reading status bar.
 - Add download-only throttling: pace chapter downloads with the existing per-source delay, jitter and burst settings while browsing, reading and other HTTP traffic stay unpaced [#11](https://github.com/Yuneko-dev/Nekori/issues/11)
 
+### Changed
+- Update video playback from Video.js 10 RC2 to stable 10.0.1.
+
 ### Improved
 - Dock the floating TTS control to either edge and remember its position per site.
 
