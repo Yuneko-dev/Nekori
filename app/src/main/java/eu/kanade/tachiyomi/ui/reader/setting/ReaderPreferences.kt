@@ -128,6 +128,8 @@ class ReaderPreferences(
     }
 
     // region Novel
+    val novelAllowLonelyLines = preferenceStore.getBoolean("pref_novel_allow_lonely_lines", false)
+
     val novelReadingLayout: Preference<NovelReadingLayout> = preferenceStore.getEnum(
         "pref_novel_reading_layout",
         NovelReadingLayout.SCROLL,

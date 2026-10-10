@@ -50,6 +50,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelFontSize,
             readerPref.novelReadingLayout,
             readerPref.novelPageSpread,
+            readerPref.novelAllowLonelyLines,
             readerPref.novelPageEffect,
             readerPref.novelPagedSwipeNavigation,
             readerPref.novelSwipeNavigation,
@@ -259,6 +260,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                                 NovelPageEffect.CURL to stringResource(TDMR.strings.novel_page_effect_curl),
                             ),
                             title = stringResource(MR.strings.pref_page_transitions),
+                        ),
+                    )
+                }
+                if (readingLayout.isPaged) {
+                    add(
+                        Preference.PreferenceItem.SwitchPreference(
+                            preference = readerPreferences.novelAllowLonelyLines,
+                            title = stringResource(TDMR.strings.pref_novel_allow_lonely_lines),
+                            subtitle = stringResource(TDMR.strings.pref_novel_allow_lonely_lines_summary),
                         ),
                     )
                 }

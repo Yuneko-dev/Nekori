@@ -438,6 +438,8 @@
     -->
     <string name="pref_novel_infinite_scroll">Infinite scroll (auto-load next chapter)</string>
     <string name="pref_novel_progress_slider">Show progress slider</string>
+    <string name="pref_novel_allow_lonely_lines">Allow lonely lines</string>
+    <string name="pref_novel_allow_lonely_lines_summary">Allow a single line of a paragraph at the top or bottom of a page to reduce empty space</string>
     <string name="pref_novel_page_spread">Page spread</string>
     <string name="novel_page_spread_auto">Auto</string>
     <string name="novel_page_spread_single">Single</string>

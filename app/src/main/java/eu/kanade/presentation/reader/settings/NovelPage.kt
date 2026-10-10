@@ -566,6 +566,12 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
             }
         }
 
+        ReaderSwitchItem(
+            label = stringResource(TDMR.strings.pref_novel_allow_lonely_lines),
+            pref = screenModel.preferences.novelAllowLonelyLines,
+            summary = stringResource(TDMR.strings.pref_novel_allow_lonely_lines_summary),
+        )
+
         EInkFlashSettings(screenModel.preferences)
     }
 

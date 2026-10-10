@@ -12,6 +12,7 @@ class NovelPagedReaderSettingsTest {
 
         assertEquals(NovelReadingLayout.SCROLL, preferences.novelReadingLayout.get())
         assertEquals(NovelPageSpread.AUTO, preferences.novelPageSpread.get())
+        assertEquals(false, preferences.novelAllowLonelyLines.get())
         assertEquals(NovelPageEffect.SLIDE, preferences.novelPageEffect.get())
         assertEquals(true, preferences.novelPagedSwipeNavigation.get())
         assertEquals(5, preferences.novelAutoPageIntervalSeconds.get())

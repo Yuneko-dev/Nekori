@@ -13,6 +13,33 @@ try {
         );
     if (!process.env.CHROMIUM_PATH || !chromium) throw new Error("Playwright not available, skipping browser tests");
 
+    test("allowing lonely lines fills spare page lines and can be toggled back", async () => {
+        const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+        try {
+            const page = await browser.newPage({ viewport: { width: 384, height: 130 } });
+            await page.setContent(`<style>
+                :root { --reader-margin-top: 0px; --reader-margin-bottom: 0px;
+                    --reader-margin-left: 0px; --reader-margin-right: 0px;
+                    --reader-font-size: 16px; --reader-line-height: 20px;
+                    --reader-paragraph-spacing: 0px; }
+                ${asset("reader.css")}
+            </style><body class="page-reader"><div id="LNReader-chapter" data-reader-spread="single">
+                <p>One<br>Two<br>Three<br>Four<br>Five</p><p id="next">Six<br>Seven<br>Eight</p>
+            </div></body>`);
+            for (const minimum of [2, 1, 2]) {
+                const left = await page.evaluate((minimum) => {
+                    document.documentElement.style.setProperty("--reader-min-fragment-lines", minimum);
+                    const range = document.createRange();
+                    range.selectNodeContents(document.getElementById("next").firstChild);
+                    return range.getBoundingClientRect().left;
+                }, minimum);
+                assert.equal(left, minimum === 1 ? 0 : 384);
+            }
+        } finally {
+            await browser.close();
+        }
+    });
+
     test("paged bottom margins do not add a second status bar reserve", async () => {
         const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
         try {

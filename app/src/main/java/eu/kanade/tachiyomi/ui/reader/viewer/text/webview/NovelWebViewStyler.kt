@@ -115,6 +115,7 @@ internal class NovelWebViewStyler(
                 --reader-margin-top: ${marginTop}px;
                 --reader-margin-right: ${marginRight}px;
                 --reader-margin-bottom: ${marginBottom}px;
+                --reader-min-fragment-lines: ${if (preferences.novelAllowLonelyLines.get()) 1 else 2};
                 --reader-margin-left: ${marginLeft}px;
                 --reader-text-color: $textColorHex;
                 --reader-background-color: $bgColorHex;

@@ -32,6 +32,7 @@ internal class NovelWebViewPreferenceObserver(
                 preferences.novelMarginRight.changes().drop(1),
                 preferences.novelMarginTop.changes().drop(1),
                 preferences.novelMarginBottom.changes().drop(1),
+                preferences.novelAllowLonelyLines.changes().drop(1),
                 preferences.novelFontColor.changes().drop(1),
                 preferences.novelBackgroundColor.changes().drop(1),
                 preferences.novelBackground.changes().drop(1),

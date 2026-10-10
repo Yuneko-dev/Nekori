@@ -89,6 +89,8 @@ body.page-reader #LNReader-chapter {
     overflow-x: auto;
     overflow-y: hidden;
     column-fill: auto;
+    orphans: var(--reader-min-fragment-lines, 2);
+    widows: var(--reader-min-fragment-lines, 2);
     /* One logical page pitch remains exactly viewport/spread: the gap supplies the trailing
        margin of one leaf plus the leading margin of the next. */
     column-gap: calc(var(--reader-margin-right) + var(--reader-margin-left));
