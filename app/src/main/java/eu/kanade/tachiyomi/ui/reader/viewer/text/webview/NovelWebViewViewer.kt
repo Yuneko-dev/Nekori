@@ -1384,7 +1384,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
         // Reuse the full document path, including queue reset and stale append cancellation.
         stopTts(preserveChapterLoad = true)
-        displayContent(page.chapter, page)
+        displayContent(page.chapter, page, showTranslationLoading = false)
     }
 
     override fun setChapters(chapters: ViewerChapters) {
@@ -1467,6 +1467,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun displayContent(
         chapter: ReaderChapter,
         page: ReaderPage,
+        showTranslationLoading: Boolean = true,
     ) {
         val rawContent = page.text
         if (rawContent.isNullOrBlank()) {
@@ -1485,7 +1486,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         docState = DocState.LOADING
         val job = scope.launch {
             try {
-                if (activity.isTranslationEnabled()) {
+                if (showTranslationLoading && activity.isTranslationEnabled()) {
                     val labelRes = if (activity.hasCachedTranslation(chapterId)) {
                         TDMR.strings.novel_chapter_translating_from_cache
                     } else {

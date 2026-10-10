@@ -85,13 +85,13 @@ class NovelWebViewTtsSessionTest {
     }
 
     @Test
-    fun `translation reload uses the document load that restores the displayed chapter queue`() = runTest {
+    fun `translation reload restores the displayed chapter queue without requesting a loading screen`() = runTest {
         val activity = mockk<ReaderActivity>(relaxed = true)
         val displayed = mockk<ReaderChapter>(relaxed = true)
         val page = ReaderPage(0, text = "<p>Chapter ten</p>").apply { chapter = displayed }
         val viewer = mockk<NovelWebViewViewer>(relaxed = true)
         every { viewer.reloadWithTranslation() } answers { callOriginal() }
-        every { viewer["displayContent"](displayed, page) } returns Unit
+        every { viewer["displayContent"](displayed, page, false) } returns Unit
         viewer.setField("activity", activity)
         viewer.setField("scope", backgroundScope)
         viewer.setField("currentPage", page)
@@ -99,7 +99,7 @@ class NovelWebViewTtsSessionTest {
 
         viewer.reloadWithTranslation()
 
-        verify(exactly = 1) { viewer["displayContent"](displayed, page) }
+        verify(exactly = 1) { viewer["displayContent"](displayed, page, false) }
     }
 
     @Test
