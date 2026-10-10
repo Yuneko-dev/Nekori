@@ -172,13 +172,15 @@ fun NovelStatusBar(
                     .fillMaxWidth()
                     .padding(end = 22.dp)
                     .align(Alignment.Center),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 order.forEach { item ->
+                    // SpaceBetween distributes spare width; padding keeps a minimum gap when crowded.
+                    val itemSpacing = Modifier.padding(end = 8.dp)
                     when (item) {
                         StatusBarItem.TIME -> if (showTime) {
-                            Text(text = timeText, style = labelStyle, color = contentColor)
+                            Text(text = timeText, style = labelStyle, color = contentColor, modifier = itemSpacing)
                         }
 
                         StatusBarItem.CHAPTER -> if (showChapter && chapterText != null) {
@@ -188,20 +190,27 @@ fun NovelStatusBar(
                                 color = contentColor,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false).widthIn(max = chapterMaxWidth),
+                                modifier = Modifier.weight(1f, fill = false).then(itemSpacing)
+                                    .widthIn(max = chapterMaxWidth),
                             )
                         }
 
                         StatusBarItem.PROGRESS -> if (showProgress && progressText != null) {
-                            Text(text = progressText, style = labelStyle, color = contentColor)
+                            Text(text = progressText, style = labelStyle, color = contentColor, modifier = itemSpacing)
                         }
 
                         StatusBarItem.WORD_COUNT -> if (wordCountText != null) {
-                            Text(text = wordCountText, style = labelStyle, color = contentColor, maxLines = 1)
+                            Text(
+                                text = wordCountText,
+                                style = labelStyle,
+                                color = contentColor,
+                                maxLines = 1,
+                                modifier = itemSpacing,
+                            )
                         }
 
                         StatusBarItem.BATTERY -> if (showBattery && batteryPercent >= 0) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(modifier = itemSpacing, verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = batteryIcon(batteryPercent, isCharging && showCharging),
                                     contentDescription = null,

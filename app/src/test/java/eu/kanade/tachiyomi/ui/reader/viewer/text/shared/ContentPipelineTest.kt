@@ -2,6 +2,7 @@
 
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
+import eu.kanade.domain.manga.model.WordDensity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.TextSplitter
 import io.mockk.every
@@ -14,6 +15,20 @@ import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.Preference
 
 class ContentPipelineTest {
+
+    @Test
+    fun `word count follows rendered translation and switching back to original`() = runBlocking {
+        val pipeline = pipelineWith()
+        val config = cfg(target = RenderTarget.WEB_VIEW)
+        val raw = "<p>Hello world</p>"
+        val original = pipeline.process(raw, config)
+        val translated = pipeline.process(raw, config) { "<p>Xin chào thế giới</p>" }
+        val restored = pipeline.process(raw, config)
+
+        assertEquals(2, WordDensity.countWordsAsync(original.text))
+        assertEquals(4, WordDensity.countWordsAsync(translated.text))
+        assertEquals(2, WordDensity.countWordsAsync(restored.text))
+    }
 
     private fun fakePref(value: String): Preference<String> = mockk {
         every { get() } returns value

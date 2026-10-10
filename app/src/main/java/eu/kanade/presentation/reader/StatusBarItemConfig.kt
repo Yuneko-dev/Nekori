@@ -14,8 +14,8 @@ val DefaultStatusBarOrder = listOf(
     StatusBarItem.TIME,
     StatusBarItem.CHAPTER,
     StatusBarItem.PROGRESS,
-    StatusBarItem.BATTERY,
     StatusBarItem.WORD_COUNT,
+    StatusBarItem.BATTERY,
 )
 
 fun List<StatusBarItem>.serializeStatusBarOrder(): String = Json.encodeToString(map { it.id })

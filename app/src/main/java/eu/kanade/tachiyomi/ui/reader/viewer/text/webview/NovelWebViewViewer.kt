@@ -97,7 +97,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -1550,14 +1552,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val prepared = withContext(Dispatchers.Default) {
             val directives = page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
                 ?: NovelWebViewChapterDirectives.parse(rawContent)
+            var processed = contentPipeline.process(rawContent, cfg, if (directives.checkpoint) null else translator)
             // Keep only the count so enabling the bar later never refetches no-cache content.
             // TODO: Skip counting when disabled and avoid delaying chapter preparation, while preserving no-cache behavior.
-            chapter.wordCount.value = if (directives.checkpoint) {
+            val wordCount = if (directives.checkpoint) {
                 null
             } else {
-                WordDensity.countWordsAsync(rawContent)
+                WordDensity.countWordsAsync(processed.text)
             }
-            var processed = contentPipeline.process(rawContent, cfg, if (directives.checkpoint) null else translator)
+            currentCoroutineContext().ensureActive()
+            chapter.wordCount.value = wordCount
             if (isAppend && processed.text.contains(NovelWebViewImageCache.URL_SCHEME_NOVEL_IMAGE)) {
                 processed = processed.copy(
                     text = processed.text.replace(
