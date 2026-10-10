@@ -1793,64 +1793,17 @@ class MangaViewModel(
     }
 
     fun applyTranslatedDetails(details: eu.kanade.presentation.manga.components.TranslatedMangaDetails) {
-        val manga = successState?.manga ?: return
         viewModelScope.launchIO {
-            // Handle genres - merge or replace based on user preference
-            val finalGenres = when {
-                details.translatedGenres == null -> null
-                details.mergeGenres -> {
-                    val existingGenres = manga.genre ?: emptyList()
-                    (existingGenres + details.translatedGenres).distinct()
+            val manga = mangaRepository.getMangaByIdOrNull(mangaId) ?: return@launchIO
+            val update = details.toMangaUpdate(manga)
+            if (updateManga.await(update)) {
+                getLibraryManga.applyMangaDetailUpdate(mangaId) {
+                    it.copy(
+                        alternativeTitles = update.alternativeTitles ?: it.alternativeTitles,
+                        genre = update.genre ?: it.genre,
+                        notes = update.notes ?: it.notes,
+                    )
                 }
-                else -> details.translatedGenres
-            }
-
-            if (details.addToAltTitles && !details.translatedTitle.isNullOrBlank() &&
-                details.translatedTitle != manga.title
-            ) {
-                val currentAltTitles = manga.alternativeTitles.toMutableList()
-                if (!currentAltTitles.contains(details.translatedTitle)) {
-                    currentAltTitles.add(0, details.translatedTitle)
-                    updateManga.awaitUpdateAlternativeTitles(mangaId, currentAltTitles)
-                }
-            }
-
-            if (details.translatedDescription != null) {
-                updateManga.awaitUpdateDescription(mangaId, details.translatedDescription)
-            }
-
-            var newNotes = manga.notes
-            if (details.translatedDescription != null) {
-                val descBlock = "Translated Description:\n${details.translatedDescription}"
-                val descRegex = Regex("""Translated Description:\n[\s\S]*?(?=\n\nTranslated Tags:|$)""")
-                newNotes = if (newNotes.isBlank()) {
-                    descBlock
-                } else if (descRegex.containsMatchIn(newNotes)) {
-                    descRegex.replace(newNotes, descBlock)
-                } else {
-                    "$newNotes\n\n$descBlock"
-                }
-            }
-
-            if (details.saveTagsToNotes && !details.translatedGenres.isNullOrEmpty()) {
-                val tagsString = "Translated Tags: ${details.translatedGenres.joinToString(", ")}"
-                val tagsRegex = Regex("""Translated Tags:.*""")
-                newNotes = if (newNotes.isBlank()) {
-                    tagsString
-                } else if (tagsRegex.containsMatchIn(newNotes)) {
-                    tagsRegex.replace(newNotes, tagsString)
-                } else {
-                    "$newNotes\n\n$tagsString"
-                }
-            }
-
-            if (newNotes != manga.notes) {
-                updateManga.awaitUpdateNotes(mangaId, newNotes)
-            }
-
-            if (finalGenres != null && finalGenres.isNotEmpty()) {
-                updateManga.awaitUpdateGenre(mangaId, finalGenres)
-                getLibraryManga.applyMangaDetailUpdate(mangaId) { it.copy(genre = finalGenres) }
             }
         }
 

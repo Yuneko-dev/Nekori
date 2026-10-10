@@ -37,18 +37,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-/**
- * Data class to hold all translation results
- */
-data class TranslatedMangaDetails(
-    val translatedTitle: String? = null,
-    val translatedDescription: String? = null,
-    val translatedGenres: List<String>? = null,
-    val addToAltTitles: Boolean = true,
-    val saveTagsToNotes: Boolean = false,
-    val mergeGenres: Boolean = true, // Merge translated genres with existing ones (not replace)
-)
-
 @Composable
 fun TranslateMangaDetailsDialog(
     manga: Manga,
@@ -65,6 +53,7 @@ fun TranslateMangaDetailsDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var addToAltTitles by remember { mutableStateOf(true) }
     var saveTagsToNotes by remember { mutableStateOf(false) }
+    var saveDescriptionToNotes by remember { mutableStateOf(true) }
     var translateGenres by remember { mutableStateOf(true) }
     var mergeGenres by remember { mutableStateOf(true) } // Default to merge (add to existing)
 
@@ -192,13 +181,6 @@ fun TranslateMangaDetailsDialog(
                             checked = addToAltTitles,
                             onCheckedChange = { addToAltTitles = it },
                         )
-
-                        // Checkbox to save tags to notes
-                        LabeledCheckbox(
-                            label = stringResource(TDMR.strings.translate_details_save_tags_notes),
-                            checked = saveTagsToNotes,
-                            onCheckedChange = { saveTagsToNotes = it },
-                        )
                     }
 
                     // Original description
@@ -227,6 +209,11 @@ fun TranslateMangaDetailsDialog(
                                 translatedDescription!!.take(200) +
                                     if (translatedDescription!!.length > 200) "..." else "",
                                 style = MaterialTheme.typography.bodySmall,
+                            )
+                            LabeledCheckbox(
+                                label = stringResource(TDMR.strings.translate_details_save_desc_notes),
+                                checked = saveDescriptionToNotes,
+                                onCheckedChange = { saveDescriptionToNotes = it },
                             )
                         }
                     }
@@ -260,7 +247,11 @@ fun TranslateMangaDetailsDialog(
                                 style = MaterialTheme.typography.bodySmall,
                             )
 
-                            // Checkbox to save translated genres
+                            LabeledCheckbox(
+                                label = stringResource(TDMR.strings.translate_details_save_tags_notes),
+                                checked = saveTagsToNotes,
+                                onCheckedChange = { saveTagsToNotes = it },
+                            )
                             LabeledCheckbox(
                                 label = stringResource(TDMR.strings.translate_details_save_genres),
                                 checked = translateGenres,
@@ -287,15 +278,17 @@ fun TranslateMangaDetailsDialog(
                         TranslatedMangaDetails(
                             translatedTitle = translatedTitle,
                             translatedDescription = translatedDescription,
-                            translatedGenres = if (translateGenres) translatedGenres else null,
+                            translatedGenres = translatedGenres,
                             addToAltTitles = addToAltTitles,
                             saveTagsToNotes = saveTagsToNotes,
                             mergeGenres = mergeGenres,
+                            saveGenres = translateGenres,
+                            saveDescriptionToNotes = saveDescriptionToNotes,
                         ),
                     )
                 },
                 enabled =
-                !isTranslating &&
+                !isTranslating && error == null &&
                     (translatedTitle != null || translatedDescription != null || translatedGenres != null),
             ) {
                 Text(stringResource(MR.strings.action_save))

@@ -562,6 +562,7 @@
     <string name="translate_details_translated_title">Tiêu đề đã dịch:</string>
     <string name="translate_details_add_alt_titles">Thêm tiêu đề đã dịch vào tiêu đề thay thế</string>
     <string name="translate_details_save_tags_notes">Lưu thẻ đã dịch vào ghi chú</string>
+    <string name="translate_details_save_desc_notes">Lưu mô tả đã dịch vào ghi chú (giữ nguyên mô tả gốc)</string>
     <string name="translate_details_original_desc">Mô tả gốc:</string>
     <string name="translate_details_translated_desc">Mô tả đã dịch:</string>
     <string name="translate_details_original_genres">Thể loại gốc:</string>

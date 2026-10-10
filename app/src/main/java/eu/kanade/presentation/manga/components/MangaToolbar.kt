@@ -202,7 +202,7 @@ fun MangaToolbar(
                     if (onClickTranslate != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = stringResource(TDMR.strings.action_translate),
+                                title = stringResource(TDMR.strings.translate_details_title),
                                 onClick = onClickTranslate,
                             ),
                         )

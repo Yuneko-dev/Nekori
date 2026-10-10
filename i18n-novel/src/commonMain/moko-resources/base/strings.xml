@@ -591,6 +591,7 @@
     <string name="translate_details_translated_title">Translated Title:</string>
     <string name="translate_details_add_alt_titles">Add translated title to alternative titles</string>
     <string name="translate_details_save_tags_notes">Save translated tags to notes</string>
+    <string name="translate_details_save_desc_notes">Save translated description to notes (keep original description)</string>
     <string name="translate_details_original_desc">Original Description:</string>
     <string name="translate_details_translated_desc">Translated Description:</string>
     <string name="translate_details_original_genres">Original Genres:</string>
