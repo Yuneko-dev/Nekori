@@ -25,6 +25,36 @@ if (Config.includeTelemetry) {
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties().apply {
+    if (localPropertiesFile.exists()) {
+        FileInputStream(localPropertiesFile).use(::load)
+    }
+}
+
+fun escapeBuildConfigString(value: String): String =
+    value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+
+fun googleDriveSecret(propertyKey: String, envKey: String): String {
+    val fromLocal = localProperties.getProperty(propertyKey).orEmpty().trim()
+    if (fromLocal.isNotEmpty()) return fromLocal
+    return System.getenv(envKey).orEmpty().trim()
+}
+
+val googleDriveClientId = googleDriveSecret("google.drive.client.id", "GOOGLE_DRIVE_CLIENT_ID")
+val googleDriveClientSecret = googleDriveSecret("google.drive.client.secret", "GOOGLE_DRIVE_CLIENT_SECRET")
+// Google Android OAuth custom-scheme redirect: com.googleusercontent.apps.<clientId>:/oauth2redirect
+val googleDriveClientIdPrefix = googleDriveClientId.removeSuffix(".apps.googleusercontent.com")
+val googleDriveRedirectScheme = if (googleDriveClientIdPrefix.isNotEmpty()) {
+    "com.googleusercontent.apps.$googleDriveClientIdPrefix"
+} else {
+    "app.tsundoku.google.oauth"
+}
+val googleDriveRedirectUri = "$googleDriveRedirectScheme:/oauth2redirect"
 
 android {
     namespace = "eu.kanade.tachiyomi"
@@ -40,6 +70,11 @@ android {
         buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
+        // Supplied via local.properties (gitignored) or GOOGLE_DRIVE_CLIENT_* env vars.
+        buildConfigField("String", "GOOGLE_DRIVE_CLIENT_ID", "\"${escapeBuildConfigString(googleDriveClientId)}\"")
+        buildConfigField("String", "GOOGLE_DRIVE_CLIENT_SECRET", "\"${escapeBuildConfigString(googleDriveClientSecret)}\"")
+        buildConfigField("String", "GOOGLE_DRIVE_REDIRECT_URI", "\"${escapeBuildConfigString(googleDriveRedirectUri)}\"")
+        manifestPlaceholders["GOOGLE_DRIVE_REDIRECT_SCHEME"] = googleDriveRedirectScheme
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -170,6 +205,7 @@ android {
                 "META-INF/*.properties",
                 "META-INF/*.version",
                 "META-INF/DEPENDENCIES",
+                "META-INF/INDEX.LIST",
                 "META-INF/LICENSE",
                 "META-INF/NOTICE",
                 "META-INF/README.md",
@@ -332,6 +368,9 @@ dependencies {
 
     // Logging
     implementation(libs.logcat)
+
+    // Google Drive sync
+    implementation(libs.google.api.services.drive)
 
     // Shizuku
     implementation(libs.bundles.shizuku)

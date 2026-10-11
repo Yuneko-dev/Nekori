@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -27,6 +30,7 @@ import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -34,20 +38,28 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.hippo.unifile.UniFile
+import dev.icerock.moko.resources.StringResource
+import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.data.CreateBackupScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.more.settings.screen.data.StorageInfo
+import eu.kanade.presentation.more.settings.screen.data.SyncSettingsSelector
+import eu.kanade.presentation.more.settings.screen.data.SyncTriggerOptionsScreen
 import eu.kanade.presentation.more.settings.widget.BasePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.PrefsHorizontalPadding
 import eu.kanade.presentation.util.relativeTimeSpanString
@@ -57,6 +69,10 @@ import eu.kanade.tachiyomi.data.backup.restore.LNReaderImportJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.export.LibraryExportJob
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
+import eu.kanade.tachiyomi.data.sync.SyncDataJob
+import eu.kanade.tachiyomi.data.sync.SyncManager
+import eu.kanade.tachiyomi.data.sync.service.GoogleDriveService
+import eu.kanade.tachiyomi.data.sync.service.GoogleDriveSyncService
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
@@ -100,12 +116,15 @@ object SettingsDataScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val backupPreferences = Injekt.get<BackupPreferences>()
         val storagePreferences = Injekt.get<StoragePreferences>()
+        val syncPreferences = remember { Injekt.get<SyncPreferences>() }
+        val syncService by syncPreferences.syncService().collectAsState()
 
         return listOf(
             getStorageLocationPref(storagePreferences = storagePreferences),
             Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.pref_storage_location_info)),
 
             getBackupAndRestoreGroup(backupPreferences = backupPreferences),
+        ) + getSyncPreferences(syncPreferences = syncPreferences, syncService = syncService) + listOf(
             getDataGroup(),
             getExportGroup(),
         )
@@ -707,5 +726,346 @@ private fun LNReaderImportOptionsDialog(
                 Text(stringResource(MR.strings.action_cancel))
             }
         },
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getSyncPreferences(
+    syncPreferences: SyncPreferences,
+    syncService: Int,
+): List<Preference> {
+    val context = LocalContext.current
+    return listOf(
+        Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_sync_service_category),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = syncPreferences.syncService(),
+                    entries = mapOf(
+                        SyncManager.SyncService.NONE.value to stringResource(MR.strings.off),
+                        SyncManager.SyncService.GOOGLE_DRIVE.value to stringResource(MR.strings.google_drive),
+                        SyncManager.SyncService.WEB_DAV.value to stringResource(MR.strings.web_dav),
+                    ),
+                    title = stringResource(MR.strings.pref_sync_service),
+                    onValueChanged = {
+                        if (it != SyncManager.SyncService.NONE.value) {
+                            SyncDataJob.setupTask(context)
+                        } else {
+                            SyncDataJob.setupTask(context, prefInterval = 0)
+                        }
+                        true
+                    },
+                ),
+            ),
+        ),
+    ) + getSyncServicePreferences(syncPreferences, syncService)
+}
+
+@Composable
+private fun SettingsDataScreen.getSyncServicePreferences(
+    syncPreferences: SyncPreferences,
+    syncService: Int,
+): List<Preference> {
+    val syncServiceType = SyncManager.SyncService.fromInt(syncService)
+    val basePreferences = getBaseSyncPreferences(syncServiceType, syncPreferences)
+
+    return if (syncServiceType != SyncManager.SyncService.NONE) {
+        basePreferences + getAdditionalSyncPreferences(syncPreferences)
+    } else {
+        basePreferences
+    }
+}
+
+@Composable
+private fun SettingsDataScreen.getBaseSyncPreferences(
+    syncServiceType: SyncManager.SyncService,
+    syncPreferences: SyncPreferences,
+): List<Preference> {
+    val navigator = LocalNavigator.currentOrThrow
+    val preferences = when (syncServiceType) {
+        SyncManager.SyncService.NONE -> emptyList()
+        SyncManager.SyncService.GOOGLE_DRIVE -> getGoogleDrivePreferences()
+        SyncManager.SyncService.WEB_DAV -> getWebDavPreferences(syncPreferences)
+    }
+
+    return if (syncServiceType != SyncManager.SyncService.NONE) {
+        preferences + Preference.PreferenceItem.TextPreference(
+            title = stringResource(MR.strings.pref_choose_what_to_sync),
+            onClick = {
+                navigator.push(SyncSettingsSelector())
+            },
+        )
+    } else {
+        preferences
+    }
+}
+
+@Composable
+private fun SettingsDataScreen.getAdditionalSyncPreferences(syncPreferences: SyncPreferences): List<Preference> {
+    return listOf(
+        getSyncNowPref(),
+        getAutomaticSyncGroup(syncPreferences),
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getGoogleDrivePreferences(): List<Preference> {
+    val context = LocalContext.current
+    val googleDriveSync = Injekt.get<GoogleDriveService>()
+    return listOf(
+        Preference.PreferenceItem.TextPreference(
+            title = stringResource(MR.strings.pref_google_drive_sign_in),
+            onClick = {
+                val intent = googleDriveSync.getSignInIntent()
+                context.startActivity(intent)
+            },
+        ),
+        getGoogleDrivePurge(),
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getGoogleDrivePurge(): Preference.PreferenceItem.TextPreference {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val googleDriveSync = remember { GoogleDriveSyncService(context) }
+    var showPurgeDialog by remember { mutableStateOf(false) }
+
+    if (showPurgeDialog) {
+        PurgeConfirmationDialog(
+            onConfirm = {
+                showPurgeDialog = false
+                scope.launch {
+                    val result = googleDriveSync.deleteSyncDataFromGoogleDrive()
+                    when (result) {
+                        GoogleDriveSyncService.DeleteSyncDataStatus.NOT_INITIALIZED -> context.toast(
+                            MR.strings.google_drive_not_signed_in,
+                            duration = android.widget.Toast.LENGTH_LONG,
+                        )
+                        GoogleDriveSyncService.DeleteSyncDataStatus.NO_FILES -> context.toast(
+                            MR.strings.google_drive_sync_data_not_found,
+                            duration = android.widget.Toast.LENGTH_LONG,
+                        )
+                        GoogleDriveSyncService.DeleteSyncDataStatus.SUCCESS -> context.toast(
+                            MR.strings.google_drive_sync_data_purged,
+                            duration = android.widget.Toast.LENGTH_LONG,
+                        )
+                        GoogleDriveSyncService.DeleteSyncDataStatus.ERROR -> context.toast(
+                            MR.strings.google_drive_sync_data_purge_error,
+                            duration = android.widget.Toast.LENGTH_LONG,
+                        )
+                    }
+                }
+            },
+            onDismissRequest = { showPurgeDialog = false },
+        )
+    }
+
+    return Preference.PreferenceItem.TextPreference(
+        title = stringResource(MR.strings.pref_google_drive_purge_sync_data),
+        onClick = { showPurgeDialog = true },
+    )
+}
+
+@Composable
+private fun PurgeConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(MR.strings.pref_purge_confirmation_title)) },
+        text = { Text(text = stringResource(MR.strings.pref_purge_confirmation_message)) },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = stringResource(MR.strings.action_ok))
+            }
+        },
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getWebDavPreferences(syncPreferences: SyncPreferences): List<Preference> {
+    val scope = rememberCoroutineScope()
+
+    return listOf(
+        Preference.PreferenceItem.EditTextPreference(
+            preference = syncPreferences.webDavUrl(),
+            title = stringResource(MR.strings.pref_webdav_url),
+            subtitle = stringResource(MR.strings.pref_webdav_url_summ),
+            onValueChanged = { newValue ->
+                scope.launch {
+                    syncPreferences.webDavUrl().set(newValue.trim())
+                }
+                true
+            },
+        ),
+        Preference.PreferenceItem.EditTextPreference(
+            preference = syncPreferences.webDavUsername(),
+            title = stringResource(MR.strings.pref_webdav_username),
+            subtitle = stringResource(MR.strings.pref_webdav_username_summ),
+            onValueChanged = { newValue ->
+                scope.launch {
+                    syncPreferences.webDavUsername().set(newValue.trim())
+                }
+                true
+            },
+        ),
+        run {
+            var dialogOpen by remember { mutableStateOf(false) }
+            if (dialogOpen) {
+                SyncPasswordDialog(
+                    onDismissRequest = { dialogOpen = false },
+                    onReturnPassword = { password ->
+                        dialogOpen = false
+                        scope.launch {
+                            syncPreferences.webDavPassword().set(password.replace("\n", ""))
+                        }
+                    },
+                    title = MR.strings.pref_webdav_password,
+                )
+            }
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_webdav_password),
+                subtitle = stringResource(MR.strings.pref_webdav_password_summ),
+                onClick = {
+                    dialogOpen = true
+                },
+            )
+        },
+        Preference.PreferenceItem.EditTextPreference(
+            preference = syncPreferences.webDavFolder(),
+            title = stringResource(MR.strings.pref_webdav_folder),
+            subtitle = stringResource(MR.strings.pref_webdav_folder_summ),
+            onValueChanged = { newValue ->
+                scope.launch {
+                    syncPreferences.webDavFolder().set(newValue.trim())
+                }
+                true
+            },
+        ),
+    )
+}
+
+@Composable
+private fun SyncPasswordDialog(
+    onDismissRequest: () -> Unit,
+    onReturnPassword: (String) -> Unit,
+    title: StringResource,
+) {
+    var password by rememberSaveable { mutableStateOf("") }
+    var passwordVisibility by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(title)) },
+        text = {
+            TextField(
+                value = password,
+                onValueChange = { password = it },
+                maxLines = 1,
+                placeholder = { Text(text = stringResource(MR.strings.password)) },
+                label = { Text(text = stringResource(MR.strings.password)) },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisibility = !passwordVisibility }) {
+                        Icon(
+                            imageVector = if (passwordVisibility) {
+                                Icons.Default.Visibility
+                            } else {
+                                Icons.Default.VisibilityOff
+                            },
+                            contentDescription = null,
+                        )
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = if (passwordVisibility) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onReturnPassword(password) }) {
+                Text(text = stringResource(MR.strings.action_ok))
+            }
+        },
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getSyncNowPref(): Preference.PreferenceGroup {
+    val context = LocalContext.current
+    return Preference.PreferenceGroup(
+        title = stringResource(MR.strings.pref_sync_now_group_title),
+        preferenceItems = listOf(
+            getSyncOptionsPref(),
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_sync_now),
+                subtitle = stringResource(MR.strings.pref_sync_now_subtitle),
+                onClick = {
+                    if (!SyncDataJob.isRunning(context)) {
+                        SyncDataJob.startNow(context, manual = true)
+                    } else {
+                        context.toast(MR.strings.sync_in_progress)
+                    }
+                },
+            ),
+        ),
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getSyncOptionsPref(): Preference.PreferenceItem.TextPreference {
+    val navigator = LocalNavigator.currentOrThrow
+    return Preference.PreferenceItem.TextPreference(
+        title = stringResource(MR.strings.pref_sync_options),
+        subtitle = stringResource(MR.strings.pref_sync_options_summ),
+        onClick = { navigator.push(SyncTriggerOptionsScreen()) },
+    )
+}
+
+@Composable
+private fun SettingsDataScreen.getAutomaticSyncGroup(syncPreferences: SyncPreferences): Preference.PreferenceGroup {
+    val context = LocalContext.current
+    val syncIntervalPref = syncPreferences.syncInterval()
+    val lastSync by syncPreferences.lastSyncTimestamp().collectAsState()
+
+    return Preference.PreferenceGroup(
+        title = stringResource(MR.strings.pref_sync_automatic_category),
+        preferenceItems = listOf(
+            Preference.PreferenceItem.ListPreference(
+                preference = syncIntervalPref,
+                entries = mapOf(
+                    0 to stringResource(MR.strings.off),
+                    30 to stringResource(MR.strings.update_30min),
+                    60 to stringResource(MR.strings.update_1hour),
+                    180 to stringResource(MR.strings.update_3hour),
+                    360 to stringResource(MR.strings.update_6hour),
+                    720 to stringResource(MR.strings.update_12hour),
+                    1440 to stringResource(MR.strings.update_24hour),
+                    2880 to stringResource(MR.strings.update_48hour),
+                    10080 to stringResource(MR.strings.update_weekly),
+                ),
+                title = stringResource(MR.strings.pref_sync_interval),
+                onValueChanged = {
+                    SyncDataJob.setupTask(context, prefInterval = it)
+                    true
+                },
+            ),
+            Preference.PreferenceItem.InfoPreference(
+                stringResource(MR.strings.last_synchronization, relativeTimeSpanString(lastSync)),
+            ),
+        ),
     )
 }

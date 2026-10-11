@@ -16,8 +16,10 @@ import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.readingMode
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.interactor.GetIncognitoState
+import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.presentation.reader.appbars.BottomBarItemState
 import eu.kanade.presentation.reader.appbars.deserializeBottomBarItems
 import eu.kanade.presentation.reader.appbars.serialize
@@ -823,6 +825,11 @@ class ReaderViewModel @JvmOverloads constructor(
                     selectedChapter.chapter.read = true
                     updateTrackChapterRead(selectedChapter)
                     deleteChapterIfNeeded(selectedChapter)
+                    maybeTriggerSyncOnChapterRead()
+                }
+
+                if (currentProgress == 0) {
+                    maybeTriggerSyncOnChapterOpen()
                 }
 
                 updateChapter.await(
@@ -987,7 +994,28 @@ class ReaderViewModel @JvmOverloads constructor(
 
             if (isComplete) {
                 updateChapterProgressOnComplete(readerChapter)
+                maybeTriggerSyncOnChapterRead()
             }
+
+            if (pageIndex == 0) {
+                maybeTriggerSyncOnChapterOpen()
+            }
+        }
+    }
+
+    private fun maybeTriggerSyncOnChapterRead() {
+        val syncPreferences: SyncPreferences = Injekt.get()
+        val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
+        if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnChapterRead) {
+            SyncDataJob.startNow(Injekt.get<Application>())
+        }
+    }
+
+    private fun maybeTriggerSyncOnChapterOpen() {
+        val syncPreferences: SyncPreferences = Injekt.get()
+        val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
+        if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnChapterOpen) {
+            SyncDataJob.startNow(Injekt.get<Application>())
         }
     }
 

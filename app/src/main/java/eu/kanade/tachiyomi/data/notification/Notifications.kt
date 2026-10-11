@@ -60,6 +60,13 @@ object Notifications {
     const val ID_RESTORE_COMPLETE = -504
 
     /**
+     * Notification channel and ids used by cross-device library sync.
+     */
+    const val CHANNEL_SYNC_LIBRARY = "syncing_library_channel"
+    const val ID_SYNC_PROGRESS = -505
+    const val ID_SYNC_COMPLETE = -506
+
+    /**
      * Notification channel used for Incognito Mode
      */
     const val CHANNEL_INCOGNITO_MODE = "incognito_mode_channel"
@@ -215,6 +222,10 @@ object Notifications {
                     setGroup(GROUP_BACKUP_RESTORE)
                     setShowBadge(false)
                     setSound(null, null)
+                },
+                buildNotificationChannel(CHANNEL_SYNC_LIBRARY, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.syncing_library))
+                    setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_INCOGNITO_MODE, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.pref_incognito_mode))
