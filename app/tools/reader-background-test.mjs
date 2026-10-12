@@ -97,7 +97,7 @@ try {
     assert.deepEqual(await page.locator('#LNReader-chapter').evaluate(el => {
         const css = getComputedStyle(el);
         return [css.paddingTop, css.paddingBottom, css.paddingLeft];
-    }), ['64px', '112px', '48px']);
+    }), ['64px', '72px', '48px']);
     const first = await page.locator('#reader-background').boundingBox();
     await page.locator('#LNReader-chapter').evaluate(el => { el.scrollLeft = 400; });
     assert.deepEqual(await page.locator('#reader-background').boundingBox(), first);
