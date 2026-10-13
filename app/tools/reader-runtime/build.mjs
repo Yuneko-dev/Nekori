@@ -77,13 +77,13 @@ await build({
   format: "esm",
   platform: "browser",
   target: "chrome138",
-  packages: "external",
   sourcemap: false,
   legalComments: "none",
   plugins: [inlineCss],
 });
 
 runTypeScriptDeclarations();
+await writeFile(path.join(distDir, "index.d.ts"), "export * from './types/index.js';\n");
 await mkdir(path.join(distDir, "styles"), { recursive: true });
 await build({
   absWorkingDir: packageDir,
@@ -96,6 +96,11 @@ await build({
 });
 
 await cp(path.join(sourceDir, "styles", "skeleton.css"), path.join(distDir, "styles", "skeleton.css"));
+// Dev clients use the same offline media engines as the Android reader.
+await mkdir(path.join(distDir, "vendor"), { recursive: true });
+for (const vendor of ["hls.min.js", "videojs.min.js"]) {
+  await cp(path.join(repositoryDir, "app/src/main/assets/novel-reader", vendor), path.join(distDir, "vendor", vendor));
+}
 
 if (metafilePath) {
   const metadataFile = path.resolve(packageDir, metafilePath);

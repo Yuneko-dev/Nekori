@@ -108,6 +108,7 @@ export interface ReaderApi {
   readonly layout: ReaderLayout | null;
   readonly player: ReaderPlayer | null;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+  refetch(): void;
   error(message: string): void;
   dispose(): void;
 }

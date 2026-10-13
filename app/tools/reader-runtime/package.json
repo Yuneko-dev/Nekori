@@ -10,10 +10,14 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./styles.css": "./dist/styles/reader.css"
+    "./styles.css": "./dist/styles/reader.css",
+    "./reader.js": "./dist/assets/reader.js",
+    "./download.js": "./dist/assets/download.js",
+    "./skeleton.js": "./dist/assets/skeleton.js",
+    "./vendor/*": "./dist/vendor/*"
   },
   "scripts": {
     "build": "node build.mjs",

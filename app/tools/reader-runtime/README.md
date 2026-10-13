@@ -11,6 +11,17 @@ npm run browser
 npm pack
 ```
 
+To refresh the independent Electron dev client, build here and copy the output explicitly:
+
+```sh
+npm run build
+node sync-dev-client.mjs /path/to/nekori-plugins
+```
+
+The script copies the self-contained ESM runtime, declarations, CSS and offline media vendors to
+`nekori-plugins/public/static/novel-reader/`. The plugin repository consumes that local snapshot;
+its installation and normal builds do not need this checkout or a reader package dependency.
+
 Package and browser checks run in `.github/workflows/reader-checks.yml`, separately from
 APK build/release workflows. Gradle still builds the runtime assets required by the APK.
 

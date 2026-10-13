@@ -199,8 +199,11 @@ export class PlayerController implements PlayerDelegate {
     await this.downloader.start(type, url, config);
   }
 
-  private log(message: string): void {
+  log(message: string): void {
+    if (this.disposed) return;
+    console.log("[NekoriPlayer]", message);
     if (!this.debugEnabled) return;
+    this.debugOverlay.attach(true);
     this.debugOverlay.log(message);
   }
 

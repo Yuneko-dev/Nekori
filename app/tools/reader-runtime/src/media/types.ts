@@ -49,6 +49,7 @@ export interface ReaderMediaHost {
 }
 
 export interface PlayerDelegate {
+  log(message: string): void;
   playHls(url: string, config?: Record<string, unknown>): Promise<void>;
   playDash(url: string, config?: DashConfig): Promise<void>;
   playDirect(url: string): Promise<void>;

@@ -34,6 +34,7 @@ export function createReader({ root, host, config }: CreateReaderOptions): Reade
     get layout() { return layout; },
     get player() { return player; },
     fetch(input, init) { return host.fetch(input, init); },
+    refetch() { host.emit('reader.refetch', {}); },
     error(message) { host.emit('reader.error', { message }); },
     dispose() {
       if (disposed) return;

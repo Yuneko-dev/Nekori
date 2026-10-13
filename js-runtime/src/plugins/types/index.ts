@@ -1,6 +1,6 @@
 import { Filters, FilterToValues } from './filterTypes';
 
-export const NEKORI_API_VERSION = 1;
+export const NEKORI_API_VERSION = 2;
 
 export interface TextSetting {
   value: string;
