@@ -17,6 +17,7 @@ const licenseTemplate = requiredArg("--license-template");
 const outputFile = requiredArg("--output");
 const jsRuntimeDir = path.join(rootDir, "js-runtime");
 const videoBundleDir = path.join(rootDir, "app", "tools", "videojs-bundle");
+const readerRuntimeDir = path.join(rootDir, "app", "tools", "reader-runtime");
 const videoLibrariesCache = path.join(videoBundleDir, "shipped-libraries.json");
 
 await mkdir(path.dirname(outputFile), { recursive: true });
@@ -24,6 +25,9 @@ await mkdir(path.dirname(outputFile), { recursive: true });
 const packageDirectories = new Set([
   ...packageDirectoriesFromSources(
     JSON.parse(await readFile(metroSourcemap, "utf8")).sources,
+  ),
+  ...packageDirectoriesFromReaderMetafile(
+    JSON.parse(await readFile(requiredArg("--reader-metafile"), "utf8")),
   ),
 ]);
 
@@ -105,6 +109,12 @@ async function readVideoLibraries() {
 function packageDirectoriesFromSources(sources) {
   return sources
     .map((source) => packageDirectoryFromPath(source, jsRuntimeDir))
+    .filter(Boolean);
+}
+
+function packageDirectoriesFromReaderMetafile(metafile) {
+  return Object.keys(metafile.inputs ?? {})
+    .map((source) => packageDirectoryFromPath(source, readerRuntimeDir))
     .filter(Boolean);
 }
 

@@ -1,0 +1,119 @@
+body.nekori-reader-hide-title .nekori-reader :is(h1, h2, h3, h4, h5, h6):first-of-type {
+    display: none !important;
+}
+
+hr {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+a {
+    color: var(--md-sys-color-primary);
+}
+
+sup {
+    line-height: .1em;
+}
+
+img,
+video,
+iframe {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+}
+
+img {
+    min-height: 100px;
+    background:
+        rgba(150, 150, 150, 0.2)
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="%23888" stroke-width="5" stroke-dasharray="31.4 31.4"><animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/></circle></svg>')
+        no-repeat center;
+}
+
+img.is-loaded {
+    min-height: 0;
+    background: none;
+}
+
+div:has(> table):not(.nekori-reader) {
+    overflow: auto;
+}
+
+table {
+    color: var(--md-sys-color-primary);
+    background-color: var(--md-sys-color-on-primary);
+    border-collapse: collapse;
+}
+
+th {
+    font-weight: bold;
+}
+
+td {
+    padding: 10px;
+    text-align: center;
+}
+
+table,
+th,
+td {
+    border: 1px solid var(--md-sys-color-outline);
+}
+
+.hidden {
+    visibility: hidden;
+}
+
+.next-button,
+.info-text {
+    margin-inline-start: var(--reader-margin-inline-start);
+    margin-inline-end: var(--reader-margin-inline-end);
+    border-width: 0;
+    border-radius: 50px;
+    background-color: var(--md-sys-color-primary);
+    font-family: var(--reader-font-family);
+    font-size: 16px;
+    user-select: none;
+}
+
+.next-button {
+    width: calc(100% - var(--reader-margin-left) - var(--reader-margin-right));
+    min-height: 40px;
+    padding: 0 16px;
+    overflow: hidden;
+    color: var(--md-sys-color-on-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.local-video-button {
+    display: block;
+    width: fit-content;
+    min-height: 48px;
+    margin: 0 auto;
+    margin-top: 95px;
+    padding: 0 24px;
+    color: var(--md-sys-color-on-secondary-container);
+    background-color: var(--md-sys-color-secondary-container);
+}
+
+.local-video-button:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+.info-text {
+    margin: 0;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    border: none;
+    color: inherit;
+    background-color: transparent;
+    text-align: center;
+}
+
+.d-none {
+    display: none;
+}

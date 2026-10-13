@@ -4,11 +4,17 @@ import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
 import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
 import java.io.FileInputStream
@@ -25,6 +31,9 @@ abstract class GenerateShippedJsLicenses @Inject constructor(
 
     @get:InputFile
     abstract val metroSourcemap: RegularFileProperty
+
+    @get:InputFile
+    abstract val readerMetafile: RegularFileProperty
 
     @get:InputFile
     abstract val generatorScript: RegularFileProperty
@@ -47,10 +56,51 @@ abstract class GenerateShippedJsLicenses @Inject constructor(
                 generatorScript.get().asFile.absolutePath,
                 "--metro-sourcemap",
                 metroSourcemap.get().asFile.absolutePath,
+                "--reader-metafile",
+                readerMetafile.get().asFile.absolutePath,
                 "--license-template",
                 licenseTemplate.get().asFile.absolutePath,
                 "--output",
                 outputDir.file("raw/aboutlibraries_js.json").get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+abstract class BuildReaderRuntimeAssets @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val packageFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:OutputFile
+    abstract val metafile: RegularFileProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @get:Internal
+    abstract val buildScript: RegularFileProperty
+
+    @TaskAction
+    fun build() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                buildScript.get().asFile.absolutePath,
+                "--android-assets",
+                outputDir.get().asFile.absolutePath,
+                "--metafile",
+                metafile.get().asFile.absolutePath,
             )
         }
     }
@@ -334,6 +384,7 @@ dependencies {
     implementation(libs.androidx.appCompat)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.webkit)
     implementation(libs.androidx.core)
     implementation(libs.androidx.coreSplashScreen)
     implementation(libs.androidx.profileInstaller)
@@ -422,14 +473,41 @@ androidComponents {
         val resSource = variant.sources.res ?: return@onVariants
 
         val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val readerPackageDir = rootProject.layout.projectDirectory.dir("app/tools/reader-runtime")
+        val readerMetafileFile = layout.buildDirectory.file(
+            "generated/reader-runtime/${variant.name}/reader-metafile.json",
+        )
+        val buildReaderRuntimeTask = tasks.register<BuildReaderRuntimeAssets>(
+            "build${variantName}ReaderRuntime",
+        ) {
+            sourceDirectory.set(readerPackageDir.dir("src"))
+            packageFiles.from(
+                readerPackageDir.file("package.json"),
+                readerPackageDir.file("package-lock.json"),
+                readerPackageDir.file("tsconfig.json"),
+                readerPackageDir.file("tsconfig.types.json"),
+                readerPackageDir.file("build.mjs"),
+            )
+            outputDir.set(layout.buildDirectory.dir("generated/assets/reader-runtime/${variant.name}"))
+            metafile.set(readerMetafileFile)
+            workingDirectory.set(readerPackageDir)
+            buildScript.set(readerPackageDir.file("build.mjs"))
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(buildReaderRuntimeTask) { it.outputDir }
+
         val generatedLicensesDir = layout.buildDirectory.dir("generated/shipped-js-licenses/${variant.name}")
         val generateShippedJsLicensesTask = tasks.register<GenerateShippedJsLicenses>(
             "generate${variantName}ShippedJsLicenses",
         ) {
-            dependsOn("createBundle${variantName}JsAndAssets", "prepareLibraryDefinitions$variantName")
+            dependsOn(
+                "createBundle${variantName}JsAndAssets",
+                "prepareLibraryDefinitions$variantName",
+                buildReaderRuntimeTask,
+            )
             metroSourcemap.set(
                 layout.buildDirectory.file("generated/sourcemaps/react/${variant.name}/index.android.bundle.map"),
             )
+            readerMetafile.set(readerMetafileFile)
             generatorScript.set(rootProject.layout.projectDirectory.file("app/tools/generate-shipped-js-licenses.mjs"))
             licenseTemplate.set(
                 layout.buildDirectory.file("generated/aboutLibraries/${variant.name}/res/raw/aboutlibraries.json"),

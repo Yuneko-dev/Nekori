@@ -2,24 +2,24 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
 
 class NovelWebViewSummaryControllerTest {
 
     @Test
-    fun `a document without the page API does not start a summary`() {
+    fun missingSummaryApiDoesNotStartARequest() {
         var chapterLoads = 0
         var unavailableCalls = 0
-        val scripts = mutableListOf<String>()
+        val commands = mutableListOf<ReaderCommand>()
         val controller = controller(
-            evaluateJs = { script, callback ->
-                scripts += script
+            executeCommand = { command, callback ->
+                commands += command
                 callback?.invoke("null")
             },
             chapterHtml = {
@@ -33,24 +33,25 @@ class NovelWebViewSummaryControllerTest {
 
         chapterLoads shouldBe 0
         unavailableCalls shouldBe 1
-        scripts.single() shouldContain ".focus('7')"
+        commands.single().method shouldBe "summary.focus"
+        commands.single().payload["chapterId"] shouldBe JsonPrimitive("7")
     }
 
     @Test
-    fun `cancel replaces loading controls with the cancelled state`() {
-        val scripts = mutableListOf<String>()
-        val controller = controller(
-            evaluateJs = { script, _ -> scripts += script },
-        )
+    fun cancelSendsStructuredCancelledSummaryState() {
+        val commands = mutableListOf<ReaderCommand>()
+        val controller = controller(executeCommand = { command, _ -> commands += command })
 
         controller.onAction(7, "cancel")
 
-        scripts.single() shouldContain "cancelled"
-        scripts.single() shouldContain "Summary cancelled"
+        commands.single().method shouldBe "summary.render"
+        commands.single().payload["chapterId"] shouldBe JsonPrimitive("7")
+        commands.single().payload["state"] shouldBe JsonPrimitive("cancelled")
+        commands.single().payload["text"] shouldBe JsonPrimitive("Summary cancelled")
     }
 
     private fun controller(
-        evaluateJs: (String, ((String) -> Unit)?) -> Unit,
+        executeCommand: (ReaderCommand, ((String?) -> Unit)?) -> Unit,
         chapterHtml: suspend (Long) -> String? = { null },
         onUnavailable: () -> Unit = {},
     ): NovelWebViewSummaryController {
@@ -68,7 +69,7 @@ class NovelWebViewSummaryControllerTest {
                 cancelled = "Summary cancelled",
                 contentUnavailable = "No content",
             ),
-            evaluateJs = evaluateJs,
+            executeCommand = executeCommand,
             chapterHtml = chapterHtml,
             onUnconfigured = {},
             onUnavailable = onUnavailable,

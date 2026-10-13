@@ -1,0 +1,116 @@
+/* Video chapters use a centered 16:9 surface above the reader's reserved bottom bar. */
+body {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+}
+
+:root { --reader-margin-right: 0px; --reader-margin-left: 0px; }
+
+#nekori-reader:has(> .local-video-button) { margin: 0 16px; text-align: center; }
+#nekori-reader:has(> .local-video-button) > h2,
+#nekori-reader:has(> .local-video-button) > h4 { margin: 0; }
+#nekori-reader:has(> .local-video-button) > h4 { margin-top: 8px; font-weight: 400; opacity: .72; }
+#nekori-reader:has(> .local-video-button) > .local-video-button { margin-top: 24px; }
+
+#nekori-player-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  background-color: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+#nekori-player-container video-skin,
+#nekori-player-container live-video-skin,
+#nekori-player-container media-container,
+#nekori-player-container video,
+#nekori-player-container hlsjs-video,
+#nekori-player-container dash-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#nekori-player-container video,
+#nekori-player-container hlsjs-video,
+#nekori-player-container dash-video { object-fit: contain; }
+
+#nekori-player-container iframe { width: 100%; height: 100%; border: none; }
+
+#nekori-debug-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  max-height: 75vh;
+  background-color: rgba(0, 0, 0, .85) !important;
+  color: #00ff00 !important;
+  font: 12px / normal monospace !important;
+  text-align: left !important;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  z-index: 9999;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  touch-action: pan-y;
+  display: none;
+}
+#nekori-debug-overlay.active { display: block; pointer-events: auto; }
+#nekori-debug-overlay .nekori-debug-msg {
+  border-bottom: 1px solid rgba(255, 255, 255, .2);
+  padding: 2px 0;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  word-wrap: break-word;
+}
+
+#nekori-debug-toggle {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--reader-text-color) 30%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--reader-background-color) 85%, var(--reader-text-color) 15%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  color: var(--reader-text-color);
+  opacity: .7;
+}
+#nekori-debug-toggle svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+#nekori-debug-toggle[aria-expanded="true"] { opacity: 1; }
+
+/* Reader-owned prompts stay in the player skin so they remain visible in fullscreen. */
+.nekori-overlay, .nekori-nextup { position: absolute; z-index: 35; color: oklch(1 0 0); }
+.nekori-overlay[hidden], .nekori-nextup[hidden] { display: none; }
+.nekori-overlay { inset: 0; display: grid; place-content: center; padding: .75rem; background: oklch(0 0 0 / .6); overflow: auto; }
+.nekori-overlay__card { position: relative; display: grid; gap: .5rem; justify-items: center; text-align: center; padding: .75rem; border-radius: 1rem; max-width: 32rem; }
+.nekori-overlay__time { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+.nekori-overlay__actions { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+.nekori-nextup { left: var(--inset, .75rem); bottom: 5rem; width: max-content; max-width: calc(100% - 1.5rem); display: grid; gap: .25rem; padding: .75rem 1rem; border-radius: .75rem; }
+.nekori-nextup__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.nekori-nextup__label { font-size: .8rem; opacity: .8; }
+.nekori-nextup__count { font-size: .8rem; opacity: .6; font-variant-numeric: tabular-nums; }
+.nekori-action { width: auto; flex: none; padding: .5rem 1rem; white-space: nowrap; }
+.nekori-action--primary { background: var(--media-primary, white); color: var(--media-primary-foreground, black); }
+.nekori-nextup__dismiss { padding: .5rem; line-height: 1; font-size: 1.1rem; }
+.nekori-nextup__actions { display: flex; gap: .5rem; align-items: center; }

@@ -1,0 +1,67 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    margin: 0;
+    padding: var(--skeleton-margin-top) var(--skeleton-margin-right) var(--skeleton-margin-bottom) var(--skeleton-margin-left);
+    background-color: var(--skeleton-background);
+}
+.skeleton {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+.line {
+    flex-shrink: 0;
+    height: var(--skeleton-font-size);
+    margin: 0 0 var(--skeleton-line-gap);
+    border-radius: 8px;
+    background: var(--skeleton-base);
+    overflow: hidden;
+    position: relative;
+}
+.shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        var(--skeleton-base) -10%,
+        var(--skeleton-highlight) 50%,
+        var(--skeleton-base) 110%
+    );
+    transform: translateX(-100%);
+    animation: shimmer 1000ms infinite;
+    will-change: transform;
+}
+.gap {
+    flex-shrink: 0;
+    height: var(--skeleton-line-gap);
+    margin: 8px;
+}
+.status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+        animation-timing-function: cubic-bezier(0.42, 0, 1, 1);
+    }
+    50% {
+        transform: translateX(0);
+        animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
+    }
+    100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .shimmer { animation: none; }
+}

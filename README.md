@@ -30,7 +30,7 @@ A personal fork of [Tsundoku](https://github.com/tsundoku-otaku/tsundoku), built
 
 [![Nekori Stable](https://img.shields.io/github/release/Yuneko-dev/Nekori.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/Yuneko-dev/Nekori/releases/latest)
 
-*Requires Android 8.0 or higher.*
+*Requires Android 8.0 or higher and Android System WebView 138.0.7204.181 or newer.*
 
 Nekori installs alongside Tsundoku rather than upgrading it — the application id is `app.yuneko.nekori`. Moving your
 library across is a backup and a restore.
@@ -105,6 +105,13 @@ not a rewrite.
 
 The full list lives in [NEKORI_CHANGELOG.md](./NEKORI_CHANGELOG.md). [CHANGELOG.md](./CHANGELOG.md) is Tsundoku's own
 release record and is kept identical to upstream so it merges cleanly.
+
+The WebView frontend is maintained in [app/tools/reader-runtime](./app/tools/reader-runtime/README.md).
+Its TypeScript modules and VanJS widgets build into Android assets and a reusable `@nekori/reader`
+package with declarations. The public `window.nekori` API replaces the old frontend globals while
+LNReader source-data contracts and saved CSS/JS snippet bytes remain supported. Legacy offline chapter
+markers are adapted in memory when loaded; downloaded files are left as stored. Gradle generates the
+bundled assets from the TypeScript source.
 
 ## Contributing
 

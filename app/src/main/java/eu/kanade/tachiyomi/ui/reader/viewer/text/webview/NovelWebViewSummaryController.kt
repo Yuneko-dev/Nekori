@@ -1,26 +1,24 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import tachiyomi.domain.translation.model.LlmResult
 
-/**
- * Owns the chapter summary cards shown in the reader.
- *
- * Results live only in the page's DOM and in [jobs]: no cache, no backup, no migration. A reload, a
- * chapter leaving the infinite-scroll DOM, or the viewer being destroyed cancels the job and drops
- * the summary - regenerating is one tap, and a stale summary of a chapter the reader has moved past
- * is worth less than the storage it would need.
- */
+/** Owns summary requests while the page runtime owns summary-card DOM. */
 internal class NovelWebViewSummaryController(
     private val scope: CoroutineScope,
     private val service: ChapterSummaryService,
     private val labels: Labels,
-    private val evaluateJs: (String, ((String) -> Unit)?) -> Unit,
-    /** Chapter HTML as loaded from the source, never the translated or edited DOM. */
+    private val executeCommand: (ReaderCommand, ((String?) -> Unit)?) -> Unit,
+    /** Chapter HTML as loaded from source, never the translated or edited DOM. */
     private val chapterHtml: suspend (Long) -> String?,
     private val onUnconfigured: () -> Unit,
     private val onUnavailable: () -> Unit,
@@ -37,22 +35,18 @@ internal class NovelWebViewSummaryController(
 
     private val jobs = mutableMapOf<Long, Job>()
 
-    /**
-     * Shows the summary for [chapterId], starting one if there is none.
-     *
-     * An existing card is only scrolled to: pressing the menu item twice must not throw away a
-     * finished summary or start a second request for the same chapter.
-     */
     fun request(chapterId: Long) {
         if (!service.isConfigured()) {
             onUnconfigured()
             return
         }
-        evaluateJs(call("focus", "'$chapterId'")) { focused ->
-            when (focused) {
-                "true" -> Unit
-                "false" -> start(chapterId)
-                else -> onUnavailable()
+        executeCommand(
+            command("summary.focus") { put("chapterId", chapterId.toString()) },
+        ) { result ->
+            when (parseBooleanResult(result)) {
+                true -> Unit
+                false -> start(chapterId)
+                null -> onUnavailable()
             }
         }
     }
@@ -65,19 +59,17 @@ internal class NovelWebViewSummaryController(
             }
             ACTION_CLOSE -> {
                 cancel(chapterId)
-                evaluateJs(call("remove", "'$chapterId'"), null)
+                executeCommand(command("summary.remove") { put("chapterId", chapterId.toString()) }, null)
             }
             ACTION_REGENERATE -> start(chapterId)
         }
     }
 
-    /** Drops the summary for a chapter leaving the page, so its job cannot outlive its card. */
     fun cancel(chapterId: Long) {
         jobs.remove(chapterId)?.cancel()
     }
 
     private fun start(chapterId: Long) {
-        // Regenerating replaces an in-flight request, so a late response cannot overwrite a newer one.
         jobs.remove(chapterId)?.cancel()
         render(chapterId, STATE_LOADING)
         jobs[chapterId] = scope.launch {
@@ -96,21 +88,31 @@ internal class NovelWebViewSummaryController(
     }
 
     private fun render(chapterId: Long, state: String, text: String = "") {
-        val args = "'$chapterId', ${quoteForJson(state)}, ${quoteForJson(text)}, ${labels.toJson()}"
-        evaluateJs(call("render", args), null)
+        executeCommand(
+            command("summary.render") {
+                put("chapterId", chapterId.toString())
+                put("state", state)
+                put("text", text)
+                put("labels", labels.toJson())
+            },
+            null,
+        )
     }
 
-    private fun call(method: String, args: String) =
-        "window.__tsundokuSummary && window.__tsundokuSummary.$method($args)"
-
-    private fun Labels.toJson() = buildString {
-        append("{\"title\":").append(quoteForJson(title))
-        append(",\"loading\":").append(quoteForJson(loading))
-        append(",\"regenerate\":").append(quoteForJson(regenerate))
-        append(",\"close\":").append(quoteForJson(close))
-        append(",\"cancel\":").append(quoteForJson(cancel))
-        append('}')
+    private fun Labels.toJson() = buildJsonObject {
+        put("title", title)
+        put("loading", loading)
+        put("regenerate", regenerate)
+        put("close", close)
+        put("cancel", cancel)
+        put("cancelled", cancelled)
+        put("contentUnavailable", contentUnavailable)
     }
+
+    private fun command(
+        method: String,
+        payload: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit,
+    ) = ReaderCommand(method, buildJsonObject(payload))
 
     companion object {
         private const val ACTION_CANCEL = "cancel"
@@ -121,5 +123,14 @@ internal class NovelWebViewSummaryController(
         private const val STATE_READY = "ready"
         private const val STATE_FAILED = "failed"
         private const val STATE_CANCELLED = "cancelled"
+
+        private fun parseBooleanResult(result: String?): Boolean? =
+            runCatching {
+                when (val value = result?.let(Json::parseToJsonElement)) {
+                    JsonNull -> null
+                    is JsonPrimitive -> value.booleanOrNull
+                    else -> null
+                }
+            }.getOrNull()
     }
 }

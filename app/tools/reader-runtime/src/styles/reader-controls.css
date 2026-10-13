@@ -1,0 +1,124 @@
+.nekori-tts-highlight {
+    color: var(--nekori-tts-highlight-color, var(--reader-text-color));
+    background-color: var(--nekori-tts-highlight-background, transparent);
+}
+
+.nekori-tts-highlight[data-nekori-tts-highlight-style="underline"] {
+    text-decoration: underline;
+    text-decoration-color: var(--nekori-tts-highlight-background, currentColor);
+    text-decoration-thickness: .15em;
+    text-underline-offset: .15em;
+}
+
+.nekori-tts-highlight[data-nekori-tts-highlight-style="outline"] {
+    outline: 2px solid var(--nekori-tts-highlight-background, currentColor);
+    outline-offset: 2px;
+}
+
+#nekori-image-modal {
+    /* Only `.show` gave this a display, so closing the modal left a block box pinned to the top
+       left corner — holding an <img> whose src had been cleared but whose alt had not, which the
+       WebView paints as a broken-image icon. */
+    display: none;
+    position: fixed;
+    z-index: 9999998;
+    top: 0;
+    left: 0;
+    user-select: none;
+}
+
+#nekori-image-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+    background-color: color-mix(in srgb, var(--md-sys-color-surface) 90%, transparent);
+}
+
+/* LNReader targets #Image img; Nekori uses a single explicit modal image. */
+#nekori-image-modal-image {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    margin: 0;
+    background: none;
+}
+
+#nekori-tts-controller {
+    position: fixed;
+    z-index: 9999999;
+    width: max-content;
+    top: 50%;
+    left: 20px;
+    opacity: .5;
+}
+
+#nekori-tts-controller.hidden {
+    display: none;
+}
+
+#nekori-tts-controller button {
+    display: flex;
+    align-items: center;
+    justify-items: center;
+    padding: 4px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: color-mix(
+        in srgb,
+        var(--reader-text-color) 30%,
+        var(--reader-background-color) 70%
+    );
+    border-radius: 100%;
+    outline: none;
+    background: color-mix(
+        in srgb,
+        var(--reader-background-color) 85%,
+        var(--reader-text-color) 15%
+    );
+    box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+    transition: .5s;
+    touch-action: none;
+}
+
+#nekori-tts-controller.active {
+    opacity: 1;
+}
+
+#nekori-tts-controller.active button {
+    padding: 16px;
+}
+
+#nekori-tts-controller svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--reader-text-color);
+}
+
+#nekori-tts-controller.active svg {
+    width: 24px;
+    height: 24px;
+}
+
+#nekori-tts-controller.loading button {
+    position: relative;
+}
+
+#nekori-tts-controller.loading button::after {
+    position: absolute;
+    inset: -2px;
+    border: 2px solid transparent;
+    border-top-color: var(--reader-text-color);
+    border-radius: 50%;
+    animation: tts-spin 1s linear infinite;
+    pointer-events: none;
+    content: "";
+}
+
+@keyframes tts-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

@@ -1,0 +1,53 @@
+/* Nekori-only rules. */
+
+body.nekori-reader-force-style {
+    font-size: var(--reader-font-size) !important;
+    line-height: var(--reader-line-height) !important;
+    color: var(--reader-text-color) !important;
+    background-color: var(--reader-background-color) !important;
+    text-align: var(--reader-text-align) !important;
+    -webkit-user-select: var(--reader-user-select) !important;
+    user-select: var(--reader-user-select) !important;
+}
+
+body.nekori-reader-force-style:not(.nekori-reader-original-font) {
+    font-family: var(--reader-font-family) !important;
+}
+
+nekori-chapter {
+    display: block;
+    contain: content;
+}
+
+.nekori-chapter-divider {
+    width: 60%;
+    height: 1px;
+    margin: 32px auto;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid currentcolor;
+    opacity: .4;
+}
+
+#nekori-image-modal {
+    z-index: 9999998;
+}
+
+#nekori-image-modal-image {
+    max-width: 100%;
+    min-height: 0;
+    margin: 0;
+    background: none;
+}
+
+#nekori-tts-controller {
+    z-index: 9999999;
+}
+
+#nekori-tts-controller button {
+    touch-action: none;
+}
+
+b[data-nekori-bionic] {
+    font-weight: 700;
+}

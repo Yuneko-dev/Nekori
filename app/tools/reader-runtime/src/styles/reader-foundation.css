@@ -1,0 +1,41 @@
+/* LNReader reader CSS, with its variables mapped to Nekori. */
+
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
+}
+
+::selection {
+    color: var(--md-sys-color-on-secondary);
+    background-color: var(--md-sys-color-secondary);
+}
+
+body {
+    isolation: isolate;
+    --reader-margin-inline-start: var(--reader-margin-left);
+    --reader-margin-inline-end: var(--reader-margin-right);
+
+    margin: 0;
+    padding-block-start: var(--reader-margin-top);
+    /* Native layout or the supplied margins already reserve system/status bars. */
+    padding-block-end: var(--reader-margin-bottom);
+
+    font-size: var(--reader-font-size);
+    font-family: var(--reader-font-family);
+    line-height: var(--reader-line-height);
+    color: var(--reader-text-color);
+    background-color: var(--reader-background-color);
+    text-align: var(--reader-text-align);
+    -webkit-user-select: var(--reader-user-select);
+    user-select: var(--reader-user-select);
+}
+
+/* Outside the chapter tree: decoration cannot change paragraph indices or page columns. */
+#nekori-reader-background {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-repeat: no-repeat;
+}

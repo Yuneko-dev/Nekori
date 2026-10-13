@@ -1,0 +1,51 @@
+name: Check Reader Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'app/tools/reader-runtime/**'
+      - 'app/src/test/js/**'
+      - '.github/workflows/reader-checks.yml'
+      - 'js-runtime/.nvmrc'
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app/tools/reader-runtime
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: js-runtime/.nvmrc
+          cache: npm
+          cache-dependency-path: app/tools/reader-runtime/package-lock.json
+
+      - name: Install reader runtime dependencies
+        run: npm ci
+
+      - name: Check reader runtime package
+        run: npm run check
+
+      - name: Install reader test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify reader browser behavior
+        run: npm run browser

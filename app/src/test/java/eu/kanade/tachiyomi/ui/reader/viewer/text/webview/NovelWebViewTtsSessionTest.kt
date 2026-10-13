@@ -130,7 +130,7 @@ class NovelWebViewTtsSessionTest {
         val state = MutableStateFlow(NovelWebViewViewer.TtsPlaybackState.STOPPED)
         every { viewer["currentTtsState"]() } answers { callOriginal() }
         every { viewer["dispatchTtsState"]() } answers { callOriginal() }
-        every { viewer["dispatchTsundokuEvent"](any<String>(), any<String>(), any<String>()) } returns Unit
+        every { viewer["patchReaderState"](any<kotlinx.serialization.json.JsonObject>(), any<String>()) } returns Unit
         viewer.setField("activity", activity)
         viewer.setField("ttsController", controller)
         viewer.setField("_ttsPlaybackState", state)

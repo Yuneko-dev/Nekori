@@ -115,7 +115,7 @@ const playerOutput = checkOnly
   ? videoResult.outputFiles.find((output) => output.path.endsWith(".js"))?.text ?? ""
   : await readFile(path.join(assetDir, "videojs.min.js"), "utf8");
 if (playerOutput.includes("toggleRemotePlayback")) throw new Error("Forbidden player symbol: toggleRemotePlayback");
-// A Tsundoku-only global or tag name would only exist in this bundle, so core-player.js could no longer
+// A Nekori-only global or tag name would only exist in this bundle, so @nekori/reader could no longer
 // run against a CDN build of the same version. Keep the bundle a drop-in for @videojs/html's own presets.
 for (const forbiddenSymbol of ["TsundokuVideoJS", "tsundoku-video-player", "tsundoku-live-video-player"]) {
   if (playerOutput.includes(forbiddenSymbol)) {
@@ -136,8 +136,6 @@ for (const requiredSymbol of [
   "media-poster",
   "media-slider-thumbnail",
   "media-hotkey",
-  // Not part of the default video skin; core-player.js needs it for the intro/outro skip button.
-  "media-seek-button",
   "media-quality-radio-group",
   "media-audio-track-radio-group",
   "media-captions-radio-group",
@@ -233,10 +231,10 @@ console.log(await sizeLine("videojs.min.js", videoBytes));
 console.log(await sizeLine("hls.min.js", hlsBytes));
 
 // The bundle must emit no stylesheet. Upstream's baseline sheet is inlined in the JS and sets
-// `display: contents` on the player elements; reader-side sizing lives in core-player.css. A CSS asset
-// here would be a third source of layout rules fighting both.
+// `display: contents` on the player elements; reader-side sizing and controls live in @nekori/reader.
+// A CSS asset here would be a third source of layout rules fighting both.
 if (videoResult.outputFiles?.some((output) => output.path.endsWith(".css"))) {
-  throw new Error("Unexpected esbuild CSS output: reader layout belongs to core-player.css");
+  throw new Error("Unexpected esbuild CSS output: reader layout belongs to @nekori/reader");
 }
 for (const staleAsset of ["videojs.min.css", "player.css"]) {
   try {

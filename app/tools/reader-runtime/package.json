@@ -1,0 +1,33 @@
+{
+  "name": "@nekori/reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed, browser-based reader runtime for Nekori Android",
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles/reader.css"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.mjs ../../src/test/js/*.test.mjs",
+    "browser": "node browser-tests.mjs",
+    "check": "npm run typecheck && npm run build && npm test"
+  },
+  "dependencies": {
+    "vanjs-core": "1.6.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.25.9",
+    "typescript": "5.9.3"
+  }
+}

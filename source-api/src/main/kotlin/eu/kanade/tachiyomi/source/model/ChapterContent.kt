@@ -25,7 +25,9 @@ data class ChapterContent(
             val document = Jsoup.parse(html)
             return ChapterContent(
                 html = html,
-                type = if (document.selectFirst("meta[name=lnreader-chapter-type]")?.attr("content") ==
+                type = if (document.selectFirst(
+                        "meta[name=nekori-chapter-type], meta[name=lnreader-chapter-type]",
+                    )?.attr("content") ==
                     "video"
                 ) {
                     "video"

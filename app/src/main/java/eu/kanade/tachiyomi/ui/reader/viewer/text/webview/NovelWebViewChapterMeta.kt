@@ -2,162 +2,41 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.HtmlUtils
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
 import java.net.URI
+import java.net.URL
 import java.net.URLDecoder
 
 internal object NovelWebViewChapterMeta {
 
-    const val CHAPTER_TAG_NAME = "tsundoku-chapter"
-    const val CHAPTER_ID_ATTR = "data-chapter-id"
-    const val CHAPTER_TITLE_ATTR = "data-chapter-title"
-    const val CHAPTER_NUMBER_ATTR = "data-chapter-number"
-    const val CHAPTER_PATH_ATTR = "data-chapter-path"
-    const val CHAPTER_URL_ATTR = "data-chapter-url"
-    const val TSUNDOKU_CHAPTER_ATTR = "data-tsundoku-chapter"
-    const val CHAPTER_DIVIDER_CLASS = "tsundoku-chapter-divider"
-
-    const val TSUNDOKU_OBJECT_NAME = "Tsundoku"
-    const val TSUNDOKU_NOVEL_URL_KEY = "novelUrl"
-    const val TSUNDOKU_CURRENT_CHAPTER_KEY = "currentChapter"
-    const val TSUNDOKU_CHAPTERS_KEY = "chapters"
-    const val TSUNDOKU_IS_EDIT_MODE_KEY = "isEditMode"
-    const val TSUNDOKU_IS_INF_SCROLL_KEY = "isInfScroll"
-    const val TSUNDOKU_TEXT_SELECTION_BLOCKED_KEY = "textSelectionBlocked"
-    const val TSUNDOKU_FORCED_LOWERCASE_KEY = "forcedLowercase"
-    const val TSUNDOKU_MENU_VISIBLE_KEY = "menuVisible"
-    const val TSUNDOKU_IMMERSIVE_KEY = "immersive"
-    const val TSUNDOKU_TTS_STATE_KEY = "ttsState"
-    const val TSUNDOKU_LOADING_CHAPTER_KEY = "loadingChapter"
-
-    // Event names dispatched on `window` so plugins/snippets can subscribe with addEventListener.
-    const val EVENT_MENU_VISIBILITY = "tsundoku:menuvisibilitychange"
-    const val EVENT_CHAPTER_NAVIGATE = "tsundoku:chapternavigate"
-    const val EVENT_CHAPTER_LOADING = "tsundoku:chapterloading"
-    const val EVENT_TTS_STATE = "tsundoku:ttsstatechange"
-
-    // Fired page-side (scroll-tracking.js) as reading progress advances, throttled with the slider
-    // bridge. Dispatched from JS, not Kotlin, so there is no per-frame bridge hop.
-    const val EVENT_PROGRESS = "tsundoku:progresschange"
-
-    const val READER_DOCUMENT_BASE_URL = "https://tsundoku.reader/"
-
-    // Safe-area CSS custom properties: the reader menu bar heights the page must clear (0 while the
-    // menu is hidden). Single source of truth for both the injector and the CSS that reads them.
-
-    fun String.jsEscape(): String =
-        this.replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("</script>", "<\\/script>")
-            .replace("</Script>", "<\\/Script>")
-            .replace("</SCRIPT>", "<\\/SCRIPT>")
+    const val CHAPTER_TAG_NAME = "nekori-chapter"
+    const val CHAPTER_ID_ATTR = "data-nekori-chapter-id"
+    const val CHAPTER_TITLE_ATTR = "data-nekori-chapter-name"
+    const val CHAPTER_NUMBER_ATTR = "data-nekori-chapter-number"
+    const val CHAPTER_PATH_ATTR = "data-nekori-chapter-path"
+    const val CHAPTER_URL_ATTR = "data-nekori-chapter-url"
+    const val CHAPTER_DIVIDER_CLASS = "nekori-chapter-divider"
+    const val READER_DOCUMENT_BASE_URL = "https://nekori.reader/"
 
     fun String.htmlAttributeEscape(): String =
-        this.replace("&", "&amp;")
+        replace("&", "&amp;")
             .replace("\"", "&quot;")
             .replace("'", "&#39;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
 
-    fun quoteForJson(value: String): String {
-        val sb = StringBuilder(value.length + 2)
-        sb.append('"')
-        for (c in value) {
-            when (c) {
-                '"' -> sb.append("\\\"")
-                '\\' -> sb.append("\\\\")
-                '/' -> sb.append("\\/")
-                '\n' -> sb.append("\\n")
-                '\r' -> sb.append("\\r")
-                '\t' -> sb.append("\\t")
-                '\b' -> sb.append("\\b")
-                '\u000C' -> sb.append("\\f")
-                else -> if (c.code < 0x20) {
-                    sb.append("\\u").append(String.format("%04x", c.code))
-                } else {
-                    sb.append(c)
-                }
-            }
-        }
-        sb.append('"')
-        return sb.toString()
-    }
-
-    /**
-     * Inverse of [quoteForJson]: decodes a JSON string literal (as handed back by
-     * `evaluateJavascript`, quotes included) into the raw text.
-     *
-     * Walks the string once, consuming each backslash escape together with the character
-     * after it. Sequential global replaces (e.g. `.replace("\\n", "\n")` after `.replace("\\\\",
-     * "\\")`) can't tell a real `\n` escape apart from an escaped literal backslash followed by
-     * the letter n - both collapse to the same two characters after the backslash-unescape pass,
-     * so a page using "\" as text obfuscation would have it misread as a newline.
-     */
+    /** Decode the JSON string value returned by the bridge, if the result is a JSON string. */
     fun unescapeJsResult(result: String): String {
         if (!(result.startsWith("\"") && result.endsWith("\""))) return result
-        val inner = result.substring(1, result.length - 1)
-        val sb = StringBuilder(inner.length)
-        var i = 0
-        while (i < inner.length) {
-            val c = inner[i]
-            if (c == '\\' && i + 1 < inner.length) {
-                when (inner[i + 1]) {
-                    '\\' -> {
-                        sb.append('\\')
-                        i += 2
-                    }
-                    'n' -> {
-                        sb.append('\n')
-                        i += 2
-                    }
-                    't' -> {
-                        sb.append('\t')
-                        i += 2
-                    }
-                    'r' -> {
-                        sb.append('\r')
-                        i += 2
-                    }
-                    '"' -> {
-                        sb.append('"')
-                        i += 2
-                    }
-                    '/' -> {
-                        sb.append('/')
-                        i += 2
-                    }
-                    'b' -> {
-                        sb.append('\b')
-                        i += 2
-                    }
-                    'f' -> {
-                        sb.append('\u000C')
-                        i += 2
-                    }
-                    'u' -> {
-                        val hex = inner.substring(i + 2, minOf(i + 6, inner.length))
-                        val code = hex.takeIf { it.length == 4 }?.toIntOrNull(16)
-                        if (code != null) {
-                            sb.append(code.toChar())
-                            i += 6
-                        } else {
-                            sb.append(c)
-                            i += 1
-                        }
-                    }
-                    else -> {
-                        sb.append(c)
-                        i += 1
-                    }
-                }
-            } else {
-                sb.append(c)
-                i += 1
-            }
-        }
-        return sb.toString()
+        return runCatching {
+            kotlinx.serialization.json.Json.parseToJsonElement(result).jsonPrimitive.content
+        }.getOrDefault(result)
     }
 
     fun toAbsoluteChapterUrl(chapterPath: String?, novelUrl: String?): String {
@@ -168,11 +47,8 @@ internal object NovelWebViewChapterMeta {
         val novel = HtmlUtils.normalizeUrl(novelUrl).orEmpty().trim()
         if (!(novel.startsWith("http://") || novel.startsWith("https://"))) return normalized
 
-        return try {
-            URI(novel).resolve(normalized).toString()
-        } catch (_: Exception) {
-            normalized
-        }
+        // URI.resolve collapses repeated path separators, which can change a source's external URL.
+        return runCatching { URL(URL(novel), normalized).toExternalForm() }.getOrDefault(normalized)
     }
 
     fun resolveWebViewBaseUrl(chapterUrl: String?, novelUrl: String?, sourceBaseUrl: String? = null): String? {
@@ -184,20 +60,14 @@ internal object NovelWebViewChapterMeta {
             ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
         if (novel != null) return novel
 
-        // Neither url is absolute (common: sources store relative paths). Anchor the WebView base
-        // on the source's site so the browser resolves relative asset urls (e.g. /uploads/x.webp)
-        // itself, exactly like a normal page load. Prefer the chapter path, then the novel path.
         val base = sourceBaseUrl?.trim().takeUnless { it.isNullOrBlank() }
             ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
             ?: return READER_DOCUMENT_BASE_URL
         val relative = repaired?.trim().takeUnless { it.isNullOrBlank() }
             ?: HtmlUtils.normalizeUrl(novelUrl)?.trim().takeUnless { it.isNullOrBlank() }
             ?: return base
-        return try {
-            URI(base.trimEnd('/') + "/").resolve(relative.trimStart('/')).toString()
-        } catch (_: Exception) {
-            base
-        }
+        return runCatching { URI(base.trimEnd('/') + "/").resolve(relative.trimStart('/')).toString() }
+            .getOrDefault(base)
     }
 
     fun resolveEpubChapterUrl(currentChapterUrl: String?, navigationUrl: String): String? {
@@ -212,68 +82,23 @@ internal object NovelWebViewChapterMeta {
         return "$bookUrl#$href"
     }
 
-    fun buildChapterJson(chapter: ReaderChapter?, novelUrl: String?): String {
-        val chapterModel = chapter?.chapter
-        val chapterId = chapterModel?.id ?: -1L
-        val chapterTitle = quoteForJson(chapterModel?.name.orEmpty())
-        val chapterNumber = chapterModel?.chapter_number ?: -1f
-        val chapterPath = quoteForJson(chapterModel?.url.orEmpty())
-        val chapterUrl = quoteForJson(toAbsoluteChapterUrl(chapterModel?.url, novelUrl))
-        return buildString {
-            append('{')
-            append("\"id\": ").append(chapterId).append(',')
-            append("\"title\": ").append(chapterTitle).append(',')
-            append("\"number\": ").append(chapterNumber).append(',')
-            append("\"path\": ").append(chapterPath).append(',')
-            append("\"url\": ").append(chapterUrl)
-            append('}')
-        }
+    fun buildNovelJson(id: String, name: String, path: String): JsonObject = buildJsonObject {
+        put("id", id)
+        put("name", name)
+        put("path", path)
     }
 
-    fun buildChaptersJson(chapters: List<ReaderChapter>, novelUrl: String?): String =
-        chapters.joinToString(prefix = "[", postfix = "]") { buildChapterJson(it, novelUrl) }
-
-    data class TsundokuScriptContext(
-        val novelUrl: String?,
-        val currentChapter: ReaderChapter?,
-        val chaptersInOrder: List<ReaderChapter>,
-        val isEditingMode: Boolean,
-        val isInfiniteScroll: Boolean,
-        val textSelectionBlocked: Boolean,
-        val forcedLowercase: Boolean,
-        val menuVisible: Boolean = false,
-        val immersive: Boolean = false,
-        val ttsState: String = "stopped",
-        val loadingChapter: Boolean = false,
-    )
-
-    fun buildTsundokuScript(context: TsundokuScriptContext): String {
-        val novelUrl = quoteForJson(HtmlUtils.normalizeUrl(context.novelUrl).orEmpty())
-        val currentChapterJson = buildChapterJson(context.currentChapter, context.novelUrl)
-        val chaptersJson = buildChaptersJson(context.chaptersInOrder, context.novelUrl)
-        return """
-            window.$TSUNDOKU_OBJECT_NAME = window.$TSUNDOKU_OBJECT_NAME || {};
-            window.$TSUNDOKU_OBJECT_NAME.$TSUNDOKU_NOVEL_URL_KEY = $novelUrl;
-            window.$TSUNDOKU_OBJECT_NAME.$TSUNDOKU_CURRENT_CHAPTER_KEY = $currentChapterJson;
-            window.$TSUNDOKU_OBJECT_NAME.$TSUNDOKU_CHAPTERS_KEY = $chaptersJson;
-            window.$TSUNDOKU_OBJECT_NAME.runtime = window.$TSUNDOKU_OBJECT_NAME.runtime || {};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_IS_EDIT_MODE_KEY = ${context.isEditingMode};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_IS_INF_SCROLL_KEY = ${context.isInfiniteScroll};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_TEXT_SELECTION_BLOCKED_KEY = ${context.textSelectionBlocked};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_FORCED_LOWERCASE_KEY = ${context.forcedLowercase};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_MENU_VISIBLE_KEY = ${context.menuVisible};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_IMMERSIVE_KEY = ${context.immersive};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_TTS_STATE_KEY = ${quoteForJson(context.ttsState)};
-            window.$TSUNDOKU_OBJECT_NAME.runtime.$TSUNDOKU_LOADING_CHAPTER_KEY = ${context.loadingChapter};
-            window.$TSUNDOKU_OBJECT_NAME.actions = window.$TSUNDOKU_OBJECT_NAME.actions || {
-                nextChapter: function() { Android.requestNextChapter(); },
-                prevChapter: function() { Android.requestPrevChapter(); },
-                startTts: function() { Android.requestStartTts(); },
-                pauseTts: function() { Android.requestPauseTts(); },
-                resumeTts: function() { Android.requestResumeTts(); },
-                stopTts: function() { Android.requestStopTts(); },
-                setProgress: function(percent) { Android.requestSetProgress(percent); },
-            };
-        """.trimIndent()
+    /** Build reader metadata as data; source paths remain exactly as returned by the plugin. */
+    fun buildChapterJson(chapter: ReaderChapter?, novelUrl: String?): JsonObject = buildJsonObject {
+        val model = chapter?.chapter
+        put("id", model?.id?.toString().orEmpty())
+        put("name", model?.name.orEmpty())
+        put("path", model?.url.orEmpty())
+        put("progress", model?.last_page_read?.coerceAtLeast(0) ?: 0)
+        model?.chapter_number?.takeIf { it.isFinite() && it >= 0f }?.let { put("number", it) }
+        put("url", toAbsoluteChapterUrl(model?.url, novelUrl))
     }
+
+    fun buildChaptersJson(chapters: List<ReaderChapter>, novelUrl: String?): JsonArray =
+        buildJsonArray { chapters.forEach { add(buildChapterJson(it, novelUrl)) } }
 }

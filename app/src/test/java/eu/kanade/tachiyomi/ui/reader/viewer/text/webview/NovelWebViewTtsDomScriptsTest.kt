@@ -1,31 +1,68 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsTextUtils
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NovelWebViewTtsDomScriptsTest {
 
     @Test
-    fun `highlight styles paint without changing paragraph geometry`() {
-        val script = NovelWebViewTtsDomScripts.highlight(
-            chapterId = 1L,
-            paragraphIndex = 0,
+    fun ttsCommandsUseStringChapterIdsAndStructuredPayloads() {
+        val highlight = NovelWebViewTtsDomScripts.highlight(
+            chapterId = 42L,
+            paragraphIndex = 3,
             backgroundColor = "#808080",
             textColor = "#000000",
             style = "background",
             keepInView = true,
         )
 
-        assertTrue(script.contains("background-color:var(--td-tts-highlight-bg)"))
-        assertFalse(script.contains("padding:"))
-        assertFalse(script.contains("contain:layout"))
+        assertEquals("tts.highlight", highlight.method)
+        assertEquals(JsonPrimitive("42"), highlight.payload["chapterId"])
+        assertEquals(JsonPrimitive(3), highlight.payload["paragraphIndex"])
+        assertEquals(JsonPrimitive(true), highlight.payload["keepInView"])
+        assertEquals("tts.extractText", NovelWebViewTtsDomScripts.extractText(null).method)
+        assertEquals(JsonNull, NovelWebViewTtsDomScripts.extractText(null).payload["chapterId"])
+        assertEquals("tts.clearHighlight", NovelWebViewTtsDomScripts.CLEAR_HIGHLIGHT.method)
     }
 
     @Test
-    fun `normalization preserves prose and is idempotent`() {
+    fun chapterAppendCarriesPlainTextAsData() {
+        val command = NovelWebViewChapterDomScripts.append(
+            NovelWebViewChapterDomScripts.ScriptChapter(
+                id = 8,
+                name = "Chapter",
+                number = 2f,
+                path = "opaque//path",
+                absoluteUrl = "https://source/chapter",
+                direction = NovelContentDirection.LTR,
+                language = "en",
+            ),
+            eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ProcessedContent(
+                text = "first <raw>\n\nsecond",
+                isPlainText = true,
+                chapterUrl = "opaque//path",
+            ),
+        )
+
+        assertEquals("chapter.append", command.method)
+        assertEquals(
+            JsonPrimitive("8"),
+            command.payload["chapter"]?.let {
+                (it as kotlinx.serialization.json.JsonObject)["id"]
+            },
+        )
+        val content = command.payload["content"] as kotlinx.serialization.json.JsonObject
+        assertEquals(JsonPrimitive("plainText"), content["kind"])
+        assertEquals(JsonPrimitive("first <raw>\n\nsecond"), content["text"])
+        assertTrue(command.payload.toString().contains("opaque//path"))
+    }
+
+    @Test
+    fun normalizationPreservesProseAndIsIdempotent() {
         val cases = listOf(
             "Hello world" to "Hello world",
             "  “Hello   world”  " to "Hello world",

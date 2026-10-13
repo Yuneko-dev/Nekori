@@ -21,7 +21,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.webkit.ConsoleMessage
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
@@ -36,7 +35,6 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
-import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.manga.model.WordDensity
@@ -75,12 +73,9 @@ import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsController
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsHandoffState
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsTextUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.handleNovelFlingGesture
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.localized
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_DIVIDER_CLASS
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_ID_ATTR
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TAG_NAME
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.unescapeJsResult
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.curl.NovelPageCurlController
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.curl.NovelPageCurlReadingDirection
@@ -110,6 +105,16 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import logcat.logcat
 import okhttp3.Request
@@ -133,10 +138,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private companion object {
         const val REMEMBER_MENU_ITEM_ID = 0xBEEF // arbitrary unique ID
-        const val ATTR_DATA_EDITABLE = "data-tsundoku-editable"
         const val ID_EDIT_MODE_STYLE = "edit-mode-style"
         const val SEEK_ECHO_SUPPRESS_MS = 350L
         const val AUTO_SCROLL_START_VERIFY_MS = 400L
+        val SUMMARY_ACTIONS = setOf("cancel", "close", "regenerate")
         val IMAGE_URL_REGEX = Regex("\\.(?:avif|gif|jpe?g|png|svg|webp)$", RegexOption.IGNORE_CASE)
         const val AUTO_SCROLL_MAX_START_ATTEMPTS = 3
     }
@@ -145,6 +150,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val _ttsPlaybackState = MutableStateFlow(TtsPlaybackState.STOPPED)
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = _ttsPlaybackState.asStateFlow()
     private lateinit var webView: WebView
+    private lateinit var readerBridge: NovelReaderBridge
+    private var readerConfigJson: JsonObject? = null
+    private var pendingErrorFeedback: JsonObject? = null
+    private var expectingBridgeDocumentStart = false
     private var loadingIndicator: ReaderProgressIndicator? = null
     private val preferences: ReaderPreferences by injectLazy()
     private val translationPreferences: TranslationPreferences by injectLazy()
@@ -177,7 +186,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 cancelled = activity.stringResource(TDMR.strings.chapter_summary_cancelled),
                 contentUnavailable = activity.stringResource(TDMR.strings.chapter_summary_no_content),
             ),
-            evaluateJs = { js, callback -> evaluateJavascriptSafe(js, callback) },
+            executeCommand = ::executeReaderCommand,
             chapterHtml = ::loadChapterHtml,
             onUnconfigured = {
                 activity.toast(activity.stringResource(TDMR.strings.chapter_summary_unconfigured))
@@ -219,7 +228,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     @Volatile
     private var gestureTarget = ReaderGestureTarget.BLOCKED
 
-    // Documents without reader-gestures.js (loading skeleton, error page) keep the pre-classifier
+    // Documents without the reader gesture module (loading skeleton, error page) keep the pre-classifier
     // behaviour: every tap is reader surface, so those pages stay tappable.
     @Volatile
     private var pageOwnsGestures = false
@@ -350,7 +359,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         NovelWebViewInlineFeedback(
             context = activity,
             scope = scope,
-            evaluateJs = { js -> evaluateJavascriptSafe(js, null) },
+            executeCommand = ::executeReaderCommand,
+            currentChapterId = { getCurrentReaderChapter()?.chapter?.id },
         )
     }
 
@@ -565,7 +575,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val highlightTextColor = ThemeUtils.colorToHex(preferences.novelTtsHighlightTextColor.get())
         val keepInView = preferences.novelTtsKeepHighlightInView.get()
         val chapterId = ttsController.ttsPlaybackChapterId
-        evaluateJavascriptSafe(
+        executeReaderCommand(
             NovelWebViewTtsDomScripts.highlight(
                 chapterId = chapterId,
                 paragraphIndex = paragraphIndex,
@@ -578,7 +588,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun clearWebViewTtsHighlight() {
-        evaluateJavascriptSafe(NovelWebViewTtsDomScripts.CLEAR_HIGHLIGHT)
+        executeReaderCommand(NovelWebViewTtsDomScripts.CLEAR_HIGHLIGHT)
     }
 
     private fun loadNextChapterForTts() {
@@ -754,9 +764,21 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     val targetUrl = NovelWebViewChapterMeta.resolveEpubChapterUrl(
                         currentPage?.chapter?.chapter?.url,
                         request?.url?.toString().orEmpty(),
-                    ) ?: return false
-                    navigateToEpubChapter(targetUrl)
-                    return true
+                    )
+                    if (targetUrl != null) {
+                        navigateToEpubChapter(targetUrl)
+                        return true
+                    }
+                    if (request?.isForMainFrame == true) {
+                        // A source-origin page is trusted only for the document we configured.
+                        // Tear down its native channel before allowing any external top-level load.
+                        readerBridge.endDocument()
+                        expectingBridgeDocumentStart = false
+                        protectedMediaPlaybackArmed = false
+                        protectedMediaPlaybackOrigin = null
+                        pageOwnsGestures = false
+                    }
+                    return false
                 }
 
                 override fun shouldInterceptRequest(
@@ -779,8 +801,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    if (!expectingBridgeDocumentStart) readerBridge.endDocument()
+                    expectingBridgeDocumentStart = false
                     protectedMediaPlaybackArmed = false
-                    // The new document has not installed reader-gestures.js yet.
+                    // The new document has not installed the reader gesture module yet.
                     pageOwnsGestures = false
                 }
 
@@ -798,9 +822,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     // after loadHtmlContent has already switched the state to LOADING_REAL, so the
                     // state alone cannot identify the real chapter document.
                     if (docState != DocState.LOADING_REAL) return
-                    evaluateJavascriptSafe("document.getElementById('lnreader-compat-config') !== null") { result ->
-                        if (result == "true" && docState == DocState.LOADING_REAL) finishRealChapterLoad()
-                    }
+                    // Runtime readiness is reported through the document-scoped typed bridge.
                 }
             }
 
@@ -921,8 +943,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 }
             }
 
-            addJavascriptInterface(this@NovelWebViewViewer.WebViewInterface(), "Android")
-
             isLongClickable = true
 
             setOnTouchListener { _, event ->
@@ -955,18 +975,26 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
         }
 
+        readerBridge = NovelReaderBridge(
+            webView = webView,
+            onReady = ::handleReaderReady,
+            onEvent = ::handleReaderEvent,
+            onRequest = ::handleReaderRequest,
+            onError = { inlineFeedback.showInlineError(it) },
+        )
+
         styler = NovelWebViewStyler(
             context = activity,
             preferences = preferences,
             webView = webView,
             container = container,
-            evaluateJs = { js -> evaluateJavascriptSafe(js, null) },
+            executeCommand = ::executeReaderCommand,
         )
         pagedController = NovelWebViewPagedController(
             context = activity,
             webView = webView,
             preferences = preferences,
-            evaluateJs = { js -> evaluateJavascriptSafe(js, null) },
+            executeCommand = ::executeReaderCommand,
         )
         styler.applyScrollbarSettings()
 
@@ -1006,6 +1034,269 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
+    private fun handleReaderReady() {
+        pendingErrorFeedback?.let { executeReaderCommand(readerCommand("feedback.show", it)) }
+        pendingErrorFeedback = null
+        if (docState == DocState.LOADING_REAL) finishRealChapterLoad()
+    }
+
+    private fun handleReaderEvent(name: String, payload: JsonObject) {
+        activity.runOnUiThread {
+            when (name) {
+                "reader.saveVideoProgress" -> {
+                    val chapterId = payload.long("chapterId")
+                    val path = payload.string("path")
+                    val currentChapter = getCurrentReaderChapter()?.chapter
+                    if (currentChapter != null && chapterId == currentChapter.id && path == currentChapter.url) {
+                        payload.int("progress")?.let(::saveVideoProgress)
+                    }
+                }
+                "reader.refetch" -> activity.viewModel.reloadChapter(fromSource = true)
+                "navigation.next" -> activity.loadNextChapter()
+                "navigation.loadNext" -> loadNextChapterFromPage()
+                "reader.error" -> payload.string("message")?.let { message ->
+                    if (webChapterContentReady) inlineFeedback.showInlineError(message) else activity.toast(message)
+                }
+                "edit.changed" -> activity.viewModel.setHasUnsavedChanges(true)
+                "edit.save" -> payload.string("content")
+                    ?.takeIf(::isAllowedEditPayload)
+                    ?.let(activity.viewModel::saveEditedChapterContent)
+                "scroll.progressPersist" -> payload.float("progress")?.let(::onScrollProgress)
+                "scroll.progressPreview" -> payload.float("progress")?.let(::onScrollPreview)
+                "chapter.visible" -> {
+                    val id = payload.long("chapterId")
+                    val progress = payload.float("progress")
+                    if (id != null && progress != null) onChapterVisible(id, progress)
+                }
+                "layout.positionChanged" -> onLayoutPositionChanged(payload)
+                "summary.action" -> {
+                    val id = payload.long("chapterId")
+                    val action = payload.string("action")
+                    if (id != null && action in SUMMARY_ACTIONS) summaryController.onAction(id, action.orEmpty())
+                }
+                "scroll.restoreComplete" -> payload.int("token")?.let(::onScrollRestoreComplete)
+                "chapter.appended" -> {
+                    if (payload.long("chapterId") != null) refreshFindInPage()
+                }
+                "gesture.claim" -> payload.string("owner")?.let { gestureTarget = ReaderGestureTarget.fromWire(it) }
+                "gesture.ready" -> pageOwnsGestures = true
+                "tts.toggle" -> toggleTtsFromPage()
+                "tts.startAtParagraph" -> payload.int("index")?.let(::startTtsAtPageParagraph)
+                "tts.startAtTaggedParagraph" -> startTtsAtTaggedPageParagraph()
+                "chapter.markShort" -> markCurrentChapterShort()
+                "chapter.retry" -> retryCurrentChapter()
+                "feedback.retry" -> if (!isDestroyed) {
+                    if (webChapterIsError) retryCurrentChapter() else inlineFeedback.retryPendingError()
+                }
+                "clipboard.copy" -> payload.string("text")?.let(::copyToClipboard)
+                "media.playLocalVideo" -> launchLocalVideo(force = true)
+                "navigation.openNext" -> activity.loadNextChapter()
+                "navigation.previous" -> activity.loadPreviousChapter()
+                "tts.start" -> startTts()
+                "tts.pause" -> pauseTts()
+                "tts.resume" -> resumeTts()
+                "tts.stop" -> stopTts()
+                "scroll.seekPercent" -> payload.int("percent")?.let(::setProgressPercent)
+            }
+        }
+    }
+
+    private fun handleReaderRequest(name: String, payload: JsonObject, reply: (kotlinx.serialization.json.JsonElement?) -> Unit) {
+        when (name) {
+            "media.requestProtectedPlayback" -> {
+                val documentId = readerBridge.documentId ?: return reply(null)
+                scope.launch {
+                    val incognito = runCatching {
+                        getIncognitoState.await(activity.viewModel.getSource()?.id)
+                    }.getOrDefault(true)
+                    val isCurrentDocument = !isDestroyed && readerBridge.documentId == documentId
+                    if (!isCurrentDocument) return@launch
+                    protectedMediaPlaybackArmed = !incognito && protectedMediaPlaybackOrigin != null
+                    reply(JsonPrimitive(protectedMediaPlaybackArmed))
+                }
+            }
+            else -> reply(null)
+        }
+    }
+
+    private fun isAllowedEditPayload(content: String): Boolean {
+        val chapters = runCatching { Json.parseToJsonElement(content).jsonArray }.getOrNull() ?: return false
+        if (chapters.isEmpty() || chapters.size > loadedChapterIds.size) return false
+        val allowedIds = loadedChapterIds.mapTo(mutableSetOf()) { it.toString() }
+        val seenIds = mutableSetOf<String>()
+        val valid = chapters.all { item ->
+            val chapter = runCatching { item.jsonObject }.getOrNull() ?: return@all false
+            val id = (chapter["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@all false
+            val hasHtml = (chapter["content"] as? JsonPrimitive)?.isString == true
+            if (!hasHtml) return@all false
+            id in allowedIds && seenIds.add(id)
+        }
+        return valid && seenIds == allowedIds
+    }
+
+    private fun saveVideoProgress(progress: Int) {
+        if (!isVideoChapter()) return
+        val page = currentPage ?: return
+        val bounded = progress.coerceIn(0, 100)
+        lastSavedProgress = bounded / 100f
+        lastPersistedPercent = bounded
+        awaitingFirstScrollSample = false
+        activity.saveNovelProgress(page, bounded)
+        activity.onNovelProgressChanged(lastSavedProgress)
+    }
+
+    private fun onScrollProgress(progress: Float) {
+        if (isRestoringScroll || !progress.isFinite()) return
+        awaitingFirstScrollSample = false
+        lastSavedProgress = progress.coerceIn(0f, 1f)
+        if (NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent) saveProgress()
+    }
+
+    private fun onScrollPreview(progress: Float) {
+        if (isRestoringScroll || !progress.isFinite() ||
+            System.currentTimeMillis() - lastUserSeekAt < SEEK_ECHO_SUPPRESS_MS
+        ) {
+            return
+        }
+        awaitingFirstScrollSample = false
+        lastSavedProgress = progress.coerceIn(0f, 1f)
+        activity.onNovelProgressChanged(lastSavedProgress)
+    }
+
+    private fun onChapterVisible(id: Long, progress: Float) {
+        if (isRestoringScroll || !progress.isFinite()) return
+        val chapterIndex = loadedChapters.indexOfFirst { it.chapter.id == id }
+        val chapter = loadedChapters.getOrNull(chapterIndex) ?: return
+        val newPage = chapter.pages?.firstOrNull()
+        val oldIndex = currentChapterIndex
+        val identityChanged = chapterIndex != oldIndex
+        val pageChanged = currentPage?.chapter?.chapter?.id != id
+        val titleChanged = activity.viewModel.state.value.novelVisibleChapter?.id != id
+        if (identityChanged) {
+            NovelProgress.forwardChaptersToMarkRead(oldIndex, chapterIndex, loadedChapters.size).forEach { idx ->
+                loadedChapters.getOrNull(idx)?.let { activity.viewModel.saveNovelProgress(it, 100) }
+            }
+            currentChapterIndex = chapterIndex
+        }
+        if (identityChanged || titleChanged) {
+            activity.viewModel.setNovelVisibleChapter(chapter.chapter)
+            updateChapterMetaJs()
+        }
+        if (newPage == null) {
+            currentPage = null
+            lastSavedProgress = if (chapterIndex > oldIndex) 0f else 1f
+            lastPersistedPercent = -1
+            awaitingFirstScrollSample = true
+            requestChapterRecovery(id)
+            return
+        }
+        keepOnlyRelevantChapterRecovery(id)
+        if (identityChanged || pageChanged) {
+            currentPage = newPage
+            activity.onPageSelected(newPage)
+            lastSavedProgress = progress.coerceIn(0f, 1f)
+            lastPersistedPercent = -1
+            awaitingFirstScrollSample = false
+        }
+    }
+
+    private fun onLayoutPositionChanged(payload: JsonObject) {
+        val chapterId = payload.long("chapterId") ?: return
+        val unitIndex = payload.int("unitIndex") ?: return
+        val unitCount = payload.int("unitCount") ?: return
+        val firstPage = payload.int("firstPage") ?: return
+        val lastPage = payload.int("lastPage") ?: return
+        val totalPages = payload.int("totalPages") ?: return
+        val previous = pagedController.position.value
+        pagedController.onPosition(chapterId, unitIndex, unitCount, firstPage, lastPage, totalPages)
+        if (previous != null && (previous.chapterId != chapterId || previous.unitIndex != unitIndex)) {
+            activity.onNovelVisualPageChanged()
+        }
+    }
+
+    private fun onScrollRestoreComplete(token: Int) {
+        if (token != scrollRestoreToken) return
+        liftRestoreGuard(token)
+        refreshFindInPage()
+    }
+
+    private fun toggleTtsFromPage() {
+        if (!isTtsEnabled) return
+        when {
+            ttsController.isPaused() -> resumeTts()
+            ttsController.isSpeaking() -> pauseTts()
+            isTtsActive() -> stopTts()
+            else -> startTtsFromViewport()
+        }
+    }
+
+    private fun startTtsAtPageParagraph(index: Int) {
+        if (isTtsEnabled) startTtsAtParagraph(index.coerceAtLeast(0))
+    }
+
+    private fun startTtsAtTaggedPageParagraph() {
+        if (isTtsEnabled) startTtsAtTaggedParagraph()
+    }
+
+    private fun loadNextChapterFromPage() {
+        logcat(LogPriority.DEBUG) {
+            "NovelWebViewViewer: loadNextChapter triggered, infiniteScroll=${isInfiniteScrollEnabled()}, isLoadingNext=$isLoadingNext, loadedCount=${loadedChapterIds.size}"
+        }
+        if (isInfiniteScrollEnabled() && (!webChapterContentReady || webChapterIsError)) {
+            setJsLoadingNext()
+        } else if (!isInfiniteScrollEnabled() || nextRequiresDocumentNavigation) {
+            activity.loadNextChapter()
+        } else if (reachedNovelEnd) {
+            setJsNoMoreChapters(true)
+        } else if (ttsController.isTtsAutoPlay) {
+            preFetchNextChapterForTts(thresholdReached = true)
+        } else {
+            startNextChapterAppend()
+        }
+    }
+
+    private fun markCurrentChapterShort() {
+        lastSavedProgress = 1f
+        saveProgress()
+        activity.onNovelProgressChanged(1f)
+        if (!ttsController.isTtsAutoPlay) startNextChapterAppend()
+    }
+
+    private fun retryCurrentChapter() {
+        if (isDestroyed || !webChapterIsError) return
+        showLoadingIndicator()
+        activity.viewModel.reloadChapter(fromSource = true)
+    }
+
+    private fun copyToClipboard(text: String) {
+        val cm = activity.getSystemService(android.content.ClipboardManager::class.java)
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("error", text))
+        activity.toast(activity.stringResource(TDMR.strings.novel_error_copied))
+    }
+
+    private fun JsonObject.string(key: String): String? =
+        (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private fun JsonObject.int(key: String): Int? =
+        (this[key] as? JsonPrimitive)?.takeUnless { it.isString }?.intOrNull
+
+    private fun JsonObject.long(key: String): Long? =
+        (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.toLongOrNull()
+
+    private fun JsonObject.float(key: String): Float? =
+        (this[key] as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull?.toFloat()?.takeIf(Float::isFinite)
+
+    private fun executeReaderCommand(command: ReaderCommand, callback: ((String?) -> Unit)? = null) {
+        if (!::readerBridge.isInitialized || isDestroyed) {
+            callback?.invoke(null)
+            return
+        }
+        readerBridge.execute(command, callback)
+    }
+
+    private fun readerCommand(method: String, payload: JsonObject = JsonObject(emptyMap())) =
+        ReaderCommand(method, payload)
+
     fun onContentInsetsChanged() {
         styler.injectStyles()
         pagedController.reflow()
@@ -1022,7 +1313,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             },
             onScriptChanged = {
                 val isAppend = isInfiniteScrollEnabled() && loadedChapterIds.size > 1
-                styler.injectScript(isAppend = isAppend, reapplyChangedOnly = true) { buildTsundokuScript() }
+                styler.injectScript(isAppend = isAppend, reapplyChangedOnly = true)
             },
             onChapterReloadRequested = {
                 // Force a full pipeline re-run so the new prefs take effect.
@@ -1073,15 +1364,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.onNovelProgressChanged(lastSavedProgress)
             isRestoringScroll = true
             val token = ++scrollRestoreToken
-            evaluateJavascriptSafe(
-                """
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.seekPercent?.($percent);
-                        window.Android?.onScrollRestoreComplete?.($token);
-                    });
-                });
-                """.trimIndent(),
+            executeReaderCommand(
+                readerCommand(
+                    "layout.seekPercent",
+                    buildJsonObject {
+                        put("percent", percent.toInt().coerceIn(0, 100))
+                    },
+                ),
             )
             webView.postDelayed({ liftRestoreGuard(token) }, 3000)
             return
@@ -1096,7 +1385,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             // Apply the saved ratio once the content has a scrollable range: immediately if laid
             // out, else a ResizeObserver waits for the body height. onScrollRestoreComplete lifts
             // the guard when done.
-            evaluateJavascriptSafe(NovelWebViewReadingCommands.restoreVertical(progress, token))
+            executeReaderCommand(NovelWebViewReadingCommands.restoreVertical(progress, token))
             webView.postDelayed({ liftRestoreGuard(token) }, 3000)
         } else {
             isRestoringScroll = true
@@ -1154,7 +1443,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         container.removeView(webView)
         webView.stopLoading()
         webView.loadUrl("about:blank")
-        webView.removeJavascriptInterface("Android")
+        readerBridge.endDocument()
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = null
         webView.destroy()
@@ -1208,23 +1497,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    private fun evaluateJavascriptSafe(js: String, callback: ((String) -> Unit)? = null) {
-        if (isDestroyed) return
-        activity.runOnUiThread {
-            if (isDestroyed) return@runOnUiThread
-            try {
-                webView.evaluateJavascript(js, callback)
-            } catch (t: Throwable) {
-                // WebView may already be destroyed; avoid crashing.
-                logcat(LogPriority.WARN) { "NovelWebViewViewer: evaluateJavascript ignored (${t.message})" }
-            }
-        }
-    }
-
     private fun finishRealChapterLoad() {
         docState = DocState.READY
 
-        styler.injectScript { buildTsundokuScript() }
+        styler.injectScript()
         // A fresh DOM needs the current menu flag before custom reader scripts run.
         pushReaderChrome()
         if (isVideoChapter()) {
@@ -1243,11 +1519,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 infinite = isInfiniteScrollEnabled(),
                 chapterId = currentChapters?.currChapter?.chapter?.id ?: -1L,
             )
-            if (isInfiniteScrollEnabled()) styler.injectScopedChapterAnchors()
+            if (isInfiniteScrollEnabled() || isPagedLayoutEnabled()) styler.injectScopedChapterAnchors()
             styler.injectScrollTracking(isInfiniteScrollEnabled())
             styler.injectReaderUi()
             restoreScrollPosition()
-            syncShortChapterProgressIfNeeded()
             if (isEditingMode) toggleEditMode(true)
         }
         activity.showReadingMode(isPagedMode())
@@ -1334,46 +1609,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         return !chapter.read && chapter.last_page_read <= 0
     }
 
-    private fun syncShortChapterProgressIfNeeded() {
-        val page = currentPage ?: return
-        if (!shouldAutoMarkShortChapter(page)) return
-        if (page.status != Page.State.Ready || page.text.isNullOrBlank()) return
-
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                function checkIfShortChapter() {
-                    // CSS columns fit the vertical viewport even when there are many horizontal pages.
-                    if (window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.enabled) return false;
-                    var docHeight = Math.max(
-                        document.documentElement.scrollHeight,
-                        document.body ? document.body.scrollHeight : 0
-                    );
-                    var viewport = window.innerHeight || document.documentElement.clientHeight;
-                    return docHeight - viewport <= 0;
-                }
-                var called = false;
-                function tryMarkShort() {
-                    if (!called && checkIfShortChapter()) {
-                        called = true;
-                        Android.markChapterAsShort();
-                    }
-                }
-                var resizeObserver = new ResizeObserver(function() {
-                    tryMarkShort();
-                    if (called) resizeObserver.disconnect();
-                });
-                resizeObserver.observe(document.body);
-                setTimeout(function() {
-                    tryMarkShort();
-                    resizeObserver.disconnect();
-                }, 500);
-            })();
-            """.trimIndent(),
-            null,
-        )
-    }
-
     override fun getView(): View = container
 
     fun reloadWithTranslation() {
@@ -1404,6 +1639,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             ttsController.stop()
             currentPage = null
             chapterQueue.clear()
+            readerBridge.updateChapters(emptyList())
             displayError(chapterError.error)
             return
         }
@@ -1415,6 +1651,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val index = chapterQueue.indexOf(chapterId)
             if (index >= 0) {
                 currentChapterIndex = index
+                updateReaderDocumentConfig()
             }
             return
         }
@@ -1424,6 +1661,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
         if (!isInfiniteScrollEnabled() || loadedChapterIds.isEmpty()) {
             chapterQueue.clear()
+            readerBridge.updateChapters(emptyList())
             currentChapterIndex = 0
         }
         if (page.status == Page.State.Ready && page.text.isNullOrBlank()) {
@@ -1506,6 +1744,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         prepared.language,
                     )
                     chapterQueue.reset(chapter)
+                    readerBridge.updateChapters(loadedChapterIds)
                     if (prepared.directives.noCache) page.text = null
                 }
             } catch (e: CancellationException) {
@@ -1553,7 +1792,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val prepared = withContext(Dispatchers.Default) {
             val directives = page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
                 ?: NovelWebViewChapterDirectives.parse(rawContent)
-            var processed = contentPipeline.process(rawContent, cfg, if (directives.checkpoint) null else translator)
+            val loadedHtml = directives.adaptLoadedHtml(rawContent)
+            var processed = contentPipeline.process(loadedHtml, cfg, if (directives.checkpoint) null else translator)
             // Keep only the count so enabling the bar later never refetches no-cache content.
             // TODO: Skip counting when disabled and avoid delaying chapter preparation, while preserving no-cache behavior.
             val wordCount = if (directives.checkpoint) {
@@ -1591,15 +1831,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         direction: NovelContentDirection,
         language: String,
     ) {
-        val js = NovelWebViewChapterDomScripts.append(
+        val command = NovelWebViewChapterDomScripts.append(
             chapter = scriptChapter(chapterId, chapterName, chapterNumber, chapterUrl, direction, language),
             processed = processed,
         )
 
         dispatchLoadingChapter(true)
-        evaluateJavascriptSafe(js) {
-            styler.injectScript(isAppend = true) { buildTsundokuScript() }
+        executeReaderCommand(command) {
+            styler.injectScript(isAppend = true)
             dispatchLoadingChapter(false)
+            updateReaderDocumentConfig()
         }
 
         // A chapter was appended, so the end-of-novel verdict is stale.
@@ -1646,8 +1887,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         webView.setBackgroundColor(stylePayload.backgroundColor)
         container.setBackgroundColor(stylePayload.backgroundColor)
 
+        val baseUrl = resolveWebViewBaseUrl(chapterPath) ?: NovelWebViewChapterMeta.READER_DOCUMENT_BASE_URL
+        val documentId = readerBridge.beginDocument(baseUrl, listOf(chapterId))
+
         invalidateChapterRecovery()
         chapterQueue.clear()
+        chapter?.let(chapterQueue::reset)
+        readerBridge.updateChapters(loadedChapterIds)
         currentChapterIndex = 0
         currentDocumentIsVideo = directives.isVideo
         currentDocumentNoPrefetch = directives.noPrefetch
@@ -1657,22 +1903,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             loader?.findDownloadedFile(fileName)?.let { chapterId to it }
         }
 
+        // Bootstrap must describe this document, including its media/layout policy and chapter list.
+        val readerConfig = buildReaderConfig(documentId, "reader", chapter, processed)
+        readerConfigJson = readerConfig
+
         // Inputs are gathered on Main (touch viewer state), but the heavy work - the image-URL
         // regex scan and the Jsoup parse + full-document string build - runs off the main thread.
         // For large chapters this was a multi-MB alloc + DOM parse on the UI thread (frame skips).
         val input = NovelWebViewDocumentBuilder.DocumentInput(
+            documentId = documentId,
+            readerConfig = readerConfig,
             processed = processed,
             chapter = chapter,
             style = stylePayload,
             themeTokens = ThemeUtils.getThemeTokens(activity, preferences, preferences.novelTheme.get()),
-            tsundokuScript = buildTsundokuScript(),
-            pluginJavaScript = styler.initialPluginJavaScript(),
             infiniteScrollEnabled = isInfiniteScrollEnabled(),
             pagedLayoutEnabled = isPagedLayoutEnabled(),
             chapterDirection = direction,
             chapterLanguage = language,
             blockMedia = preferences.novelBlockMedia.get(),
-            compatConfigJson = buildCompatConfig(chapter).encode(),
             chapterDirectives = directives,
         )
         val html = withContext(Dispatchers.Default) {
@@ -1690,10 +1939,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastPersistedPercent = -1
         reachedNovelEnd = false
         nextRequiresDocumentNavigation = false
-        val baseUrl = resolveWebViewBaseUrl(chapterPath)
         protectedMediaPlaybackOrigin = baseUrl?.let(Uri::parse)?.let {
             protectedMediaOrigin(it.scheme, it.host, it.port)
         }
+        expectingBridgeDocumentStart = true
         webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null)
         launchLocalVideo()
     }
@@ -1724,62 +1973,27 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             ?.also { cachedMangaUrl = it }
     }
 
-    private fun buildCompatConfig(chapter: ReaderChapter?): LnReaderCompatConfig {
-        val manga = activity.viewModel.manga
-        val current = chapter?.chapter
-        val next = currentChapters?.nextChapter?.chapter
-        return LnReaderCompatConfig(
-            novel = LnReaderCompatConfig.Novel(
-                id = manga?.id ?: -1L,
-                name = manga?.title.orEmpty(),
-                path = manga?.url.orEmpty(),
-            ),
-            chapter = LnReaderCompatConfig.Chapter(
-                id = current?.id ?: -1L,
-                name = current?.name.orEmpty(),
-                path = current?.url.orEmpty(),
-                progress = current?.last_page_read?.coerceIn(0, 100) ?: 0,
-            ),
-            nextChapter = next?.let {
-                LnReaderCompatConfig.Chapter(
-                    id = it.id ?: -1L,
-                    name = it.name,
-                    path = it.url.orEmpty(),
-                    progress = it.last_page_read.coerceIn(0, 100),
-                )
-            },
-            strings = mapOf(
-                "finished" to activity.stringResource(
-                    TDMR.strings.reader_chapter_finished,
-                    current?.name.orEmpty(),
-                ),
-                "nextChapter" to activity.stringResource(
-                    TDMR.strings.reader_next_chapter,
-                    next?.name.orEmpty(),
-                ),
-                "noNextChapter" to activity.stringResource(MR.strings.transition_no_next),
-                "videoResumeTitle" to activity.stringResource(TDMR.strings.video_resume_title),
-                "videoResumeQuestion" to activity.stringResource(TDMR.strings.video_resume_question),
-                "videoResumeContinue" to activity.stringResource(TDMR.strings.video_resume_continue),
-                "videoResumeRestart" to activity.stringResource(TDMR.strings.video_resume_restart),
-                "videoNextUp" to activity.stringResource(TDMR.strings.video_next_up),
-                "videoNextPlay" to activity.stringResource(TDMR.strings.video_next_play),
-                "videoSkipIntro" to activity.stringResource(TDMR.strings.video_skip_intro),
-                "close" to activity.stringResource(MR.strings.action_close),
-            ),
-            proxyEndpoint = proxyServer?.endpoint,
-        )
-    }
-
-    private fun resolveWebViewBaseUrl(chapterUrl: String?): String? {
+    private suspend fun resolveWebViewBaseUrl(chapterUrl: String?): String? {
         val source = activity.viewModel.getSource()
         val sourceBaseUrl = when (source) {
             is JsSource -> source.baseUrl.takeIf(String::isNotBlank)
             is eu.kanade.tachiyomi.source.online.HttpSource -> source.baseUrl.takeIf(String::isNotBlank)
             else -> null
         }
-        return NovelWebViewChapterMeta.resolveWebViewBaseUrl(chapterUrl, resolvedMangaUrl(), sourceBaseUrl)
-            ?.let { networkHelper.domainForwarding.rewrite(it, fromJsPlugin = source is JsSource) }
+        // A source path is opaque. Its resolver owns the external URL and JS-scoped forwarding.
+        val externalChapterUrl = if (source is JsSource && !chapterUrl.isNullOrBlank()) {
+            source.resolveUrl(chapterUrl, isNovel = false)
+        } else {
+            chapterUrl
+        }
+        val base = NovelWebViewChapterMeta.resolveWebViewBaseUrl(externalChapterUrl, resolvedMangaUrl(), sourceBaseUrl)
+        return if (source is JsSource) {
+            base
+        } else {
+            base?.let {
+                networkHelper.domainForwarding.rewrite(it, fromJsPlugin = false)
+            }
+        }
     }
 
     private fun interceptNetworkRequest(request: WebResourceRequest): WebResourceResponse? {
@@ -1859,29 +2073,217 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
     }
 
-    private fun buildTsundokuScript(): String {
-        val readerChromeVisible = activity.isReaderChromeVisible()
-        val context = NovelWebViewChapterMeta.TsundokuScriptContext(
-            novelUrl = resolvedMangaUrl(),
-            currentChapter = getCurrentTsundokuChapter(),
-            chaptersInOrder = if (loadedChapters.isNotEmpty()) {
-                loadedChapters
-            } else {
-                currentChapters?.currChapter?.let { listOf(it) }.orEmpty()
-            },
-            isEditingMode = isEditingMode,
-            isInfiniteScroll = isInfiniteScrollEnabled(),
-            textSelectionBlocked = !preferences.novelTextSelectable.get(),
-            forcedLowercase = preferences.novelForceTextLowercase.get(),
-            menuVisible = readerChromeVisible,
-            immersive = !readerChromeVisible,
-            ttsState = currentTtsState().wireValue,
-            loadingChapter = !webChapterContentReady,
+    private fun buildReaderConfig(
+        documentId: String,
+        mode: String,
+        chapter: ReaderChapter?,
+        processed: ProcessedContent? = null,
+    ): JsonObject {
+        val novel = activity.viewModel.manga
+        val novelUrl = resolvedMangaUrl().orEmpty()
+        val activeChapter = chapter ?: getCurrentReaderChapter()
+        val chapters = if (mode == "reader") {
+            loadedChapters.ifEmpty { currentChapters?.currChapter?.let(::listOf).orEmpty() }
+        } else {
+            emptyList()
+        }
+        val nextChapter = currentChapters?.nextChapter?.takeIf { mode == "reader" }
+        val visible = activity.isReaderChromeVisible()
+        val source = activity.viewModel.getSource()
+        val sourceBaseUrl = when (source) {
+            is JsSource -> source.baseUrl
+            is eu.kanade.tachiyomi.source.online.HttpSource -> source.baseUrl
+            else -> null
+        }
+        val activeId = activeChapter?.chapter?.id
+        val chapterJson = NovelWebViewChapterMeta.buildChapterJson(
+            if (mode == "reader") activeChapter else null,
+            novelUrl,
         )
-        return NovelWebViewChapterMeta.buildTsundokuScript(context)
+        return buildJsonObject {
+            put("documentId", documentId)
+            put("mode", mode)
+            put(
+                "novel",
+                NovelWebViewChapterMeta.buildNovelJson(
+                    novel?.id?.toString().orEmpty(),
+                    novel?.title.orEmpty(),
+                    novel?.url.orEmpty(),
+                ),
+            )
+            put("chapter", chapterJson)
+            put("nextChapter", nextChapter?.let { NovelWebViewChapterMeta.buildChapterJson(it, novelUrl) } ?: JsonNull)
+            put("chapters", NovelWebViewChapterMeta.buildChaptersJson(chapters, novelUrl))
+            put(
+                "strings",
+                buildJsonObject {
+                    put(
+                        "finished",
+                        activity.stringResource(
+                            TDMR.strings.reader_chapter_finished,
+                            activeChapter?.chapter?.name.orEmpty(),
+                        ),
+                    )
+                    put(
+                        "nextChapter",
+                        activity.stringResource(TDMR.strings.reader_next_chapter, nextChapter?.chapter?.name.orEmpty()),
+                    )
+                    put("noNextChapter", activity.stringResource(MR.strings.transition_no_next))
+                    put("videoResumeTitle", activity.stringResource(TDMR.strings.video_resume_title))
+                    put("videoResumeQuestion", activity.stringResource(TDMR.strings.video_resume_question))
+                    put("videoResumeContinue", activity.stringResource(TDMR.strings.video_resume_continue))
+                    put("videoResumeRestart", activity.stringResource(TDMR.strings.video_resume_restart))
+                    put("videoNextUp", activity.stringResource(TDMR.strings.video_next_up))
+                    put("videoNextPlay", activity.stringResource(TDMR.strings.video_next_play))
+                    put("videoSkipIntro", activity.stringResource(TDMR.strings.video_skip_intro))
+                    put("close", activity.stringResource(MR.strings.action_close))
+                },
+            )
+            put("autoSaveInterval", 5_000)
+            put(
+                "ttsNormalizationRules",
+                kotlinx.serialization.json.buildJsonArray {
+                    TtsTextUtils.normalizationReplacements.forEach { (pattern, replacement) ->
+                        add(
+                            buildJsonObject {
+                                put("pattern", pattern)
+                                put("replacement", replacement)
+                            },
+                        )
+                    }
+                },
+            )
+            if (mode == "reader") proxyServer?.endpoint?.let { put("proxyEndpoint", it) }
+            put(
+                "runtime",
+                buildJsonObject {
+                    put("editing", mode == "reader" && isEditingMode)
+                    put("infinite", mode == "reader" && isInfiniteScrollEnabled())
+                    put("textSelectionBlocked", !preferences.novelTextSelectable.get())
+                    put("forcedLowercase", preferences.novelForceTextLowercase.get())
+                    put("menuVisible", visible)
+                    put("immersive", !visible)
+                    put(
+                        "ttsState",
+                        if (mode ==
+                            "reader"
+                        ) {
+                            currentTtsState().wireValue
+                        } else {
+                            TtsPlaybackState.STOPPED.wireValue
+                        },
+                    )
+                    put("loadingChapter", mode == "reader" && !webChapterContentReady)
+                    put("loadingNext", mode == "reader" && isLoadingNext)
+                    put("noMoreChapters", mode != "reader" || reachedNovelEnd)
+                },
+            )
+            put("markShortChapterAsRead", preferences.novelMarkShortChapterAsRead.get())
+            put(
+                "ui",
+                buildJsonObject {
+                    put("bionicEnabled", mode == "reader" && preferences.novelBionicReading.get())
+                    put("ttsEnabled", mode == "reader" && isTtsEnabled)
+                    put(
+                        "labels",
+                        buildJsonObject {
+                            put("tts", activity.stringResource(TDMR.strings.reader_tts_control))
+                            put("imageClose", activity.stringResource(TDMR.strings.reader_image_close))
+                        },
+                    )
+                },
+            )
+            val style = styler.buildPayload()
+            put(
+                "style",
+                buildJsonObject {
+                    put("css", style.css)
+                    put("bodyClasses", style.bodyClasses)
+                    put("backgroundColor", style.backgroundColor)
+                    put(
+                        "background",
+                        runCatching {
+                            Json.parseToJsonElement(style.backgroundConfig)
+                        }.getOrDefault(JsonObject(emptyMap())),
+                    )
+                },
+            )
+            if (processed?.isPlainText == true) {
+                put(
+                    "initialContent",
+                    buildJsonObject {
+                        put("kind", "plainText")
+                        put("text", processed.text)
+                    },
+                )
+            }
+            if (mode == "reader") {
+                put(
+                    "scrollTracking",
+                    buildJsonObject {
+                        put("infiniteScrollEnabled", isInfiniteScrollEnabled())
+                        put("loadThreshold", preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0)
+                        put("doneThreshold", NovelProgress.DONE_THRESHOLD)
+                    },
+                )
+                put(
+                    "layout",
+                    buildJsonObject {
+                        put("enabled", isPagedLayoutEnabled())
+                        put("spread", if (pagedController.isDoubleSpread()) "double" else "single")
+                        put("direction", currentDocumentDirection.htmlValue)
+                        put("vertical", preferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL)
+                        put("infinite", isInfiniteScrollEnabled())
+                        put("threshold", preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0)
+                        put("chapterId", activeId?.toString().orEmpty())
+                    },
+                )
+            }
+            put(
+                "context",
+                buildJsonObject {
+                    put("documentId", documentId)
+                    put("mode", mode)
+                    put(
+                        "novel",
+                        NovelWebViewChapterMeta.buildNovelJson(
+                            novel?.id?.toString().orEmpty(),
+                            novel?.title.orEmpty(),
+                            novel?.url.orEmpty(),
+                        ),
+                    )
+                    put("chapter", chapterJson)
+                    sourceBaseUrl?.let { put("sourceBaseUrl", it) }
+                    novel?.id?.let { put("novelId", it.toString()) }
+                    activeId?.let { put("chapterId", it.toString()) }
+                    source?.id?.let { put("sourceId", it.toString()) }
+                },
+            )
+            if (mode == "reader" && currentDocumentIsVideo) {
+                val directives = currentPage?.let { page ->
+                    (
+                        page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
+                            ?: NovelWebViewChapterDirectives.parse(page.text.orEmpty())
+                        )
+                }
+                directives?.video?.let { video ->
+                    put(
+                        "player",
+                        video.playerConfig(
+                            mode = "playback",
+                            path = activeChapter?.chapter?.url.orEmpty(),
+                            progress = activeChapter?.chapter?.last_page_read?.coerceIn(0, 100) ?: 0,
+                            nextChapterName = nextChapter?.chapter?.name,
+                            proxyEndpoint = proxyServer?.endpoint,
+                        ),
+                    )
+                }
+            }
+            put("pluginJavaScript", if (mode == "reader") styler.initialPluginJavaScript() else "")
+        }
     }
 
-    private fun getCurrentTsundokuChapter(): ReaderChapter? =
+    private fun getCurrentReaderChapter(): ReaderChapter? =
         loadedChapters.getOrNull(currentChapterIndex) ?: currentChapters?.currChapter
 
     fun wordCountFor(chapterId: Long?): StateFlow<Int?>? = (
@@ -1891,7 +2293,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     /** Summarizes the chapter currently in view, or scrolls to the summary it already has. */
     fun requestChapterSummary() {
-        val chapterId = getCurrentTsundokuChapter()?.chapter?.id ?: return
+        val chapterId = getCurrentReaderChapter()?.chapter?.id ?: return
         summaryController.request(chapterId)
     }
 
@@ -1921,7 +2323,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             try {
                 request = activity.viewModel.beginAutomaticChapterNavigation()
                 chapterRecoveryRequest = request
-                val stillVisible = getCurrentTsundokuChapter()?.chapter?.id == chapterId
+                val stillVisible = getCurrentReaderChapter()?.chapter?.id == chapterId
                 val stillMissingPage = loadedChapters
                     .firstOrNull { it.chapter.id == chapterId }
                     ?.pages
@@ -1944,7 +2346,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     if (
                         scope.isActive &&
                         pendingId != null &&
-                        getCurrentTsundokuChapter()?.chapter?.id == pendingId &&
+                        getCurrentReaderChapter()?.chapter?.id == pendingId &&
                         pendingNeedsPage
                     ) {
                         startChapterRecovery(pendingId)
@@ -1995,13 +2397,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private suspend fun awaitRecoveredChapterPage(chapterId: Long, chapter: ReaderChapter): ReaderPage? {
-        if (getCurrentTsundokuChapter()?.chapter?.id != chapterId) return null
+        if (getCurrentReaderChapter()?.chapter?.id != chapterId) return null
         requestChapterRecovery(chapterId)
         var recovery = chapterRecoveryJob
         while (recovery != null) {
             recovery.join()
             chapter.pages?.firstOrNull()?.let { return it }
-            if (getCurrentTsundokuChapter()?.chapter?.id != chapterId) return null
+            if (getCurrentReaderChapter()?.chapter?.id != chapterId) return null
             val nextRecovery = chapterRecoveryJob
             if (nextRecovery == null || nextRecovery === recovery) return null
             recovery = nextRecovery
@@ -2010,8 +2412,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun updateChapterMetaJs() {
-        val js = buildTsundokuScript()
-        evaluateJavascriptSafe("(function(){$js})();", null)
+        updateReaderDocumentConfig()
+    }
+
+    private fun updateReaderDocumentConfig() {
+        val oldConfig = readerConfigJson ?: return
+        val documentId = oldConfig.string("documentId") ?: return
+        val rebuilt = buildReaderConfig(
+            documentId = documentId,
+            mode = if (docState == DocState.ERROR) "error" else "reader",
+            chapter = getCurrentReaderChapter(),
+        )
+        val updated = buildJsonObject {
+            rebuilt.forEach { (key, value) -> put(key, value) }
+            oldConfig["initialContent"]?.let { put("initialContent", it) }
+        }
+        readerConfigJson = updated
+        executeReaderCommand(readerCommand("document.configure", updated))
     }
 
     private fun currentTtsState(): TtsPlaybackState = when {
@@ -2022,41 +2439,34 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         else -> TtsPlaybackState.STOPPED
     }
 
-    // Updates the runtime state via [assignments] (JS statements against `t.runtime`) and fires a
-    // CustomEvent on `window` so novel-source plugins and user snippets can react. See the EVENT_*
-    // and *_KEY constants in NovelWebViewChapterMeta. No-ops safely when the WebView isn't ready.
-    private fun dispatchTsundokuEvent(eventName: String, assignments: String, detailJson: String) {
-        val obj = NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
-        evaluateJavascriptSafe(
-            """
-            (function(){
-              var t = window.$obj = window.$obj || {};
-              t.runtime = t.runtime || {};
-              $assignments
-              try { window.dispatchEvent(new CustomEvent('$eventName', { detail: $detailJson })); } catch (e) {}
-            })();
-            """.trimIndent(),
-            null,
+    private fun patchReaderState(patch: JsonObject, event: String? = null) {
+        executeReaderCommand(
+            readerCommand(
+                "document.patchState",
+                buildJsonObject {
+                    put("patch", patch)
+                    event?.let { put("event", it) }
+                },
+            ),
         )
     }
 
     fun onMenuVisibilityChanged(visible: Boolean) {
         val chromeVisible = visible || activity.isFindInPageOpen()
         chromeMenuVisible = chromeVisible
-        dispatchTsundokuEvent(
-            NovelWebViewChapterMeta.EVENT_MENU_VISIBILITY,
-            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_MENU_VISIBLE_KEY} = $chromeVisible; " +
-                "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_IMMERSIVE_KEY} = ${!chromeVisible};",
-            "{ menuVisible: $chromeVisible, immersive: ${!chromeVisible} }",
+        patchReaderState(
+            buildJsonObject {
+                put("menuVisible", chromeVisible)
+                put("immersive", !chromeVisible)
+            },
+            event = "menuvisibilitychange",
         )
     }
 
     fun onChapterNavigate(direction: String) {
-        dispatchTsundokuEvent(
-            NovelWebViewChapterMeta.EVENT_CHAPTER_NAVIGATE,
-            "",
-            "{ direction: '$direction' }",
-        )
+        if (direction in setOf("next", "previous")) {
+            patchReaderState(JsonObject(emptyMap()), event = "chapternavigate:$direction")
+        }
     }
 
     suspend fun scrollToLoadedChapter(chapterId: Long): Boolean {
@@ -2073,10 +2483,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                         return@runOnUiThread
                     }
                     try {
-                        webView.evaluateJavascript(NovelWebViewReadingCommands.revealChapter(chapterId)) { result ->
-                            if (continuation.isActive) {
-                                continuation.resume(result == "true")
-                            }
+                        executeReaderCommand(NovelWebViewReadingCommands.revealChapter(chapterId)) { result ->
+                            if (continuation.isActive) continuation.resume(result == "true")
                         }
                     } catch (_: Throwable) {
                         if (continuation.isActive) {
@@ -2093,46 +2501,37 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val chapter = loadedChapters.getOrNull(index) ?: return@withContext false
             currentChapterIndex = index
             currentPage = chapter.pages?.firstOrNull() ?: currentPage
+            updateReaderDocumentConfig()
             true
         }
     }
 
     private fun dispatchLoadingChapter(loading: Boolean) {
-        dispatchTsundokuEvent(
-            NovelWebViewChapterMeta.EVENT_CHAPTER_LOADING,
-            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_LOADING_CHAPTER_KEY} = $loading;",
-            "{ loading: $loading }",
-        )
+        patchReaderState(buildJsonObject { put("loadingChapter", loading) }, event = "chapterloading")
     }
 
     private fun dispatchTtsState() {
         val state = currentTtsState()
         _ttsPlaybackState.value = state
         activity.onNovelTtsStateChanged()
-        dispatchTsundokuEvent(
-            NovelWebViewChapterMeta.EVENT_TTS_STATE,
-            "t.runtime.${NovelWebViewChapterMeta.TSUNDOKU_TTS_STATE_KEY} = '${state.wireValue}';",
-            "{ state: '${state.wireValue}' }",
-        )
+        patchReaderState(buildJsonObject { put("ttsState", state.wireValue) }, event = "ttsstatechange")
     }
 
     // Re-applies the current menu flag to a fresh DOM without changing page dimensions.
     private fun pushReaderChrome() {
-        val js = NovelWebViewJsAssets.loadWith(
-            activity,
-            "reader-chrome.js",
-            mapOf(
-                "OBJECT" to NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME,
-                "MENU_KEY" to NovelWebViewChapterMeta.TSUNDOKU_MENU_VISIBLE_KEY,
-                "MENU_VISIBLE" to chromeMenuVisible.toString(),
-                "EVENT" to NovelWebViewChapterMeta.EVENT_MENU_VISIBILITY,
-            ),
+        patchReaderState(
+            buildJsonObject {
+                put("menuVisible", chromeMenuVisible)
+                put("immersive", !chromeMenuVisible)
+            },
+            event = "menuvisibilitychange",
         )
-        evaluateJavascriptSafe(js, null)
     }
 
     private fun showLoadingIndicator(message: String = activity.stringResource(MR.strings.loading)) {
         activity.closeFindInPage(this)
+        readerBridge.endDocument()
+        pendingErrorFeedback = null
 
         val (backgroundColor, _) = getThemeColors(preferences.novelTheme.get())
         val loadingHtml = NovelWebViewLoadingSkeleton.buildHtml(
@@ -2149,6 +2548,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         )
 
         docState = DocState.LOADING
+        expectingBridgeDocumentStart = false
         webView.loadDataWithBaseURL(null, loadingHtml, "text/html", "UTF-8", null)
     }
 
@@ -2156,74 +2556,54 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         activity.closeFindInPage(this)
         inlineFeedback.clear()
         pagedController.disable()
-
-        val fmt = ErrorFormatter.format(error)
-        logcat(LogPriority.ERROR) { "NovelWebViewViewer: Chapter load failed\n${fmt.stackTrace}" }
-
-        // No real chapter DOM is coming for this load, so onPageFinished won't reach the READY
-        // transition. ERROR keeps webChapterContentReady true (so a failed load can't block
-        // infinite-scroll appends forever) while marking the body un-appendable.
+        val formatted = ErrorFormatter.format(error)
+        logcat(LogPriority.ERROR) { "NovelWebViewViewer: Chapter load failed\n${formatted.stackTrace}" }
         docState = DocState.ERROR
+        protectedMediaPlaybackArmed = false
+        protectedMediaPlaybackOrigin = null
 
-        val (backgroundColor, textColor) = getThemeColors(preferences.novelTheme.get())
-        val bgColorHex = ThemeUtils.colorToHex(backgroundColor)
-        val textColorHex = ThemeUtils.colorToHex(textColor)
-
-        val escapedCategory = HtmlUtils.escapeHtml(fmt.category.localized(activity))
-        val escapedSummary = HtmlUtils.escapeHtml(fmt.summary)
-        val escapedTrace = HtmlUtils.escapeHtml(fmt.stackTrace)
-        val retryLabel = HtmlUtils.escapeHtml(activity.stringResource(MR.strings.action_retry))
-        val copyLabel = HtmlUtils.escapeHtml(activity.stringResource(MR.strings.action_copy_to_clipboard))
-        val detailsLabel = HtmlUtils.escapeHtml(activity.stringResource(TDMR.strings.novel_error_technical_details))
-        // Base64-encode the trace so it can be safely passed to the Android JS bridge
-        // without worrying about special characters breaking the JS string literal.
-        val base64Trace = android.util.Base64.encodeToString(
-            fmt.stackTrace.toByteArray(Charsets.UTF_8),
-            android.util.Base64.NO_WRAP,
+        val baseUrl = NovelWebViewChapterMeta.READER_DOCUMENT_BASE_URL
+        val documentId = try {
+            readerBridge.beginDocument(baseUrl, emptyList())
+        } catch (unsupported: IllegalStateException) {
+            // The provider floor is mandatory; report it natively without retrying the same bridge.
+            pendingErrorFeedback = null
+            stopAutoScroll()
+            activity.toast(unsupported.message ?: formatted.summary)
+            return
+        }
+        val config = buildReaderConfig(documentId, "error", getCurrentReaderChapter())
+        readerConfigJson = config
+        val retryLabel = activity.stringResource(MR.strings.action_retry)
+        val copyLabel = activity.stringResource(MR.strings.action_copy_to_clipboard)
+        pendingErrorFeedback = buildJsonObject {
+            put("severity", "error")
+            put("presentation", "fullpage")
+            put("category", formatted.category.localized(activity))
+            put("summary", formatted.summary)
+            put("retryLabel", retryLabel)
+            put("copyLabel", copyLabel)
+            put("detailsLabel", activity.stringResource(MR.strings.action_show_errors))
+            put(
+                "traceBase64",
+                android.util.Base64.encodeToString(
+                    formatted.stackTrace.toByteArray(Charsets.UTF_8),
+                    android.util.Base64.NO_WRAP,
+                ),
+            )
+        }
+        val html = NovelWebViewDocumentBuilder.assembleErrorDocument(
+            documentId,
+            config,
+            ThemeUtils.getThemeTokens(activity, preferences, preferences.novelTheme.get()),
         )
-
-        val errorHtml = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-              body { margin: 0; padding: 24px 16px; background: $bgColorHex; color: $textColorHex; font-family: sans-serif; }
-              .err { max-width: 600px; margin: 0 auto; text-align: center; padding-top: 10vh; }
-              .category { color: #ff5555; font-size: 18px; font-weight: bold; margin-bottom: 12px; }
-              .summary { color: #888; font-size: 14px; margin-bottom: 24px; word-break: break-word; }
-              .copy-btn { background: transparent; color: $textColorHex; border: 1px solid #555; border-radius: 8px; padding: 10px 20px; font-size: 14px; cursor: pointer; margin-bottom: 20px; }
-              details { text-align: left; margin-top: 4px; }
-              summary { cursor: pointer; color: #777; font-size: 13px; padding: 8px 0; user-select: none; }
-              pre { background: rgba(0,0,0,0.25); color: #bbb; padding: 12px; border-radius: 6px; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 280px; overflow-y: auto; margin: 0; }
-            </style>
-            </head>
-            <body>
-            <div class="err">
-              <div class="category">$escapedCategory</div>
-              <div class="summary">$escapedSummary</div>
-              <button class="copy-btn" onclick="window.Android.retryChapter()">$retryLabel</button>
-              <button class="copy-btn" onclick="copyErr()">$copyLabel</button>
-              <details>
-                <summary>$detailsLabel</summary>
-                <pre>$escapedTrace</pre>
-              </details>
-            </div>
-            <script>
-            function copyErr() {
-              if (window.Android && window.Android.copyToClipboard) {
-                window.Android.copyToClipboard('$base64Trace');
-              }
-            }
-            </script>
-            </body>
-            </html>
-        """.trimIndent()
-
+        val (backgroundColor, _) = getThemeColors(preferences.novelTheme.get())
+        webView.setBackgroundColor(backgroundColor)
+        container.setBackgroundColor(backgroundColor)
         rearmAutoScrollOnErrorPage = isAutoScrolling
-        webView.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+        expectingBridgeDocumentStart = true
+        webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null)
     }
-
     override fun moveToPage(page: ReaderPage) {
     }
 
@@ -2316,32 +2696,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     fun toggleEditMode(isEditing: Boolean, save: Boolean = true) {
         if (!isEditing && !save) {
             this.isEditingMode = false
-            webView.evaluateJavascript(
-                "(function() { window.getSelection().removeAllRanges(); document.activeElement.blur(); })();",
-                null,
-            )
+            executeReaderCommand(readerCommand("edit.discard"))
+            executeReaderCommand(NovelWebViewReadingCommands.blurSelection())
             webView.clearFocus()
             val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-
-            // Reload chapter to discard edits
             activity.viewModel.reloadChapter(fromSource = false)
             return
         }
 
-        if (isEditing) {
-            // Bionic spans are presentation only; remove them before content becomes editable so
-            // they cannot interfere with the caret or leak into saved chapter HTML.
-            styler.setBionicReading(false)
-        }
+        if (isEditing) styler.setBionicReading(false)
         this.isEditingMode = isEditing
-        styler.injectScript { buildTsundokuScript() }
+        executeReaderCommand(readerCommand(if (isEditing) "edit.enter" else "edit.exit"))
+        patchReaderState(buildJsonObject { put("editing", isEditing) })
         updateChapterMetaJs()
         if (isEditing) styler.injectReaderUi()
 
         if (isEditing) {
-            // Focusing a contenteditable for the keyboard scrolls Chromium to the top; snapshot the
-            // ratio, restore it after focus settles, and gate onScrollProgress meanwhile.
             val restoreRatio = lastSavedProgress
             isRestoringScroll = true
             val token = ++scrollRestoreToken
@@ -2351,486 +2722,38 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 webView.requestFocusFromTouch()
                 val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showSoftInput(webView, 0)
-                webView.postDelayed({
-                    imm?.showSoftInput(webView, 0)
-                }, 120)
+                webView.postDelayed({ imm?.showSoftInput(webView, 0) }, 120)
             }
             webView.postDelayed({
                 if (token != scrollRestoreToken) return@postDelayed
-                evaluateJavascriptSafe(
-                    """
-                    (function() {
-                        var target = $restoreRatio;
-                        var docHeight = Math.max(
-                            document.documentElement.scrollHeight,
-                            document.body ? document.body.scrollHeight : 0
-                        );
-                        var viewport = window.innerHeight || document.documentElement.clientHeight;
-                        var range = docHeight - viewport;
-                        if (range > 0) window.scrollTo(0, range * target);
-                    })();
-                    """.trimIndent(),
+                executeReaderCommand(
+                    readerCommand(
+                        "scroll.seekVertical",
+                        buildJsonObject {
+                            put("percent", (restoreRatio * 100).toInt().coerceIn(0, 100))
+                        },
+                    ),
                 )
                 liftRestoreGuard(token)
             }, 220)
         } else {
-            // Invalidate a pending entry-side restore callback so it can't fire after we've
-            // already left edit mode.
             isRestoringScroll = true
             val token = ++scrollRestoreToken
-            webView.evaluateJavascript(
-                "(function() { window.getSelection().removeAllRanges(); document.activeElement.blur(); })();",
-                null,
-            )
+            executeReaderCommand(NovelWebViewReadingCommands.blurSelection())
             webView.clearFocus()
             val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(webView.windowToken, 0)
             liftRestoreGuard(token)
         }
-
-        val script = """
-            (function() {
-                function enableEdit() {
-                    document.designMode = 'off';
-                    var styleId = '${ID_EDIT_MODE_STYLE}';
-                    if ('$isEditing' === 'true') {
-                        if (!document.getElementById(styleId)) {
-                            var style = document.createElement('style');
-                            style.id = styleId;
-                            style.innerHTML = '${CHAPTER_TAG_NAME}, #LNReader-chapter, [${ATTR_DATA_EDITABLE}="1"] { -webkit-user-select: text !important; user-select: text !important; pointer-events: auto !important; -webkit-tap-highlight-color: transparent; outline: none; } ' +
-                                'body { padding-bottom: max(220px, 38vh) !important; }';
-                            document.head.appendChild(style);
-                        }
-
-                        var editTargets = document.querySelectorAll('${CHAPTER_TAG_NAME}');
-                        if (editTargets.length === 0) {
-                            var chapterRoot = document.getElementById('LNReader-chapter');
-                            if (!chapterRoot) return;
-                            chapterRoot.setAttribute('contenteditable', 'true');
-                            chapterRoot.setAttribute('${ATTR_DATA_EDITABLE}', '1');
-                            chapterRoot.setAttribute('tabindex', '0');
-                        } else {
-                            for (var i = 0; i < editTargets.length; i++) {
-                                editTargets[i].setAttribute('contenteditable', 'true');
-                                editTargets[i].setAttribute('${ATTR_DATA_EDITABLE}', '1');
-                                editTargets[i].setAttribute('tabindex', '0');
-                            }
-                        }
-
-                        window.$TSUNDOKU_OBJECT_NAME = window.$TSUNDOKU_OBJECT_NAME || {};
-                        window.$TSUNDOKU_OBJECT_NAME.runtime = window.$TSUNDOKU_OBJECT_NAME.runtime || {};
-                        if (!window.$TSUNDOKU_OBJECT_NAME.runtime.editInputBound) {
-                            window.$TSUNDOKU_OBJECT_NAME.runtime.editInputBound = true;
-                            var existingListener = window.$TSUNDOKU_OBJECT_NAME.runtime.inputListener;
-                            if (existingListener) {
-                                document.removeEventListener('input', existingListener);
-                            }
-                            var inputListener = function(e) {
-                                if (window.Android && window.Android.onContentEdited) {
-                                    window.Android.onContentEdited();
-                                }
-                            };
-                            document.addEventListener('input', inputListener);
-                            window.$TSUNDOKU_OBJECT_NAME.runtime.inputListener = inputListener;
-                        }
-                    } else {
-                        var style = document.getElementById(styleId);
-                        if (style) {
-                            style.parentNode.removeChild(style);
-                        }
-
-                        var editableNodes = document.querySelectorAll('[data-tsundoku-editable="1"]');
-                        for (var j = 0; j < editableNodes.length; j++) {
-                            editableNodes[j].removeAttribute('contenteditable');
-                            editableNodes[j].removeAttribute('${ATTR_DATA_EDITABLE}');
-                            editableNodes[j].removeAttribute('tabindex');
-                        }
-
-                        var contents = [];
-                        var nodes = document.querySelectorAll('${CHAPTER_TAG_NAME}');
-                        if (nodes.length > 0) {
-                            for (var i = 0; i < nodes.length; i++) {
-                                var html = nodes[i].innerHTML;
-                                var chapterId = nodes[i].getAttribute('${CHAPTER_ID_ATTR}');
-                                contents.push({id: chapterId, content: html});
-                            }
-                        } else {
-                            var chapterRoot = document.getElementById('LNReader-chapter');
-                            if (!chapterRoot) return;
-                            var currentId = '${currentChapters?.currChapter?.chapter?.id ?: -1}';
-                            contents.push({id: currentId, content: chapterRoot.innerHTML});
-                        }
-                        if (window.Android && window.Android.onSaveEditedContent) {
-                            window.Android.onSaveEditedContent(JSON.stringify(contents));
-                        }
-                    }
-                }
-
-                if (document.readyState === 'complete') {
-                    enableEdit();
-                } else {
-                    window.addEventListener('load', enableEdit);
-                }
-            })();
-        """.trimIndent()
-
-        webView.evaluateJavascript(script) {
-            if (!isEditing) styler.injectReaderUi()
-        }
     }
-
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 
-    @Keep
-    @Suppress("unused")
-    inner class WebViewInterface {
-        /**
-         * Arms protected-media grants for the DASH flow until the document changes. Android WebView's
-         * Widevine needs the device DRM identifier even at L3 — denying the permission leaves ClearKey
-         * only — and that identifier is a permanent, unresettable handle on the device. Incognito
-         * promises the plugin site learns nothing durable about this session, so DRM playback loses
-         * rather than incognito.
-         *
-         * The arm covers every permission request in the document, not one: see onPermissionRequest.
-         */
-        @JavascriptInterface
-        fun requestProtectedMediaPlayback(): Boolean {
-            val incognito = getIncognitoState.await(activity.viewModel.getSource()?.id)
-            protectedMediaPlaybackArmed = !incognito && protectedMediaPlaybackOrigin != null
-            return protectedMediaPlaybackArmed
-        }
-
-        @JavascriptInterface
-        fun onReaderMessage(message: String) {
-            val parsed = LnReaderMessage.parse(message) ?: return
-            activity.runOnUiThread {
-                when (parsed) {
-                    is LnReaderMessage.Save -> {
-                        if (!isVideoChapter()) return@runOnUiThread
-                        val page = currentPage ?: return@runOnUiThread
-                        lastSavedProgress = parsed.progress / 100f
-                        lastPersistedPercent = parsed.progress
-                        awaitingFirstScrollSample = false
-                        activity.saveNovelProgress(page, parsed.progress)
-                        activity.onNovelProgressChanged(lastSavedProgress)
-                    }
-                    is LnReaderMessage.Refetch -> activity.viewModel.reloadChapter(fromSource = true)
-                    is LnReaderMessage.Next -> activity.loadNextChapter()
-                    is LnReaderMessage.ShowError -> {
-                        inlineFeedback.showInlineError(parsed.message)
-                    }
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun onContentEdited() {
-            activity.runOnUiThread {
-                activity.viewModel.setHasUnsavedChanges(true)
-            }
-        }
-
-        @JavascriptInterface
-        fun onSaveEditedContent(json: String) {
-            logcat(LogPriority.DEBUG) { "NovelWebViewViewer: onSaveEditedContent(length=${json.length})" }
-            activity.runOnUiThread {
-                activity.viewModel.saveEditedChapterContent(json)
-            }
-        }
-
-        @JavascriptInterface
-        fun onScrollProgress(progress: Float) {
-            activity.runOnUiThread {
-                if (isRestoringScroll) return@runOnUiThread
-                awaitingFirstScrollSample = false
-                lastSavedProgress = progress
-                if (NovelProgress.progressToPercent(progress) == lastPersistedPercent) return@runOnUiThread
-                saveProgress()
-            }
-        }
-
-        @JavascriptInterface
-        fun onScrollUpdate(progress: Float) {
-            activity.runOnUiThread {
-                if (isRestoringScroll) return@runOnUiThread
-                // Don't let a delayed echo from a slider seek overwrite the finger's live position,
-                // nor let it clobber lastSavedProgress with a stale in-flight value.
-                if (System.currentTimeMillis() - lastUserSeekAt < SEEK_ECHO_SUPPRESS_MS) return@runOnUiThread
-                awaitingFirstScrollSample = false
-                lastSavedProgress = progress
-                activity.onNovelProgressChanged(progress)
-            }
-        }
-
-        @JavascriptInterface
-        fun onChapterScrollUpdate(chapterId: String, progress: Float) {
-            activity.runOnUiThread {
-                if (isRestoringScroll) return@runOnUiThread
-                // Fired edge-triggered by the JS (only on a real change). Resolve by stable chapter
-                // id, not index: DOM boundaries and chapterQueue briefly disagree after a prepend.
-                val id = chapterId.toLongOrNull() ?: return@runOnUiThread
-                val chapterIndex = loadedChapters.indexOfFirst { it.chapter.id == id }
-                val chapter = loadedChapters.getOrNull(chapterIndex) ?: return@runOnUiThread
-                val newPage = chapter.pages?.firstOrNull()
-                val oldIndex = currentChapterIndex
-                val identityChanged = chapterIndex != oldIndex
-                val pageChanged = currentPage?.chapter?.chapter?.id != id
-                val titleChanged = activity.viewModel.state.value.novelVisibleChapter?.id != id
-
-                if (identityChanged) {
-                    // Moving forward marks the outgoing chapter (and any skipped) read, per-chapter
-                    // progress never snaps to 100 in the DOM so onScrollProgress can't.
-                    NovelProgress.forwardChaptersToMarkRead(oldIndex, chapterIndex, loadedChapters.size)
-                        .forEach { idx ->
-                            loadedChapters.getOrNull(idx)?.let { completedChapter ->
-                                activity.viewModel.saveNovelProgress(completedChapter, 100)
-                                logcat(LogPriority.DEBUG) {
-                                    "NovelWebViewViewer: Marking chapter index $idx as 100% (moved forward)"
-                                }
-                            }
-                        }
-                    currentChapterIndex = chapterIndex
-                }
-
-                if (identityChanged || titleChanged) {
-                    activity.viewModel.setNovelVisibleChapter(chapter.chapter)
-                    updateChapterMetaJs()
-                }
-
-                if (newPage == null) {
-                    // The DOM can outlive ViewerChapters' curr/prev/next reference window. Never
-                    // keep the previous page under the new visible ID: progress and summaries
-                    // would then be attributed to the wrong chapter while this one is reloaded.
-                    currentPage = null
-                    lastSavedProgress = if (chapterIndex > oldIndex) 0f else 1f
-                    lastPersistedPercent = -1
-                    awaitingFirstScrollSample = true
-                    requestChapterRecovery(id)
-                    return@runOnUiThread
-                }
-
-                keepOnlyRelevantChapterRecovery(id)
-                if (identityChanged || pageChanged) {
-                    currentPage = newPage
-                    activity.onPageSelected(newPage)
-                    lastSavedProgress = progress.coerceIn(0f, 1f)
-                    lastPersistedPercent = -1
-                    awaitingFirstScrollSample = false
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun onPagePositionChanged(
-            chapterId: String,
-            unitIndex: Int,
-            unitCount: Int,
-            firstPage: Int,
-            lastPage: Int,
-            totalPages: Int,
-        ) {
-            val id = chapterId.toLongOrNull() ?: return
-            activity.runOnUiThread {
-                val previous = pagedController.position.value
-                pagedController.onPosition(id, unitIndex, unitCount, firstPage, lastPage, totalPages)
-                if (previous != null &&
-                    (previous.chapterId != id || previous.unitIndex != unitIndex)
-                ) {
-                    activity.onNovelVisualPageChanged()
-                }
-            }
-        }
-
-        // The summary card's own buttons. Cancel, close and regenerate are the only actions; anything
-        // else the page sends is ignored rather than trusted.
-        @JavascriptInterface
-        fun onChapterSummaryAction(chapterId: String, action: String) {
-            val id = chapterId.toLongOrNull() ?: return
-            activity.runOnUiThread { summaryController.onAction(id, action) }
-        }
-
-        @JavascriptInterface
-        fun onScrollRestoreComplete(token: Int) {
-            // Only the latest restore may lift the guard; ignore stale completions.
-            activity.runOnUiThread {
-                if (token != scrollRestoreToken) return@runOnUiThread
-                liftRestoreGuard(token)
-                refreshFindInPage()
-            }
-        }
-
-        @JavascriptInterface
-        fun onInfiniteScrollAppendComplete(@Suppress("UNUSED_PARAMETER") chapterId: Long) {
-            // TTS handoff is driven directly from loadNextChapterForTts; this foreground callback
-            // only refreshes an active native find after the appended DOM has settled.
-            activity.runOnUiThread { refreshFindInPage() }
-        }
-
-        @JavascriptInterface
-        fun claimReaderGesture(owner: String) {
-            // Deliberately not posted to the UI thread: a queued runnable could land after the
-            // gesture callback that reads it.
-            gestureTarget = ReaderGestureTarget.fromWire(owner)
-        }
-
-        @JavascriptInterface
-        fun onReaderGesturesReady() {
-            pageOwnsGestures = true
-        }
-
-        @JavascriptInterface
-        fun toggleTts() {
-            activity.runOnUiThread {
-                if (!isTtsEnabled) return@runOnUiThread
-                when {
-                    ttsController.isPaused() -> resumeTts()
-                    ttsController.isSpeaking() -> pauseTts()
-                    isTtsActive() -> stopTts()
-                    else -> startTtsFromViewport()
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun startTtsAtParagraph(index: Int) {
-            activity.runOnUiThread {
-                if (!isTtsEnabled) return@runOnUiThread
-                this@NovelWebViewViewer.startTtsAtParagraph(index.coerceAtLeast(0))
-            }
-        }
-
-        @JavascriptInterface
-        fun startTtsAtHoveredParagraph() {
-            activity.runOnUiThread {
-                if (!isTtsEnabled) return@runOnUiThread
-                this@NovelWebViewViewer.startTtsAtTaggedParagraph()
-            }
-        }
-
-        @JavascriptInterface
-        fun loadNextChapter() {
-            activity.runOnUiThread {
-                logcat(LogPriority.DEBUG) {
-                    "NovelWebViewViewer: loadNextChapter triggered, infiniteScroll=${isInfiniteScrollEnabled()}, isLoadingNext=$isLoadingNext, loadedCount=${loadedChapterIds.size}"
-                }
-                if (isInfiniteScrollEnabled() && !webChapterContentReady) {
-                    setJsLoadingNext()
-                    return@runOnUiThread
-                }
-                if (isInfiniteScrollEnabled() && webChapterIsError) {
-                    setJsLoadingNext()
-                    return@runOnUiThread
-                }
-                if (!isInfiniteScrollEnabled()) {
-                    activity.loadNextChapter()
-                } else if (nextRequiresDocumentNavigation) {
-                    activity.loadNextChapter()
-                } else if (reachedNovelEnd) {
-                    setJsNoMoreChapters(true)
-                } else if (ttsController.isTtsAutoPlay) {
-                    // Don't append while TTS is active, pre-fetch so the next chapter is ready when
-                    // TTS calls appendNextChapterIfAvailable.
-                    preFetchNextChapterForTts(thresholdReached = true)
-                } else {
-                    startNextChapterAppend()
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun markChapterAsShort() {
-            activity.runOnUiThread {
-                lastSavedProgress = 1f
-                saveProgress()
-                activity.onNovelProgressChanged(1f)
-                logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Chapter marked as short (fits in viewport)" }
-
-                // Chapter fits in viewport → no scroll events fire → threshold never reached.
-                // Trigger infinite scroll append manually.
-                if (!ttsController.isTtsAutoPlay) startNextChapterAppend()
-            }
-        }
-
-        @JavascriptInterface
-        fun retryChapter() {
-            activity.runOnUiThread {
-                if (isDestroyed || !webChapterIsError) return@runOnUiThread
-                showLoadingIndicator()
-                activity.viewModel.reloadChapter(fromSource = true)
-            }
-        }
-
-        @JavascriptInterface
-        fun retryInlineError() {
-            activity.runOnUiThread {
-                if (!isDestroyed) inlineFeedback.retryPendingError()
-            }
-        }
-
-        @JavascriptInterface
-        fun copyToClipboard(base64Text: String) {
-            activity.runOnUiThread {
-                val text = try {
-                    android.util.Base64.decode(base64Text, android.util.Base64.DEFAULT)
-                        .toString(Charsets.UTF_8)
-                } catch (_: Exception) {
-                    base64Text
-                }
-                val cm = activity.getSystemService(android.content.ClipboardManager::class.java)
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("error", text))
-                activity.toast(activity.stringResource(TDMR.strings.novel_error_copied))
-            }
-        }
-
-        @JavascriptInterface
-        fun playLocalVideo() {
-            activity.runOnUiThread { launchLocalVideo(force = true) }
-        }
-
-        @JavascriptInterface
-        fun requestNextChapter() {
-            loadNextChapter()
-        }
-
-        @JavascriptInterface
-        fun requestPrevChapter() {
-            activity.runOnUiThread { activity.loadPreviousChapter() }
-        }
-
-        @JavascriptInterface
-        fun requestStartTts() {
-            activity.runOnUiThread { startTts() }
-        }
-
-        @JavascriptInterface
-        fun requestPauseTts() {
-            activity.runOnUiThread { pauseTts() }
-        }
-
-        @JavascriptInterface
-        fun requestResumeTts() {
-            activity.runOnUiThread { resumeTts() }
-        }
-
-        @JavascriptInterface
-        fun requestStopTts() {
-            activity.runOnUiThread { stopTts() }
-        }
-
-        @JavascriptInterface
-        fun requestSetProgress(percent: Int) {
-            activity.runOnUiThread { setProgressPercent(percent) }
-        }
-    }
-
-    private fun setJsLoadingNext() = evaluateJavascriptSafe(
-        "(function(){ if (window.$TSUNDOKU_OBJECT_NAME && window.$TSUNDOKU_OBJECT_NAME.runtime && window.$TSUNDOKU_OBJECT_NAME.runtime.setLoadingNext) window.$TSUNDOKU_OBJECT_NAME.runtime.setLoadingNext(false); })();",
-        null,
+    private fun setJsLoadingNext() = executeReaderCommand(
+        readerCommand("chapter.setLoadingNext", buildJsonObject { put("loading", false) }),
     )
 
-    private fun setJsNoMoreChapters(value: Boolean) = evaluateJavascriptSafe(
-        "(function(){ if (window.$TSUNDOKU_OBJECT_NAME && window.$TSUNDOKU_OBJECT_NAME.runtime && window.$TSUNDOKU_OBJECT_NAME.runtime.setNoMoreChapters) window.$TSUNDOKU_OBJECT_NAME.runtime.setNoMoreChapters($value); })();",
-        null,
+    private fun setJsNoMoreChapters(value: Boolean) = executeReaderCommand(
+        readerCommand("chapter.setNoMore", buildJsonObject { put("value", value) }),
     )
 
     private fun markNextDocumentNavigationBoundary() {
@@ -2845,10 +2768,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun resetChapterTracking() {
-        evaluateJavascriptSafe(
-            "(function(){ if (window.$TSUNDOKU_OBJECT_NAME && window.$TSUNDOKU_OBJECT_NAME.runtime && window.$TSUNDOKU_OBJECT_NAME.runtime.resetChapterTracking) window.$TSUNDOKU_OBJECT_NAME.runtime.resetChapterTracking(); })();",
-            null,
-        )
+        executeReaderCommand(readerCommand("chapter.resetTracking"))
     }
 
     private suspend fun awaitPageText(page: ReaderPage, loader: PageLoader, timeoutMs: Long): Boolean =
@@ -2879,6 +2799,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             // Queue add and DOM insert share one guard so the same chapter cannot be inserted twice.
             if (!loadedChapterIds.contains(chapterId)) {
                 chapterQueue.append(chapter)
+                readerBridge.updateChapters(loadedChapterIds)
                 appendHtmlContent(
                     prepared.processed,
                     chapterId,
@@ -2963,7 +2884,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun showNextChapterError(error: Throwable) {
         nextLoadRequiresManualRetry = true
-        inlineFeedback.showInlineError(error) {
+        inlineFeedback.showInlineError(error, chapterId = loadedChapters.lastOrNull()?.chapter?.id) {
             nextLoadRequiresManualRetry = false
             startNextChapterAppend()
         }
@@ -3032,7 +2953,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             } else {
                 // Surface once, then latch so the scroll handler stops re-triggering at the last chapter.
                 if (!reachedNovelEnd) {
-                    inlineFeedback.showInlineError(activity.stringResource(MR.strings.transition_no_next))
+                    inlineFeedback.showInfo(
+                        activity.stringResource(MR.strings.transition_no_next),
+                        chapterId = anchor.chapter.id,
+                    )
                 }
                 reachedNovelEnd = true
                 setJsNoMoreChapters(true)
@@ -3111,10 +3035,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
             return
         }
-        val sign = if (direction < 0) "-" else ""
-        evaluateJavascriptSafe(
-            "window.scrollBy({ top: $sign(window.innerHeight * $fraction), behavior: 'smooth' });",
-        )
+        executeReaderCommand(NovelWebViewReadingCommands.scrollByViewport(direction, fraction.toFloat()))
     }
 
     private fun startTimedPageTurn(delta: Int, effect: NovelPageEffect) {
@@ -3124,7 +3045,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private fun requestCurlTarget(delta: Int, onReady: (Boolean) -> Unit) {
         val turnDelta = if (delta < 0) -1 else 1
         curlPreviewMoved = false
-        evaluateJavascriptSafe(NovelWebViewReadingCommands.prepareCurl(turnDelta)) { moved ->
+        executeReaderCommand(NovelWebViewReadingCommands.prepareCurl(turnDelta)) { moved ->
             curlPreviewMoved = moved == "true"
             if (curlPreviewMoved) awaitWebViewFrame { onReady(true) } else onReady(false)
         }
@@ -3141,9 +3062,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun finishCurlPreview(onFinished: () -> Unit = {}) {
-        evaluateJavascriptSafe(
-            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.finishSilentTurn?.(false, true);",
-        ) { awaitWebViewFrame(onFinished) }
+        executeReaderCommand(NovelWebViewReadingCommands.finishCurl(commit = true)) { awaitWebViewFrame(onFinished) }
     }
 
     private fun rollbackCurlPreview(onRestored: () -> Unit = {}) {
@@ -3152,9 +3071,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         curlPreviewMoved = false
-        evaluateJavascriptSafe(
-            NovelWebViewReadingCommands.ROLLBACK_CURL,
-        ) {
+        executeReaderCommand(NovelWebViewReadingCommands.ROLLBACK_CURL) {
             awaitWebViewFrame(onRestored)
         }
     }
@@ -3206,16 +3123,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         // Pref is half-steps (speed x2); level is 1.0..10.0 in 0.5 increments.
         val pxPerSec = (preferences.novelAutoScrollLevel() * 20).toInt()
         val attempt = ++autoScrollStartAttempt
-        evaluateJavascriptSafe(NovelWebViewReadingCommands.startVerticalAutoScroll(pxPerSec), null)
+        executeReaderCommand(NovelWebViewReadingCommands.startVerticalAutoScroll(pxPerSec))
         webView.postDelayed({
             if (!isAutoScrolling || session != autoScrollSession || attempt != autoScrollStartAttempt) {
                 return@postDelayed
             }
-            evaluateJavascriptSafe(
-                "(function(){ return !!(window.__tdAutoScroll && window.__tdAutoScroll.running); })();",
-            ) { running ->
+            executeReaderCommand(NovelWebViewReadingCommands.autoScrollStatus()) { running ->
                 if (!isAutoScrolling || session != autoScrollSession || attempt != autoScrollStartAttempt) {
-                    return@evaluateJavascriptSafe
+                    return@executeReaderCommand
                 }
                 if (running != "true") {
                     if (autoScrollStartAttempt < AUTO_SCROLL_MAX_START_ATTEMPTS) {
@@ -3232,7 +3147,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     fun stopAutoScroll() {
         isAutoScrolling = false
         ++autoScrollSession
-        evaluateJavascriptSafe(NovelWebViewReadingCommands.STOP_AUTO_SCROLL, null)
+        executeReaderCommand(NovelWebViewReadingCommands.STOP_AUTO_SCROLL)
     }
 
     fun isAutoScrollActive(): Boolean = isAutoScrolling
@@ -3259,7 +3174,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
 
-        evaluateJavascriptSafe(NovelWebViewReadingCommands.seekVertical(progress), null)
+        executeReaderCommand(NovelWebViewReadingCommands.seekVertical(progress))
     }
 
     /**
@@ -3269,6 +3184,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     fun invalidateLoadedChapters() {
         cancelTtsChapterPreparation()
         chapterQueue.clear()
+        readerBridge.updateChapters(emptyList())
     }
 
     fun reloadChapter() {
@@ -3309,11 +3225,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         val (chapterIdx, chapterId) = getTtsChapterContext()
-        evaluateJavascriptSafe(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
+        executeReaderCommand(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
             if (!isTtsEnabled || !ttsController.isTtsAutoPlay || getTtsChapterContext().second != chapterId) {
-                return@evaluateJavascriptSafe
+                return@executeReaderCommand
             }
-            val text = unescapeJsResult(result)
+            val text = unescapeJsResult(result ?: return@executeReaderCommand)
 
             if (text.isNotBlank() && text != "null") {
                 logcat(LogPriority.DEBUG) { "TTS (WebView): Starting to speak ${text.length} characters" }
@@ -3386,7 +3302,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun getTtsChapterContext(): Pair<Int, Long?> {
-        val activeChapter = getCurrentTsundokuChapter()
+        val activeChapter = getCurrentReaderChapter()
             ?: currentPage?.chapter
             ?: return Pair(currentChapterIndex, null)
         return Pair(
@@ -3441,9 +3357,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         val chapterId = getTtsChapterContext().second
-        evaluateJavascriptSafe(
+        executeReaderCommand(
             NovelWebViewTtsDomScripts.firstVisibleParagraph(chapterId),
         ) { rawIndex ->
+            if (rawIndex == null) return@executeReaderCommand
             val firstVisibleParagraphIndex = rawIndex.trim('"').toIntOrNull() ?: 0
             startTtsAtParagraph(firstVisibleParagraphIndex)
         }
@@ -3459,7 +3376,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      */
     private fun startTtsAtTaggedParagraph() {
         val chapterId = getTtsChapterContext().second
-        evaluateJavascriptSafe(NovelWebViewTtsDomScripts.taggedParagraph(chapterId)) { result ->
+        executeReaderCommand(NovelWebViewTtsDomScripts.taggedParagraph(chapterId)) { result ->
+            if (result == null) return@executeReaderCommand
             val index = result.trim().trim('"').toIntOrNull() ?: -1
             if (index >= 0) startTtsAtParagraph(index)
         }
@@ -3492,15 +3410,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ttsController.isTtsAutoPlay = true
         if (!ttsController.isPaused()) dispatchTtsState()
         val (chapterIdx, chapterId) = getTtsChapterContext()
-        evaluateJavascriptSafe(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
+        executeReaderCommand(NovelWebViewTtsDomScripts.extractText(chapterId)) { result ->
             if (!isTtsEnabled || !ttsController.isTtsAutoPlay || getTtsChapterContext().second != chapterId) {
-                return@evaluateJavascriptSafe
+                return@executeReaderCommand
             }
-            val text = unescapeJsResult(result)
+            val text = unescapeJsResult(result ?: return@executeReaderCommand)
             if (text.isBlank() || text == "null") {
                 logcat(LogPriority.WARN) { "TTS (WebView): No text available for selected paragraph" }
                 stopTts()
-                return@evaluateJavascriptSafe
+                return@executeReaderCommand
             }
             ttsController.ttsViewportParagraphIndex = index.coerceAtLeast(0)
             ttsController.hasViewportStartOverride = true
@@ -3514,21 +3432,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      * Get the currently selected text from the WebView
      */
     fun getSelectedText(): String? {
-        var selectedText: String? = null
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var selection = window.getSelection();
-                if (selection && selection.toString().trim()) {
-                    return selection.toString().trim();
-                }
-                return null;
-            })();
-            """.trimIndent(),
-        ) { result ->
-            selectedText = unescapeJsResult(result)
-        }
-        return selectedText
+        return pendingSelectedText
     }
 
     /**
@@ -3543,91 +3447,31 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      * Clear text selection in the WebView
      */
     fun clearTextSelection() {
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                }
-            })();
-            """.trimIndent(),
-            null,
-        )
+        executeReaderCommand(NovelWebViewReadingCommands.clearSelection())
     }
 
     /**
      * Handle the "Remember" action from text selection menu
      */
     private fun onRememberSelectedText(actionMode: ActionMode? = null) {
-        evaluateJavascriptSafe(
-            """
-        (function() {
-            var sel = window.getSelection();
-            if (!sel || sel.rangeCount === 0) return null;
-            var text = sel.toString().trim();
-            if (!text) return null;
-            var range = sel.getRangeAt(0);
-            var node = range.startContainer;
-            if (node && node.nodeType === 3) node = node.parentNode;
-            var para = -1;
-            try {
-                var chapterEl = (node && node.closest) ? node.closest('tsundoku-chapter') : null;
-                if (!chapterEl) chapterEl = document.getElementById('LNReader-chapter');
-                if (chapterEl) {
-                    var plain = chapterEl.querySelector('[data-tsundoku-plain-text]');
-                    if (plain) {
-                        var pre = document.createRange();
-                        pre.selectNodeContents(plain);
-                        pre.setEnd(range.startContainer, range.startOffset);
-                        var lines = pre.toString().split('\n');
-                        var count = 0;
-                        for (var i = 0; i < lines.length - 1; i++) {
-                            if (lines[i].trim().length > 0) count++;
-                        }
-                        para = count;
-                    } else {
-                        var blocks = chapterEl.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, pre');
-                        for (var j = 0; j < blocks.length; j++) {
-                            if (blocks[j].contains(node)) { para = j; break; }
-                        }
-                    }
-                }
-            } catch (e) {
-                para = -1;
-            }
-            return para + '\n' + text;
-        })();
-            """.trimIndent(),
-        ) { result ->
-            activity.runOnUiThread {
-                actionMode?.finish() // finish AFTER JS has read the selection
-                val raw = if (result != "null") unescapeJsResult(result) else null
-                val newlineIdx = raw?.indexOf('\n') ?: -1
-                val paragraphIndex = raw?.takeIf { newlineIdx >= 0 }
-                    ?.substring(0, newlineIdx)
-                    ?.toIntOrNull()
-                    ?.takeIf { it >= 0 }
-                val selectedText = when {
-                    raw == null -> null
-                    newlineIdx >= 0 -> raw.substring(newlineIdx + 1).trim().ifEmpty { null }
-                    else -> raw.trim().ifEmpty { null }
-                }
-
-                if (!selectedText.isNullOrBlank()) {
-                    pendingSelectedText = selectedText
-                    pendingParagraphIndex = paragraphIndex
-                    activity.onRememberSelectedText()
-                    clearTextSelection()
-                } else {
-                    activity.toast(activity.stringResource(TDMR.strings.reader_no_text_selected))
-                }
+        executeReaderCommand(NovelWebViewReadingCommands.readSelectionAnchor()) { result ->
+            actionMode?.finish()
+            val value = result?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            val selectedText = value?.string("text")?.trim()?.ifEmpty { null }
+            val paragraphIndex = value?.int("paragraphIndex")?.takeIf { it >= 0 }
+            if (!selectedText.isNullOrBlank()) {
+                pendingSelectedText = selectedText
+                pendingParagraphIndex = paragraphIndex
+                activity.onRememberSelectedText()
+                clearTextSelection()
+            } else {
+                activity.toast(activity.stringResource(TDMR.strings.reader_no_text_selected))
             }
         }
     }
 }
 
-/** Who owns the current touch, as claimed page-side by `reader-gestures.js`. */
+/** Who owns the current touch, as claimed page-side by `the reader gesture module`. */
 internal enum class ReaderGestureTarget {
     /** Media, embedded content, links, form controls, reader chrome — or nothing claimed at all. */
     BLOCKED,

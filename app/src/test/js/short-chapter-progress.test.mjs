@@ -1,35 +1,61 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
+import { observeShortChapter } from '../../../tools/reader-runtime/src/layout/short-chapter.ts';
 
-// Execute the injected script itself so the test covers the real WebView short-chapter probe.
-const viewer = readFileSync(new URL(
-    '../../main/java/eu/kanade/tachiyomi/ui/reader/viewer/text/webview/NovelWebViewViewer.kt',
-    import.meta.url,
-), 'utf8');
-const script = viewer.match(/private fun syncShortChapterProgressIfNeeded\(\)[\s\S]*?"""([\s\S]*?)"""/)[1]
-    .replaceAll('$TSUNDOKU_OBJECT_NAME', 'Tsundoku');
-
-function probe(paged, height) {
-    let marks = 0;
-    const timers = [];
-    vm.runInNewContext(script, {
-        window: { innerHeight: 800, Tsundoku: { runtime: { readerLayout: { enabled: paged } } } },
-        document: { documentElement: { scrollHeight: height, clientHeight: 800 }, body: { scrollHeight: height } },
-        Android: { markChapterAsShort() { marks++; } },
-        ResizeObserver: class { observe() {} disconnect() {} },
-        setTimeout(callback) { timers.push(callback); },
-    });
-    timers.forEach(callback => callback());
-    return marks;
+function shortChapterFixture({ height, paged = false }) {
+  let resize;
+  let timeout;
+  let disconnected = 0;
+  const view = {
+    innerHeight: 800,
+    ResizeObserver: class {
+      constructor(callback) { resize = callback; }
+      observe() {}
+      disconnect() { disconnected += 1; }
+    },
+    setTimeout(callback, delay) { timeout = callback; assert.equal(delay, 500); return 7; },
+    clearTimeout() { timeout = null; },
+  };
+  const document = {
+    defaultView: view,
+    documentElement: { scrollHeight: height, clientHeight: 800 },
+    body: { scrollHeight: height },
+  };
+  const root = {
+    ownerDocument: document,
+    classList: { contains: (name) => paged && name === 'is-paged' },
+  };
+  const emitted = [];
+  const cleanup = observeShortChapter({
+    host: { root, emit: (name, payload) => emitted.push({ name, payload }) },
+    enabled: true,
+  });
+  return {
+    emitted, cleanup,
+    flushResize: () => resize?.(),
+    flushTimeout: () => timeout?.(),
+    disconnected: () => disconnected,
+  };
 }
 
-test('a paged document fitting the vertical viewport is not marked 100 percent', () => {
-    assert.equal(probe(true, 800), 0);
+test('a short vertical chapter is marked once after layout settles', () => {
+  const fixture = shortChapterFixture({ height: 800 });
+  fixture.flushResize();
+  fixture.flushTimeout();
+  assert.deepEqual(fixture.emitted, [{ name: 'chapter.markShort', payload: {} }]);
+  assert.equal(fixture.disconnected(), 1);
 });
 
-test('only a short vertical chapter is automatically completed', () => {
-    assert.equal(probe(false, 800), 1);
-    assert.equal(probe(false, 4_000), 0);
+test('an overflowing chapter is not marked as complete', () => {
+  const fixture = shortChapterFixture({ height: 801 });
+  fixture.flushResize();
+  fixture.flushTimeout();
+  assert.deepEqual(fixture.emitted, []);
+});
+
+test('paged layout skips the short-chapter probe', () => {
+  const fixture = shortChapterFixture({ height: 1, paged: true });
+  fixture.flushResize();
+  fixture.flushTimeout();
+  assert.deepEqual(fixture.emitted, []);
 });

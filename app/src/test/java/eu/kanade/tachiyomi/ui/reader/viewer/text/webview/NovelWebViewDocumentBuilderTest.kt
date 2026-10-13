@@ -5,6 +5,10 @@ import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ProcessedContent
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -13,6 +17,205 @@ import org.junit.jupiter.api.Test
 import java.util.Locale
 
 class NovelWebViewDocumentBuilderTest {
+    @Test
+    fun videoScriptsAreAbsentFromOrdinaryTextDocuments() {
+        val normal = Jsoup.parse(NovelWebViewDocumentBuilder.assemble(minimalInput()))
+        assertTrue(normal.select("script[src$=videojs.min.js], script[src$=hls.min.js]").isEmpty())
+    }
+
+    @Test
+    fun downloadedLocalVideoStillSuppressesSourcePluginJavaScript() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(
+                readerConfig = buildJsonObject { put("pluginJavaScript", "window.shouldNotRun = true") },
+                chapterDirectives = NovelWebViewChapterDirectives(localVideo = "video.mp4"),
+            ),
+        )
+        val config = Json.parseToJsonElement(Jsoup.parse(html).selectFirst("#nekori-reader-config")!!.data()).jsonObject
+        assertEquals("\"\"", config["pluginJavaScript"].toString())
+    }
+
+    @Test
+    fun documentBootsClassicRuntimeAfterHeadConfigAndBeforeSourceScripts() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(
+                documentId = "doc-7",
+                processed = ProcessedContent(
+                    text = "<p>Text</p><script>window.sourceScriptRan = true</script>",
+                    isPlainText = false,
+                    chapterUrl = null,
+                ),
+                readerConfig = buildJsonObject {
+                    put("mode", "reader")
+                    put("pluginJavaScript", "window.custom = true")
+                },
+            ),
+        )
+        val document = Jsoup.parse(html)
+        val config = Json.parseToJsonElement(document.selectFirst("#nekori-reader-config")!!.data()).jsonObject
+
+        assertEquals("doc-7", config["documentId"]?.toString()?.trim('"'))
+        assertEquals("window.custom = true", config["pluginJavaScript"]?.toString()?.trim('"'))
+        val configScript = document.selectFirst("#nekori-reader-config")!!
+        val runtimeScript = document.selectFirst("script[src='https://nekori.reader/assets/reader.js']")!!
+        val sourceScript = document.selectFirst("#nekori-reader script:not([src]):not([type])")!!
+        assertTrue(runtimeScript.attr("type").isEmpty())
+        assertFalse(runtimeScript.hasAttr("defer"))
+        assertFalse(runtimeScript.hasAttr("async"))
+        assertTrue(document.head().children().indexOf(configScript) < document.head().children().indexOf(runtimeScript))
+        assertTrue(
+            html.indexOf("nekori-reader-config") < html.indexOf("src=\"https://nekori.reader/assets/reader.js\""),
+        )
+        assertTrue(html.indexOf("reader.js") < html.indexOf("window.sourceScriptRan"))
+        assertEquals("nekori-reader", document.selectFirst("[data-nekori-reader-root]")?.id())
+        assertEquals("nekori-reader", document.selectFirst("[data-nekori-reader-root]")?.className())
+        assertEquals("div", document.selectFirst("[data-nekori-reader-root]")?.tagName())
+        assertTrue(document.select("#LNReader-chapter").isEmpty())
+        assertEquals(document.selectFirst("#nekori-reader"), sourceScript.parent())
+        assertEquals(1, document.select("script:not([src]):not([type=application/json])").size)
+    }
+
+    @Test
+    fun plainTextIsSafeConfigDataAndDoesNotGenerateDomJavascript() {
+        val source = "First <paragraph>\n\nSecond & paragraph"
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(text = source, isPlainText = true).copy(
+                documentId = "doc-8",
+                readerConfig = buildJsonObject { put("mode", "reader") },
+            ),
+        )
+        val document = Jsoup.parse(html)
+        val config = Json.parseToJsonElement(document.selectFirst("#nekori-reader-config")!!.data()).jsonObject
+        val initialContent = config["initialContent"]!!.jsonObject
+
+        assertEquals("plainText", initialContent["kind"]?.toString()?.trim('"'))
+        assertEquals(Json.parseToJsonElement("\"$source\""), initialContent["text"])
+        assertTrue(document.select("script:not([src]):not([type=application/json])").isEmpty())
+        assertTrue(document.selectFirst("#nekori-reader")!!.text().isEmpty())
+    }
+
+    @Test
+    fun htmlSourceContentAndEmbeddedStylesRemainInDocument() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(
+                "<html><head><style>.source { color: red }</style></head><body><p class='source'>Text</p></body></html>",
+            ),
+        )
+        val document = Jsoup.parse(html)
+
+        assertEquals("Text", document.selectFirst("#nekori-reader p")?.text())
+        assertTrue(html.contains(".source { color: red }"))
+    }
+
+    @Test
+    fun ordinaryScrollingHtmlBelongsToItsChapterForTtsAndSelection() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput("<p>First</p><p>Second</p>").copy(chapter = readerChapter(7, "opaque//chapter")),
+        )
+        val document = Jsoup.parse(html)
+        val chapter = document.selectFirst("nekori-chapter[data-nekori-chapter-id='7']")!!
+        assertEquals(listOf("First", "Second"), chapter.select("p").map { it.text() })
+        assertTrue(document.select(".nekori-chapter-divider").isEmpty())
+        assertTrue(document.select("#nekori-reader > p").isEmpty())
+    }
+
+    @Test
+    fun errorDocumentUsesTheSameDataBootWithoutInlineExecutableScripts() {
+        val html = NovelWebViewDocumentBuilder.assembleErrorDocument(
+            "error-1",
+            buildJsonObject { put("mode", "error") },
+            ThemeUtils.ThemeTokens(":root { --md-sys-color-error: #b3261e; }", "{}"),
+        )
+        val document = Jsoup.parse(html)
+        val config = Json.parseToJsonElement(document.selectFirst("#nekori-reader-config")!!.data()).jsonObject
+
+        assertEquals("error-1", config["documentId"]?.toString()?.trim('"'))
+        assertEquals("error", config["mode"]?.toString()?.trim('"'))
+        assertTrue(document.select("style").any { it.data().contains("--md-sys-color-error: #b3261e") })
+        assertTrue(document.body().hasAttr("data-nekori-error-document"))
+        val configElement = document.selectFirst("head > #nekori-reader-config")!!
+        val runtimeElement = document.selectFirst(
+            "head > script[src='https://nekori.reader/assets/reader.js']:not([type]):not([defer]):not([async])",
+        )!!
+        assertTrue(
+            document.head().children().indexOf(configElement) < document.head().children().indexOf(runtimeElement),
+        )
+        assertTrue(document.select("#nekori-reader[data-nekori-reader-root]").isNotEmpty())
+        assertTrue(document.select("#LNReader-chapter").isEmpty())
+        assertTrue(document.select("script:not([src]):not([type=application/json])").isEmpty())
+    }
+
+    @Test
+    fun customCssIsEscapedAndReaderAssetsUsePrivateOrigin() {
+        val html = NovelWebViewDocumentBuilder.assemble(minimalInput(css = "body{} </style><script>bad</script>"))
+
+        assertFalse(html.contains("https://tsundoku.reader"))
+        assertTrue(html.contains("https://nekori.reader/assets/reader.css"))
+        assertFalse(html.contains("core-player.js"))
+        assertFalse(html.contains("core-player.css"))
+        assertFalse(html.contains("reader-gestures.js"))
+        assertTrue(html.contains("<\\/style>"))
+    }
+
+    @Test
+    fun playbackLoadsOnlyVendorMediaAssetsAndCompiledReaderRuntime() {
+        val html = NovelWebViewDocumentBuilder.assemble(
+            minimalInput().copy(chapterDirectives = NovelWebViewChapterDirectives(video = VideoChapter())),
+        )
+        val document = Jsoup.parse(html)
+        val scripts = document.select("script[src]").map { it.attr("src") }
+
+        assertEquals(
+            listOf(
+                "https://nekori.reader/assets/hls.min.js",
+                "https://nekori.reader/assets/videojs.min.js",
+                "https://nekori.reader/assets/reader.js",
+            ),
+            scripts,
+        )
+        assertTrue(
+            document.select("link[rel=stylesheet]").map { it.attr("href") }
+                .all { it == "https://nekori.reader/assets/reader.css" },
+        )
+        assertFalse(html.contains("type=\"module\""))
+    }
+
+    @Test
+    fun infiniteAndPagedChaptersKeepTheirSemanticWrappers() {
+        val infinite = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(infiniteScrollEnabled = true).copy(chapter = readerChapter(3, "/c3")),
+        )
+        val paged = NovelWebViewDocumentBuilder.assemble(
+            minimalInput(pagedLayoutEnabled = true).copy(
+                chapter = readerChapter(4, "/c4"),
+                chapterDirection = NovelContentDirection.RTL,
+                chapterLanguage = "ar",
+            ),
+        )
+
+        assertEquals("nekori-chapter", Jsoup.parse(infinite).selectFirst("nekori-chapter")?.tagName())
+        assertTrue(Jsoup.parse(infinite).select(".nekori-chapter-divider").isNotEmpty())
+        assertEquals("rtl", Jsoup.parse(paged).selectFirst("nekori-chapter")?.attr("dir"))
+        assertEquals("ar", Jsoup.parse(paged).selectFirst("nekori-chapter")?.attr("lang"))
+        assertTrue(Jsoup.parse(paged).select(".nekori-chapter-divider").isEmpty())
+    }
+
+    @Test
+    fun extractBodyRetainsContentAndHeadStyles() {
+        val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(
+            "<html><head><style>.chapter { color: red }</style></head><body><p>Content</p></body></html>",
+        )
+        assertTrue(result.contains(".chapter { color: red }"))
+        assertTrue(result.contains("<p>Content</p>"))
+        assertFalse(result.contains("<body>"))
+    }
+
+    @Test
+    fun readerLanguageUsesAppLocaleThenSystemLocale() {
+        assertEquals("vi", readerLanguageTag(LocaleListCompat.forLanguageTags("vi"), Locale.ENGLISH))
+        assertEquals("pt-BR", readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("pt-BR")))
+        assertEquals("en", readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("")))
+    }
 
     private fun minimalInput(
         text: String = "<p>Hello</p>",
@@ -22,310 +225,23 @@ class NovelWebViewDocumentBuilderTest {
         pagedLayoutEnabled: Boolean = false,
         blockMedia: Boolean = false,
     ) = NovelWebViewDocumentBuilder.DocumentInput(
+        documentId = "doc",
+        readerConfig = buildJsonObject { put("mode", "reader") },
         processed = ProcessedContent(text = text, isPlainText = isPlainText, chapterUrl = null),
         chapter = null,
-        style = NovelWebViewStyler.CustomStylePayload(
-            css = css,
-            bodyClasses = "",
-            backgroundColor = 0xFFFFFFFF.toInt(),
-        ),
+        style = NovelWebViewStyler.CustomStylePayload(css, "", 0xFFFFFFFF.toInt()),
         themeTokens = ThemeUtils.ThemeTokens(cssVariables = ":root {}", jsObject = "{}"),
-        tsundokuScript = "",
-        pluginJavaScript = "",
         infiniteScrollEnabled = infiniteScrollEnabled,
         pagedLayoutEnabled = pagedLayoutEnabled,
         blockMedia = blockMedia,
     )
 
-    // ── escapeForStyleTag ──────────────────────────────────────────────────
-
-    @Test
-    fun `escapeForStyleTag replaces closing style tags case-insensitively`() {
-        with(NovelWebViewDocumentBuilder) {
-            val input = "a { color: red; } </style> b </Style> c </STYLE>"
-            val escaped = input.escapeForStyleTag()
-            assertFalse(escaped.contains("</style>"))
-            assertFalse(escaped.contains("</Style>"))
-            assertFalse(escaped.contains("</STYLE>"))
-            assertTrue(escaped.contains("<\\/style>"))
-            assertTrue(escaped.contains("<\\/Style>"))
-            assertTrue(escaped.contains("<\\/STYLE>"))
-        }
-    }
-
-    @Test
-    fun `escapeForStyleTag leaves safe CSS unchanged`() {
-        with(NovelWebViewDocumentBuilder) {
-            val safe = "body { font-size: 16px; margin: 0; }"
-            assertTrue(safe.escapeForStyleTag() == safe)
-        }
-    }
-
-    // ── extractBodyOrFallback ─────────────────────────────────────────────
-
-    @Test
-    fun `extractBodyOrFallback returns body inner html from full document`() {
-        val html = "<!DOCTYPE html><html><head><title>T</title></head><body><p>Content</p></body></html>"
-        val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(html)
-        assertTrue(result.contains("<p>"))
-        assertFalse(result.contains("<head>"))
-        assertFalse(result.contains("<html>"))
-    }
-
-    @Test
-    fun `extractBodyOrFallback keeps embedded styles from document head`() {
-        val html = "<html><head><style>.chapter { color: red; }</style></head>" +
-            "<body><p class=\"chapter\">Content</p></body></html>"
-
-        val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(html)
-
-        assertTrue(result.contains(".chapter { color: red; }"))
-        assertTrue(result.contains("<p class=\"chapter\">Content</p>"))
-        assertFalse(result.contains("<head>"))
-    }
-
-    @Test
-    fun `extractBodyOrFallback returns input unchanged when html is a fragment`() {
-        val fragment = "<p>Just a paragraph</p>"
-        val result = NovelWebViewDocumentBuilder.extractBodyOrFallback(fragment)
-        assertTrue(result.contains("paragraph"))
-    }
-
-    // ── assemble: structural checks ────────────────────────────────────────
-
-    @Test
-    fun `assemble produces valid html skeleton`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
-        assertTrue(html.trimStart().startsWith("<!DOCTYPE html>"))
-        assertTrue(html.contains("<head>"))
-        assertTrue(html.contains("</head>"))
-        assertTrue(html.contains("<body"))
-        assertTrue(html.contains("</body>"))
-        assertTrue(html.contains("</html>"))
-    }
-
-    @Test
-    fun `assemble locks page zoom until the image modal opens`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
-        assertTrue(html.contains("id=\"tsundoku-viewport\""))
-        assertTrue(html.contains("maximum-scale=1"))
-        assertTrue(html.contains("user-scalable=no"))
-    }
-
-    @Test
-    fun `assemble embeds custom css in style tag`() {
-        val css = "body { font-size: 18px; }"
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput(css = css))
-        assertTrue(html.contains(css))
-    }
-
-    @Test
-    fun `assemble loads reader css and exposes LNReader chapter wrapper`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
-        assertTrue(html.contains("href=\"${NovelWebViewStyler.READER_CSS_URL}\""))
-        assertTrue(html.contains("""id="LNReader-chapter""""))
-        assertTrue(html.contains("""id="reader-ui""""))
-        assertTrue(html.contains("""id="lnreader-compat-config""""))
-        val chapterRoot = Jsoup.parse(html).selectFirst("#LNReader-chapter")!!
-        assertEquals("p", chapterRoot.child(0).tagName())
-    }
-
-    @Test
-    fun `assemble only adds Tsundoku chapter wrappers for infinite scroll`() {
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput(infiniteScrollEnabled = true).copy(
-                chapter = ReaderChapter(
-                    ChapterImpl().apply {
-                        id = 1L
-                        url = "/chapter-1"
-                        name = "Chapter 1"
-                    },
-                ),
-            ),
-        )
-        assertTrue(html.contains("<tsundoku-chapter"))
-    }
-
-    @Test
-    fun `paged chapter keeps a directional wrapper without an infinite divider`() {
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput(pagedLayoutEnabled = true).copy(
-                chapter = ReaderChapter(
-                    ChapterImpl().apply {
-                        id = 2L
-                        url = "/chapter-2"
-                        name = "Chapter 2"
-                    },
-                ),
-                chapterDirection = NovelContentDirection.RTL,
-                chapterLanguage = "ar",
-            ),
-        )
-        val document = Jsoup.parse(html)
-        assertEquals("rtl", document.selectFirst("tsundoku-chapter")?.attr("dir"))
-        assertEquals("ar", document.selectFirst("tsundoku-chapter")?.attr("lang"))
-        assertTrue(document.select(".tsundoku-chapter-divider").isEmpty())
-    }
-
-    @Test
-    fun `assemble runs plugin script before DOMContentLoaded and escapes closing script tags`() {
-        val input = minimalInput().copy(
-            pluginJavaScript = "document.addEventListener('DOMContentLoaded', init); </script><p>unsafe</p>",
-        )
-        val html = NovelWebViewDocumentBuilder.assemble(input)
-        val pluginScript = html.substringAfter("DOMContentLoaded").substringBefore("</script>")
-        assertTrue(pluginScript.contains("<\\/script>"))
-        assertFalse(pluginScript.contains("</script>"))
-    }
-
-    @Test
-    fun `assemble escapes malicious closing style in user css`() {
-        val evilCss = "body { } </style><script>alert(1)</script><style>"
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput(css = evilCss))
-        // The raw </style> must not appear in the output unescaped
-        // (the style tag itself closes correctly; the embedded one is escaped)
-        val styleTagContent = html.substringAfter("tsundoku-custom-style\">").substringBefore("</style>")
-        assertFalse(styleTagContent.contains("</style>"))
-    }
-
-    @Test
-    fun `assemble injects plain text via textContent assignment not innerHTML`() {
-        val content = "Hello <world> & \"friends\""
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput(text = content, isPlainText = true),
-        )
-        // textContent assignment must appear (not innerHTML)
-        assertTrue(html.contains(".textContent ="))
-        // The content must be JSON-quoted (not raw)
-        assertTrue(html.contains("Hello"))
-        // Raw unescaped angle brackets must NOT appear outside the script
-        val bodySection = html.substringAfter("<body>")
-        // The plain-text container is empty; paragraphs are appended via JS
-        assertTrue(bodySection.contains("<div class=\"${NovelWebViewDocumentBuilder.PLAIN_TEXT_CLASS}\""))
-    }
-
-    @Test
-    fun `append script preserves plain text paragraphs for infinite scroll`() {
-        val script = NovelWebViewDocumentBuilder.appendProcessedContentScript(
-            target = "chapterElement",
-            processed = ProcessedContent(
-                text = "First paragraph.\n\nSecond paragraph.",
-                isPlainText = true,
-                chapterUrl = "chapter.txt",
-            ),
-        )
-
-        assertTrue(script.contains("document.createElement('p')"))
-        assertTrue(script.contains(NovelWebViewDocumentBuilder.ATTR_DATA_PLAIN_TEXT))
-        assertTrue(script.contains("First paragraph."))
-        assertTrue(script.contains("Second paragraph."))
-        assertFalse(script.contains("chapterElement.textContent"))
-    }
-
-    @Test
-    fun `assemble blocks media when blockMedia is true`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput(blockMedia = true))
-        assertTrue(html.contains("display: none !important"))
-        assertTrue(html.contains("img,") || html.contains("img ,"))
-    }
-
-    @Test
-    fun `assemble does not produce chapter divider without infinite scroll`() {
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput(infiniteScrollEnabled = false),
-        )
-        assertFalse(html.contains("tsundoku-chapter-divider"))
-    }
-
-    @Test
-    fun `compat runtime loads before plugin custom JavaScript`() {
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput().copy(pluginJavaScript = "window.pluginStarted = true"),
-        )
-
-        assertTrue(html.indexOf("lnreader-compat.js") < html.indexOf("window.pluginStarted"))
-    }
-
-    @Test
-    fun `video runtime is loaded only for video chapters`() {
-        val textHtml = NovelWebViewDocumentBuilder.assemble(minimalInput())
-        val videoHtml = NovelWebViewDocumentBuilder.assemble(
-            minimalInput().copy(
-                chapterDirectives = NovelWebViewChapterDirectives(
-                    video = VideoChapter(),
-                ),
-            ),
-        )
-        val localVideoHtml = NovelWebViewDocumentBuilder.assemble(
-            minimalInput().copy(
-                chapterDirectives = NovelWebViewChapterDirectives(localVideo = "video.mp4"),
-            ),
-        )
-
-        assertFalse(textHtml.contains("core-player.js"))
-        assertTrue(videoHtml.contains("hls.min.js"))
-        assertTrue(videoHtml.contains("videojs.min.js"))
-        assertTrue(videoHtml.contains("core-player.js"))
-        // The bundle deliberately emits no stylesheet; reader layout is core-player.css alone.
-        assertFalse(videoHtml.contains("videojs.min.css"))
-        assertTrue(videoHtml.contains("core-player.css"))
-        assertTrue(videoHtml.indexOf("hls.min.js") < videoHtml.indexOf("videojs.min.js"))
-        assertTrue(videoHtml.indexOf("videojs.min.js") < videoHtml.indexOf("core-player.js"))
-        assertFalse(localVideoHtml.contains("core-player.js"))
-        assertFalse(localVideoHtml.contains("videojs.min.js"))
-        assertTrue(localVideoHtml.contains("core-player.css"))
-        assertTrue(localVideoHtml.contains("Android.playLocalVideo()"))
-    }
-
-    @Test
-    fun `reader language tag drives the document lang the player resolves its locale from`() {
-        assertEquals(
-            "vi",
-            readerLanguageTag(LocaleListCompat.forLanguageTags("vi"), Locale.ENGLISH),
-        )
-        // App language wins over the system one.
-        assertEquals(
-            "ja",
-            readerLanguageTag(LocaleListCompat.forLanguageTags("ja,ko"), Locale.forLanguageTag("de")),
-        )
-        // No app override: fall back to the system locale.
-        assertEquals(
-            "pt-BR",
-            readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("pt-BR")),
-        )
-        // An undetermined locale is not a usable lang value.
-        assertEquals(
-            "en",
-            readerLanguageTag(LocaleListCompat.getEmptyLocaleList(), Locale.forLanguageTag("")),
-        )
-        assertTrue(NovelWebViewDocumentBuilder.assemble(minimalInput()).contains("<html lang=\""))
-    }
-
-    @Test
-    fun `gesture classifier is installed before any page script that could swallow the event`() {
-        val html = NovelWebViewDocumentBuilder.assemble(
-            minimalInput().copy(
-                pluginJavaScript = "window.pluginStarted = true",
-                chapterDirectives = NovelWebViewChapterDirectives(video = VideoChapter()),
-            ),
-        )
-
-        val gestures = html.indexOf("reader-gestures.js")
-        assertTrue(gestures > 0)
-        assertEquals(gestures, html.lastIndexOf("reader-gestures.js"))
-        assertTrue(gestures < html.indexOf("lnreader-compat.js"))
-        assertTrue(gestures < html.indexOf("core-player.js"))
-        assertTrue(gestures < html.indexOf("window.pluginStarted"))
-    }
-
-    @Test
-    fun `chapter summary API is installed after reader compatibility API`() {
-        val html = NovelWebViewDocumentBuilder.assemble(minimalInput())
-
-        val compat = html.indexOf("lnreader-compat.js")
-        val summary = html.indexOf("chapter-summary.js")
-        assertTrue(compat > 0)
-        assertTrue(summary > compat)
-        assertEquals(summary, html.lastIndexOf("chapter-summary.js"))
-    }
+    private fun readerChapter(id: Long, path: String) = ReaderChapter(
+        ChapterImpl().apply {
+            this.id = id
+            url = path
+            name = "Chapter $id"
+            chapter_number = id.toFloat()
+        },
+    )
 }

@@ -2,11 +2,11 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.HtmlUtils
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.math.roundToInt
 
-// WebView port of LNReader's SkeletonLines and react-native-shimmer-placeholder 2.0.9.
 internal object NovelWebViewLoadingSkeleton {
-
     data class Style(
         val backgroundColor: Int,
         val fontSize: Int,
@@ -19,125 +19,31 @@ internal object NovelWebViewLoadingSkeleton {
 
     fun buildHtml(style: Style, message: String): String {
         val (baseColor, highlightColor) = shimmerColors(style.backgroundColor)
-        val lineGap = cssNumber(style.fontSize * (style.lineHeight - 1.0))
-        val lineHeight = cssNumber(style.fontSize * style.lineHeight.toDouble())
-
+        val config = buildJsonObject {
+            put("background", ThemeUtils.colorToHex(style.backgroundColor))
+            put("base", baseColor)
+            put("highlight", highlightColor)
+            put("fontSize", style.fontSize)
+            put("lineGap", cssNumber(style.fontSize * (style.lineHeight - 1.0)).toDouble())
+            put("lineHeight", cssNumber(style.fontSize * style.lineHeight.toDouble()).toDouble())
+            put("marginLeft", style.marginLeft)
+            put("marginRight", style.marginRight)
+            put("marginTop", style.marginTop)
+            put("marginBottom", style.marginBottom)
+        }
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    * { box-sizing: border-box; }
-                    html, body { height: 100%; overflow: hidden; }
-                    body {
-                        margin: 0;
-                        padding: ${style.marginTop}px ${style.marginRight}px ${style.marginBottom}px ${style.marginLeft}px;
-                        background-color: ${ThemeUtils.colorToHex(style.backgroundColor)};
-                    }
-                    .skeleton {
-                        display: flex;
-                        flex-direction: column;
-                        height: 100%;
-                        overflow: hidden;
-                        position: relative;
-                        width: 100%;
-                    }
-                    .line {
-                        flex-shrink: 0;
-                        height: ${style.fontSize}px;
-                        margin: 0 0 ${lineGap}px;
-                        border-radius: 8px;
-                        background: $baseColor;
-                        overflow: hidden;
-                        position: relative;
-                    }
-                    .shimmer {
-                        position: absolute;
-                        inset: 0;
-                        background: linear-gradient(
-                            90deg,
-                            $baseColor -10%,
-                            $highlightColor 50%,
-                            $baseColor 110%
-                        );
-                        transform: translateX(-100%);
-                        animation: shimmer 1000ms infinite;
-                        will-change: transform;
-                    }
-                    .gap {
-                        flex-shrink: 0;
-                        height: ${lineGap}px;
-                        margin: 8px;
-                    }
-                    .status {
-                        position: absolute;
-                        width: 1px;
-                        height: 1px;
-                        padding: 0;
-                        margin: -1px;
-                        overflow: hidden;
-                        clip: rect(0, 0, 0, 0);
-                        white-space: nowrap;
-                        border: 0;
-                    }
-                    @keyframes shimmer {
-                        0% {
-                            transform: translateX(-100%);
-                            animation-timing-function: cubic-bezier(0.42, 0, 1, 1);
-                        }
-                        50% {
-                            transform: translateX(0);
-                            animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
-                        }
-                        100% { transform: translateX(100%); }
-                    }
-                    @media (prefers-reduced-motion: reduce) {
-                        .shimmer { animation: none; }
-                    }
-                </style>
+                <link rel="stylesheet" href="https://nekori.reader/assets/skeleton.css">
             </head>
             <body>
                 <div class="status" role="status">${HtmlUtils.escapeHtml(message)}</div>
                 <main id="skeleton" class="skeleton" aria-hidden="true"></main>
-                <script>
-                    (() => {
-                        const root = document.getElementById('skeleton');
-                        const lineHeight = $lineHeight;
-                        let availableHeight = window.innerHeight - 10;
-                        let consecutiveLines = 0;
-                        const items = [];
-
-                        while (availableHeight > lineHeight) {
-                            if (Math.random() * 4 > 1 && consecutiveLines <= 5) {
-                                items.push(true);
-                                availableHeight -= lineHeight;
-                                consecutiveLines++;
-                            } else {
-                                items.push(false);
-                                availableHeight -= 16;
-                                consecutiveLines = 0;
-                            }
-                        }
-
-                        items.forEach((isLine, index) => {
-                            const element = document.createElement('div');
-                            const endsParagraph = items[index + 1] !== undefined && !items[index + 1];
-                            if (endsParagraph || isLine) {
-                                const width = endsParagraph ? Math.max(0.1, Math.random()) * 90 : 90;
-                                element.className = 'line';
-                                element.style.width = `${'$'}{width}vw`;
-                                const shimmer = document.createElement('div');
-                                shimmer.className = 'shimmer';
-                                element.appendChild(shimmer);
-                            } else {
-                                element.className = 'gap';
-                            }
-                            root.appendChild(element);
-                        });
-                    })();
-                </script>
+                <script id="nekori-skeleton-config" type="application/json">$config</script>
+                <script src="https://nekori.reader/assets/skeleton.js"></script>
             </body>
             </html>
         """.trimIndent()

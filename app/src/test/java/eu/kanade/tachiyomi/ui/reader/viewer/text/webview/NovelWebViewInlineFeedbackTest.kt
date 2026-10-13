@@ -40,18 +40,18 @@ class NovelWebViewInlineFeedbackTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
-            val rendered = mutableListOf<String>()
+            val rendered = mutableListOf<ReaderCommand>()
             val feedback = NovelWebViewInlineFeedback(
                 context = ContextWrapper(null),
                 scope = this,
-                evaluateJs = rendered::add,
+                executeCommand = rendered::add,
             )
 
             feedback.showInlineError("stale")
             feedback.clear()
             runCurrent()
 
-            assertTrue(rendered.none { it.contains("stale") }, rendered.joinToString())
+            assertTrue(rendered.none { it.payload["message"]?.toString()?.contains("stale") == true })
         } finally {
             Dispatchers.resetMain()
         }

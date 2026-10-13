@@ -8,6 +8,46 @@ import org.junit.jupiter.api.Test
 
 class NovelWebViewChapterDirectivesTest {
     @Test
+    fun `offline local-video control data is adapted in memory only`() {
+        val stored = """<meta name="lnreader-chapter-type" content="video">
+            |<meta name="lnreader-video-local" content="video.mp4">
+            |<button id="tsundoku-play-local-video">Play</button>
+        """.trimMargin()
+        val directives = NovelWebViewChapterDirectives.parse(stored)
+        val adapted = directives.adaptLoadedHtml(stored)
+        assertTrue(adapted.contains("id=\"nekori-play-local-video\""))
+        assertTrue(stored.contains("id=\"tsundoku-play-local-video\""))
+        assertEquals("video.mp4", directives.localVideo)
+        assertEquals(stored, NovelWebViewChapterDirectives().adaptLoadedHtml(stored))
+    }
+
+    @Test
+    fun `canonical offline media is decoded into typed player data`() {
+        val directives = NovelWebViewChapterDirectives.parse(
+            """<meta name="nekori-chapter-type" content="video">
+                <meta name="nekori-video-mode" content="direct">
+                <meta name="nekori-video-type" content="mpd">
+                <meta name="nekori-video-url" content="https://media.example/stream.mpd">
+                <meta name="nekori-video-poster" content="cover.jpg">
+                <meta name="nekori-video-thumbnails" content="thumbs.vtt">""",
+        )
+        assertEquals("mpd", directives.video?.type)
+        assertEquals("https://media.example/stream.mpd", directives.video?.url)
+        assertEquals("cover.jpg", directives.video?.poster)
+        assertEquals("thumbs.vtt", directives.video?.thumbnailsVtt)
+    }
+
+    @Test
+    fun `legacy local stubs reject directory and null filenames`() {
+        listOf(".", "..", "folder/video.mp4", "video\\file.mp4").forEach { name ->
+            val directives = NovelWebViewChapterDirectives.parse(
+                """<meta name="lnreader-chapter-type" content="video"><meta name="lnreader-video-local" content="$name">""",
+            )
+            assertNull(directives.localVideo)
+        }
+    }
+
+    @Test
     fun checkpointPolicyComesFromStructuredContent() {
         val content = eu.kanade.tachiyomi.source.model.ChapterContent(
             state = "checkpoint",

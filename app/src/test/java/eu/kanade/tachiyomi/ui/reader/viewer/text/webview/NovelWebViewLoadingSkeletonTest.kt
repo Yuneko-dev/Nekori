@@ -21,18 +21,16 @@ class NovelWebViewLoadingSkeletonTest {
         val html = NovelWebViewLoadingSkeleton.buildHtml(style, "Loading...")
 
         assertTrue(html.contains("""class="skeleton""""))
-        assertTrue(html.contains("flex-direction: column"))
-        assertTrue(html.contains("flex-shrink: 0"))
-        assertTrue(html.contains("@keyframes shimmer"))
-        assertTrue(html.contains("animation: shimmer 1000ms infinite"))
-        assertTrue(html.contains("cubic-bezier(0.42, 0, 1, 1)"))
-        assertTrue(html.contains("cubic-bezier(0, 0, 0.58, 1)"))
-        assertTrue(html.contains("height: 18px"))
-        assertTrue(html.contains("margin: 0 0 10.8px"))
-        assertTrue(html.contains("padding: 48px 24px 16px 20px"))
-        assertTrue(html.contains("Math.random() * 4 > 1"))
-        assertTrue(html.contains("Math.max(0.1, Math.random()) * 90"))
-        assertTrue(html.contains("""element.style.width = `${'$'}{width}vw`"""))
+        assertTrue(html.contains("https://nekori.reader/assets/skeleton.css"))
+        assertTrue(html.contains("https://nekori.reader/assets/skeleton.js"))
+        assertTrue(html.contains("\"fontSize\":18"))
+        assertTrue(html.contains("\"lineGap\":10.8"))
+        assertTrue(html.contains("\"marginTop\":48"))
+        assertTrue(html.contains("\"marginRight\":24"))
+        assertTrue(html.contains("\"marginBottom\":16"))
+        assertTrue(html.contains("\"marginLeft\":20"))
+        assertFalse(html.contains("Math.random"))
+        assertFalse(html.contains("<style>"))
         assertFalse(html.contains("<body>\n    <div>Loading...</div>"))
     }
 
@@ -46,11 +44,12 @@ class NovelWebViewLoadingSkeletonTest {
     }
 
     @Test
-    fun `buildHtml disables shimmer when reduced motion is requested`() {
+    fun `buildHtml contains no inline executable scripts`() {
         val html = NovelWebViewLoadingSkeleton.buildHtml(style, "Loading...")
 
-        assertTrue(html.contains("@media (prefers-reduced-motion: reduce)"))
-        assertTrue(html.contains(".shimmer { animation: none; }"))
+        val document = org.jsoup.Jsoup.parse(html)
+        assertTrue(document.select("script:not([src]):not([type=application/json])").isEmpty())
+        assertTrue(document.select("#nekori-skeleton-config[type=application/json]").isNotEmpty())
     }
 
     @Test

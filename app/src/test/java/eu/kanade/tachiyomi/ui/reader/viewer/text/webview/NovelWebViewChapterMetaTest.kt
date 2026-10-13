@@ -1,289 +1,89 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import eu.kanade.tachiyomi.data.database.models.ChapterImpl
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.buildChapterJson
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.buildChaptersJson
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.buildNovelJson
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.htmlAttributeEscape
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.jsEscape
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.resolveEpubChapterUrl
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.resolveWebViewBaseUrl
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.toAbsoluteChapterUrl
-import mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NovelWebViewChapterMetaTest {
 
     @Test
-    fun `resolveEpubChapterUrl combines the book url with an encoded entry`() {
-        val navigationUrl = NOVEL_EPUB_CHAPTER_SCHEME +
-            java.net.URLEncoder.encode("OEBPS/Text/chapter-2.xhtml#start", "UTF-8")
+    fun chapterJsonKeepsIdsAsStringsAndPluginPathOpaque() {
+        val chapter = readerChapter(17, "path//with#opaque").apply { chapter.last_page_read = 23 }
+        val json = buildChapterJson(chapter, "https://n.com")
 
-        assertEquals(
-            "Local/Book.epub#OEBPS/Text/chapter-2.xhtml#start",
-            resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter-1.xhtml", navigationUrl),
-        )
+        assertEquals(JsonPrimitive("17"), json["id"])
+        assertEquals(JsonPrimitive("path//with#opaque"), json["path"])
+        assertEquals(JsonPrimitive(23), json["progress"])
+        assertEquals(JsonPrimitive("https://n.com/path//with#opaque"), json["url"])
     }
 
     @Test
-    fun `resolveEpubChapterUrl rejects traversal and non EPUB navigation`() {
-        val traversal = NOVEL_EPUB_CHAPTER_SCHEME + java.net.URLEncoder.encode("../secret", "UTF-8")
+    fun missingChapterHasEmptyStringIdAndNoNumericSentinel() {
+        val json = buildChapterJson(null, "https://n.com")
 
-        assertEquals(null, resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter.xhtml", traversal))
-        assertEquals(null, resolveEpubChapterUrl("Local/Book.epub#OEBPS/Text/chapter.xhtml", "https://example.com"))
-    }
-
-    // jsEscape
-
-    @Test
-    fun `jsEscape escapes backslashes`() {
-        assertEquals("foo\\\\bar", "foo\\bar".jsEscape())
+        assertEquals(JsonPrimitive(""), json["id"])
+        assertEquals(JsonPrimitive(""), json["name"])
+        assertEquals(JsonPrimitive(""), json["path"])
+        assertEquals(JsonPrimitive(0), json["progress"])
+        assertEquals(null, json["number"])
     }
 
     @Test
-    fun `jsEscape escapes double quotes`() {
-        assertEquals("\\\"foo\\\"", "\"foo\"".jsEscape())
+    fun novelMetadataUsesStringIdentityAndRawPath() {
+        val novel = buildNovelJson("source:17", "Name", "folder//novel#path")
+
+        assertEquals(JsonPrimitive("source:17"), novel["id"])
+        assertEquals(JsonPrimitive("folder//novel#path"), novel["path"])
     }
 
     @Test
-    fun `jsEscape escapes newlines and carriage returns`() {
-        assertEquals("a\\nb\\rc", "a\nb\rc".jsEscape())
+    fun chapterListIsStructuredJsonRatherThanSerializedScriptText() {
+        val chapters = buildChaptersJson(listOf(readerChapter(1, "one"), readerChapter(2, "two")), null)
+
+        assertEquals(2, chapters.size)
+        assertEquals(JsonPrimitive("1"), chapters[0].let { (it as kotlinx.serialization.json.JsonObject)["id"] })
     }
 
     @Test
-    fun `jsEscape neutralizes script close tags`() {
-        assertEquals("<\\/script>", "</script>".jsEscape())
-        assertEquals("<\\/Script>", "</Script>".jsEscape())
-        assertEquals("<\\/SCRIPT>", "</SCRIPT>".jsEscape())
+    fun relativeChapterUrlResolvesForExternalNavigationWithoutChangingStoredPath() {
+        assertEquals("https://example.com/dir/ch1", toAbsoluteChapterUrl("ch1", "https://example.com/dir/"))
+        assertEquals("/chapter", toAbsoluteChapterUrl("/chapter", null))
     }
 
     @Test
-    fun `jsEscape leaves safe text unchanged`() {
-        assertEquals("hello world", "hello world".jsEscape())
-    }
-
-    // htmlAttributeEscape
-
-    @Test
-    fun `htmlAttributeEscape escapes ampersand first to avoid double-escape`() {
-        assertEquals("&amp;quot;", "&quot;".htmlAttributeEscape())
-    }
-
-    @Test
-    fun `htmlAttributeEscape escapes quotes apostrophes and angle brackets`() {
-        assertEquals("&quot;&#39;&lt;&gt;", "\"'<>".htmlAttributeEscape())
-    }
-
-    // quoteForJson
-
-    @Test
-    fun `quoteForJson wraps in double quotes`() {
-        val quoted = quoteForJson("hello")
-        assertTrue(quoted.startsWith("\""))
-        assertTrue(quoted.endsWith("\""))
+    fun privateReaderOriginAndEpubNavigationRemainSupported() {
+        assertEquals("https://nekori.reader/", resolveWebViewBaseUrl("/foo", null))
+        val nav = mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME +
+            java.net.URLEncoder.encode("OEBPS/Text/chapter.xhtml#start", "UTF-8")
+        assertEquals("Book.epub#OEBPS/Text/chapter.xhtml#start", resolveEpubChapterUrl("Book.epub#old", nav))
+        val traversal = mihon.core.archive.NOVEL_EPUB_CHAPTER_SCHEME +
+            java.net.URLEncoder.encode("../secret", "UTF-8")
+        assertNull(resolveEpubChapterUrl("Book.epub#old", traversal))
     }
 
     @Test
-    fun `quoteForJson escapes inner quotes`() {
-        val quoted = quoteForJson("he\"llo")
-        assertTrue(quoted.contains("he\\\"llo"))
+    fun htmlAttributeEscapeProtectsStaticChapterAttributes() {
+        assertEquals("&amp;&quot;&#39;&lt;&gt;", "&\"'<>".htmlAttributeEscape())
+        assertTrue(NovelWebViewChapterMeta.CHAPTER_TAG_NAME.startsWith("nekori-"))
     }
 
-    @Test
-    fun `quoteForJson escapes backslash`() {
-        assertTrue(quoteForJson("a\\b").contains("a\\\\b"))
-    }
-
-    @Test
-    fun `quoteForJson escapes newline tab carriage return`() {
-        val quoted = quoteForJson("a\nb\tc\r")
-        assertTrue(quoted.contains("\\n"))
-        assertTrue(quoted.contains("\\t"))
-        assertTrue(quoted.contains("\\r"))
-    }
-
-    @Test
-    fun `quoteForJson escapes forward slash for script tag safety`() {
-        // </script> inside JSON must not terminate the enclosing script tag
-        val quoted = quoteForJson("</script>")
-        assertFalse(quoted.contains("</script>"), "raw </script> must not appear")
-        assertTrue(quoted.contains("<\\/script>"))
-    }
-
-    @Test
-    fun `quoteForJson safe string passes through unchanged except quotes`() {
-        val result = quoteForJson("Hello, world!")
-        assertEquals("\"Hello, world!\"", result)
-    }
-
-    // toAbsoluteChapterUrl
-
-    @Test
-    fun `toAbsoluteChapterUrl passes absolute http urls through`() {
-        assertEquals(
-            "https://example.com/ch1",
-            toAbsoluteChapterUrl("https://example.com/ch1", "https://novel.com/n"),
-        )
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl resolves relative path against novel url`() {
-        assertEquals(
-            "https://novel.com/ch1",
-            toAbsoluteChapterUrl("/ch1", "https://novel.com/n"),
-        )
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl returns blank for blank chapterPath`() {
-        assertEquals("", toAbsoluteChapterUrl("", "https://novel.com"))
-        assertEquals("", toAbsoluteChapterUrl(null, "https://novel.com"))
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl preserves relative when novelUrl is not http`() {
-        assertEquals("/local/ch1", toAbsoluteChapterUrl("/local/ch1", null))
-        assertEquals("/local/ch1", toAbsoluteChapterUrl("/local/ch1", "file:///app/data"))
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl repairs missing colon in scheme`() {
-        // HtmlUtils.normalizeUrl converts "https//foo.com/x" to "https://foo.com/x"
-        assertEquals(
-            "https://foo.com/x",
-            toAbsoluteChapterUrl("https//foo.com/x", "https://novel.com"),
-        )
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl resolves root-relative path against novel origin`() {
-        assertEquals(
-            "https://example.com/dir/img.webp",
-            toAbsoluteChapterUrl("/dir/img.webp", "https://example.com/dir/"),
-        )
-    }
-
-    @Test
-    fun `toAbsoluteChapterUrl resolves document-relative path against novel directory`() {
-        assertEquals(
-            "https://example.com/dir/img.webp",
-            toAbsoluteChapterUrl("img.webp", "https://example.com/dir/"),
-        )
-    }
-
-    // resolveWebViewBaseUrl
-
-    @Test
-    fun `resolveWebViewBaseUrl prefers absolute chapter url`() {
-        assertEquals(
-            "https://example.com/ch1",
-            resolveWebViewBaseUrl("https://example.com/ch1", "https://novel.com"),
-        )
-    }
-
-    @Test
-    fun `resolveWebViewBaseUrl falls back to novel url for relative chapter`() {
-        assertEquals(
-            "https://novel.com",
-            resolveWebViewBaseUrl("/relative", "https://novel.com"),
-        )
-    }
-
-    @Test
-    fun `resolveWebViewBaseUrl uses the private reader origin for local content`() {
-        assertEquals("https://tsundoku.reader/", resolveWebViewBaseUrl("/foo", null))
-        assertEquals("https://tsundoku.reader/", resolveWebViewBaseUrl(null, null))
-    }
-
-    // buildChapterJson
-
-    @Test
-    fun `buildChapterJson returns null sentinels for null chapter`() {
-        val json = NovelWebViewChapterMeta.buildChapterJson(null, "https://n.com")
-        assertTrue(json.contains("\"id\": -1"))
-        assertTrue(json.contains("\"title\": \"\""))
-        assertTrue(json.contains("\"number\": -1"))
-        assertTrue(json.contains("\"path\": \"\""))
-    }
-
-    // buildChaptersJson
-
-    @Test
-    fun `buildChaptersJson empty list returns empty array literal`() {
-        assertEquals("[]", NovelWebViewChapterMeta.buildChaptersJson(emptyList(), "https://n.com"))
-    }
-
-    // buildTsundokuScript: assembled script contains all keys
-
-    @Test
-    fun `buildTsundokuScript includes the required Tsundoku keys`() {
-        val script = NovelWebViewChapterMeta.buildTsundokuScript(
-            NovelWebViewChapterMeta.TsundokuScriptContext(
-                novelUrl = "https://n.com",
-                currentChapter = null,
-                chaptersInOrder = emptyList(),
-                isEditingMode = false,
-                isInfiniteScroll = true,
-                textSelectionBlocked = false,
-                forcedLowercase = false,
-            ),
-        )
-        assertTrue(script.contains("window.Tsundoku = window.Tsundoku || {}"))
-        assertTrue(script.contains(".novelUrl"))
-        assertTrue(script.contains(".currentChapter"))
-        assertTrue(script.contains(".chapters"))
-        assertTrue(script.contains(".runtime"))
-        assertTrue(script.contains(".isEditMode"))
-        assertTrue(script.contains(".isInfScroll"))
-        assertTrue(script.contains(".textSelectionBlocked"))
-        assertTrue(script.contains(".forcedLowercase"))
-        assertTrue(script.contains(".menuVisible"))
-        assertTrue(script.contains(".immersive"))
-        assertTrue(script.contains(".ttsState"))
-        assertTrue(script.contains(".loadingChapter"))
-    }
-
-    @Test
-    fun `buildTsundokuScript seeds the new runtime state`() {
-        val script = NovelWebViewChapterMeta.buildTsundokuScript(
-            NovelWebViewChapterMeta.TsundokuScriptContext(
-                novelUrl = null,
-                currentChapter = null,
-                chaptersInOrder = emptyList(),
-                isEditingMode = false,
-                isInfiniteScroll = false,
-                textSelectionBlocked = false,
-                forcedLowercase = false,
-                menuVisible = true,
-                immersive = false,
-                ttsState = "playing",
-                loadingChapter = true,
-            ),
-        )
-        assertTrue(script.contains(".menuVisible = true"))
-        assertTrue(script.contains(".immersive = false"))
-        assertTrue(script.contains(".ttsState = \"playing\""))
-        assertTrue(script.contains(".loadingChapter = true"))
-    }
-
-    @Test
-    fun `buildTsundokuScript runtime flags reflect context booleans`() {
-        val script = NovelWebViewChapterMeta.buildTsundokuScript(
-            NovelWebViewChapterMeta.TsundokuScriptContext(
-                novelUrl = null,
-                currentChapter = null,
-                chaptersInOrder = emptyList(),
-                isEditingMode = true,
-                isInfiniteScroll = false,
-                textSelectionBlocked = true,
-                forcedLowercase = true,
-            ),
-        )
-        // Each flag appears once in `= true|false;` form.
-        assertTrue(script.contains(".isEditMode = true"))
-        assertTrue(script.contains(".isInfScroll = false"))
-        assertTrue(script.contains(".textSelectionBlocked = true"))
-        assertTrue(script.contains(".forcedLowercase = true"))
-        assertFalse(script.contains(".isEditMode = false"))
-    }
+    private fun readerChapter(id: Long, path: String) = ReaderChapter(
+        ChapterImpl().apply {
+            this.id = id
+            name = "Chapter $id"
+            url = path
+            chapter_number = id.toFloat()
+        },
+    )
 }

@@ -24,7 +24,7 @@ internal class NovelReaderPreview(private val readAsset: () -> String) : PageLoa
             id = ID,
             mangaId = ID,
             name = "Lorem ipsum dolor sit amet consectetuer adipiscing elit",
-            url = "https://tsundoku.reader/",
+            url = "https://nekori.reader/",
             chapterNumber = 1.0,
         ),
     )

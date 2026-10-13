@@ -8,17 +8,18 @@ import eu.kanade.tachiyomi.ui.reader.setting.NovelPagePosition
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
 import eu.kanade.tachiyomi.ui.reader.setting.NovelReadingLayout
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
-/** Owns ephemeral page state and the small command surface sent to the WebView. */
+/** Owns native page state and sends structured commands to the reader runtime. */
 internal class NovelWebViewPagedController(
     private val context: Context,
     private val webView: WebView,
     private val preferences: ReaderPreferences,
-    private val evaluateJs: (String) -> Unit,
+    private val executeCommand: (ReaderCommand) -> Unit,
 ) {
     private val _position = MutableStateFlow<NovelPagePosition?>(null)
     val position: StateFlow<NovelPagePosition?> = _position.asStateFlow()
@@ -47,13 +48,6 @@ internal class NovelWebViewPagedController(
         this.chapterId = chapterId
         _position.value = null
         applyOverScrollMode()
-        val facade = NovelWebViewJsAssets.loadWith(
-            context,
-            "reader-layout.js",
-            mapOf("TSUNDOKU_OBJECT_NAME" to TSUNDOKU_OBJECT_NAME),
-        )
-        val driver = NovelWebViewJsAssets.load(context, "page-reader.js")
-        evaluateJs("$facade\n$driver")
         applyConfig()
     }
 
@@ -84,27 +78,35 @@ internal class NovelWebViewPagedController(
 
     fun moveVisualUnit(delta: Int) {
         if (!enabled || delta == 0) return
-        evaluateJs(
-            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.moveBy?.(${delta.coerceIn(-1, 1)}, 'instant');",
-        )
+        executeCommand(ReaderCommand("layout.move", buildJsonObject { put("delta", delta.coerceIn(-1, 1)) }))
     }
 
     fun seekUnit(unitIndex: Int) {
         if (!enabled) return
-        evaluateJs(
-            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.seekUnit?.(${unitIndex.coerceAtLeast(0)});",
+        executeCommand(
+            ReaderCommand(
+                "layout.seekUnit",
+                buildJsonObject {
+                    put("unitIndex", unitIndex.coerceAtLeast(0))
+                },
+            ),
         )
     }
 
     fun seekPercent(percent: Int) {
         if (!enabled) return
-        evaluateJs(
-            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.seekPercent?.(${percent.coerceIn(0, 100)});",
+        executeCommand(
+            ReaderCommand(
+                "layout.seekPercent",
+                buildJsonObject {
+                    put("percent", percent.coerceIn(0, 100))
+                },
+            ),
         )
     }
 
     fun reflow() {
-        if (enabled) evaluateJs("window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerLayout?.reflow?.();")
+        if (enabled) executeCommand(ReaderCommand("layout.reflow"))
     }
 
     fun effectiveEffect(): NovelPageEffect = if (preferences.flashOnPageChange.get()) {
@@ -132,10 +134,19 @@ internal class NovelWebViewPagedController(
         appliedSpread = spread
         val threshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0
         val vertical = preferences.novelReadingLayout.get() == NovelReadingLayout.VERTICAL
-        evaluateJs(
-            "window.$TSUNDOKU_OBJECT_NAME.runtime.readerLayout.configure({" +
-                "enabled:$enabled,spread:'${spread.name.lowercase()}',direction:'${direction.htmlValue}'," +
-                "vertical:$vertical,infinite:$infinite,threshold:$threshold,chapterId:'$chapterId'});",
+        executeCommand(
+            ReaderCommand(
+                "layout.configure",
+                buildJsonObject {
+                    put("enabled", enabled)
+                    put("spread", spread.name.lowercase())
+                    put("direction", direction.htmlValue)
+                    put("vertical", vertical)
+                    put("infinite", infinite)
+                    put("threshold", threshold)
+                    put("chapterId", chapterId.toString())
+                },
+            ),
         )
     }
 

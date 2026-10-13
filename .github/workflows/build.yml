@@ -83,6 +83,9 @@ jobs:
         working-directory: js-runtime
         run: pnpm install --frozen-lockfile
 
+      - name: Install reader runtime dependencies
+        run: npm ci --prefix app/tools/reader-runtime
+
       - name: Build release APK(s) from clean native/codegen state
         run: |
           ./gradlew clean

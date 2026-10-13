@@ -1,0 +1,104 @@
+:host {
+    display: block;
+    position: static;
+    z-index: auto;
+    inline-size: auto;
+    max-inline-size: 100%;
+    margin: 1.25em 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    color: var(--reader-text-color, CanvasText);
+    font-family: system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+:host([data-presentation="fullpage"]) {
+    margin-block: clamp(1.5rem, 5vh, 3rem);
+}
+
+.card {
+    box-sizing: border-box;
+    inline-size: min(100%, 52rem);
+    margin-inline: auto;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid color-mix(in srgb, var(--reader-text-color, CanvasText) 20%, transparent);
+    border-inline-start: 3px solid var(--md-sys-color-primary, currentColor);
+    border-radius: .75rem;
+    background: color-mix(in srgb, var(--reader-text-color, CanvasText) 5%, var(--reader-background-color, Canvas));
+    color: var(--reader-text-color, CanvasText);
+    overflow-wrap: anywhere;
+}
+
+:host([data-severity="error"]) .card {
+    border-inline-start: 3px solid var(--md-sys-color-error, #b3261e);
+}
+
+:host([data-severity="error"]) .category {
+    color: var(--md-sys-color-error, #b3261e);
+}
+
+.category {
+    color: var(--md-sys-color-primary, currentColor);
+    margin: 0 0 .35em;
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+.summary {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.details {
+    margin-block-start: 1rem;
+}
+
+.details > summary {
+    inline-size: fit-content;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.trace {
+    box-sizing: border-box;
+    max-block-size: min(30vh, 18rem);
+    margin: .75rem 0 0;
+    padding: .75rem;
+    overflow: auto;
+    border-radius: .5rem;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    font: 0.82em/1.45 ui-monospace, monospace;
+    white-space: pre;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-block-start: 1rem;
+}
+
+.action {
+    min-block-size: 44px;
+    padding: .55rem .9rem;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: .5rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.action:focus-visible,
+.details > summary:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+
+.action:active {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+}

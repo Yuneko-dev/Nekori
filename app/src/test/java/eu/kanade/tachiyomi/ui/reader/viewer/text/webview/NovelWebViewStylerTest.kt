@@ -1,11 +1,21 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.presentation.reader.settings.CodeSnippet
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NovelWebViewStylerTest {
+
+    @Test
+    fun snippetCommandPreservesUserCodeBytes() {
+        val code = "/*\r\n user */\nwindow.x = '</script>'"
+        val command = NovelWebViewStyler.snippetCommand("saved", code)
+
+        assertEquals("snippet.run", command.method)
+        assertEquals(JsonPrimitive(code), command.payload["code"])
+    }
 
     @Test
     fun `not reapplying runs every enabled snippet regardless of baseline`() {

@@ -9,17 +9,17 @@ class VideoStubHtmlTest {
 
     @Test
     fun `stub includes titles and opens the downloaded video`() {
-        val document = Jsoup.parse(
-            createVideoStub(
-                localVideoFileName = "video.mp4",
-                playLabel = "Play <video>",
-                novelTitle = "Novel <title>",
-                chapterTitle = "Chapter & title",
-            ),
+        val html = createVideoStub(
+            localVideoFileName = "video.mp4",
+            playLabel = "Play <video>",
+            novelTitle = "Novel <title>",
+            chapterTitle = "Chapter & title",
         )
+        val document = Jsoup.parse(html)
         val button = document.selectFirst("button")
 
-        assertEquals("video.mp4", document.selectFirst("meta[name=lnreader-video-local]")?.attr("content"))
+        assertEquals("video.mp4", document.selectFirst("meta[name=nekori-video-local]")?.attr("content"))
+        assertEquals("video", eu.kanade.tachiyomi.source.model.ChapterContent.fromLegacy(html).type)
         assertEquals("Novel <title>", document.selectFirst("h2")?.text())
         assertEquals("Chapter & title", document.selectFirst("h4")?.text())
         assertEquals(LOCAL_VIDEO_BUTTON_ID, button?.id())

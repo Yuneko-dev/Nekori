@@ -4,19 +4,11 @@ export async function checkOverlays(page) {
   for (const width of [360, 430, 900]) {
     await page.setViewportSize({ width, height: 800 });
     for (const language of ["en", "vi"]) {
-      await page.evaluate(language => {
-        const p = LNReaderPlayer;
-        p.videoElement.pause();
-        const vi = language === "vi";
-        const text = (root, selector, value) => root.querySelector(selector).textContent = value;
-        text(p.resumeOverlay, ".lnreader-overlay__title", vi ? "Hệ thống ghi nhận bạn đã từng xem video này trước đó!" : "You watched this video before");
-        text(p.resumeOverlay, ".lnreader-overlay__question", vi ? "Bạn có muốn xem tiếp từ đoạn" : "Continue from");
-        text(p.resumeOverlay, '[data-action="continue"]', vi ? "Xem tiếp" : "Continue");
-        text(p.resumeOverlay, '[data-action="restart"]', vi ? "Từ đầu" : "From the beginning");
-        text(p.nextUpPopup, ".lnreader-nextup__label", vi ? "Tập tiếp theo" : "Up next");
-        text(p.nextUpPopup, '[data-action="next"]', vi ? "Xem ngay" : "Play now");
-        p.offerResume(p.videoElement, 2);
+      await page.evaluate(async language => {
+        const player = await mediaHarness.setPlayer({ type: "video-file", url: "/direct-long.mp4", progress: 25, language });
+        await player.playDirect("/direct-long.mp4");
       }, language);
+      await page.waitForFunction(() => !document.querySelector("video-skin")?.shadowRoot.querySelector(".nekori-overlay")?.hidden);
       const inspect = selector => page.evaluate(selector => {
         const shadow = document.querySelector("video-skin").shadowRoot;
         const el = shadow.querySelector(selector);
@@ -31,34 +23,28 @@ export async function checkOverlays(page) {
           lines: range.getClientRects().length,
         };
       }, selector);
-      for (const action of ["continue", "restart"]) {
-        assert.deepEqual(await inspect(`[data-action="${action}"]`), { inside: true, clickable: true, lines: 1 }, `${width}/${language}: resume ${action}`);
-      }
+      assert.deepEqual(await inspect('[data-action="continue"]'), { inside: true, clickable: true, lines: 1 }, `${width}/${language}: resume continue`);
+      assert.deepEqual(await inspect('[data-action="restart"]'), { inside: true, clickable: true, lines: 1 }, `${width}/${language}: resume restart`);
+      assert.equal(await page.locator(".nekori-overlay__title").textContent(), language === "vi" ? "Hệ thống ghi nhận bạn đã từng xem video này trước đó!" : "You watched this video before");
       if (process.env.PLAYER_SCREENSHOTS) await page.screenshot({ path: `${process.env.PLAYER_SCREENSHOTS}/resume-${width}-${language}.png` });
       await page.locator('[data-action="continue"]').click();
-      await page.evaluate(() => LNReaderPlayer.videoElement.play());
-      await page.evaluate(() => {
-        LNReaderPlayer.videoElement.pause();
-        LNReaderPlayer.updateNextUp({ duration: 300, currentTime: 233 });
-      });
+      await page.waitForFunction(() => document.querySelector("video")?.currentTime >= 2);
+
+      await page.waitForFunction(() => !document.querySelector("video-skin")?.shadowRoot.querySelector(".nekori-nextup")?.hidden);
       for (const action of ["next", "dismiss"]) {
         assert.deepEqual(await inspect(`[data-action="${action}"]`), { inside: true, clickable: true, lines: 1 }, `${width}/${language}: next ${action}`);
       }
+      assert.equal(await page.locator(".nekori-nextup__label").textContent(), language === "vi" ? "Tập tiếp theo" : "Up next");
       if (process.env.PLAYER_SCREENSHOTS) await page.screenshot({ path: `${process.env.PLAYER_SCREENSHOTS}/next-${width}-${language}.png` });
       await page.locator('[data-action="dismiss"]').click();
-      assert.equal(await page.evaluate(() => LNReaderPlayer.nextUpPopup.hidden), true);
-      await page.evaluate(() => { LNReaderPlayer.nextUpDismissed = false; });
+      assert.equal(await page.locator(".nekori-nextup").isHidden(), true);
     }
-    // RC2 deliberately hides timestamps when the time-slider group is narrower than 16rem.
     assert.equal(await page.locator('media-time[type="current"]').isVisible(), width !== 360);
   }
   await page.locator("media-fullscreen-button").click();
   await page.waitForFunction(() => !!document.fullscreenElement);
-  await page.evaluate(() => LNReaderPlayer.offerResume(LNReaderPlayer.videoElement, 2));
-  await page.locator('[data-action="continue"]').click();
   assert.equal(await page.locator('media-time[type="current"]').isVisible(), true);
   await page.evaluate(() => document.exitFullscreen());
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.evaluate(() => LNReaderPlayer.videoElement.play());
-  console.log("PASS mobile/desktop overlays, English/Vietnamese labels, timestamp breakpoint");
+  console.log("PASS responsive overlays, configured English/Vietnamese labels, timestamp breakpoint");
 }

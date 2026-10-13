@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 import android.content.Context
 import android.webkit.WebResourceResponse
 import eu.kanade.tachiyomi.data.background.ReaderBackgroundManager
+import eu.kanade.tachiyomi.ui.reader.setting.NovelBackgroundSettings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.backgroundSettings
 import kotlinx.serialization.json.Json
@@ -20,13 +21,7 @@ internal class NovelWebViewBackground(private val context: Context, private val 
 
     fun configJson(): String {
         val settings = preferences.backgroundSettings()
-        val config = Json.parseToJsonElement(
-            Json.encodeToString(settings.copy(image = imageUrl(settings.image))),
-        ).jsonObject
-        return buildJsonObject {
-            config.forEach { (key, value) -> put(key, value) }
-            put("errorMessage", JsonPrimitive(context.stringResource(TDMR.strings.novel_background_load_failed)))
-        }.toString()
+        return buildConfigJson(settings, context.stringResource(TDMR.strings.novel_background_load_failed)).toString()
     }
 
     fun intercept(url: String): WebResourceResponse? {
@@ -45,7 +40,16 @@ internal class NovelWebViewBackground(private val context: Context, private val 
     }
 
     companion object {
-        private const val HOST = "tsundoku.background"
+        private const val HOST = "nekori.background"
+
+        internal fun buildConfigJson(settings: NovelBackgroundSettings, errorMessage: String) = buildJsonObject {
+            val image = imageUrl(settings.image)
+            val config = Json.parseToJsonElement(Json.encodeToString(settings.copy(image = image))).jsonObject
+            config.forEach { (key, value) -> put(key, value) }
+            // Kotlin serialization omits default-valued properties; the reader requires this field to clear.
+            put("image", JsonPrimitive(image))
+            put("errorMessage", JsonPrimitive(errorMessage))
+        }
 
         internal fun imageUrl(id: String): String = if (id.isBlank()) {
             ""

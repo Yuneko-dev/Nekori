@@ -6,13 +6,15 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.LOCAL_VIDEO_BUTTON_ID
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterDirectives
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewDocumentBuilder.escapeForScriptTag
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.proxy.NovelReaderProxyServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -72,7 +74,14 @@ internal class VideoChapterDownloader(
                     // when resumable downloads become a measured requirement.
                     it.loadDataWithBaseURL(
                         baseUrl,
-                        buildDocument(html, directives, pluginJavaScript, server.endpoint, server.sinkEndpoint),
+                        buildDocument(
+                            html,
+                            directives,
+                            pluginJavaScript,
+                            server.endpoint,
+                            server.sinkEndpoint,
+                            it.prepareDocument(baseUrl),
+                        ),
                         "text/html",
                         Charsets.UTF_8.name(),
                         null,
@@ -119,7 +128,6 @@ internal class VideoChapterDownloader(
                     withContext(Dispatchers.Main.immediate) {
                         webView?.run {
                             runCatching { stopLoading() }
-                            runCatching { removeJavascriptInterface(HeadlessChapterWebView.BRIDGE_NAME) }
                             runCatching { destroy() }
                         }
                     }
@@ -138,28 +146,70 @@ internal class VideoChapterDownloader(
         pluginJavaScript: String,
         proxyEndpoint: String,
         sinkEndpoint: String,
+        documentId: String,
     ): String {
-        val compatConfig = """{"proxyEndpoint":"$proxyEndpoint"}"""
-        val downloadMeta = "<meta name=\"$DOWNLOAD_META\" content=\"$sinkEndpoint\">"
         val body = Jsoup.parse(html).body().html()
-        val pluginScript = pluginJavaScript.escapeForScriptTag()
+        val chapter = buildJsonObject {
+            put("id", "0")
+            put("name", "")
+            put("path", "")
+            put("progress", 0)
+        }
+        val config = buildJsonObject {
+            put("documentId", documentId)
+            put("mode", "download")
+            put(
+                "novel",
+                buildJsonObject {
+                    put("id", "0")
+                    put("name", "")
+                    put("path", "")
+                },
+            )
+            put("chapter", chapter)
+            put("nextChapter", kotlinx.serialization.json.JsonNull)
+            put("chapters", buildJsonArray { add(chapter) })
+            put("strings", buildJsonObject { })
+            put("autoSaveInterval", 5_000)
+            put("proxyEndpoint", proxyEndpoint)
+            put(
+                "player",
+                requireNotNull(
+                    directives.video,
+                ).playerConfig("download", proxyEndpoint = proxyEndpoint, downloadEndpoint = sinkEndpoint),
+            )
+            put("pluginJavaScript", pluginJavaScript)
+            put(
+                "runtime",
+                buildJsonObject {
+                    listOf(
+                        "editing",
+                        "infinite",
+                        "textSelectionBlocked",
+                        "forcedLowercase",
+                        "menuVisible",
+                        "loadingChapter",
+                        "loadingNext",
+                        "noMoreChapters",
+                    )
+                        .forEach { put(it, false) }
+                    put("immersive", true)
+                    put("ttsState", "stopped")
+                },
+            )
+        }.toString().replace("<", "\\u003c")
 
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                ${directives.metadataHtml}
-                $downloadMeta
+                <script id="nekori-reader-config" type="application/json">$config</script>
+                <script src="$ASSET_ROOT/hls.min.js"></script>
+                <script src="$ASSET_ROOT/download.js"></script>
             </head>
             <body>
-                <div id="LNReader-chapter">$body</div>
-                <div id="reader-ui"></div>
-                <script id="lnreader-compat-config" type="application/json">$compatConfig</script>
-                <script src="$ASSET_ROOT/lnreader-compat.js"></script>
-                <script src="$ASSET_ROOT/hls.min.js"></script>
-                <script src="$ASSET_ROOT/core-player.js"></script>
-                ${if (pluginScript.isBlank()) "" else "<script>$pluginScript</script>"}
+                <div id="nekori-reader" class="nekori-reader">$body</div>
             </body>
             </html>
         """.trimIndent()
@@ -221,8 +271,7 @@ internal class VideoChapterDownloader(
             ?: NovelReaderProxyServer.DEFAULT_SINK_ORIGIN
 
     companion object {
-        private const val ASSET_ROOT = "https://tsundoku.reader/assets"
-        private const val DOWNLOAD_META = "lnreader-video-download"
+        private const val ASSET_ROOT = "https://nekori.reader/assets"
         private const val STUB_FILE = "index.html"
         private const val STUB_WRITE_ATTEMPTS = 3
         private const val WATCHDOG_TIMEOUT_MS = 30_000L
@@ -240,8 +289,8 @@ internal fun createVideoStub(
     document.head().apply {
         appendElement("meta").attr("charset", "UTF-8")
         appendElement("title").text(playLabel)
-        appendElement("meta").attr("name", "lnreader-chapter-type").attr("content", "video")
-        appendElement("meta").attr("name", "lnreader-video-local").attr("content", localVideoFileName)
+        appendElement("meta").attr("name", "nekori-chapter-type").attr("content", "video")
+        appendElement("meta").attr("name", "nekori-video-local").attr("content", localVideoFileName)
     }
     document.body().appendElement("h2").text(novelTitle)
     document.body().appendElement("h4").text(chapterTitle)

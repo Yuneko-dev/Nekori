@@ -13,12 +13,9 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelProgress
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_DIVIDER_CLASS
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_ID_ATTR
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TAG_NAME
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.TSUNDOKU_OBJECT_NAME
-import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.quoteForJson
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.core.common.i18n.stringResource
@@ -32,9 +29,8 @@ internal class NovelWebViewStyler(
     private val preferences: ReaderPreferences,
     private val webView: WebView,
     private val container: View,
-    private val evaluateJs: (String) -> Unit,
+    private val executeCommand: (ReaderCommand) -> Unit,
 ) {
-
     private val background = NovelWebViewBackground(context, preferences)
 
     fun interceptBackground(url: String) = background.intercept(url)
@@ -70,81 +66,66 @@ internal class NovelWebViewStyler(
         val textAlign = preferences.novelTextAlign.get()
         val theme = preferences.novelTheme.get()
         val hideChapterTitle = preferences.novelHideChapterTitle.get()
-
         val (finalBgColor, finalTextColor) = ThemeUtils.getThemeColors(context, preferences, theme)
-
         val bgColorHex = ThemeUtils.colorToHex(finalBgColor)
         val textColorHex = ThemeUtils.colorToHex(finalTextColor)
-
         val customCss = preferences.novelCustomCss.get()
-        val pluginCustomCss = currentJsSource()
-            ?.customCSS
-            .orEmpty()
-            .takeIf { preferences.novelPluginUseCustomCss.get() }
-            .orEmpty()
+        val pluginCustomCss = currentJsSource()?.customCSS.orEmpty()
+            .takeIf { preferences.novelPluginUseCustomCss.get() }.orEmpty()
         val useOriginalFonts = preferences.novelUseOriginalFonts.get()
-
-        val cssSnippetsJson = preferences.novelCustomCssSnippets.get()
         val enabledSnippetsCss = try {
-            val snippets = Json.decodeFromString<List<CodeSnippet>>(cssSnippetsJson)
-            snippets.filter { it.enabled }.joinToString("\n") { it.code }
+            Json.decodeFromString<List<CodeSnippet>>(preferences.novelCustomCssSnippets.get())
+                .filter { it.enabled }.joinToString("\n") { it.code }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "Failed to parse CSS snippets: ${e.message}" }
+            logcat(LogPriority.ERROR) { "Failed to parse CSS snippets" }
             ""
         }
-
         val (fontFaceDeclaration, effectiveFontFamily) = resolveFontFace(fontFamily, useOriginalFonts)
-
         val textSelect = if (preferences.novelTextSelectable.get()) "text" else "none"
-
-        val hideChapterTitleCss = if (hideChapterTitle) {
-            "#LNReader-chapter h1:first-of-type, #LNReader-chapter h2:first-of-type, " +
-                "#LNReader-chapter h3:first-of-type, #LNReader-chapter h4:first-of-type, " +
-                "#LNReader-chapter h5:first-of-type, #LNReader-chapter h6:first-of-type " +
-                "{ display: none !important; }"
-        } else {
-            ""
-        }
-
+        val minFragmentLines = if (preferences.novelAllowLonelyLines.get()) 1 else 2
+        val fontSizeCss = fontSize.toString() + "px"
+        val marginTopCss = marginTop.toString() + "px"
+        val marginRightCss = marginRight.toString() + "px"
+        val marginBottomCss = marginBottom.toString() + "px"
+        val marginLeftCss = marginLeft.toString() + "px"
+        val paragraphIndentCss = paragraphIndent.toString() + "em"
+        val paragraphSpacingCss = paragraphSpacing.toString() + "em"
         val css = """
             $fontFaceDeclaration
             :root {
-                --reader-font-size: ${fontSize}px;
+                --reader-font-size: $fontSizeCss;
                 --reader-font-family: $effectiveFontFamily;
                 --reader-line-height: $lineHeight;
-                --reader-margin-top: ${marginTop}px;
-                --reader-margin-right: ${marginRight}px;
-                --reader-margin-bottom: ${marginBottom}px;
-                --reader-min-fragment-lines: ${if (preferences.novelAllowLonelyLines.get()) 1 else 2};
-                --reader-margin-left: ${marginLeft}px;
+                --reader-margin-top: $marginTopCss;
+                --reader-margin-right: $marginRightCss;
+                --reader-margin-bottom: $marginBottomCss;
+                --reader-min-fragment-lines: $minFragmentLines;
+                --reader-margin-left: $marginLeftCss;
                 --reader-text-color: $textColorHex;
                 --reader-background-color: $bgColorHex;
                 --reader-text-align: $textAlign;
                 --reader-user-select: $textSelect;
-                --reader-paragraph-indent: ${paragraphIndent}em;
-                --reader-paragraph-spacing: ${paragraphSpacing}em;
+                --reader-paragraph-indent: $paragraphIndentCss;
+                --reader-paragraph-spacing: $paragraphSpacingCss;
             }
-            $hideChapterTitleCss
             $pluginCustomCss
             $customCss
             $enabledSnippetsCss
         """.trimIndent().replace("\n", " ")
-
         return CustomStylePayload(
             css = css,
             bodyClasses = buildList {
-                if (!preferences.novelSourceCssPriority.get()) add("tsundoku-reader-force-style")
-                if (useOriginalFonts) add("tsundoku-reader-original-font")
+                if (hideChapterTitle) add("nekori-reader-hide-title")
+                if (!preferences.novelSourceCssPriority.get()) add("nekori-reader-force-style")
+                if (useOriginalFonts) add("nekori-reader-original-font")
             }.joinToString(" "),
             backgroundColor = finalBgColor,
             backgroundConfig = background.configJson(),
         )
     }
 
-    fun initialPluginJavaScript(): String {
-        if (!preferences.novelPluginUseCustomJs.get()) return ""
-        return currentJsSource()?.customJS.orEmpty()
-    }
+    fun initialPluginJavaScript(): String =
+        if (preferences.novelPluginUseCustomJs.get()) currentJsSource()?.customJS.orEmpty() else ""
 
     private fun currentJsSource(): JsSource? {
         val readerActivity = context as? ReaderActivity ?: return null
@@ -162,57 +143,39 @@ internal class NovelWebViewStyler(
             fontUriString = null
             return "" to fontFamily
         }
-
-        // Reference the font by URL instead of a base64 data: URI so the multi-MB bytes never enter
-        // the CSS string (re-escaped + bridged + re-parsed on every style change) or the LOS/GC.
-        // interceptFont() streams the bytes from disk via the WebView's shouldInterceptRequest, off
-        // the main thread, and the WebView decodes and caches the face once.
         fontUriString = fontFamily
         val isOtf = fontFamily.endsWith(".otf", ignoreCase = true)
         val format = if (isOtf) "opentype" else "truetype"
-        // Version by the uri so switching fonts busts the WebView's cached face for the same URL.
-        val url = "$FONT_URL_PREFIX?v=${fontFamily.hashCode()}"
-        val declaration =
-            "@font-face { font-family: 'CustomFont'; src: url('$url') format('$format'); font-display: swap; }"
-        return declaration to "'CustomFont', sans-serif"
+        val fontHash = fontFamily.hashCode()
+        val url = "$FONT_URL_PREFIX?v=$fontHash"
+        return "@font-face { font-family:'CustomFont'; src:url('$url') format('$format'); font-display:swap; }" to
+            "'CustomFont', sans-serif"
     }
 
-    // Written on the UI thread (style injection), read on the WebView worker thread (interceptFont);
-    // @Volatile so the worker sees the latest value instead of a stale cached one.
     @Volatile private var fontUriString: String? = null
 
     @Volatile private var cachedFontBytes: Pair<String, ByteArray>? = null
-
     private var lastAppliedSnippetCode: Map<String, String> = emptyMap()
     private var lastAppliedCustomJs: String? = null
 
-    /**
-     * Serve the custom font for the sentinel URL referenced by the injected @font-face. Runs on the
-     * WebView's worker thread (not the UI thread), so the disk read never stalls the UI. Fonts are
-     * fetched in CORS mode, so the response must allow the cross-origin document.
-     */
     fun interceptFont(url: String): android.webkit.WebResourceResponse? {
         if (!url.startsWith(FONT_URL_PREFIX)) return null
         val family = fontUriString ?: return null
         val bytes = loadFontBytes(family) ?: return null
         val mime = if (family.endsWith(".otf", ignoreCase = true)) "font/otf" else "font/ttf"
         return android.webkit.WebResourceResponse(mime, null, java.io.ByteArrayInputStream(bytes)).apply {
-            responseHeaders = mapOf(
-                "Access-Control-Allow-Origin" to "*",
-                "Cache-Control" to "max-age=31536000",
-            )
+            responseHeaders = mapOf("Access-Control-Allow-Origin" to "*", "Cache-Control" to "max-age=31536000")
         }
     }
 
     private fun loadFontBytes(family: String): ByteArray? {
         cachedFontBytes?.let { if (it.first == family) return it.second }
         return try {
-            val bytes = context.contentResolver.openInputStream(family.toUri())?.use { it.readBytes() }
-                ?: return null
+            val bytes = context.contentResolver.openInputStream(family.toUri())?.use { it.readBytes() } ?: return null
             cachedFontBytes = family to bytes
             bytes
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "Failed to read custom font: ${e.message}" }
+        } catch (_: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to read custom font" }
             null
         }
     }
@@ -221,148 +184,115 @@ internal class NovelWebViewStyler(
         val payload = buildPayload()
         webView.setBackgroundColor(payload.backgroundColor)
         container.setBackgroundColor(payload.backgroundColor)
-        val js = NovelWebViewJsAssets.loadWith(
-            context,
-            "inject-styles.js",
-            mapOf(
-                "STYLE_ID" to STYLE_ID_CUSTOM,
-                "CSS" to quoteForJson(payload.css),
+        executeCommand(
+            ReaderCommand(
+                "style.apply",
+                buildJsonObject {
+                    put("css", payload.css)
+                    put("bodyClasses", payload.bodyClasses)
+                    put("backgroundColor", payload.backgroundColor)
+                    put("background", Json.parseToJsonElement(payload.backgroundConfig))
+                },
             ),
         )
-        evaluateJs(js)
-        evaluateJs("window.readerBackground?.apply(${background.configJson()});")
     }
 
-    fun injectScript(
-        isAppend: Boolean = false,
-        reapplyChangedOnly: Boolean = false,
-        buildTsundokuScript: () -> String,
-    ) {
-        evaluateJs(buildTsundokuScript())
-
-        // Appends re-run only runOnAppend snippets; one-shot code stays on the initial load so it
-        // doesn't fire again on every appended chapter.
+    fun injectScript(isAppend: Boolean = false, reapplyChangedOnly: Boolean = false) {
         if (!isAppend) {
             val customJs = preferences.novelCustomJs.get()
-            val shouldRunCustomJs = !reapplyChangedOnly || lastAppliedCustomJs != customJs
-            if (customJs.isNotBlank() && shouldRunCustomJs) evaluateJs(customJs)
+            val shouldRun = !reapplyChangedOnly || lastAppliedCustomJs != customJs
+            if (customJs.isNotBlank() && shouldRun) runSnippet(customJs, "custom-js")
             lastAppliedCustomJs = customJs
         }
-
-        val jsSnippetsJson = preferences.novelCustomJsSnippets.get()
         val enabledSnippets = try {
-            Json.decodeFromString<List<CodeSnippet>>(jsSnippetsJson)
+            Json.decodeFromString<List<CodeSnippet>>(preferences.novelCustomJsSnippets.get())
                 .filter { it.enabled && (!isAppend || it.runOnAppend) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "Failed to parse JS snippets: ${e.message}" }
+        } catch (_: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to parse JS snippets" }
             emptyList()
         }
-
-        val toRun = snippetsToRun(enabledSnippets, reapplyChangedOnly, lastAppliedSnippetCode)
-        if (toRun.isNotEmpty()) evaluateJs(buildSnippetRunnerJs(toRun))
-
+        snippetsToRun(enabledSnippets, reapplyChangedOnly, lastAppliedSnippetCode)
+            .forEach { runSnippet(it.code, it.safeTitle()) }
         lastAppliedSnippetCode = nextAppliedSnippetCode(lastAppliedSnippetCode, enabledSnippets)
     }
 
-    private fun buildSnippetRunnerJs(snippets: List<CodeSnippet>): String {
-        val entries = snippets.mapIndexed { i, s ->
-            val safeName = s.safeTitle().ifBlank { "snippet-$i" }
-            "{ name: ${quoteForJson(safeName)}, code: ${quoteForJson(s.code)} }"
-        }.joinToString(",\n")
-        return """
-            (function(){
-                var __snippets = [$entries];
-                var __host = document.head || document.documentElement;
-                for (var __i = 0; __i < __snippets.length; __i++) {
-                    var __el = document.createElement('script');
-                    __el.textContent = __snippets[__i].code +
-                        '\n//# sourceURL=tsundoku-snippet-' + __snippets[__i].name + '.js';
-                    __host.appendChild(__el);
-                    __host.removeChild(__el);
-                }
-            })();
-        """.trimIndent()
+    private fun runSnippet(code: String, name: String) {
+        executeCommand(snippetCommand(name, code))
     }
 
     fun injectNextChapterButton(chapterName: String, nextChapterName: String?) {
-        val js = NovelWebViewJsAssets.loadWith(
-            context,
-            "next-chapter-button.js",
-            mapOf(
-                "BTN_CONTAINER_ID" to ID_NEXT_CHAPTER_BTN_CONTAINER,
-                "HAS_NEXT_CHAPTER" to (nextChapterName != null).toString(),
-                "FINISHED_TEXT" to quoteForJson(
-                    context.stringResource(TDMR.strings.reader_chapter_finished, chapterName),
-                ),
-                "NEXT_CHAPTER_TEXT" to quoteForJson(
-                    context.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()),
-                ),
-                "NO_NEXT_CHAPTER_TEXT" to quoteForJson(context.stringResource(MR.strings.transition_no_next)),
+        executeCommand(
+            ReaderCommand(
+                "ui.configureNextChapter",
+                buildJsonObject {
+                    put("hasNext", nextChapterName != null)
+                    put("finishedText", context.stringResource(TDMR.strings.reader_chapter_finished, chapterName))
+                    put("nextText", context.stringResource(TDMR.strings.reader_next_chapter, nextChapterName.orEmpty()))
+                    put("noNextText", context.stringResource(MR.strings.transition_no_next))
+                },
             ),
         )
-        evaluateJs(js)
     }
 
     fun injectReaderUi() {
-        val js = NovelWebViewJsAssets.loadWith(
-            context,
-            "reader-ui.js",
-            mapOf(
-                "BIONIC_ENABLED" to preferences.novelBionicReading.get().toString(),
-                "TTS_ENABLED" to preferences.novelTtsEnabled.get().toString(),
-                "TTS_STATE_EVENT" to NovelWebViewChapterMeta.EVENT_TTS_STATE,
-                "TTS_CONTROL_LABEL" to quoteForJson(context.stringResource(TDMR.strings.reader_tts_control)),
-                "IMAGE_CLOSE_LABEL" to quoteForJson(context.stringResource(TDMR.strings.reader_image_close)),
+        executeCommand(
+            ReaderCommand(
+                "ui.configure",
+                buildJsonObject {
+                    put("bionicEnabled", preferences.novelBionicReading.get())
+                    put("ttsEnabled", preferences.novelTtsEnabled.get())
+                    put(
+                        "labels",
+                        buildJsonObject {
+                            put("tts", context.stringResource(TDMR.strings.reader_tts_control))
+                            put("imageClose", context.stringResource(TDMR.strings.reader_image_close))
+                        },
+                    )
+                },
             ),
         )
-        evaluateJs(js)
     }
 
     fun setTtsEnabled(enabled: Boolean) {
-        evaluateJs(
-            "window.$TSUNDOKU_OBJECT_NAME?.runtime?.readerUi?.setTtsEnabled?.($enabled);",
-        )
+        executeCommand(ReaderCommand("ui.setTtsEnabled", buildJsonObject { put("enabled", enabled) }))
     }
 
     fun setBionicReading(enabled: Boolean) {
-        evaluateJs(
-            "(function(){var r=window.$TSUNDOKU_OBJECT_NAME&&window.$TSUNDOKU_OBJECT_NAME.runtime;" +
-                "if(r&&r.readerUi&&r.readerUi.setBionic)r.readerUi.setBionic($enabled);})();",
-        )
+        executeCommand(ReaderCommand("ui.setBionic", buildJsonObject { put("enabled", enabled) }))
     }
 
     fun injectScrollTracking(infiniteScrollEnabled: Boolean) {
-        // 0 is a real setting, not "unset": it appends the next chapter the moment the current one
-        // becomes the last loaded, keeping exactly one chapter ready ahead of the reader.
-        val effectiveThreshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0
-        val js = NovelWebViewJsAssets.loadWith(
-            context,
-            "scroll-tracking.js",
-            mapOf(
-                "TSUNDOKU_OBJECT_NAME" to TSUNDOKU_OBJECT_NAME,
-                "CHAPTER_DIVIDER_CLASS" to CHAPTER_DIVIDER_CLASS,
-                "CHAPTER_ID_ATTR" to CHAPTER_ID_ATTR,
-                "INFINITE_SCROLL_ENABLED" to infiniteScrollEnabled.toString(),
-                "LOAD_THRESHOLD" to effectiveThreshold.toString(),
-                "DONE_THRESHOLD" to NovelProgress.DONE_THRESHOLD.toString(),
-                "PROGRESS_EVENT" to NovelWebViewChapterMeta.EVENT_PROGRESS,
+        val threshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100.0
+        executeCommand(
+            ReaderCommand(
+                "scrollTracking.configure",
+                buildJsonObject {
+                    put("infiniteScrollEnabled", infiniteScrollEnabled)
+                    put("loadThreshold", threshold)
+                    put("doneThreshold", NovelProgress.DONE_THRESHOLD)
+                },
             ),
         )
-        evaluateJs(js)
     }
 
     fun injectScopedChapterAnchors() {
-        evaluateJs(NovelWebViewJsAssets.load(context, "scoped-chapter-anchors.js"))
+        executeCommand(ReaderCommand("anchors.install"))
     }
 
     companion object {
-        const val STYLE_ID_CUSTOM = "tsundoku-custom-style"
+        const val STYLE_ID_CUSTOM = "nekori-custom-style"
         const val ID_NEXT_CHAPTER_BTN_CONTAINER = "next-chapter-btn-container"
-        const val READER_CSS_URL = "https://tsundoku.reader/assets/reader.css"
+        const val READER_CSS_URL = "https://nekori.reader/assets/reader.css"
+        const val FONT_URL_PREFIX = "https://nekori.reader/fonts/custom"
 
-        // Sentinel URL the injected @font-face points at; resolved by interceptFont() in the
-        // WebView's shouldInterceptRequest. Never hits the network.
-        const val FONT_URL_PREFIX = "https://tsundoku.font/custom"
+        internal fun snippetCommand(name: String, code: String) =
+            ReaderCommand(
+                "snippet.run",
+                buildJsonObject {
+                    put("name", name)
+                    put("code", code)
+                },
+            )
 
         internal fun snippetsToRun(
             enabledSnippets: List<CodeSnippet>,

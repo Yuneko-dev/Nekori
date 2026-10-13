@@ -28,7 +28,7 @@ internal class NovelWebViewAssetLoader(
 
     companion object {
         private const val ORIGIN_SCHEME = "https"
-        private const val ORIGIN_HOST = "tsundoku.reader"
+        private const val ORIGIN_HOST = "nekori.reader"
         private const val URL_PREFIX = "/assets/"
         private const val ASSET_ROOT = "novel-reader"
 
@@ -36,12 +36,14 @@ internal class NovelWebViewAssetLoader(
             val uri = runCatching { URI(url) }.getOrNull() ?: return false
             return uri.scheme.equals(ORIGIN_SCHEME, true) &&
                 uri.host.equals(ORIGIN_HOST, true) &&
+                uri.port in setOf(-1, 443) && uri.userInfo == null &&
                 uri.rawPath.orEmpty().startsWith(URL_PREFIX)
         }
 
         internal fun resolveAssetPath(url: String): String? {
             val uri = runCatching { URI(url) }.getOrNull() ?: return null
             if (!uri.scheme.equals(ORIGIN_SCHEME, true) || !uri.host.equals(ORIGIN_HOST, true)) return null
+            if (uri.port !in setOf(-1, 443) || uri.userInfo != null) return null
 
             val rawPath = uri.rawPath ?: return null
             if (!rawPath.startsWith(URL_PREFIX) || rawPath.length == URL_PREFIX.length) return null

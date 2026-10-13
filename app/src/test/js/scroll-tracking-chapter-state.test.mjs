@@ -1,293 +1,145 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
+import { measureChapterBoundaries } from '../../../tools/reader-runtime/src/layout/boundary-measurement.ts';
+import { createScrollTracking } from '../../../tools/reader-runtime/src/layout/scroll-tracking.ts';
 
-const assetUrl = new URL('../../main/assets/novel-reader/scroll-tracking.js', import.meta.url);
-
-function createHarness() {
-    const frames = [];
-    const listeners = new Map();
-    const chapterUpdates = [];
-    const sliderUpdates = [];
-    const savedProgress = [];
-    let now = 1_000;
-    let nextLoads = 0;
-    let dividers = [divider('1', 0), divider('2', 1_000)];
-    let banner = null;
-    let chapterOffset = 0;
-
-    const window = {
-        onscrollend: null,
-        innerHeight: 800,
-        scrollY: 0,
-        pageYOffset: 0,
-        chapterBoundaries: [],
-        addEventListener(type, listener) {
-            const typeListeners = listeners.get(type) ?? [];
-            typeListeners.push(listener);
-            listeners.set(type, typeListeners);
-        },
-        dispatchEvent(event) {
-            for (const listener of listeners.get(event.type) ?? []) listener(event);
-        },
-    };
-    const body = {
-        scrollHeight: 4_000,
-        scrollTop: 0,
-        children: [],
-    };
-    const document = {
-        body,
-        documentElement: {
-            clientHeight: 800,
-            scrollHeight: 4_000,
-            scrollTop: 0,
-        },
-        querySelectorAll() {
-            return dividers;
-        },
-        getElementById(id) {
-            return banner?.id === id ? banner : null;
-        },
-    };
-    const Android = {
-        loadNextChapter() {
-            nextLoads += 1;
-        },
-        onChapterScrollUpdate(chapterId) {
-            chapterUpdates.push(chapterId);
-        },
-        onScrollProgress(progress) { savedProgress.push(progress); },
-        onScrollUpdate(progress) { sliderUpdates.push(progress); },
-    };
-
-    const source = readFileSync(assetUrl, 'utf8')
-        .replaceAll('__TSUNDOKU_OBJECT_NAME__', 'Tsundoku')
-        .replaceAll('__CHAPTER_DIVIDER_CLASS__', 'chapter-divider')
-        .replaceAll('__CHAPTER_ID_ATTR__', 'data-chapter-id')
-        .replaceAll('__INFINITE_SCROLL_ENABLED__', 'true')
-        .replaceAll('__LOAD_THRESHOLD__', '0.8')
-        .replaceAll('__DONE_THRESHOLD__', '0.99')
-        .replaceAll('__PROGRESS_EVENT__', 'tsundoku-progress');
-
-    vm.runInNewContext(source, {
-        Android,
-        CustomEvent: class CustomEvent {
-            constructor(type, init) {
-                this.type = type;
-                this.detail = init?.detail;
-            }
-        },
-        Date: { now: () => now },
-        clearTimeout,
-        console,
-        document,
-        Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
-        requestAnimationFrame(callback) {
-            frames.push(callback);
-        },
-        setTimeout,
-        window,
-    });
-
+function trackingFixture() {
+  let nextFrame = 1;
+  const frames = new Map();
+  const listeners = new Map();
+  const emitted = [];
+  let scrollY = 0;
+  let dividers = [divider('1', 0), divider('2', 1_000)];
+  let banner = null;
+  let chapterOffset = 0;
+  const body = { scrollHeight: 4_000, scrollTop: 0, children: [] };
+  const view = {
+    innerHeight: 800, Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
+    ResizeObserver: class { observe() {} disconnect() {} },
+    MutationObserver: class { observe() {} disconnect() {} },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+    get scrollY() { return scrollY; }, get pageYOffset() { return scrollY; },
+    addEventListener(type, listener) { const group = listeners.get(type) ?? new Set(); group.add(listener); listeners.set(type, group); },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+    dispatchEvent(event) { for (const listener of listeners.get(event.type) ?? []) listener(event); },
+    requestAnimationFrame(callback) { const id = nextFrame++; frames.set(id, callback); return id; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+    setTimeout(callback) { return setTimeout(callback, 0); },
+    clearTimeout(id) { clearTimeout(id); },
+  };
+  const documentElement = { clientHeight: 800, scrollHeight: 4_000, scrollTop: 0 };
+  const document = {
+    defaultView: view, body, documentElement, scrollingElement: documentElement,
+    getElementById(id) { return banner?.id === id ? banner : null; },
+  };
+  const root = {
+    ownerDocument: document,
+    querySelectorAll() { return dividers; },
+  };
+  const controller = createScrollTracking({ root, host: { emit: (name, payload) => emitted.push({ name, payload }) } });
+  const flushFrames = () => {
+    while (frames.size) {
+      const [id, callback] = frames.entries().next().value;
+      frames.delete(id);
+      callback(0);
+    }
+  };
+  const setScroll = (value) => { scrollY = value; documentElement.scrollTop = value; view.dispatchEvent(new Event('scroll')); };
+  function divider(chapterId, absoluteTop) {
     return {
-        chapterUpdates,
-        sliderUpdates,
-        savedProgress,
-        advanceTime(ms) { now += ms; },
-        settle() { window.dispatchEvent({ type: 'scrollend' }); },
-        get nextLoads() {
-            return nextLoads;
-        },
-        drainFrame() {
-            assert.notEqual(frames.length, 0, 'expected a scheduled animation frame');
-            frames.shift()(0);
-        },
-        replaceSecondDivider(chapterId) {
-            dividers = [divider('1', 0), divider(chapterId, 1_000)];
-            syncDom();
-        },
-        setBanner(id, placement) {
-            const height = 100;
-            chapterOffset = placement === 'leading' ? height : 0;
-            body.scrollHeight = placement === 'none' ? 4_000 : 4_000 + height;
-            banner = placement === 'none' ? null : bannerNode(id, placement === 'leading' ? 0 : 4_000);
-            dividers = [divider('1', 0), divider('2', 1_000)];
-            syncDom();
-        },
-        boundaries() {
-            return Array.from(window.chapterBoundaries, ({ chapterId, startOffset, height }) => ({
-                chapterId,
-                startOffset,
-                height,
-            }));
-        },
-        runtime: window.Tsundoku.runtime,
-        scrollTo(y) {
-            window.scrollY = y;
-            window.dispatchEvent({ type: 'scroll' });
-        },
-        updateBoundaries() {
-            window.updateChapterBoundaries();
-        },
+      getAttribute: (name) => name === 'data-nekori-chapter-id' ? chapterId : null,
+      getBoundingClientRect: () => ({ top: absoluteTop + chapterOffset - scrollY }),
+      compareDocumentPosition(other) { return body.children.indexOf(this) < body.children.indexOf(other) ? 4 : 2; },
     };
-
-    function divider(chapterId, absoluteTop) {
-        return {
-            getAttribute() {
-                return chapterId;
-            },
-            getBoundingClientRect() {
-                return { top: absoluteTop + chapterOffset - window.scrollY };
-            },
-            compareDocumentPosition(other) {
-                return body.children.indexOf(this) < body.children.indexOf(other) ? 4 : 2;
-            },
-        };
-    }
-
-    function bannerNode(id, absoluteTop) {
-        return {
-            id,
-            getBoundingClientRect() {
-                return { top: absoluteTop - window.scrollY };
-            },
-        };
-    }
-
-    function syncDom() {
-        body.children = banner?.id && chapterOffset > 0
-            ? [banner, ...dividers]
-            : [...dividers, ...(banner ? [banner] : [])];
-    }
-
-    syncDom();
+  }
+  function setBanner(id, placement) {
+    chapterOffset = placement === 'leading' ? 100 : 0;
+    body.scrollHeight = placement === 'none' ? 4_000 : 4_100;
+    banner = placement === 'none' ? null : {
+      id, getBoundingClientRect: () => ({ top: (placement === 'leading' ? 0 : 4_000) - scrollY }),
+    };
+    dividers = [divider('1', 0), divider('2', 1_000)];
+    body.children = placement === 'leading' ? [banner, ...dividers] : [...dividers, ...(banner ? [banner] : [])];
+    documentElement.scrollHeight = body.scrollHeight;
+  }
+  body.children = [...dividers];
+  return {
+    controller, emitted, flushFrames, setScroll,
+    configure() { controller.configure({ infiniteScrollEnabled: true, loadThreshold: 0.8, doneThreshold: 0.99 }); flushFrames(); },
+    replaceSecondDivider(id) { dividers = [divider('1', 0), divider(id, 1_000)]; body.children = [...dividers]; },
+    setBanner, root, view,
+    dispose() { controller.dispose(); },
+  };
 }
 
-function finishInitialFrames(harness) {
-    harness.drainFrame();
-    harness.drainFrame();
-    assert.deepEqual(harness.chapterUpdates, ['1']);
-}
-
-test('settling at the chapter start publishes zero even inside the slider throttle window', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-    harness.advanceTime(100);
-    harness.scrollTo(3_200);
-    harness.drainFrame();
-    harness.advanceTime(100);
-    harness.scrollTo(20);
-    harness.drainFrame();
-    assert.equal(harness.sliderUpdates.at(-1), 0.02);
-    harness.advanceTime(10);
-    harness.scrollTo(0);
-    harness.drainFrame();
-    harness.settle();
-    assert.equal(harness.sliderUpdates.at(-1), 0);
-    assert.equal(harness.savedProgress.at(-1), 0);
+test('scroll-end persistence publishes chapter-start zero through the shared progress calculation', () => {
+  const fixture = trackingFixture();
+  fixture.configure();
+  fixture.setScroll(20);
+  fixture.flushFrames();
+  fixture.setScroll(0);
+  fixture.flushFrames();
+  fixture.view.dispatchEvent(new Event('scrollend'));
+  assert.equal(fixture.emitted.filter((event) => event.name === 'scroll.progressPersist').at(-1).payload.progress, 0);
+  fixture.dispose();
 });
 
-test('reports a new stable chapter id when a boundary keeps the same numeric index', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-
-    harness.scrollTo(1_000);
-    harness.drainFrame();
-    assert.deepEqual(harness.chapterUpdates, ['1', '2']);
-
-    harness.replaceSecondDivider('3');
-    harness.updateBoundaries();
-    harness.drainFrame();
-
-    assert.deepEqual(harness.chapterUpdates, ['1', '2', '3']);
+test('chapter visibility uses stable ids even when the boundary index stays unchanged', () => {
+  const fixture = trackingFixture();
+  fixture.configure();
+  fixture.setScroll(1_000);
+  fixture.flushFrames();
+  fixture.replaceSecondDivider('3');
+  fixture.controller.updateChapterBoundaries();
+  fixture.flushFrames();
+  const visible = fixture.emitted.filter((event) => event.name === 'chapter.visible').map((event) => event.payload.chapterId);
+  assert.deepEqual(visible, ['1', '2', '3']);
+  fixture.dispose();
 });
 
-test('resetChapterTracking immediately resamples a stationary viewport', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-
-    harness.scrollTo(1_000);
-    harness.drainFrame();
-    assert.deepEqual(harness.chapterUpdates, ['1', '2']);
-
-    harness.runtime.resetChapterTracking();
-    harness.drainFrame();
-
-    assert.deepEqual(harness.chapterUpdates, ['1', '2', '2']);
+test('resetChapterTracking re-samples a stationary viewport', () => {
+  const fixture = trackingFixture();
+  fixture.configure();
+  fixture.setScroll(1_000);
+  fixture.flushFrames();
+  fixture.controller.resetChapterTracking();
+  fixture.flushFrames();
+  const visible = fixture.emitted.filter((event) => event.name === 'chapter.visible').map((event) => event.payload.chapterId);
+  assert.deepEqual(visible, ['1', '2', '2']);
+  fixture.dispose();
 });
 
-test('moving backward never requests a chapter outside the DOM', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-
-    harness.scrollTo(300);
-    harness.drainFrame();
-    harness.scrollTo(100);
-    harness.drainFrame();
-
-    assert.equal(typeof harness.runtime.loadingPrevious, 'undefined');
-});
-
-test('leaves progress and chapter loading to the active paged layout', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-    harness.runtime.readerLayout = { enabled: true };
-
-    harness.scrollTo(3_200);
-    harness.drainFrame();
-
-    assert.deepEqual(harness.chapterUpdates, ['1']);
-    assert.equal(harness.nextLoads, 0);
-});
-
-test('excludes trailing loading and error banners from the last chapter boundary', () => {
-    for (const id of ['inline-loading', 'inline-error']) {
-        const harness = createHarness();
-        finishInitialFrames(harness);
-
-        harness.setBanner(id, 'trailing');
-        harness.updateBoundaries();
-
-        assert.deepEqual(harness.boundaries(), [
-            { chapterId: '1', startOffset: 0, height: 1_000 },
-            { chapterId: '2', startOffset: 1_000, height: 3_000 },
-        ]);
-    }
-});
-
-test('ignores a leading prepend banner when rebuilding chapter boundaries', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-
-    harness.setBanner('inline-loading', 'leading');
-    harness.updateBoundaries();
-
-    assert.deepEqual(harness.boundaries(), [
-        { chapterId: '1', startOffset: 100, height: 1_000 },
-        { chapterId: '2', startOffset: 1_100, height: 3_000 },
+test('measured boundaries exclude trailing status banners and preserve prepended content offsets', () => {
+  const fixture = trackingFixture();
+  fixture.configure();
+  for (const id of ['inline-loading', 'inline-error']) {
+    fixture.setBanner(id, 'trailing');
+    assert.deepEqual(measureChapterBoundaries(fixture.root), [
+      { chapterId: '1', startOffset: 0, height: 1_000 },
+      { chapterId: '2', startOffset: 1_000, height: 3_000 },
     ]);
+  }
+  fixture.setBanner('inline-loading', 'leading');
+  assert.deepEqual(measureChapterBoundaries(fixture.root), [
+    { chapterId: '1', startOffset: 100, height: 1_000 },
+    { chapterId: '2', startOffset: 1_100, height: 3_000 },
+  ]);
+  fixture.dispose();
 });
 
-test('keeps last-chapter progress stable while a trailing banner appears and disappears', () => {
-    const harness = createHarness();
-    finishInitialFrames(harness);
-
-    harness.scrollTo(2_600);
-    harness.drainFrame();
-    const before = harness.runtime.chapterProgress;
-
-    harness.setBanner('inline-loading', 'trailing');
-    harness.updateBoundaries();
-    harness.drainFrame();
-    const during = harness.runtime.chapterProgress;
-
-    harness.setBanner('inline-loading', 'none');
-    harness.updateBoundaries();
-    harness.drainFrame();
-    const after = harness.runtime.chapterProgress;
-
-    assert.equal(during, before);
-    assert.equal(after, before);
+test('last-chapter progress stays stable while a trailing banner appears and disappears', () => {
+  const fixture = trackingFixture();
+  fixture.configure();
+  fixture.setScroll(2_600);
+  fixture.flushFrames();
+  const before = fixture.emitted.filter((event) => event.name === 'scroll.progressPreview').at(-1).payload.progress;
+  fixture.setBanner('inline-loading', 'trailing');
+  fixture.controller.updateChapterBoundaries(); fixture.flushFrames();
+  const during = fixture.emitted.filter((event) => event.name === 'scroll.progressPreview').at(-1).payload.progress;
+  fixture.setBanner('inline-loading', 'none');
+  fixture.controller.updateChapterBoundaries(); fixture.flushFrames();
+  const after = fixture.emitted.filter((event) => event.name === 'scroll.progressPreview').at(-1).payload.progress;
+  assert.equal(during, before);
+  assert.equal(after, before);
+  fixture.dispose();
 });

@@ -475,7 +475,7 @@ internal class NovelReaderProxyServer(
 
     companion object {
         private const val HOST = "127.0.0.1"
-        const val DEFAULT_SINK_ORIGIN = "https://tsundoku.reader"
+        const val DEFAULT_SINK_ORIGIN = "https://nekori.reader"
         private const val UPSTREAM_LENGTH_HEADER = "X-Tsundoku-Upstream-Length"
         private const val SINK_WRITE_BUFFER_BYTES = 256 * 1024
         private const val SINK_COPY_BUFFER_BYTES = 64 * 1024
