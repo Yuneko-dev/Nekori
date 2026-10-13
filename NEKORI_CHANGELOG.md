@@ -19,12 +19,16 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+> [!WARNING]
+> **Breaking Change:** This release introduces a breaking change that drops backward compatibility with Tsundoku / LNReader `snippetJS` and `snippetCSS`. Existing user snippets will stop working and need to be updated, and LNReader plugins using `customJS` / `customCSS` will also be affected. Don't worry though - I've checked beforehand and only 2 official plugins actually use `customCSS`, and they only style chapter HTML elements without modifying the reader itself, so the impact should be minimal.
+
 ### Added
 - Add an "Allow lonely lines" switch to both novel reader settings screens to reduce empty space in paged reading.
 - Show chapter word counts in the reading status bar.
 - Add download-only throttling: pace chapter downloads with the existing per-source delay, jitter and burst settings while browsing, reading and other HTTP traffic stay unpaced [#11](https://github.com/Yuneko-dev/Nekori/issues/11)
 
 ### Changed
+- Refactored the `ReaderWebView` JS API in TypeScript, removing hard-to-maintain backward compatibility code.
 - Update video playback from Video.js 10 RC2 to stable 10.0.1.
 
 ### Improved
