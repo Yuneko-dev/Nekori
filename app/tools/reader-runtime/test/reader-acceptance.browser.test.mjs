@@ -651,3 +651,36 @@ browserTest(test, 'title hiding and native style classes update live without rem
     await browser.close();
   }
 });
+
+browserTest(test, 'video runtime ignores page progress and player spans the viewport', async () => {
+  const source = await bundle('src/entries/reader.ts');
+  const css = await readerCss();
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 384, height: 832 } });
+    const cfg = config({
+      scrollTracking: { infiniteScrollEnabled: false, loadThreshold: 0.8, doneThreshold: 0.95 },
+      markShortChapterAsRead: true,
+      player: { mode: 'playback', video: { type: 'iframe', path: '/one', progress: 0 } },
+    });
+    await page.setContent(`<style>${css}\n${margins}</style>
+      <script>window.messages=[];window.__nekoriNativeTransport={onmessage:null,postMessage(raw){window.messages.push(JSON.parse(raw));}};</script>
+      <script id="nekori-reader-config" type="application/json">${JSON.stringify(cfg)}</script>
+      <main id="nekori-reader" class="nekori-reader" data-nekori-reader-root></main>`);
+    await page.addScriptTag({ content: source });
+    await page.waitForFunction(() => window.messages.some(m => m.kind === 'ready'));
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new Event('scrollend'));
+    });
+    await page.waitForTimeout(700);
+    const result = await page.evaluate(() => {
+      const rect = document.querySelector('#nekori-player-container').getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: innerWidth,
+        scrollEvents: window.messages.filter(m => m.method?.startsWith('scroll.progress')) };
+    });
+    assert.equal(result.left, 0);
+    assert.equal(result.right, result.width);
+    assert.deepEqual(result.scrollEvents, []);
+  } finally { await browser.close(); }
+});

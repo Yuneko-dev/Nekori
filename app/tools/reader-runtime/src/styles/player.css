@@ -14,6 +14,12 @@ body {
 
 :root { --reader-margin-right: 0px; --reader-margin-left: 0px; }
 
+body:has(#nekori-player-container),
+#nekori-reader:has(#nekori-player-container) {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
 #nekori-reader:has(> .local-video-button) { margin: 0 16px; text-align: center; }
 #nekori-reader:has(> .local-video-button) > h2,
 #nekori-reader:has(> .local-video-button) > h4 { margin: 0; }

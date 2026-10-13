@@ -185,3 +185,24 @@ test('cancellation while waiting on the next chunk never commits a partial downl
   assert.equal(cancelled, true);
   assert.equal(calls.includes('POST'), false);
 });
+
+for (const [label, disableProgress, duration] of [['disabled', true, 10], ['live', false, Infinity]]) {
+  test(`${label} video keeps native and fractional progress at zero`, () => {
+    const events = [];
+    const values = new Map([[VIDEO_FRACTION_KEY, '{"/video":0.5}']]);
+    const video = Object.assign(new EventTarget(), { currentTime: 5, duration });
+    const progress = new PlaybackProgress({
+      host: { chapter: { id: '1' }, emit: (name, payload) => events.push([name, payload]) },
+      directive: { path: '/video', progress: 50, disableProgress },
+      storage: { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) },
+      onResume: () => assert.fail('Must not resume disabled/live video'),
+      onDismissed: () => false, log: () => {},
+    });
+    progress.attach(video, null, assert.fail);
+    for (const name of ['loadedmetadata', 'timeupdate', 'ended']) video.dispatchEvent(new Event(name));
+    assert.ok(events.length > 0);
+    assert.ok(events.every(([name, payload]) => name === 'reader.saveVideoProgress' && payload.progress === 0));
+    assert.equal(values.get(VIDEO_FRACTION_KEY), '{}');
+    progress.dispose();
+  });
+}

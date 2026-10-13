@@ -1141,19 +1141,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastSavedProgress = bounded / 100f
         lastPersistedPercent = bounded
         awaitingFirstScrollSample = false
-        activity.saveNovelProgress(page, bounded)
+        // Video seeking and disabled/live progress can legitimately move back to zero.
+        activity.saveNovelProgress(page, bounded, backwardJumpAllowancePercent = 100)
         activity.onNovelProgressChanged(lastSavedProgress)
     }
 
     private fun onScrollProgress(progress: Float) {
-        if (isRestoringScroll || !progress.isFinite()) return
+        if (isVideoChapter() || isRestoringScroll || !progress.isFinite()) return
         awaitingFirstScrollSample = false
         lastSavedProgress = progress.coerceIn(0f, 1f)
         if (NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent) saveProgress()
     }
 
     private fun onScrollPreview(progress: Float) {
-        if (isRestoringScroll || !progress.isFinite() ||
+        if (isVideoChapter() || isRestoringScroll || !progress.isFinite() ||
             System.currentTimeMillis() - lastUserSeekAt < SEEK_ECHO_SUPPRESS_MS
         ) {
             return

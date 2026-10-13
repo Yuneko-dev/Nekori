@@ -33,12 +33,16 @@ export class PlaybackProgress {
     const path = this.directive.path;
     const disable = Boolean(this.directive.disableProgress);
     const save = (progress: number, fraction = 0) => {
-      if (disable) return;
       if (this.storage && path) writeFraction(this.storage, path, fraction);
       this.host.emit("reader.saveVideoProgress", { chapterId: this.host.chapter.id, path, progress });
     };
+    if (disable) save(0);
     this.listen(video, "loadedmetadata", () => {
       this.log("Video loadedmetadata");
+      if (!Number.isFinite(video.duration)) {
+        save(0);
+        return;
+      }
       if (this.hasSeekedInitial || disable || !(video.duration > 0)) return;
       const progress = this.directive.progress;
       if (progress > 0 && progress < 100) {
@@ -49,7 +53,7 @@ export class PlaybackProgress {
     });
     this.listen(video, "timeupdate", () => updateNextUp(video, popup, this.onDismissed()));
     this.listen(video, "timeupdate", () => {
-      if (disable || !(video.duration > 0)) return;
+      if (disable || !Number.isFinite(video.duration) || !(video.duration > 0)) return;
       const currentTime = video.currentTime;
       if (Math.abs(currentTime - this.lastSaveTime) < 3) return;
       this.lastSaveTime = currentTime;
@@ -59,7 +63,7 @@ export class PlaybackProgress {
     });
     this.listen(video, "ended", () => {
       this.log("Video ended");
-      save(100);
+      save(disable || !Number.isFinite(video.duration) ? 0 : 100);
       if (this.host.nextChapter ?? this.directive.nextChapter) this.host.emit("navigation.next", {});
     });
     this.listen(video, "error", () => {

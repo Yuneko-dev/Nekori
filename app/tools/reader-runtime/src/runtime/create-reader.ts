@@ -175,7 +175,7 @@ function registerScrollTracking(
   isPaged: () => boolean,
   attach: (controller: ScrollTrackingController, dispose: () => void) => void,
 ): void {
-  if (!config.scrollTracking) return;
+  if (!config.scrollTracking || config.player) return;
   const tracking = createScrollTracking({ root, host, isPaged });
   tracking.configure(config.scrollTracking);
   attach(tracking, () => tracking.dispose());
