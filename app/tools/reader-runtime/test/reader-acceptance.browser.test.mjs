@@ -9,6 +9,37 @@ import { browserTest, chromium, chromiumPath } from '../../../src/test/js/browse
 const runtimeDir = path.resolve(fileURLToPath(new URL('.', import.meta.url)));
 const packageDir = path.resolve(runtimeDir, '..');
 
+browserTest(test, 'appended chapter dividers appear in scrolling mode and hide in paged mode', async () => {
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const page = await browser.newPage();
+    const cfg = config({ runtime: { ...config().runtime, infinite: true }, initialContent: { kind: 'plainText', text: 'First chapter' } });
+    await page.setContent(`<style>${await readerCss()}${margins}</style>
+      <script>window.messages=[];window.__nekoriNativeTransport={onmessage:null,postMessage(raw){window.messages.push(JSON.parse(raw));}};</script>
+      <script id="nekori-reader-config" type="application/json">${JSON.stringify(cfg)}</script>
+      <main class="nekori-reader" data-nekori-reader-root></main>`);
+    await page.addScriptTag({ content: await bundle('src/entries/reader.ts') });
+    await page.waitForFunction(() => window.messages.some(message => message.kind === 'ready'));
+    await page.evaluate(() => window.__nekoriNativeTransport.onmessage({ data: {
+      protocolVersion: 1, documentId: 'acceptance-document', kind: 'command', requestId: 'append', method: 'chapter.append',
+      payload: { chapter: { id: '2', name: 'Second chapter', number: 2, path: '/two', absoluteUrl: 'https://source.test/two' }, content: { kind: 'plainText', text: 'Second chapter' } },
+    } }));
+    await page.waitForFunction(() => window.messages.some(message => message.requestId === 'append'));
+    const dividers = page.locator('.nekori-chapter-divider');
+    assert.equal(await dividers.count(), 2);
+    assert.equal(await dividers.first().evaluate(el => getComputedStyle(el).visibility), 'hidden');
+    const separator = dividers.nth(1);
+    assert.equal(await separator.evaluate(el => getComputedStyle(el).visibility), 'visible');
+    assert.equal(await separator.evaluate(el => getComputedStyle(el).borderTopWidth), '1px');
+    await page.evaluate(() => document.querySelector('.nekori-reader').classList.add('is-paged'));
+    assert.equal(await separator.evaluate(el => getComputedStyle(el).display), 'none');
+    await page.evaluate(() => document.querySelector('.nekori-reader').classList.remove('is-paged'));
+    assert.equal(await separator.isVisible(), true);
+  } finally {
+    await browser.close();
+  }
+});
+
 function inlineCssPlugin() {
   return {
     name: 'reader-acceptance-inline-css',

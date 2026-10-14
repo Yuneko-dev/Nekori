@@ -31,7 +31,6 @@ export function createChapterElements(document: Document, chapter: ChapterMetada
   const divider = document.createElement('div');
   divider.classList.add(CHAPTER_DIVIDER_CLASS);
   divider.setAttribute('aria-hidden', 'true');
-  divider.style.cssText = 'visibility:hidden;height:0;margin:0;padding:0;border:none;';
   setMetadata(divider, chapter);
   return { element, divider };
 }

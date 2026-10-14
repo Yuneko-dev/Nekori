@@ -336,7 +336,6 @@
 
     <!-- Some novel settings -->
     <string name="pref_font_size">Cỡ chữ</string>
-    <string name="pref_font_family">Họ phông chữ</string>
     <string name="pref_novel_js_snippets">Đoạn mã JavaScript</string>
     <string name="novel_add_css_snippet">Thêm đoạn mã CSS</string>
     <string name="novel_edit_css_snippet">Sửa đoạn mã CSS</string>
@@ -889,7 +888,6 @@
     <string name="settings_font_manager_loading">Đang tải phông chữ...</string>
     <string name="settings_font_manager_system_fonts">Phông chữ có sẵn</string>
     <string name="settings_font_manager_custom_fonts">Phông chữ đã thêm</string>
-    <string name="settings_font_manager_preview_sample">Gió chiều khẽ lay những tán cây.</string>
     <string name="settings_font_manager_font_unavailable">Không thể tải phông chữ</string>
     <string name="settings_font_manager_downloading">Đang tải %1$s…</string>
     <string name="settings_font_manager_import_from_device">Nhập từ thiết bị</string>
@@ -954,7 +952,6 @@
 
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Văn bản</string>
-    <string name="settings_reader_font_manager_summary">Chọn, tải hoặc nhập phông chữ</string>
     <string name="settings_reader_force_lowercase_summary">Chuyển toàn bộ văn bản thành chữ thường</string>
     <string name="settings_reader_use_original_fonts_summary">Giữ nguyên phông chữ từ trang nguồn</string>
     <string name="settings_reader_swipe_navigation_title">Điều hướng vuốt</string>

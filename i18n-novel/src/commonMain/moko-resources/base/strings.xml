@@ -364,7 +364,6 @@
 
     <!-- Some novel settings -->
     <string name="pref_font_size">Font size</string>
-    <string name="pref_font_family">Font family</string>
     <string name="pref_novel_js_snippets">JavaScript Snippets</string>
     <string name="novel_add_css_snippet">Add CSS snippet</string>
     <string name="novel_edit_css_snippet">Edit CSS snippet</string>
@@ -1042,7 +1041,6 @@
     <string name="settings_font_manager_loading">Loading fonts...</string>
     <string name="settings_font_manager_system_fonts">Built-in fonts</string>
     <string name="settings_font_manager_custom_fonts">Added fonts</string>
-    <string name="settings_font_manager_preview_sample">The quick brown fox jumps over the lazy dog.</string>
     <string name="settings_font_manager_font_unavailable">Font unavailable</string>
     <string name="settings_font_manager_downloading">Downloading %1$s…</string>
     <string name="settings_font_manager_import_from_device">Import from Device</string>
@@ -1107,7 +1105,6 @@
 
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Text</string>
-    <string name="settings_reader_font_manager_summary">Choose, download or import fonts</string>
     <string name="settings_reader_force_lowercase_summary">Convert all text to lowercase</string>
     <string name="settings_reader_use_original_fonts_summary">Preserve fonts from the source website</string>
     <string name="settings_reader_swipe_navigation_title">Swipe navigation</string>

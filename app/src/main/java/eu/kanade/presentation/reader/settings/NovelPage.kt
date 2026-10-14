@@ -152,7 +152,7 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
 
     // Font Family
     NovelFontSelectItem(
-        title = stringResource(TDMR.strings.pref_font_family),
+        title = stringResource(TDMR.strings.settings_font_manager_title),
         selected = if (useOriginalFonts) "" else fontFamily,
         onSelect = {
             screenModel.preferences.novelFontFamily.set(it)

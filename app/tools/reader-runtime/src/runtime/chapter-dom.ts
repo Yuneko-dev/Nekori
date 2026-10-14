@@ -19,6 +19,8 @@ export function initializeInitialContent(root: HTMLElement, config: ReaderConfig
   if (!chapter) {
     if (config.mode === 'error' && !config.initialContent) return;
     const nodes = createChapterElements(root.ownerDocument, chapterMetadata(config.chapter));
+    // The initial chapter needs a tracking marker, not a visible separator above its content.
+    nodes.divider.style.cssText = 'visibility:hidden;height:0;margin:0;padding:0;border:none;';
     if (config.initialContent) applyProcessedContent(root.ownerDocument, nodes.element, config.initialContent);
     appendNodes(root, nodes);
     return;
