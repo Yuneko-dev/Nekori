@@ -164,19 +164,15 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
       enabled: true, spread: 'single', direction: 'rtl', vertical: true, infinite: false, threshold: 0.8, chapterId: '1',
     } });
     await mountModuleReader(page, entry, `<main id="reader" class="nekori-reader">
-      <nekori-chapter class="nekori-chapter" data-nekori-chapter-id="1"><p id="start">「縦書きー」小さいゃゅょ <span class="tcy">12</span> 34 123 A12B 中文 한국어 English Tiếng Việt</p>
+      <nekori-chapter class="nekori-chapter" data-nekori-chapter-id="1"><p id="start">「<span id="vertical-first">縦</span><span id="vertical-next">書</span>きー」小さいゃゅょ <span class="tcy">12</span> 34 123 A12B 中文 한국어 English Tiếng Việt</p>
       ${'<p>日本語の文章、中文直排，한국어 문장. English and Tiếng Việt text.</p>'.repeat(80)}<p id="end">終わり</p></nekori-chapter></main>`, verticalConfig);
     await page.waitForFunction(() => window.acceptanceHarness.layout?.position !== null);
     const initial = await page.evaluate(() => {
       const root = document.querySelector('#reader');
       const start = root.querySelector('#start');
-      const range = document.createRange();
-      range.setStart(start.firstChild, 1);
-      range.setEnd(start.firstChild, 2);
-      const first = range.getBoundingClientRect();
-      range.setStart(start.firstChild, 2);
-      range.setEnd(start.firstChild, 3);
-      const next = range.getBoundingClientRect();
+      // Element boxes avoid platform-dependent per-character Range bounds.
+      const first = root.querySelector('#vertical-first').getBoundingClientRect();
+      const next = root.querySelector('#vertical-next').getBoundingClientRect();
       return {
         writingMode: getComputedStyle(root).writingMode,
         combined: getComputedStyle(root.querySelector('.tcy')).textCombineUpright,
@@ -185,6 +181,7 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
         columnGap: getComputedStyle(root).columnGap,
         flow: { downward: next.top > first.top, sameColumn: Math.abs(first.left - next.left) < 1,
           nextColumnOnLeft: start.nextElementSibling.getBoundingClientRect().right <= start.getBoundingClientRect().left },
+        flowBounds: { first: first.toJSON(), next: next.toJSON() },
         overflowY: getComputedStyle(root).overflowY,
         overscroll: getComputedStyle(root).overscrollBehavior,
       };
@@ -195,7 +192,8 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
     assert.equal(initial.height, 832);
     assert.equal(initial.paddingBottom, '20px');
     assert.equal(initial.columnGap, '50px');
-    assert.deepEqual(initial.flow, { downward: true, sameColumn: true, nextColumnOnLeft: true });
+    assert.deepEqual(initial.flow, { downward: true, sameColumn: true, nextColumnOnLeft: true },
+      JSON.stringify(initial.flowBounds));
     assert.equal(initial.overflowY, 'auto');
     assert.equal(initial.overscroll, 'none');
     assert.ok(initial.extent > initial.height * 2);
@@ -211,6 +209,8 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
     assert.equal(await page.evaluate(() => window.scrollY), 0);
 
     await page.setViewportSize({ width: 900, height: 500 });
+    // ResizeObserver schedules reflow on the next animation frame.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.evaluate(() => window.acceptanceHarness.layout.seekPercent(100));
     const rotatedEnd = await page.locator('#end').boundingBox();
     assert.ok(rotatedEnd.y >= 29 && rotatedEnd.y < 440 && rotatedEnd.x >= 0 && rotatedEnd.x < 900,
@@ -710,5 +710,47 @@ browserTest(test, 'default font preserves source families and falls back to the 
       document.body.style.setProperty('--reader-font-family', 'inherit');
     });
     assert.equal(await family('#inherited'), 'system-ui');
+  } finally { await browser.close(); }
+});
+
+browserTest(test, 'paged viewport reserves margins once and restores scrolling body spacing', async () => {
+  const entry = await bundle('test/acceptance/reader-browser-entry.ts');
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 384, height: 832 } });
+    const layout = { enabled: true, spread: 'single', direction: 'ltr', vertical: false, infinite: false, threshold: 0.8, chapterId: '1' };
+    await mountModuleReader(page, entry,
+      `<main id="reader" class="nekori-reader"><nekori-chapter data-nekori-chapter-id="1">${'<p>Text spanning multiple pages with asymmetric reading margins.</p>'.repeat(90)}</nekori-chapter></main>`,
+      config({ layout }));
+    for (const [top, bottom, spread, direction, vertical] of [
+      [35, 0, 'single', 'ltr', false], [0, 35, 'single', 'ltr', false],
+      [35, 20, 'double', 'ltr', false], [35, 0, 'single', 'rtl', false],
+      [35, 0, 'single', 'rtl', true],
+    ]) {
+      await page.evaluate(({ top, bottom }) => {
+        document.documentElement.style.setProperty('--reader-margin-top', `${top}px`);
+        document.documentElement.style.setProperty('--reader-margin-bottom', `${bottom}px`);
+      }, { top, bottom });
+      const variant = { ...layout, spread, direction, vertical };
+      await page.evaluate(value => {
+        window.acceptanceHarness.layout.configure(value);
+        window.acceptanceHarness.layout.reflow();
+      }, variant);
+      const bounds = await page.evaluate(() => {
+        const rect = document.querySelector('#reader').getBoundingClientRect();
+        const style = getComputedStyle(document.querySelector('#reader'));
+        return { top: rect.top, bottom: rect.bottom, height: innerHeight,
+          paddingTop: parseFloat(style.paddingTop), paddingBottom: parseFloat(style.paddingBottom),
+          bodyPadding: getComputedStyle(document.body).paddingTop };
+      });
+      assert.equal(bounds.top, 0, JSON.stringify(variant));
+      assert.equal(bounds.bottom, bounds.height, JSON.stringify(variant));
+      assert.equal(bounds.paddingTop, top);
+      assert.equal(bounds.paddingBottom, bottom);
+      assert.equal(bounds.bodyPadding, '0px');
+    }
+    await page.evaluate(value => window.acceptanceHarness.layout.configure(value), { ...layout, enabled: false });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).paddingTop), '35px');
+    await page.close();
   } finally { await browser.close(); }
 });

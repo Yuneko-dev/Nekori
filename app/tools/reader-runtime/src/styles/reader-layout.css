@@ -20,6 +20,15 @@
     --reader-margin-inline-end: var(--reader-margin-left);
 }
 
+/* Paged content owns its margins; body padding would push its viewport off screen. */
+body:has(.nekori-reader.is-paged) {
+    block-size: 100vh;
+    block-size: 100dvh;
+    padding-block: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 .nekori-reader.is-paged {
     box-sizing: border-box;
     inline-size: 100%;
