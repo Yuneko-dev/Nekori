@@ -164,7 +164,7 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
       enabled: true, spread: 'single', direction: 'rtl', vertical: true, infinite: false, threshold: 0.8, chapterId: '1',
     } });
     await mountModuleReader(page, entry, `<main id="reader" class="nekori-reader">
-      <nekori-chapter class="nekori-chapter" data-nekori-chapter-id="1"><p id="start">「<span id="vertical-first" style="display:inline-block;inline-size:1em;block-size:1em">縦</span><span id="vertical-next" style="display:inline-block;inline-size:1em;block-size:1em">書</span>きー」小さいゃゅょ <span class="tcy">12</span> 34 123 A12B 中文 한국어 English Tiếng Việt</p>
+      <nekori-chapter class="nekori-chapter" data-nekori-chapter-id="1"><p id="start">「<span id="vertical-first">縦</span><span id="vertical-next">書</span>きー」小さいゃゅょ <span class="tcy">12</span> 34 123 A12B 中文 한국어 English Tiếng Việt</p>
       ${'<p>日本語の文章、中文直排，한국어 문장. English and Tiếng Việt text.</p>'.repeat(80)}<p id="end">終わり</p></nekori-chapter></main>`, verticalConfig);
     await page.waitForFunction(() => window.acceptanceHarness.layout?.position !== null);
     const initial = await page.evaluate(() => {
