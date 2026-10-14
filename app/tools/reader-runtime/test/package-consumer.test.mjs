@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packageDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const npmCli = process.env.npm_execpath
+  ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 
 test('packed package installs and typechecks from a TypeScript consumer', async () => {
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'nekori-reader-consumer-'));
