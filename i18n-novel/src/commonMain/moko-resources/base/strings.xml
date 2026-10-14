@@ -1037,7 +1037,7 @@
     <string name="translation_selected_already_translated">Selected chapters are already translated</string>
 
     <!-- Settings: font manager -->
-    <string name="settings_font_manager_title">Font Manager</string>
+    <string name="settings_font_manager_title">Fonts</string>
     <string name="settings_font_manager_add_font">Add Font</string>
     <string name="settings_font_manager_loading">Loading fonts...</string>
     <string name="settings_font_manager_system_fonts">Built-in fonts</string>
@@ -1107,7 +1107,7 @@
 
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Text</string>
-    <string name="settings_reader_font_manager_summary">Download or import custom fonts</string>
+    <string name="settings_reader_font_manager_summary">Choose, download or import fonts</string>
     <string name="settings_reader_force_lowercase_summary">Convert all text to lowercase</string>
     <string name="settings_reader_use_original_fonts_summary">Preserve fonts from the source website</string>
     <string name="settings_reader_swipe_navigation_title">Swipe navigation</string>
@@ -1470,4 +1470,6 @@
     <string name="novel_background_selected">Selected background</string>
     <string name="novel_background_image_actions">Image actions</string>
     <string name="novel_vertical_text">Vertical text (right to left)</string>
+    <string name="novel_font_default">Default</string>
+    <string name="novel_font_default_summary">Use the source’s font, or the device font when none is specified.</string>
 </resources>

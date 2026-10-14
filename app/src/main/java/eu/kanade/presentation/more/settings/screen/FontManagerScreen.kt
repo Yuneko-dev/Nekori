@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CloudDownload
@@ -35,7 +37,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,6 +46,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -91,6 +93,7 @@ import mihon.core.viewmodel.StateViewModel
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.shouldExpandFAB
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.core.common.i18n.stringResource as contextStringResource
@@ -104,6 +107,7 @@ class FontManagerScreen : Screen {
         val scope = rememberCoroutineScope()
         val screenModel = viewModel<FontManagerViewModel>()
         val state by screenModel.state.collectAsState()
+        val listState = rememberLazyListState()
 
         LaunchedEffect(screenModel) { screenModel.loadFonts() }
 
@@ -144,7 +148,8 @@ class FontManagerScreen : Screen {
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
+                SmallExtendedFloatingActionButton(
+                    expanded = listState.shouldExpandFAB(),
                     onClick = { showAddFontSheet = true },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     text = { Text(stringResource(TDMR.strings.settings_font_manager_add_font)) },
@@ -165,6 +170,7 @@ class FontManagerScreen : Screen {
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -427,62 +433,63 @@ private fun FontItem(
     }
     val ready = preview as? FontPreview.Ready
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+        ),
     ) {
         Row(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxWidth()
                 .selectable(
                     selected = isSelected,
                     enabled = ready != null,
                     role = Role.RadioButton,
                     onClick = onClick,
-                ),
+                )
+                .padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ListItem(
-                modifier = Modifier.weight(1f),
-                headlineContent = {
+            Row(
+                modifier = Modifier.weight(1f)
+                    .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (onDelete == null) 16.dp else 0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = fontInfo.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        fontFamily = ready?.family,
+                        style = MaterialTheme.typography.titleMedium,
                     )
-                },
-                supportingContent = {
-                    when (val currentPreview = preview) {
-                        FontPreview.Loading -> Text(stringResource(MR.strings.loading))
-                        FontPreview.Unavailable -> Text(
+                    when {
+                        preview == FontPreview.Loading -> Text(stringResource(MR.strings.loading))
+                        preview == FontPreview.Unavailable -> Text(
                             text = stringResource(TDMR.strings.settings_font_manager_font_unavailable),
                             color = MaterialTheme.colorScheme.error,
                         )
-                        is FontPreview.Ready -> Text(
-                            text = stringResource(TDMR.strings.settings_font_manager_preview_sample),
-                            fontFamily = currentPreview.family,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                        fontInfo.path.isEmpty() -> Text(
+                            text = stringResource(TDMR.strings.novel_font_default_summary),
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                },
-            )
-            RadioButton(
-                selected = isSelected,
-                onClick = null,
-                enabled = ready != null,
-                modifier = Modifier.padding(end = 16.dp),
-            )
-        }
-        if (onDelete != null) {
-            IconButton(onClick = onDelete, modifier = Modifier.padding(end = 8.dp)) {
-                Icon(
-                    Icons.Outlined.Delete,
-                    contentDescription = stringResource(MR.strings.action_delete),
-                    tint = MaterialTheme.colorScheme.error,
-                )
+                }
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+            }
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Outlined.Delete, contentDescription = stringResource(MR.strings.action_delete))
+                }
             }
         }
     }
@@ -615,7 +622,11 @@ class FontManagerViewModel(
         viewModelScope.launch {
             val systemFonts = fontManager.getSystemFonts()
             val customFonts = fontManager.getInstalledFonts()
-            val currentFont = readerPreferences.novelFontFamily.get()
+            val currentFont = if (readerPreferences.novelUseOriginalFonts.get()) {
+                ""
+            } else {
+                readerPreferences.novelFontFamily.get()
+            }
 
             mutableState.update {
                 it.copy(
@@ -630,6 +641,7 @@ class FontManagerViewModel(
 
     fun selectFont(font: FontInfo) {
         readerPreferences.novelFontFamily.set(font.path)
+        readerPreferences.novelUseOriginalFonts.set(false)
         mutableState.update { it.copy(selectedFontPath = font.path) }
     }
 
@@ -669,8 +681,8 @@ class FontManagerViewModel(
                 loadFonts()
                 // Reset to default font if deleted font was selected
                 if (font.path == state.value.selectedFontPath) {
-                    readerPreferences.novelFontFamily.set("sans-serif")
-                    mutableState.update { it.copy(selectedFontPath = "sans-serif") }
+                    readerPreferences.novelFontFamily.set("")
+                    mutableState.update { it.copy(selectedFontPath = "") }
                 }
                 mutableState.update {
                     it.copy(

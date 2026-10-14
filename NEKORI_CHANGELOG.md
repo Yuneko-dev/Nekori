@@ -28,6 +28,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add download-only throttling: pace chapter downloads with the existing per-source delay, jitter and burst settings while browsing, reading and other HTTP traffic stay unpaced [#11](https://github.com/Yuneko-dev/Nekori/issues/11)
 
 ### Changed
+- Combine font selection and management in one screen with font-name previews and a Default option that respects source fonts or falls back to the device font; use a compact shared font picker in reader settings. Source code and UI based on [Reikai](https://github.com/unseensnick/Reikai).
 - Refactored the `ReaderWebView` JS API in TypeScript, removing hard-to-maintain backward compatibility code.
 - Update video playback from Video.js 10 RC2 to stable 10.0.1.
 
@@ -45,7 +46,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Preload and pre-translate the next TTS chapter at the configured threshold, including in the background with highlighting disabled; reuse in-flight preparation during chapter handoff.
 - Align expand/collapse buttons with result arrows in chapter search.
 - Show custom reader backgrounds behind the system bars and reading status bar while reserving safe space for text.
-- Align Font Manager selection and delete buttons when font previews wrap onto multiple lines.
+- Allow the last extension repository card to scroll clear of the Add button so its actions remain accessible.
 
 ### Other
 - Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.

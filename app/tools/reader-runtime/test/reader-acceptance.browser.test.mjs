@@ -684,3 +684,31 @@ browserTest(test, 'video runtime ignores page progress and player spans the view
     assert.deepEqual(result.scrollEvents, []);
   } finally { await browser.close(); }
 });
+
+browserTest(test, 'default font preserves source families and falls back to the system font', async () => {
+  const css = await readerCss();
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<style>${css}</style>
+      <style id="source-font">body { font-family: monospace; } .source-serif { font-family: serif; }</style>
+      <body class="nekori-reader-original-font nekori-reader-force-style" style="--reader-font-family: inherit">
+        <main class="nekori-reader"><p id="inherited">Source font</p><p class="source-serif">Nested font</p></main>
+      </body>`);
+    const family = selector => page.locator(selector).evaluate(el => getComputedStyle(el).fontFamily);
+    assert.equal(await family('#inherited'), 'monospace');
+    assert.equal(await family('.source-serif'), 'serif');
+    await page.locator('#source-font').evaluate(el => el.remove());
+    assert.equal(await family('#inherited'), 'system-ui');
+    await page.evaluate(() => {
+      document.body.classList.remove('nekori-reader-original-font');
+      document.body.style.setProperty('--reader-font-family', 'serif');
+    });
+    assert.equal(await family('#inherited'), 'serif');
+    await page.evaluate(() => {
+      document.body.classList.add('nekori-reader-original-font');
+      document.body.style.setProperty('--reader-font-family', 'inherit');
+    });
+    assert.equal(await family('#inherited'), 'system-ui');
+  } finally { await browser.close(); }
+});

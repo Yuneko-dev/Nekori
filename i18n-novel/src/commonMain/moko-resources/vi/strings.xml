@@ -884,7 +884,7 @@
     <string name="pref_translation_split_large_chapters_summary">Chia yêu cầu dịch chương bằng LLM thành các phần nhỏ hơn</string>
 
     <!-- Settings: font manager -->
-    <string name="settings_font_manager_title">Quản lý phông chữ</string>
+    <string name="settings_font_manager_title">Phông chữ</string>
     <string name="settings_font_manager_add_font">Thêm phông chữ</string>
     <string name="settings_font_manager_loading">Đang tải phông chữ...</string>
     <string name="settings_font_manager_system_fonts">Phông chữ có sẵn</string>
@@ -954,7 +954,7 @@
 
     <!-- Settings: novel reader text/formatting/content -->
     <string name="settings_reader_text_group">Văn bản</string>
-    <string name="settings_reader_font_manager_summary">Tải hoặc nhập phông chữ tùy chỉnh</string>
+    <string name="settings_reader_font_manager_summary">Chọn, tải hoặc nhập phông chữ</string>
     <string name="settings_reader_force_lowercase_summary">Chuyển toàn bộ văn bản thành chữ thường</string>
     <string name="settings_reader_use_original_fonts_summary">Giữ nguyên phông chữ từ trang nguồn</string>
     <string name="settings_reader_swipe_navigation_title">Điều hướng vuốt</string>
@@ -1466,4 +1466,6 @@
     <string name="novel_background_selected">Nền đang chọn</string>
     <string name="novel_background_image_actions">Thao tác với ảnh</string>
     <string name="novel_vertical_text">Chữ dọc (phải sang trái)</string>
+    <string name="novel_font_default">Mặc định</string>
+    <string name="novel_font_default_summary">Dùng phông chữ của nguồn, hoặc phông hệ thống nếu nguồn không chỉ định.</string>
 </resources>

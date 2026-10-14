@@ -1,6 +1,7 @@
 /* LNReader reader CSS, with its variables mapped to Nekori. */
 
 html {
+    font-family: system-ui;
     scroll-behavior: smooth;
     overflow-x: hidden;
     overflow-wrap: break-word;
@@ -22,13 +23,16 @@ body {
     padding-block-end: var(--reader-margin-bottom);
 
     font-size: var(--reader-font-size);
-    font-family: var(--reader-font-family);
     line-height: var(--reader-line-height);
     color: var(--reader-text-color);
     background-color: var(--reader-background-color);
     text-align: var(--reader-text-align);
     -webkit-user-select: var(--reader-user-select);
     user-select: var(--reader-user-select);
+}
+
+body:not(.nekori-reader-original-font) {
+    font-family: var(--reader-font-family);
 }
 
 /* Outside the chapter tree: decoration cannot change paragraph indices or page columns. */

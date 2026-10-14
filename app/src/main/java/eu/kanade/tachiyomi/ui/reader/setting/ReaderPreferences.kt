@@ -152,7 +152,7 @@ class ReaderPreferences(
     )
 
     val novelFontSize: Preference<Int> = preferenceStore.getInt("pref_novel_font_size", 16)
-    val novelFontFamily: Preference<String> = preferenceStore.getString("pref_novel_font_family", "sans-serif")
+    val novelFontFamily: Preference<String> = preferenceStore.getString("pref_novel_font_family", "")
     val novelTheme: Preference<String> = preferenceStore.getString("pref_novel_theme", "app")
     val novelLineHeight: Preference<Float> = preferenceStore.getFloat("pref_novel_line_height", 1.6f)
     val novelTextAlign: Preference<String> = preferenceStore.getString("pref_novel_text_align", "left")

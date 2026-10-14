@@ -145,6 +145,7 @@ private val backgroundColors = listOf(
 @Composable
 internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
     val fontFamily by screenModel.preferences.novelFontFamily.collectAsState()
+    val useOriginalFonts by screenModel.preferences.novelUseOriginalFonts.collectAsState()
     val textAlign by screenModel.preferences.novelTextAlign.collectAsState()
     val autoSplitEnabled by screenModel.preferences.novelAutoSplitText.collectAsState()
     val autoSplitWordCount by screenModel.preferences.novelAutoSplitWordCount.collectAsState()
@@ -152,14 +153,11 @@ internal fun ColumnScope.NovelReadingTab(screenModel: ReaderSettingsViewModel) {
     // Font Family
     NovelFontSelectItem(
         title = stringResource(TDMR.strings.pref_font_family),
-        selected = fontFamily,
-        onSelect = { screenModel.preferences.novelFontFamily.set(it) },
-        defaultValue = screenModel.preferences.novelFontFamily.defaultValue(),
-    )
-
-    ReaderSwitchItem(
-        label = stringResource(TDMR.strings.pref_novel_use_original_fonts),
-        pref = screenModel.preferences.novelUseOriginalFonts,
+        selected = if (useOriginalFonts) "" else fontFamily,
+        onSelect = {
+            screenModel.preferences.novelFontFamily.set(it)
+            screenModel.preferences.novelUseOriginalFonts.set(false)
+        },
     )
 
     ReaderSwitchItem(

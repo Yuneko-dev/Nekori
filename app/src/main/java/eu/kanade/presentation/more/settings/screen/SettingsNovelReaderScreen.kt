@@ -14,7 +14,6 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.reader.settings.ColorPickerDialog
 import eu.kanade.presentation.reader.settings.NovelBackgroundManagerScreen
-import eu.kanade.presentation.reader.settings.NovelFontPickerDialog
 import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
 import eu.kanade.presentation.reader.settings.NovelTtsVoicePreference
 import eu.kanade.presentation.reader.settings.novelScrollbarMode
@@ -482,40 +481,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                         readerPreferences.novelFontSize.set(it)
                     },
                 ),
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(TDMR.strings.pref_font_family),
-                ) {
-                    val title = stringResource(TDMR.strings.pref_font_family)
-                    val selected by readerPreferences.novelFontFamily.collectAsState()
-                    val options = rememberNovelFontOptions(selected)
-                    val selectedOption = options.find { it.value == selected }
-                    var showDialog by remember { mutableStateOf(false) }
-
-                    TextPreferenceWidget(
-                        title = title,
-                        subtitle = if (selectedOption != null && selectedOption.fontFamily == null) {
-                            stringResource(TDMR.strings.settings_font_manager_font_unavailable)
-                        } else {
-                            selectedOption?.label ?: stringResource(MR.strings.loading)
-                        },
-                        onPreferenceClick = { showDialog = true },
-                    )
-                    if (showDialog) {
-                        NovelFontPickerDialog(
-                            title = title,
-                            options = options,
-                            selected = selected,
-                            onSelect = {
-                                readerPreferences.novelFontFamily.set(it)
-                                showDialog = false
-                            },
-                            onDismissRequest = { showDialog = false },
-                        )
-                    }
-                },
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(TDMR.strings.settings_font_manager_title),
-                    subtitle = stringResource(TDMR.strings.settings_reader_font_manager_summary),
+                    subtitle = run {
+                        val selected by readerPreferences.novelFontFamily.collectAsState()
+                        val original by readerPreferences.novelUseOriginalFonts.collectAsState()
+                        val value = if (original) "" else selected
+                        rememberNovelFontOptions(value).find { it.value == value }?.label
+                            ?: value.substringAfterLast('/')
+                    },
                     onClick = { navigator.push(FontManagerScreen()) },
                 ),
                 Preference.PreferenceItem.SliderPreference(
@@ -541,11 +515,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = readerPreferences.novelForceTextLowercase,
                     title = stringResource(TDMR.strings.novel_force_lowercase),
                     subtitle = stringResource(TDMR.strings.settings_reader_force_lowercase_summary),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.novelUseOriginalFonts,
-                    title = stringResource(TDMR.strings.pref_novel_use_original_fonts),
-                    subtitle = stringResource(TDMR.strings.settings_reader_use_original_fonts_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelBionicReading,

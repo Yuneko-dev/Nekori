@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -35,6 +36,8 @@ fun <T> ListPreferenceWidget(
     icon: ImageVector?,
     entries: Map<out T, String>,
     preferenceContent: @Composable ((onClick: () -> Unit) -> Unit)? = null,
+    entryTextStyle: @Composable (T) -> TextStyle = { MaterialTheme.typography.bodyLarge },
+    isEntryEnabled: (T) -> Boolean = { true },
     onValueChange: (T) -> Unit,
 ) {
     var isDialogShown by remember { mutableStateOf(false) }
@@ -64,6 +67,8 @@ fun <T> ListPreferenceWidget(
                                 DialogRow(
                                     label = current.value,
                                     isSelected = isSelected,
+                                    textStyle = entryTextStyle(current.key),
+                                    enabled = isEntryEnabled(current.key),
                                     onSelected = {
                                         onValueChange(current.key!!)
                                         isDialogShown = false
@@ -89,6 +94,8 @@ fun <T> ListPreferenceWidget(
 private fun DialogRow(
     label: String,
     isSelected: Boolean,
+    textStyle: TextStyle,
+    enabled: Boolean,
     onSelected: () -> Unit,
 ) {
     Row(
@@ -97,6 +104,7 @@ private fun DialogRow(
             .clip(MaterialTheme.shapes.small)
             .selectable(
                 selected = isSelected,
+                enabled = enabled,
                 onClick = { if (!isSelected) onSelected() },
             )
             .fillMaxWidth()
@@ -104,11 +112,12 @@ private fun DialogRow(
     ) {
         RadioButton(
             selected = isSelected,
+            enabled = enabled,
             onClick = null,
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge.merge(),
+            style = textStyle,
             modifier = Modifier.padding(start = 24.dp),
         )
     }

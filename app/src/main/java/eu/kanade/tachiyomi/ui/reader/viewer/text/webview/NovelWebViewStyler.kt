@@ -72,7 +72,7 @@ internal class NovelWebViewStyler(
         val customCss = preferences.novelCustomCss.get()
         val pluginCustomCss = currentJsSource()?.customCSS.orEmpty()
             .takeIf { preferences.novelPluginUseCustomCss.get() }.orEmpty()
-        val useOriginalFonts = preferences.novelUseOriginalFonts.get()
+        val useOriginalFonts = preferences.novelUseOriginalFonts.get() || fontFamily.isBlank()
         val enabledSnippetsCss = try {
             Json.decodeFromString<List<CodeSnippet>>(preferences.novelCustomCssSnippets.get())
                 .filter { it.enabled }.joinToString("\n") { it.code }
@@ -137,7 +137,7 @@ internal class NovelWebViewStyler(
     private fun resolveFontFace(fontFamily: String, useOriginalFonts: Boolean): Pair<String, String> {
         if (useOriginalFonts) {
             fontUriString = null
-            return "" to fontFamily
+            return "" to "inherit"
         }
         if (!(fontFamily.startsWith("file://") || fontFamily.startsWith("content://"))) {
             fontUriString = null

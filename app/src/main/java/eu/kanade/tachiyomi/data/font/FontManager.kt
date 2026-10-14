@@ -84,6 +84,7 @@ class FontManager(
      */
     fun getSystemFonts(): List<FontInfo> {
         return listOf(
+            FontInfo(context.stringResource(TDMR.strings.novel_font_default), "", "", false),
             FontInfo(context.stringResource(TDMR.strings.novel_font_sans_serif), "sans-serif", "sans-serif", false),
             FontInfo(context.stringResource(TDMR.strings.novel_font_serif), "serif", "serif", false),
             FontInfo(context.stringResource(TDMR.strings.novel_font_monospace), "monospace", "monospace", false),
@@ -348,6 +349,7 @@ class FontManager(
     fun getTypeface(fontInfo: FontInfo): Typeface? {
         if (!fontInfo.isCustom) {
             return when (fontInfo.path) {
+                "" -> Typeface.DEFAULT
                 "sans-serif" -> Typeface.SANS_SERIF
                 "serif" -> Typeface.SERIF
                 "monospace" -> Typeface.MONOSPACE
