@@ -2,7 +2,7 @@ import { buildHlsDownloadConfig } from "./direct.ts";
 import { DownloadSink } from "./download-sink.ts";
 import { watchHlsActivity } from "./hls-activity.ts";
 import { boxType, sameBytes, toBytes } from "./hls-fragment-bytes.ts";
-import type { HlsConstructor, HlsEngine, HlsEventData, HlsFragment, HlsInitSegment } from "./hls-types.ts";
+import type { HlsConstructor, HlsEventData, HlsFragment, HlsInitSegment } from "./hls-types.ts";
 
 const FULL_SEGMENT_METHODS = new Set(["AES-128", "AES-256", "AES-256-CTR"]);
 const MFHD_SEQUENCE_OFFSET = 20;

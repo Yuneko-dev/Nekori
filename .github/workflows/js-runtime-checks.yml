@@ -1,0 +1,55 @@
+name: Check JS Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'js-runtime/**'
+      - '.editorconfig'
+      - '.github/workflows/js-runtime-checks.yml'
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: JS runtime ${{ matrix.script }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        script: [type-check, lint, 'format:check', 'test:chapter']
+    defaults:
+      run:
+        working-directory: js-runtime
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: js-runtime/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: js-runtime/.nvmrc
+          cache: pnpm
+          cache-dependency-path: js-runtime/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ${{ matrix.script }}
+        run: pnpm run ${{ matrix.script }}

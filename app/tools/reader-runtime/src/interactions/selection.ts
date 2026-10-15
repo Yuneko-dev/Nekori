@@ -12,7 +12,8 @@ export function registerSelectionCommands(host: ReaderHost): Unsubscribe[] {
     }),
     host.onCommand('selection.blur', () => {
       host.root.ownerDocument.getSelection()?.removeAllRanges();
-      host.root.ownerDocument.activeElement instanceof HTMLElement && host.root.ownerDocument.activeElement.blur();
+      const activeElement = host.root.ownerDocument.activeElement;
+      if (activeElement instanceof HTMLElement) activeElement.blur();
     }),
   ];
 }

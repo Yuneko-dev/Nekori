@@ -22,16 +22,20 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test test/*.test.mjs ../../src/test/js/*.test.mjs",
+    "lint": "eslint src --ext .ts",
+    "test": "node test-unit.mjs",
     "browser": "node browser-tests.mjs",
-    "check": "npm run typecheck && npm run build && npm test"
+    "check": "npm run typecheck && npm run lint && npm run build && npm test"
   },
   "dependencies": {
     "vanjs-core": "1.6.1"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
+    "@typescript-eslint/eslint-plugin": "8.58.0",
+    "@typescript-eslint/parser": "8.58.0",
     "esbuild": "0.25.9",
+    "eslint": "8.57.1",
     "typescript": "5.9.3"
   }
 }

@@ -88,7 +88,7 @@ export async function writeResponseToSink(
     const reader = response.body.getReader();
     const cancel = () => { void reader.cancel(); };
     signal?.addEventListener("abort", cancel, { once: true });
-    while (true) {
+    for (;;) {
       try {
         if (signal?.aborted) throw new DOMException("The operation was aborted", "AbortError");
         const result = await reader.read();

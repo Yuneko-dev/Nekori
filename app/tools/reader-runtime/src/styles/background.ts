@@ -1,4 +1,4 @@
-import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
+import type { ReaderHost } from '../protocol/reader-api.ts';
 
 interface BackgroundConfig {
   image: string;

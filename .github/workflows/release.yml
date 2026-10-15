@@ -9,6 +9,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  kotlin-checks:
+    uses: ./.github/workflows/kotlin-checks.yml
+    permissions:
+      contents: read
+
   get_tag:
     if: github.repository == 'Yuneko-dev/Nekori'
     name: Extract tag name
@@ -25,7 +30,7 @@ jobs:
     if: github.repository == 'Yuneko-dev/Nekori'
     name: Build
     runs-on: 'ubuntu-24.04'
-    needs: get_tag
+    needs: [get_tag, kotlin-checks]
 
     steps:
       - name: Checkout

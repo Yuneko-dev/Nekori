@@ -37,8 +37,7 @@ export function createInlineFeedback(root: HTMLElement, host: ReaderHost, layout
     const chapter = payload.presentation === 'boundary'
       ? resolveBoundary(root, host, payload.chapterId)
       : null;
-    let feedbackHost: HTMLElement;
-    feedbackHost = createFeedbackHost(document, payload, host, reflow, () => {
+    const feedbackHost = createFeedbackHost(document, payload, host, reflow, () => {
       if (current === feedbackHost) {
         feedbackHost.remove();
         current = null;

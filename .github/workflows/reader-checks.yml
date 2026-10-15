@@ -7,6 +7,7 @@ on:
       - 'app/src/test/js/**'
       - '.github/workflows/reader-checks.yml'
       - 'js-runtime/.nvmrc'
+      - '.editorconfig'
   push:
     branches:
       - main
@@ -24,6 +25,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: app/tools/reader-runtime
@@ -41,5 +43,6 @@ jobs:
       - name: Install reader runtime dependencies
         run: npm ci
 
-      - name: Check reader runtime package
+      # Chromium acceptance tests remain opt-in via npm run browser.
+      - name: Check reader types, lint, style, build and Node tests
         run: npm run check

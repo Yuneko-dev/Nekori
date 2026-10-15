@@ -1,0 +1,69 @@
+name: Check Kotlin
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Kotlin ${{ matrix.check }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [style, tests]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # settings.gradle.kts resolves the React Native Gradle plugin from node_modules.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: js-runtime/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: js-runtime/.nvmrc
+          cache: pnpm
+          cache-dependency-path: js-runtime/pnpm-lock.yaml
+
+      - name: Install JS runtime dependencies
+        working-directory: js-runtime
+        run: pnpm install --frozen-lockfile
+
+      - name: Install reader runtime dependencies
+        if: matrix.check == 'tests'
+        run: npm ci --prefix app/tools/reader-runtime
+
+      - name: Check Kotlin style
+        if: matrix.check == 'style'
+        run: ./gradlew spotlessCheck --continue
+
+      - name: Run unit tests and verify SQLDelight migrations
+        if: matrix.check == 'tests'
+        run: ./gradlew testDebugUnitTest verifySqlDelightMigration --continue
+
+      - name: Upload test reports
+        if: failure() && matrix.check == 'tests'
+        uses: actions/upload-artifact@v5
+        with:
+          name: kotlin-test-reports-${{ github.sha }}
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          if-no-files-found: ignore

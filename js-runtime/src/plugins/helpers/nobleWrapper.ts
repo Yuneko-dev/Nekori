@@ -17,7 +17,7 @@
  *   - GCM returns `ciphertext || 16-byte-tag`, just like noble-ciphers.
  *   - `encrypt()` is single-use per cipher instance, matching noble's wrapped cipher API.
  *   - Common non-AEAD modes accept an optional destination Uint8Array.
- * 
+ *
  * This file will also be copied as a version for Nekori-plugins.
  */
 
@@ -85,13 +85,21 @@ function validateKey(key: Uint8Array): 128 | 192 | 256 {
   if (key.length === 16) return 128;
   if (key.length === 24) return 192;
   if (key.length === 32) return 256;
-  throw new Error(`"aes key" expected Uint8Array of length 16/24/32, got length=${key.length}`);
+  throw new Error(
+    `"aes key" expected Uint8Array of length 16/24/32, got length=${key.length}`,
+  );
 }
 
-function validateExactLength(value: Uint8Array, length: number, name: string): void {
+function validateExactLength(
+  value: Uint8Array,
+  length: number,
+  name: string,
+): void {
   abytes(value, name);
   if (value.length !== length) {
-    throw new Error(`"${name}" expected Uint8Array of length ${length}, got length=${value.length}`);
+    throw new Error(
+      `"${name}" expected Uint8Array of length ${length}, got length=${value.length}`,
+    );
   }
 }
 
@@ -124,14 +132,21 @@ function algorithmFor(key: Uint8Array, mode: BasicMode | 'gcm'): string {
 function ensureAlignedOutput(output: Uint8Array): void {
   abytes(output, 'output');
   // Noble's AES CipherWithOutput implementations require 4-byte aligned destinations.
-  if (output.byteOffset % 4 !== 0) throw new Error('invalid output, must be aligned');
+  if (output.byteOffset % 4 !== 0)
+    throw new Error('invalid output, must be aligned');
 }
 
-function writeOutput(result: Uint8Array, output?: Uint8Array, expectedLength = result.length): Uint8Array {
+function writeOutput(
+  result: Uint8Array,
+  output?: Uint8Array,
+  expectedLength = result.length,
+): Uint8Array {
   if (output === undefined) return asUint8Array(result);
   ensureAlignedOutput(output);
   if (output.length !== expectedLength) {
-    throw new RangeError(`"output" expected Uint8Array of length ${expectedLength}, got length=${output.length}`);
+    throw new RangeError(
+      `"output" expected Uint8Array of length ${expectedLength}, got length=${output.length}`,
+    );
   }
   if (result.length > output.length) {
     throw new RangeError('output is too small');
@@ -156,15 +171,17 @@ function runBasic(
   // though ECB follows Node's runtime API and requires a null IV. Keep the
   // null cast isolated to the ECB branch instead of leaking Buffer | null
   // into every createCipheriv/createDecipheriv call.
-  const ctx = (
-    mode === 'ecb'
-      ? encrypting
-        ? createCipheriv(algorithm, keyBuffer, null as unknown as Buffer)
-        : createDecipheriv(algorithm, keyBuffer, null as unknown as Buffer)
-      : encrypting
-        ? createCipheriv(algorithm, keyBuffer, asBuffer(iv as Uint8Array))
-        : createDecipheriv(algorithm, keyBuffer, asBuffer(iv as Uint8Array))
-  ) as unknown as BasicCipherContext;
+  const ctx = (mode === 'ecb'
+    ? encrypting
+      ? createCipheriv(algorithm, keyBuffer, null as unknown as Buffer)
+      : createDecipheriv(algorithm, keyBuffer, null as unknown as Buffer)
+    : encrypting
+    ? createCipheriv(algorithm, keyBuffer, asBuffer(iv as Uint8Array))
+    : createDecipheriv(
+        algorithm,
+        keyBuffer,
+        asBuffer(iv as Uint8Array),
+      )) as unknown as BasicCipherContext;
 
   if (mode === 'cbc' || mode === 'ecb') ctx.setAutoPadding(autoPadding);
 
@@ -173,17 +190,27 @@ function runBasic(
   return concat(a, b);
 }
 
-function makeStreamCipher(mode: 'ctr' | 'cfb', key: Uint8Array, iv: Uint8Array): CipherWithOutput {
+function makeStreamCipher(
+  mode: 'ctr' | 'cfb',
+  key: Uint8Array,
+  iv: Uint8Array,
+): CipherWithOutput {
   validateKey(key);
   validateExactLength(iv, AES_BLOCK_SIZE, mode === 'ctr' ? 'nonce' : 'iv');
   let encrypted = false;
 
-  const process = (data: Uint8Array, encrypting: boolean, output?: Uint8Array): Uint8Array => {
+  const process = (
+    data: Uint8Array,
+    encrypting: boolean,
+    output?: Uint8Array,
+  ): Uint8Array => {
     abytes(data);
     if (output !== undefined) {
       ensureAlignedOutput(output);
       if (output.length !== data.length) {
-        throw new RangeError(`"output" expected Uint8Array of length ${data.length}, got length=${output.length}`);
+        throw new RangeError(
+          `"output" expected Uint8Array of length ${data.length}, got length=${output.length}`,
+        );
       }
     }
     const result = runBasic(mode, encrypting, key, iv, data, false);
@@ -192,7 +219,8 @@ function makeStreamCipher(mode: 'ctr' | 'cfb', key: Uint8Array, iv: Uint8Array):
 
   return {
     encrypt(data, output) {
-      if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
+      if (encrypted)
+        throw new Error('cannot encrypt() twice with same key + nonce');
       encrypted = true;
       return process(data, true, output);
     },
@@ -209,14 +237,16 @@ function makeBlockCipher(
   opts: BlockOpts,
 ): CipherWithOutput {
   validateKey(key);
-  if (mode === 'cbc') validateExactLength(iv as Uint8Array, AES_BLOCK_SIZE, 'iv');
+  if (mode === 'cbc')
+    validateExactLength(iv as Uint8Array, AES_BLOCK_SIZE, 'iv');
 
   const autoPadding = !opts.disablePadding;
   let encrypted = false;
 
   return {
     encrypt(data, output) {
-      if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
+      if (encrypted)
+        throw new Error('cannot encrypt() twice with same key + nonce');
       encrypted = true;
       abytes(data);
 
@@ -255,7 +285,9 @@ function makeBlockCipher(
       if (output !== undefined) {
         ensureAlignedOutput(output);
         if (output.length !== data.length) {
-          throw new RangeError(`"output" expected Uint8Array of length ${data.length}, got length=${output.length}`);
+          throw new RangeError(
+            `"output" expected Uint8Array of length ${data.length}, got length=${output.length}`,
+          );
         }
       }
 
@@ -295,13 +327,18 @@ export const cfb: CfbFactory = Object.assign(
   { blockSize: 16 as const, nonceLength: 16 as const },
 );
 
-type CbcFactory = ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
+type CbcFactory = ((
+  key: Uint8Array,
+  iv: Uint8Array,
+  opts?: BlockOpts,
+) => CipherWithOutput) & {
   blockSize: 16;
   nonceLength: 16;
 };
 
 export const cbc: CbcFactory = Object.assign(
-  (key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}) => makeBlockCipher('cbc', key, iv, opts),
+  (key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}) =>
+    makeBlockCipher('cbc', key, iv, opts),
   { blockSize: 16 as const, nonceLength: 16 as const },
 );
 
@@ -310,11 +347,16 @@ type EcbFactory = ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
 };
 
 export const ecb: EcbFactory = Object.assign(
-  (key: Uint8Array, opts: BlockOpts = {}) => makeBlockCipher('ecb', key, null, opts),
+  (key: Uint8Array, opts: BlockOpts = {}) =>
+    makeBlockCipher('ecb', key, null, opts),
   { blockSize: 16 as const },
 );
 
-type GcmFactory = ((key: Uint8Array, nonce: Uint8Array, aad?: Uint8Array) => Cipher) & {
+type GcmFactory = ((
+  key: Uint8Array,
+  nonce: Uint8Array,
+  aad?: Uint8Array,
+) => Cipher) & {
   blockSize: 16;
   nonceLength: 12;
   tagLength: 16;
@@ -334,7 +376,8 @@ export const gcm: GcmFactory = Object.assign(
 
     return {
       encrypt(plaintext: Uint8Array): Uint8Array {
-        if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
+        if (encrypted)
+          throw new Error('cannot encrypt() twice with same key + nonce');
         encrypted = true;
         abytes(plaintext, 'data');
 
@@ -355,7 +398,9 @@ export const gcm: GcmFactory = Object.assign(
       decrypt(ciphertext: Uint8Array): Uint8Array {
         abytes(ciphertext, 'data');
         if (ciphertext.length < GCM_TAG_LENGTH) {
-          throw new Error(`"ciphertext" expected length >= tagLength=${GCM_TAG_LENGTH}`);
+          throw new Error(
+            `"ciphertext" expected length >= tagLength=${GCM_TAG_LENGTH}`,
+          );
         }
 
         const body = ciphertext.subarray(0, ciphertext.length - GCM_TAG_LENGTH);

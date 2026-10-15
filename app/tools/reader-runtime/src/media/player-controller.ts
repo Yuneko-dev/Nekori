@@ -3,7 +3,7 @@ import { PlayerDebugOverlay } from "./debug-overlay.ts";
 import { VideoDownloader } from "./download.ts";
 import { reportPlayerFailure } from "./errors.ts";
 import { PlaybackProgress } from "./playback-progress.ts";
-import { PlayerDomFactory, type PlayerDom } from "./player-dom.ts";
+import { PlayerDomFactory } from "./player-dom.ts";
 import { ResumePrompt } from "./resume-prompt.ts";
 import type { StringStorage } from "./progress.ts";
 import { SubtitleManager } from "./subtitles.ts";

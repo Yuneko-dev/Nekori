@@ -52,6 +52,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Allow the last extension repository card to scroll clear of the Add button so its actions remain accessible.
 
 ### Other
+- Add CI checks for Kotlin style, unit tests and database migrations, JS runtime typing/lint/style and chapter contracts, and reader typing/lint/style with Node tests; keep Chromium acceptance tests opt-in outside Ubuntu CI.
 - Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.
 
 ## [v0.1.2] - 2026-10-05

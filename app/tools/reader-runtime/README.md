@@ -22,8 +22,11 @@ The script copies the self-contained ESM runtime, declarations, CSS and offline 
 `nekori-plugins/public/static/novel-reader/`. The plugin repository consumes that local snapshot;
 its installation and normal builds do not need this checkout or a reader package dependency.
 
-Package and browser checks run in `.github/workflows/reader-checks.yml`, separately from
-APK build/release workflows. Gradle still builds the runtime assets required by the APK.
+`.github/workflows/reader-checks.yml` runs TypeScript checking, ESLint, build and Node tests,
+separately from APK build/release workflows. ESLint includes final-newline, tab and trailing-space
+style checks for TypeScript sources. `npm test` excludes `*.browser.test.mjs`; Chromium acceptance
+tests run only with the explicit `npm run browser` command and are not run on Ubuntu CI.
+Gradle still builds the runtime assets required by the APK.
 
 The browser bundle targets Chromium 138, matching Nekori's minimum supported Android System
 WebView. The separate headless download bundle is built from `src/entries/download.ts`; the

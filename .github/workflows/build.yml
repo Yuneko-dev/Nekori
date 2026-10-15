@@ -20,8 +20,14 @@ concurrency:
 
 
 jobs:
+  kotlin-checks:
+    uses: ./.github/workflows/kotlin-checks.yml
+    permissions:
+      contents: read
+
   build:
-    name: Build, Test & (on main) Sign APK
+    name: Build & (on main) Sign APK
+    needs: kotlin-checks
     runs-on: ubuntu-24.04
 
     steps:
@@ -93,20 +99,6 @@ jobs:
 
       - name: Build nightly APK(s) (unsigned)
         run: ./gradlew assembleNightly -Penable-updater
-
-      - name: Run unit tests
-        id: unit_tests
-        run: ./gradlew testDebugUnitTest
-
-      - name: Verify SQLDelight migrations
-        run: ./gradlew verifySqlDelightMigration
-
-      - name: Upload test report (if tests fail)
-        if: failure()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-report-${{ github.sha }}
-          path: app/build/reports/tests/testDebugUnitTest
 
       - name: Sign APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Yuneko-dev/Nekori'
