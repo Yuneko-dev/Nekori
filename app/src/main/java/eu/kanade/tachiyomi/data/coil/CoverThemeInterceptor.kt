@@ -33,9 +33,7 @@ class CoverThemeInterceptor : Interceptor {
             is MangaCover -> data
             else -> return chain.proceed()
         }
-        if (cover.hasUnavailableCover() ||
-            !Injekt.get<UiPreferences>().themeCoverBased.get() || CoverThemeCache.contains(cover)
-        ) {
+        if (!Injekt.get<UiPreferences>().themeCoverBased.get() || CoverThemeCache.contains(cover)) {
             return chain.proceed()
         }
         val request = chain.request.newBuilder().allowHardware(false).build()

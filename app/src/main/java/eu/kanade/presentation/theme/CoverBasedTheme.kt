@@ -1,8 +1,9 @@
 package eu.kanade.presentation.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,7 +23,6 @@ import com.materialkolor.ktx.animateColorScheme
 import com.materialkolor.toColorScheme
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.coil.CoverThemeCache
-import eu.kanade.tachiyomi.data.coil.hasUnavailableCover
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.lang.withIOContext
@@ -40,7 +40,7 @@ fun CoverBasedTheme(manga: Manga?, content: @Composable () -> Unit) {
     val style by preferences.themeCoverBasedStyle.collectAsState()
     val amoled by preferences.themeDarkAmoled.collectAsState()
     val context = LocalContext.current
-    val cover = manga?.asMangaCover()?.takeUnless { it.hasUnavailableCover() }
+    val cover = manga?.asMangaCover()
     var seed by remember(cover, enabled) {
         mutableStateOf(cover?.takeIf { enabled }?.let { CoverThemeCache[it]?.let(::Color) })
     }
@@ -62,7 +62,7 @@ fun CoverBasedTheme(manga: Manga?, content: @Composable () -> Unit) {
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                null // A missing or unreadable cover keeps the surrounding app theme.
+                // A missing or unreadable cover keeps the surrounding app theme.
             }
         }
     }
@@ -74,8 +74,19 @@ fun CoverBasedTheme(manga: Manga?, content: @Composable () -> Unit) {
         color?.let { coverColorScheme(it, style, dark, amoled) } ?: fallback
     }
     val animatedScheme = animateColorScheme(scheme)
-    MaterialExpressiveTheme(colorScheme = animatedScheme) {
-        CompositionLocalProvider(LocalContentColor provides animatedScheme.onBackground, content = content)
+    CoverColorTheme(animatedScheme, content)
+}
+
+@Composable
+internal fun CoverColorTheme(colorScheme: ColorScheme, content: @Composable () -> Unit) {
+    // A nested MaterialTheme resets LocalTextStyle to bodyLarge; the reader supplies bodySmall.
+    val inheritedTextStyle = LocalTextStyle.current
+    MaterialTheme(colorScheme = colorScheme) {
+        CompositionLocalProvider(
+            LocalTextStyle provides inheritedTextStyle,
+            LocalContentColor provides colorScheme.onBackground,
+            content = content,
+        )
     }
 }
 

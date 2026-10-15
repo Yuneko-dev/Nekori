@@ -1,21 +1,15 @@
 package eu.kanade.tachiyomi.data.coil
 
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import tachiyomi.domain.manga.model.MangaCover
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 internal fun isUnavailableCover(url: String?): Boolean {
     val path = url?.toHttpUrlOrNull()?.encodedPath ?: return false
     return path.endsWith("/static/coverNotAvailable.webp")
 }
-
-internal fun MangaCover.hasUnavailableCover(): Boolean =
-    isUnavailableCover(url) && !Injekt.get<CoverCache>().getCustomCoverFile(mangaId).exists()
 
 /** Process-local seeds, keyed by cover revision so replacing a cover cannot reuse its old color. */
 internal object CoverThemeCache {
