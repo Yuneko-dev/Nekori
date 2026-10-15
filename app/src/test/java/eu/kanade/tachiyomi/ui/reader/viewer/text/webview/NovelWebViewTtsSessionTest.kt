@@ -27,6 +27,29 @@ import tachiyomi.domain.translation.service.TranslationPreferences
 class NovelWebViewTtsSessionTest {
 
     @Test
+    fun `page and short chapter requests still append during TTS playback`() {
+        for (playing in listOf(false, true)) {
+            val viewer = mockk<NovelWebViewViewer>(relaxed = true)
+            viewer.setField("activity", mockk<ReaderActivity>(relaxed = true))
+            val controller = mockk<TtsController>(relaxed = true) {
+                every { isTtsAutoPlay } returns playing
+            }
+            viewer.setField("ttsController", controller)
+            every { viewer.isInfiniteScrollEnabled() } returns true
+            every { viewer getProperty "webChapterContentReady" } returns true
+            every { viewer["loadNextChapterFromPage"]() } answers { callOriginal() }
+            every { viewer["markCurrentChapterShort"]() } answers { callOriginal() }
+
+            for (method in listOf("loadNextChapterFromPage", "markCurrentChapterShort")) {
+                NovelWebViewViewer::class.java.getDeclaredMethod(method)
+                    .apply { isAccessible = true }.invoke(viewer)
+            }
+
+            verify(exactly = 2) { viewer["startNextChapterAppend"]() }
+        }
+    }
+
+    @Test
     fun `TTS read ahead translates before handoff only when translation preload is enabled`() = runTest {
         for (translateAhead in listOf(true, false)) {
             val activity = mockk<ReaderActivity>(relaxed = true)
@@ -52,7 +75,7 @@ class NovelWebViewTtsSessionTest {
 
             val viewer = mockk<NovelWebViewViewer>(relaxed = true)
             every { viewer.activity } returns activity
-            every { viewer["preFetchNextChapterForTts"](any<Boolean>()) } answers { callOriginal() }
+            every { viewer["preFetchNextChapterForTts"]() } answers { callOriginal() }
             every { viewer.isInfiniteScrollEnabled() } returns true
             every { viewer getProperty "webChapterContentReady" } answers { callOriginal() }
             every { viewer getProperty "loadedChapters" } answers { callOriginal() }
@@ -70,9 +93,9 @@ class NovelWebViewTtsSessionTest {
             viewer.setField("docState", ready)
 
             val prefetch = NovelWebViewViewer::class.java
-                .getDeclaredMethod("preFetchNextChapterForTts", Boolean::class.javaPrimitiveType)
+                .getDeclaredMethod("preFetchNextChapterForTts")
                 .apply { isAccessible = true }
-            repeat(3) { prefetch.invoke(viewer, false) }
+            repeat(3) { prefetch.invoke(viewer) }
 
             val prepared = handoff.take(10)
             coVerify(exactly = 1) { viewModel.prepareNextChapterForInfiniteScroll(anchor) }

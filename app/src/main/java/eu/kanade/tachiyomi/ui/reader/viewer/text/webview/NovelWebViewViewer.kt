@@ -1249,8 +1249,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             activity.loadNextChapter()
         } else if (reachedNovelEnd) {
             setJsNoMoreChapters(true)
-        } else if (ttsController.isTtsAutoPlay) {
-            preFetchNextChapterForTts(thresholdReached = true)
         } else {
             startNextChapterAppend()
         }
@@ -1260,7 +1258,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastSavedProgress = 1f
         saveProgress()
         activity.onNovelProgressChanged(1f)
-        if (!ttsController.isTtsAutoPlay) startNextChapterAppend()
+        startNextChapterAppend()
     }
 
     private fun retryCurrentChapter() {
@@ -2817,7 +2815,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     /** Native speech progress keeps read-ahead running even when WebView frames are suspended. */
-    private fun preFetchNextChapterForTts(thresholdReached: Boolean = false) {
+    private fun preFetchNextChapterForTts() {
         if (!ttsController.isTtsAutoPlay || !isInfiniteScrollEnabled() || !webChapterContentReady ||
             webChapterIsError || isLoadingNext || ttsChapterJob?.isActive == true ||
             reachedNovelEnd || nextRequiresDocumentNavigation
@@ -2828,11 +2826,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         if (loadedChapters.getOrNull(index + 1) != null) return
         val anchor = loadedChapters.getOrNull(index) ?: currentChapters?.currChapter ?: return
         val anchorId = anchor.chapter.id ?: return
-        val progress = if (thresholdReached) {
-            1f
-        } else {
-            ttsController.ttsCurrentChunkIndex.toFloat() / ttsController.ttsChunks.size.coerceAtLeast(1)
-        }
+        val progress = ttsController.ttsCurrentChunkIndex.toFloat() / ttsController.ttsChunks.size.coerceAtLeast(1)
         val threshold = preferences.novelAutoLoadNextChapterAt.get().coerceIn(0, 100) / 100f
         handoffState.prefetch(anchorId, progress, threshold) {
             try {
@@ -3256,11 +3250,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         ttsController.stop()
         cancelTtsChapterPreparation()
         dispatchTtsState()
-        // The loadNextChapter TTS branch skips the JS-latch release, so after a threshold hit during
-        // playback runtime.loadingNext stays true and scroll-driven appending never re-fires. Clear
-        // it so infinite scroll resumes once TTS is off, but not while a real append is in flight:
-        // that append still owns the latch and will release it, and clobbering it here would let a
-        // second scroll launch a duplicate append.
+        // An active append owns the loading latch and releases it when it completes.
         if (appendJob?.isActive != true) {
             isLoadingNext = false
             setJsLoadingNext()
