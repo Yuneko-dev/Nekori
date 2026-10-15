@@ -1469,4 +1469,17 @@
     <string name="novel_vertical_text">Vertical text (right to left)</string>
     <string name="novel_font_default">Default</string>
     <string name="novel_font_default_summary">Use the source’s font, or the device font when none is specified.</string>
+
+    <string name="pref_theme_cover_based">Theme based on cover</string>
+    <string name="pref_theme_cover_based_style">Cover based theme style</string>
+    <string name="pref_theme_cover_based_style_tonalspot">Tonal Spot</string>
+    <string name="pref_theme_cover_based_style_neutral">Neutral</string>
+    <string name="pref_theme_cover_based_style_vibrant">Vibrant</string>
+    <string name="pref_theme_cover_based_style_expressive">Expressive</string>
+    <string name="pref_theme_cover_based_style_rainbow">Rainbow</string>
+    <string name="pref_theme_cover_based_style_fruitsalad">Fruit Salad</string>
+    <string name="pref_theme_cover_based_style_monochrome">Monochrome</string>
+    <string name="pref_theme_cover_based_style_fidelity">Fidelity</string>
+    <string name="pref_theme_cover_based_style_content">Content</string>
+    <string name="pref_theme_cover_based_summary">Use cover colors for novel details and reader controls.</string>
 </resources>

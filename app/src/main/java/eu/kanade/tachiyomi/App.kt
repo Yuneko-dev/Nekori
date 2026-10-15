@@ -32,6 +32,7 @@ import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
+import eu.kanade.tachiyomi.data.coil.CoverThemeInterceptor
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
@@ -223,6 +224,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             // covers ARE source traffic.
             val exemptCallFactoryLazy = lazy { Injekt.get<NetworkHelper>().client.rateLimitExempt() }
             components {
+                add(CoverThemeInterceptor())
                 // NetworkFetcher.Factory
                 add(OkHttpNetworkFetcherFactory(exemptCallFactoryLazy::value))
                 // Decoder.Factory

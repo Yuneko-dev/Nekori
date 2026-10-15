@@ -1,5 +1,6 @@
 package eu.kanade.domain.ui
 
+import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
@@ -28,6 +29,10 @@ class UiPreferences(
     )
 
     val themeDarkAmoled: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_dark_amoled_key", false)
+
+    val themeCoverBased = preferenceStore.getBoolean("pref_theme_cover_based_key", true)
+
+    val themeCoverBasedStyle = preferenceStore.getEnum("pref_theme_cover_based_style_key", PaletteStyle.Vibrant)
 
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 

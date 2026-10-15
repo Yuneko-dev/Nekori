@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
@@ -23,6 +24,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -59,6 +61,8 @@ object SettingsAppearanceScreen : SearchableSettings {
         val appThemePref = uiPreferences.appTheme
         val appTheme by appThemePref.collectAsState()
 
+        val coverBased by uiPreferences.themeCoverBased.collectAsState()
+
         val amoledPref = uiPreferences.themeDarkAmoled
         val amoled by amoledPref.collectAsState()
 
@@ -84,6 +88,27 @@ object SettingsAppearanceScreen : SearchableSettings {
                         )
                     }
                 },
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.themeCoverBased,
+                    title = stringResource(TDMR.strings.pref_theme_cover_based),
+                    subtitle = stringResource(TDMR.strings.pref_theme_cover_based_summary),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.themeCoverBasedStyle,
+                    title = stringResource(TDMR.strings.pref_theme_cover_based_style),
+                    enabled = coverBased,
+                    entries = mapOf(
+                        PaletteStyle.TonalSpot to stringResource(TDMR.strings.pref_theme_cover_based_style_tonalspot),
+                        PaletteStyle.Neutral to stringResource(TDMR.strings.pref_theme_cover_based_style_neutral),
+                        PaletteStyle.Vibrant to stringResource(TDMR.strings.pref_theme_cover_based_style_vibrant),
+                        PaletteStyle.Expressive to stringResource(TDMR.strings.pref_theme_cover_based_style_expressive),
+                        PaletteStyle.Rainbow to stringResource(TDMR.strings.pref_theme_cover_based_style_rainbow),
+                        PaletteStyle.FruitSalad to stringResource(TDMR.strings.pref_theme_cover_based_style_fruitsalad),
+                        PaletteStyle.Monochrome to stringResource(TDMR.strings.pref_theme_cover_based_style_monochrome),
+                        PaletteStyle.Fidelity to stringResource(TDMR.strings.pref_theme_cover_based_style_fidelity),
+                        PaletteStyle.Content to stringResource(TDMR.strings.pref_theme_cover_based_style_content),
+                    ),
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = amoledPref,
                     title = stringResource(MR.strings.pref_dark_theme_pure_black),

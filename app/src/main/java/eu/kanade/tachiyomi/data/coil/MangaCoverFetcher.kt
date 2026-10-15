@@ -77,7 +77,7 @@ class MangaCoverFetcher(
 
         // diskCacheKey is thumbnail_url
         // Return error silently for null/empty URLs - Coil will use the error placeholder
-        if (url.isNullOrEmpty()) {
+        if (url.isNullOrEmpty() || isUnavailableCover(url)) {
             throw IOException("No cover URL available")
         }
         return when (getResourceType(url)) {

@@ -82,6 +82,7 @@ import eu.kanade.presentation.reader.appbars.novelPagedProgressLabel
 import eu.kanade.presentation.reader.deserializeStatusBarOrder
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
 import eu.kanade.presentation.reader.settings.novelScrollbarMode
+import eu.kanade.presentation.theme.CoverBasedTheme
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -473,366 +474,368 @@ class ReaderActivity : BaseActivity() {
 
     private fun ReaderActivityBinding.setComposeOverlay(): Unit = composeOverlay.setComposeContent {
         val state by viewModel.state.collectAsState()
-        val autoTranslateEnabled by readerPreferences.autoTranslate.collectAsState()
-        val novelStatusBarEnabled by readerPreferences.novelStatusBarEnabled.collectAsState()
-        val novelStatusBarShowTime by readerPreferences.novelStatusBarShowTime.collectAsState()
-        val novelStatusBarShowBattery by readerPreferences.novelStatusBarShowBattery.collectAsState()
-        val novelStatusBarShowChapterNumber by readerPreferences.novelStatusBarShowChapterNumber.collectAsState()
-        val novelStatusBarShowChapterTitle by readerPreferences.novelStatusBarShowChapterTitle.collectAsState()
-        val novelStatusBarShowProgress by readerPreferences.novelStatusBarShowProgress.collectAsState()
-        val novelStatusBarShowWordCount by readerPreferences.novelStatusBarShowWordCount.collectAsState()
-        val novelStatusBarPosition by readerPreferences.novelStatusBarPosition.collectAsState()
-        val novelStatusBarSize by readerPreferences.novelStatusBarSize.collectAsState()
-        val novelStatusBarShowCharging by readerPreferences.novelStatusBarShowCharging.collectAsState()
-        val novelStatusBarOrderRaw by readerPreferences.novelStatusBarOrder.collectAsState()
-        val novelTheme by readerPreferences.novelTheme.collectAsState()
-        val novelBgColorInt by readerPreferences.novelBackgroundColor.collectAsState()
-        val novelBackground by readerPreferences.novelBackground.collectAsState()
-        val customBackground = NovelBackgroundSettings.decode(novelBackground).image.isNotEmpty()
-        val novelFontColorInt by readerPreferences.novelFontColor.collectAsState()
-        var statusBarCollapsed by remember { mutableStateOf(false) }
-        val density = LocalDensity.current
-        var statusBarHeightPx by remember {
-            mutableIntStateOf(with(density) { EstimatedStatusBarHeight.roundToPx() })
-        }
-        val chapterDrawerState = rememberDrawerState(DrawerValue.Closed)
-        val chapterDrawerScope = rememberCoroutineScope()
-        var chapterDrawerSnapshot by remember { mutableStateOf<ReaderChapterDrawerSnapshot?>(null) }
-        var chapterDrawerOpenSessionId by remember { mutableLongStateOf(0L) }
-        var chapterDrawerOpening by remember { mutableStateOf(false) }
-        var chapterDrawerSelectionInProgress by remember { mutableStateOf(false) }
-        val settingsViewModel = remember {
-            ReaderSettingsViewModel(
-                readerState = viewModel.state,
-                onChangeOrientation = viewModel::setMangaOrientationType,
-                resolveNovelThemeColors = {
-                    ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, it)
-                },
-            )
-        }
-
-        val isNovelViewer = state.viewer is NovelWebViewViewer
-        val isPagedReading = (state.viewer as? NovelWebViewViewer)?.isPagedMode() == true
-        val statusPagePositionFlow = remember(state.viewer) {
-            (state.viewer as? NovelWebViewViewer)?.pagePosition ?: flowOf<NovelPagePosition?>(null)
-        }
-        val statusPagePosition by statusPagePositionFlow.collectAsState(initial = null)
-        val findInPageOpen = findInPageState != null
-        val readerChromeVisible = state.menuVisible || findInPageOpen
-        val statusBarAtBottomEdge = novelStatusBarPosition != "top"
-        val visibleChapterId = state.novelVisibleChapter?.id ?: state.currentChapter?.chapter?.id
-
-        LaunchedEffect(chapterDrawerState.currentValue, visibleChapterId) {
-            if (chapterDrawerState.isOpen && !chapterDrawerSelectionInProgress && visibleChapterId != null) {
-                val currentSnapshot = chapterDrawerSnapshot
-                chapterDrawerSnapshot = if (currentSnapshot?.items?.any { it.id == visibleChapterId } == true) {
-                    currentSnapshot.copy(currentChapterId = visibleChapterId)
-                } else {
-                    viewModel.getChapterDrawerSnapshot(visibleChapterId)
-                }
-            } else if (chapterDrawerState.currentValue == DrawerValue.Closed) {
-                chapterDrawerSnapshot = null
+        CoverBasedTheme(state.manga) {
+            val autoTranslateEnabled by readerPreferences.autoTranslate.collectAsState()
+            val novelStatusBarEnabled by readerPreferences.novelStatusBarEnabled.collectAsState()
+            val novelStatusBarShowTime by readerPreferences.novelStatusBarShowTime.collectAsState()
+            val novelStatusBarShowBattery by readerPreferences.novelStatusBarShowBattery.collectAsState()
+            val novelStatusBarShowChapterNumber by readerPreferences.novelStatusBarShowChapterNumber.collectAsState()
+            val novelStatusBarShowChapterTitle by readerPreferences.novelStatusBarShowChapterTitle.collectAsState()
+            val novelStatusBarShowProgress by readerPreferences.novelStatusBarShowProgress.collectAsState()
+            val novelStatusBarShowWordCount by readerPreferences.novelStatusBarShowWordCount.collectAsState()
+            val novelStatusBarPosition by readerPreferences.novelStatusBarPosition.collectAsState()
+            val novelStatusBarSize by readerPreferences.novelStatusBarSize.collectAsState()
+            val novelStatusBarShowCharging by readerPreferences.novelStatusBarShowCharging.collectAsState()
+            val novelStatusBarOrderRaw by readerPreferences.novelStatusBarOrder.collectAsState()
+            val novelTheme by readerPreferences.novelTheme.collectAsState()
+            val novelBgColorInt by readerPreferences.novelBackgroundColor.collectAsState()
+            val novelBackground by readerPreferences.novelBackground.collectAsState()
+            val customBackground = NovelBackgroundSettings.decode(novelBackground).image.isNotEmpty()
+            val novelFontColorInt by readerPreferences.novelFontColor.collectAsState()
+            var statusBarCollapsed by remember { mutableStateOf(false) }
+            val density = LocalDensity.current
+            var statusBarHeightPx by remember {
+                mutableIntStateOf(with(density) { EstimatedStatusBarHeight.roundToPx() })
             }
-        }
-
-        val openChapterDrawer: () -> Unit = {
-            if (
-                !chapterDrawerOpening &&
-                !chapterDrawerSelectionInProgress &&
-                chapterDrawerState.currentValue == DrawerValue.Closed &&
-                visibleChapterId != null &&
-                state.viewer is NovelWebViewViewer
-            ) {
-                chapterDrawerOpening = true
-                chapterDrawerScope.launch {
-                    try {
-                        val snapshot = viewModel.getChapterDrawerSnapshot(visibleChapterId)
-                        if (snapshot != null) {
-                            chapterDrawerSnapshot = snapshot
-                            chapterDrawerOpenSessionId++
-                            setMenuVisibility(false)
-                            val drawerReady = withTimeoutOrNull(1_000L) {
-                                snapshotFlow { chapterDrawerState.currentOffset }
-                                    .first { !it.isNaN() }
-                            } != null
-                            if (!drawerReady) {
-                                chapterDrawerSnapshot = null
-                                return@launch
-                            }
-                            chapterDrawerState.open()
-                        }
-                    } finally {
-                        chapterDrawerOpening = false
-                        if (
-                            chapterDrawerState.currentValue == DrawerValue.Closed &&
-                            chapterDrawerState.targetValue == DrawerValue.Closed
-                        ) {
-                            chapterDrawerSnapshot = null
-                        }
-                    }
-                }
-            }
-        }
-
-        val dismissChapterDrawer: () -> Unit = {
-            chapterDrawerScope.launch { chapterDrawerState.close() }
-        }
-
-        val selectChapterFromDrawer: (Long) -> Unit = { targetChapterId ->
-            val snapshot = chapterDrawerSnapshot
-            val currentChapterId = snapshot?.currentChapterId
-            if (!chapterDrawerSelectionInProgress && snapshot != null && currentChapterId != null) {
-                if (targetChapterId != currentChapterId) {
-                    val request = viewModel.beginChapterNavigation(ReaderNavigationSource.USER)
-                    if (request != null) {
-                        val currentIndex = snapshot.currentIndex
-                        val targetIndex = snapshot.items.indexOfFirst { it.id == targetChapterId }
-                        val direction = if (targetIndex > currentIndex) "next" else "prev"
-                        val viewer = state.viewer as? NovelWebViewViewer
-                        chapterDrawerSelectionInProgress = true
-                        chapterDrawerScope.launch {
-                            try {
-                                viewer?.stopAutoScroll()
-                                stopNovelTtsForManualNav()
-                                viewer?.flushProgress()
-                                if (viewModel.loadChapterById(targetChapterId, request)) {
-                                    chapterDrawerSnapshot = chapterDrawerSnapshot?.copy(
-                                        currentChapterId = targetChapterId,
-                                    )
-                                    viewer?.scrollToLoadedChapter(targetChapterId)
-                                    viewer?.onChapterNavigate(direction)
-                                }
-                            } finally {
-                                viewModel.finishChapterNavigation(request)
-                                chapterDrawerSelectionInProgress = false
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Reserve the status bar while enabled, independently of menu visibility. Custom backgrounds
-        // use document margins so the image can extend behind the bar without shrinking the WebView.
-        val statusBarReservePx = if (isNovelViewer && novelStatusBarEnabled) statusBarHeightPx else 0
-        LaunchedEffect(statusBarReservePx, statusBarAtBottomEdge, customBackground, isNovelViewer) {
-            val top = if (statusBarAtBottomEdge) 0 else statusBarReservePx
-            val bottom = if (statusBarAtBottomEdge) statusBarReservePx else 0
-            novelStatusInsets = Insets.of(0, top, 0, bottom)
-            val vc = binding.viewerContainer
-            val nativeTop = if (customBackground) 0 else top
-            val nativeBottom = if (customBackground) 0 else bottom
-            if (vc.paddingTop != nativeTop || vc.paddingBottom != nativeBottom) {
-                vc.setPadding(0, nativeTop, 0, nativeBottom)
-            }
-            updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
-        }
-
-        NovelChapterDrawer(
-            drawerState = chapterDrawerState,
-            snapshot = chapterDrawerSnapshot,
-            openSessionId = chapterDrawerOpenSessionId,
-            selectionInProgress = chapterDrawerSelectionInProgress,
-            onDismissRequest = dismissChapterDrawer,
-            onChapterSelected = selectChapterFromDrawer,
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                val isNovelMode = state.viewer is NovelWebViewViewer
-                ContentOverlay(state = state)
-
-                val statusBarAtBottom = novelStatusBarPosition != "top"
-                val ttsOverlayBottomPadding = if (
-                    isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !readerChromeVisible
-                ) {
-                    with(density) { statusBarHeightPx.toDp() }
-                } else {
-                    0.dp
-                }
-
-                AppBars(
-                    state = state,
-                    onOpenChapterDrawer = openChapterDrawer,
-                    ttsOverlayBottomPadding = ttsOverlayBottomPadding,
+            val chapterDrawerState = rememberDrawerState(DrawerValue.Closed)
+            val chapterDrawerScope = rememberCoroutineScope()
+            var chapterDrawerSnapshot by remember { mutableStateOf<ReaderChapterDrawerSnapshot?>(null) }
+            var chapterDrawerOpenSessionId by remember { mutableLongStateOf(0L) }
+            var chapterDrawerOpening by remember { mutableStateOf(false) }
+            var chapterDrawerSelectionInProgress by remember { mutableStateOf(false) }
+            val settingsViewModel = remember {
+                ReaderSettingsViewModel(
+                    readerState = viewModel.state,
+                    onChangeOrientation = viewModel::setMangaOrientationType,
+                    resolveNovelThemeColors = {
+                        ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, it)
+                    },
                 )
+            }
 
-                if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
-                    val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
-                    val countFlow = state.currentChapter?.takeIf { it.chapter.id == chapter?.id }?.wordCount
-                        ?: (state.viewer as? NovelWebViewViewer)?.wordCountFor(chapter?.id)
-                    val wordCount = androidx.compose.runtime.key(countFlow) {
-                        countFlow?.collectAsState()?.value
-                    }
-                    val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
-                    val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
-                        val numStr = if (novelStatusBarShowChapterNumber && ch.chapter_number >= 0f) {
-                            "Ch. ${formatChapterNumber(ch.chapter_number.toDouble())}"
-                        } else {
-                            null
-                        }
-                        val nameStr = if (novelStatusBarShowChapterTitle) ch.name.ifEmpty { null } else null
-                        when {
-                            numStr != null && nameStr != null -> "$numStr: $nameStr"
-                            numStr != null -> numStr
-                            else -> nameStr
-                        }
-                    }
-                    val (bgInt, textInt) = remember(novelTheme, novelBgColorInt, novelFontColorInt) {
-                        ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, novelTheme)
-                    }
-                    val readerBgColor = if (customBackground) ComposeColor.Transparent else ComposeColor(bgInt)
-                    val readerTextColor = ComposeColor(textInt)
-                    val statusBarOrder = remember(novelStatusBarOrderRaw) {
-                        novelStatusBarOrderRaw.deserializeStatusBarOrder()
-                    }
-                    val progressText = if (isPagedReading) {
-                        statusPagePosition?.let { novelPagedProgressLabel(it) }
+            val isNovelViewer = state.viewer is NovelWebViewViewer
+            val isPagedReading = (state.viewer as? NovelWebViewViewer)?.isPagedMode() == true
+            val statusPagePositionFlow = remember(state.viewer) {
+                (state.viewer as? NovelWebViewViewer)?.pagePosition ?: flowOf<NovelPagePosition?>(null)
+            }
+            val statusPagePosition by statusPagePositionFlow.collectAsState(initial = null)
+            val findInPageOpen = findInPageState != null
+            val readerChromeVisible = state.menuVisible || findInPageOpen
+            val statusBarAtBottomEdge = novelStatusBarPosition != "top"
+            val visibleChapterId = state.novelVisibleChapter?.id ?: state.currentChapter?.chapter?.id
+
+            LaunchedEffect(chapterDrawerState.currentValue, visibleChapterId) {
+                if (chapterDrawerState.isOpen && !chapterDrawerSelectionInProgress && visibleChapterId != null) {
+                    val currentSnapshot = chapterDrawerSnapshot
+                    chapterDrawerSnapshot = if (currentSnapshot?.items?.any { it.id == visibleChapterId } == true) {
+                        currentSnapshot.copy(currentChapterId = visibleChapterId)
                     } else {
-                        "${state.novelProgressPercent}%"
+                        viewModel.getChapterDrawerSnapshot(visibleChapterId)
                     }
-                    NovelStatusBar(
-                        chapterText = chapterText,
-                        progressText = progressText,
-                        wordCountText = wordCount?.takeIf { novelStatusBarShowWordCount }?.let {
-                            stringResource(
-                                TDMR.strings.novel_status_bar_word_count,
-                                java.text.NumberFormat.getIntegerInstance().format(it),
-                            )
-                        },
-                        order = statusBarOrder,
-                        showTime = novelStatusBarShowTime,
-                        showChapter = showChapterSegment,
-                        showProgress = novelStatusBarShowProgress,
-                        showBattery = novelStatusBarShowBattery,
-                        showCharging = novelStatusBarShowCharging,
-                        backgroundColor = readerBgColor,
-                        textColor = readerTextColor,
-                        isCollapsed = statusBarCollapsed,
-                        onToggleCollapse = { statusBarCollapsed = !statusBarCollapsed },
-                        size = novelStatusBarSize,
-                        onHeightChanged = { statusBarHeightPx = it },
-                        modifier = Modifier
-                            .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
-                            .then(
-                                if (statusBarAtBottom) {
-                                    Modifier.navigationBarsPadding()
-                                } else {
-                                    Modifier.statusBarsPadding()
-                                },
-                            ),
+                } else if (chapterDrawerState.currentValue == DrawerValue.Closed) {
+                    chapterDrawerSnapshot = null
+                }
+            }
+
+            val openChapterDrawer: () -> Unit = {
+                if (
+                    !chapterDrawerOpening &&
+                    !chapterDrawerSelectionInProgress &&
+                    chapterDrawerState.currentValue == DrawerValue.Closed &&
+                    visibleChapterId != null &&
+                    state.viewer is NovelWebViewViewer
+                ) {
+                    chapterDrawerOpening = true
+                    chapterDrawerScope.launch {
+                        try {
+                            val snapshot = viewModel.getChapterDrawerSnapshot(visibleChapterId)
+                            if (snapshot != null) {
+                                chapterDrawerSnapshot = snapshot
+                                chapterDrawerOpenSessionId++
+                                setMenuVisibility(false)
+                                val drawerReady = withTimeoutOrNull(1_000L) {
+                                    snapshotFlow { chapterDrawerState.currentOffset }
+                                        .first { !it.isNaN() }
+                                } != null
+                                if (!drawerReady) {
+                                    chapterDrawerSnapshot = null
+                                    return@launch
+                                }
+                                chapterDrawerState.open()
+                            }
+                        } finally {
+                            chapterDrawerOpening = false
+                            if (
+                                chapterDrawerState.currentValue == DrawerValue.Closed &&
+                                chapterDrawerState.targetValue == DrawerValue.Closed
+                            ) {
+                                chapterDrawerSnapshot = null
+                            }
+                        }
+                    }
+                }
+            }
+
+            val dismissChapterDrawer: () -> Unit = {
+                chapterDrawerScope.launch { chapterDrawerState.close() }
+            }
+
+            val selectChapterFromDrawer: (Long) -> Unit = { targetChapterId ->
+                val snapshot = chapterDrawerSnapshot
+                val currentChapterId = snapshot?.currentChapterId
+                if (!chapterDrawerSelectionInProgress && snapshot != null && currentChapterId != null) {
+                    if (targetChapterId != currentChapterId) {
+                        val request = viewModel.beginChapterNavigation(ReaderNavigationSource.USER)
+                        if (request != null) {
+                            val currentIndex = snapshot.currentIndex
+                            val targetIndex = snapshot.items.indexOfFirst { it.id == targetChapterId }
+                            val direction = if (targetIndex > currentIndex) "next" else "prev"
+                            val viewer = state.viewer as? NovelWebViewViewer
+                            chapterDrawerSelectionInProgress = true
+                            chapterDrawerScope.launch {
+                                try {
+                                    viewer?.stopAutoScroll()
+                                    stopNovelTtsForManualNav()
+                                    viewer?.flushProgress()
+                                    if (viewModel.loadChapterById(targetChapterId, request)) {
+                                        chapterDrawerSnapshot = chapterDrawerSnapshot?.copy(
+                                            currentChapterId = targetChapterId,
+                                        )
+                                        viewer?.scrollToLoadedChapter(targetChapterId)
+                                        viewer?.onChapterNavigate(direction)
+                                    }
+                                } finally {
+                                    viewModel.finishChapterNavigation(request)
+                                    chapterDrawerSelectionInProgress = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Reserve the status bar while enabled, independently of menu visibility. Custom backgrounds
+            // use document margins so the image can extend behind the bar without shrinking the WebView.
+            val statusBarReservePx = if (isNovelViewer && novelStatusBarEnabled) statusBarHeightPx else 0
+            LaunchedEffect(statusBarReservePx, statusBarAtBottomEdge, customBackground, isNovelViewer) {
+                val top = if (statusBarAtBottomEdge) 0 else statusBarReservePx
+                val bottom = if (statusBarAtBottomEdge) statusBarReservePx else 0
+                novelStatusInsets = Insets.of(0, top, 0, bottom)
+                val vc = binding.viewerContainer
+                val nativeTop = if (customBackground) 0 else top
+                val nativeBottom = if (customBackground) 0 else bottom
+                if (vc.paddingTop != nativeTop || vc.paddingBottom != nativeBottom) {
+                    vc.setPadding(0, nativeTop, 0, nativeBottom)
+                }
+                updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
+            }
+
+            NovelChapterDrawer(
+                drawerState = chapterDrawerState,
+                snapshot = chapterDrawerSnapshot,
+                openSessionId = chapterDrawerOpenSessionId,
+                selectionInProgress = chapterDrawerSelectionInProgress,
+                onDismissRequest = dismissChapterDrawer,
+                onChapterSelected = selectChapterFromDrawer,
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val isNovelMode = state.viewer is NovelWebViewViewer
+                    ContentOverlay(state = state)
+
+                    val statusBarAtBottom = novelStatusBarPosition != "top"
+                    val ttsOverlayBottomPadding = if (
+                        isNovelMode && novelStatusBarEnabled && statusBarAtBottom && !readerChromeVisible
+                    ) {
+                        with(density) { statusBarHeightPx.toDp() }
+                    } else {
+                        0.dp
+                    }
+
+                    AppBars(
+                        state = state,
+                        onOpenChapterDrawer = openChapterDrawer,
+                        ttsOverlayBottomPadding = ttsOverlayBottomPadding,
+                    )
+
+                    if (isNovelMode && !readerChromeVisible && novelStatusBarEnabled) {
+                        val chapter = state.novelVisibleChapter ?: state.currentChapter?.chapter
+                        val countFlow = state.currentChapter?.takeIf { it.chapter.id == chapter?.id }?.wordCount
+                            ?: (state.viewer as? NovelWebViewViewer)?.wordCountFor(chapter?.id)
+                        val wordCount = androidx.compose.runtime.key(countFlow) {
+                            countFlow?.collectAsState()?.value
+                        }
+                        val showChapterSegment = novelStatusBarShowChapterNumber || novelStatusBarShowChapterTitle
+                        val chapterText: String? = chapter?.takeIf { showChapterSegment }?.let { ch ->
+                            val numStr = if (novelStatusBarShowChapterNumber && ch.chapter_number >= 0f) {
+                                "Ch. ${formatChapterNumber(ch.chapter_number.toDouble())}"
+                            } else {
+                                null
+                            }
+                            val nameStr = if (novelStatusBarShowChapterTitle) ch.name.ifEmpty { null } else null
+                            when {
+                                numStr != null && nameStr != null -> "$numStr: $nameStr"
+                                numStr != null -> numStr
+                                else -> nameStr
+                            }
+                        }
+                        val (bgInt, textInt) = remember(novelTheme, novelBgColorInt, novelFontColorInt) {
+                            ThemeUtils.getThemeColors(this@ReaderActivity, readerPreferences, novelTheme)
+                        }
+                        val readerBgColor = if (customBackground) ComposeColor.Transparent else ComposeColor(bgInt)
+                        val readerTextColor = ComposeColor(textInt)
+                        val statusBarOrder = remember(novelStatusBarOrderRaw) {
+                            novelStatusBarOrderRaw.deserializeStatusBarOrder()
+                        }
+                        val progressText = if (isPagedReading) {
+                            statusPagePosition?.let { novelPagedProgressLabel(it) }
+                        } else {
+                            "${state.novelProgressPercent}%"
+                        }
+                        NovelStatusBar(
+                            chapterText = chapterText,
+                            progressText = progressText,
+                            wordCountText = wordCount?.takeIf { novelStatusBarShowWordCount }?.let {
+                                stringResource(
+                                    TDMR.strings.novel_status_bar_word_count,
+                                    java.text.NumberFormat.getIntegerInstance().format(it),
+                                )
+                            },
+                            order = statusBarOrder,
+                            showTime = novelStatusBarShowTime,
+                            showChapter = showChapterSegment,
+                            showProgress = novelStatusBarShowProgress,
+                            showBattery = novelStatusBarShowBattery,
+                            showCharging = novelStatusBarShowCharging,
+                            backgroundColor = readerBgColor,
+                            textColor = readerTextColor,
+                            isCollapsed = statusBarCollapsed,
+                            onToggleCollapse = { statusBarCollapsed = !statusBarCollapsed },
+                            size = novelStatusBarSize,
+                            onHeightChanged = { statusBarHeightPx = it },
+                            modifier = Modifier
+                                .align(if (statusBarAtBottom) Alignment.BottomCenter else Alignment.TopCenter)
+                                .then(
+                                    if (statusBarAtBottom) {
+                                        Modifier.navigationBarsPadding()
+                                    } else {
+                                        Modifier.statusBarsPadding()
+                                    },
+                                ),
+                        )
+                    }
+                }
+            }
+
+            val onDismissRequest = viewModel::closeDialog
+            when (state.dialog) {
+                is ReaderViewModel.Dialog.Settings -> {
+                    ReaderSettingsDialog(
+                        onDismissRequest = onDismissRequest,
+                        onShowMenus = { setMenuVisibility(true) },
+                        onHideMenus = { setMenuVisibility(false) },
+                        screenModel = settingsViewModel,
+                        isNovelMode = state.viewer is NovelWebViewViewer,
                     )
                 }
+                is ReaderViewModel.Dialog.OrientationModeSelect -> {
+                    OrientationSelectDialog(
+                        onDismissRequest = onDismissRequest,
+                        viewModel = settingsViewModel,
+                        onChange = { stringRes ->
+                            menuToggleToast?.cancel()
+                            menuToggleToast = toast(stringRes)
+                        },
+                    )
+                }
+                is ReaderViewModel.Dialog.TranslationLanguageSelect -> {
+                    TranslationLanguageSelectDialog(
+                        onDismissRequest = onDismissRequest,
+                        currentLanguage = viewModel.getTargetTranslationLanguage(),
+                        autoTranslateEnabled = autoTranslateEnabled,
+                        onToggleAutoTranslate = { enabled ->
+                            readerPreferences.autoTranslate.set(enabled)
+                        },
+                        onSelectLanguage = { languageCode ->
+                            viewModel.setTargetTranslationLanguage(languageCode)
+                            // Optionally trigger translation with new language
+                            if (!viewModel.state.value.isTranslating) {
+                                viewModel.toggleTranslation()
+                            } else {
+                                // Retrigger translation with new language
+                                viewModel.toggleTranslation() // Turn off
+                                viewModel.toggleTranslation() // Turn on with new language
+                            }
+                        },
+                        onRetranslate = {
+                            onDismissRequest()
+                            viewModel.retranslateCurrentChapter()
+                        },
+                        onOpenSettings = {
+                            onDismissRequest()
+                            startActivity(
+                                Intent(this@ReaderActivity, MainActivity::class.java).apply {
+                                    action = Intent.ACTION_APPLICATION_PREFERENCES
+                                    putExtra(
+                                        MainActivity.EXTRA_SETTINGS_DESTINATION,
+                                        eu.kanade.tachiyomi.ui.setting.SettingsScreen.Destination.Translation.id,
+                                    )
+                                    putExtra(MainActivity.EXTRA_FINISH_SETTINGS_ON_EXIT, true)
+                                },
+                            )
+                        },
+                    )
+                }
+                null -> {}
             }
-        }
 
-        val onDismissRequest = viewModel::closeDialog
-        when (state.dialog) {
-            is ReaderViewModel.Dialog.Settings -> {
-                ReaderSettingsDialog(
-                    onDismissRequest = onDismissRequest,
-                    onShowMenus = { setMenuVisibility(true) },
-                    onHideMenus = { setMenuVisibility(false) },
-                    screenModel = settingsViewModel,
-                    isNovelMode = state.viewer is NovelWebViewViewer,
+            // Quotes sheet
+            val quotesState = remember { mutableStateOf(viewModel.getQuotes()) }
+            val showQuotesState = remember { mutableStateOf(false) }
+
+            LaunchedEffect(showQuotesSheet) {
+                showQuotesState.value = showQuotesSheet
+                if (showQuotesSheet) {
+                    quotesState.value = viewModel.getQuotes()
+                }
+            }
+
+            // Handle back button when quotes sheet is open
+            androidx.activity.compose.BackHandler(enabled = showQuotesSheet) {
+                showQuotesSheet = false
+            }
+
+            if (showQuotesState.value) {
+                QuotesSheet(
+                    quotes = quotesState.value,
+                    novelTitle = state.manga?.title.orEmpty(),
+                    onDismiss = {
+                        showQuotesSheet = false
+                    },
+                    onQuoteClick = { quote ->
+                        logcat(LogPriority.DEBUG) { "Quote clicked: ${quote.content.take(50)}..." }
+                    },
+                    onQuoteDelete = { quote ->
+                        logcat(LogPriority.DEBUG) { "Quote deleted: ${quote.content.take(50)}..." }
+                        viewModel.deleteQuote(quote)
+                        quotesState.value = viewModel.getQuotes()
+                    },
+                    onQuoteUpdate = { quote ->
+                        logcat(LogPriority.DEBUG) { "Quote updated: ${quote.content.take(50)}..." }
+                        viewModel.updateQuote(quote)
+                        quotesState.value = viewModel.getQuotes()
+                    },
+                    onQuoteAdd = { content ->
+                        logcat(LogPriority.DEBUG) { "Quote added: ${content.take(50)}..." }
+                        viewModel.saveQuote(content, "")
+                        quotesState.value = viewModel.getQuotes()
+                    },
+                    onQuoteReorder = { reorderedQuotes ->
+                        logcat(LogPriority.DEBUG) { "Quotes reordered: ${reorderedQuotes.size} quotes" }
+                        viewModel.reorderQuotes(reorderedQuotes)
+                        quotesState.value = viewModel.getQuotes()
+                    },
                 )
             }
-            is ReaderViewModel.Dialog.OrientationModeSelect -> {
-                OrientationSelectDialog(
-                    onDismissRequest = onDismissRequest,
-                    viewModel = settingsViewModel,
-                    onChange = { stringRes ->
-                        menuToggleToast?.cancel()
-                        menuToggleToast = toast(stringRes)
-                    },
-                )
-            }
-            is ReaderViewModel.Dialog.TranslationLanguageSelect -> {
-                TranslationLanguageSelectDialog(
-                    onDismissRequest = onDismissRequest,
-                    currentLanguage = viewModel.getTargetTranslationLanguage(),
-                    autoTranslateEnabled = autoTranslateEnabled,
-                    onToggleAutoTranslate = { enabled ->
-                        readerPreferences.autoTranslate.set(enabled)
-                    },
-                    onSelectLanguage = { languageCode ->
-                        viewModel.setTargetTranslationLanguage(languageCode)
-                        // Optionally trigger translation with new language
-                        if (!viewModel.state.value.isTranslating) {
-                            viewModel.toggleTranslation()
-                        } else {
-                            // Retrigger translation with new language
-                            viewModel.toggleTranslation() // Turn off
-                            viewModel.toggleTranslation() // Turn on with new language
-                        }
-                    },
-                    onRetranslate = {
-                        onDismissRequest()
-                        viewModel.retranslateCurrentChapter()
-                    },
-                    onOpenSettings = {
-                        onDismissRequest()
-                        startActivity(
-                            Intent(this@ReaderActivity, MainActivity::class.java).apply {
-                                action = Intent.ACTION_APPLICATION_PREFERENCES
-                                putExtra(
-                                    MainActivity.EXTRA_SETTINGS_DESTINATION,
-                                    eu.kanade.tachiyomi.ui.setting.SettingsScreen.Destination.Translation.id,
-                                )
-                                putExtra(MainActivity.EXTRA_FINISH_SETTINGS_ON_EXIT, true)
-                            },
-                        )
-                    },
-                )
-            }
-            null -> {}
-        }
-
-        // Quotes sheet
-        val quotesState = remember { mutableStateOf(viewModel.getQuotes()) }
-        val showQuotesState = remember { mutableStateOf(false) }
-
-        LaunchedEffect(showQuotesSheet) {
-            showQuotesState.value = showQuotesSheet
-            if (showQuotesSheet) {
-                quotesState.value = viewModel.getQuotes()
-            }
-        }
-
-        // Handle back button when quotes sheet is open
-        androidx.activity.compose.BackHandler(enabled = showQuotesSheet) {
-            showQuotesSheet = false
-        }
-
-        if (showQuotesState.value) {
-            QuotesSheet(
-                quotes = quotesState.value,
-                novelTitle = state.manga?.title.orEmpty(),
-                onDismiss = {
-                    showQuotesSheet = false
-                },
-                onQuoteClick = { quote ->
-                    logcat(LogPriority.DEBUG) { "Quote clicked: ${quote.content.take(50)}..." }
-                },
-                onQuoteDelete = { quote ->
-                    logcat(LogPriority.DEBUG) { "Quote deleted: ${quote.content.take(50)}..." }
-                    viewModel.deleteQuote(quote)
-                    quotesState.value = viewModel.getQuotes()
-                },
-                onQuoteUpdate = { quote ->
-                    logcat(LogPriority.DEBUG) { "Quote updated: ${quote.content.take(50)}..." }
-                    viewModel.updateQuote(quote)
-                    quotesState.value = viewModel.getQuotes()
-                },
-                onQuoteAdd = { content ->
-                    logcat(LogPriority.DEBUG) { "Quote added: ${content.take(50)}..." }
-                    viewModel.saveQuote(content, "")
-                    quotesState.value = viewModel.getQuotes()
-                },
-                onQuoteReorder = { reorderedQuotes ->
-                    logcat(LogPriority.DEBUG) { "Quotes reordered: ${reorderedQuotes.size} quotes" }
-                    viewModel.reorderQuotes(reorderedQuotes)
-                    quotesState.value = viewModel.getQuotes()
-                },
-            )
         }
     }
 

@@ -1465,4 +1465,17 @@
     <string name="novel_vertical_text">Chữ dọc (phải sang trái)</string>
     <string name="novel_font_default">Mặc định</string>
     <string name="novel_font_default_summary">Dùng phông chữ của nguồn, hoặc phông hệ thống nếu nguồn không chỉ định.</string>
+
+    <string name="pref_theme_cover_based">Chủ đề dựa theo ảnh bìa</string>
+    <string name="pref_theme_cover_based_style_tonalspot">Điểm tông màu</string>
+    <string name="pref_theme_cover_based_style_neutral">Trung lập</string>
+    <string name="pref_theme_cover_based_style_vibrant">Rực rỡ</string>
+    <string name="pref_theme_cover_based_style_expressive">Biểu cảm</string>
+    <string name="pref_theme_cover_based_style_rainbow">Cầu vồng</string>
+    <string name="pref_theme_cover_based_style_fruitsalad">Trái cây trộn</string>
+    <string name="pref_theme_cover_based_style_monochrome">Đơn sắc</string>
+    <string name="pref_theme_cover_based_style_fidelity">Chính xác</string>
+    <string name="pref_theme_cover_based_style_content">Mãn nguyện</string>
+    <string name="pref_theme_cover_based_style">Phong cách của chủ đề dựa trên ảnh bìa</string>
+    <string name="pref_theme_cover_based_summary">Dùng màu ảnh bìa cho trang chi tiết và các nút điều khiển trình đọc.</string>
 </resources>

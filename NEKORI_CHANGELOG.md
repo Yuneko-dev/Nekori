@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 > **Breaking Change:** This release introduces a breaking change that drops backward compatibility with Tsundoku / LNReader `snippetJS` and `snippetCSS`. Existing user snippets will stop working and need to be updated, and LNReader plugins using `customJS` / `customCSS` will also be affected. Don't worry though - I've checked beforehand and only 2 official plugins actually use `customCSS`, and they only style chapter HTML elements without modifying the reader itself, so the impact should be minimal.
 
 ### Added
+- Add cover-based themes for novel details and reader controls, with nine palette styles and smooth transitions. Inspired by Reikai and Komikku.
 - Add an "Allow lonely lines" switch to both novel reader settings screens to reduce empty space in paged reading.
 - Show chapter word counts in the reading status bar.
 - Add download-only throttling: pace chapter downloads with the existing per-source delay, jitter and burst settings while browsing, reading and other HTTP traffic stay unpaced [#11](https://github.com/Yuneko-dev/Nekori/issues/11)
