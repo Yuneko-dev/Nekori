@@ -81,6 +81,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import eu.kanade.tachiyomi.ui.library.ImportEpubScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.source.resolveRelativeUrl
@@ -334,6 +335,7 @@ data class BrowseSourceScreen(
                             }
                         },
                         onHelpClick = onHelpClick,
+                        onImportEpubClick = { navigator.push(ImportEpubScreen()) },
                         onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
                         onSearch = { viewModel.search(it) },
                     )

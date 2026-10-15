@@ -51,6 +51,7 @@ fun BrowseSourceToolbar(
     navigateUp: () -> Unit,
     onWebViewClick: () -> Unit,
     onHelpClick: () -> Unit,
+    onImportEpubClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
@@ -102,6 +103,12 @@ fun BrowseSourceToolbar(
                         ),
                     )
                     if (isLocalSource) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(TDMR.strings.epub_import_title),
+                                onClick = onImportEpubClick,
+                            ),
+                        )
                         add(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.label_help),
