@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'app/tools/reader-runtime/**'
+      - 'app/tools/devtools-lite/**'
+      - 'app/tools/generate-shipped-js-licenses.mjs'
+      - 'app/build.gradle.kts'
       - 'app/src/test/js/**'
       - '.github/workflows/reader-checks.yml'
       - 'js-runtime/.nvmrc'
@@ -46,3 +49,7 @@ jobs:
       # Chromium acceptance tests remain opt-in via npm run browser.
       - name: Check reader types, lint, style, build and Node tests
         run: npm run check
+
+      - name: Check pinned DevTools distribution preparation
+        working-directory: .
+        run: node app/tools/devtools-lite/test-dist.mjs

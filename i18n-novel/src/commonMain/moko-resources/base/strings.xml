@@ -1482,4 +1482,9 @@
     <string name="pref_theme_cover_based_style_fidelity">Fidelity</string>
     <string name="pref_theme_cover_based_style_content">Content</string>
     <string name="pref_theme_cover_based_summary">Use cover colors for novel details and reader controls.</string>
+    <string name="action_debug_devtools_lite">Debug with DevTools (Lite)</string>
+    <string name="devtools_resize">Resize DevTools</string>
+    <string name="devtools_split">Switch to split screen</string>
+    <string name="devtools_overlay">Switch to overlay</string>
+    <string name="devtools_swap">Swap Reader and DevTools</string>
 </resources>

@@ -41,6 +41,7 @@ for (const library of await Promise.all(
 const libraries = [
   ...packageRecords.values(),
   ...(await readVideoLibraries()),
+  ...(await readDevToolsLibraries()),
   ...customLibrary(),
 ].sort((first, second) => first.name.localeCompare(second.name));
 const licenseIds = new Set(libraries.flatMap((library) => library.licenses));
@@ -69,6 +70,27 @@ const licenses = Object.fromEntries(
 
 validateOutput(libraries, licenses);
 await writeFile(outputFile, JSON.stringify({ libraries, licenses }));
+
+async function readDevToolsLibraries() {
+  const devToolsAssets = requiredArg('--devtools-assets');
+  const check = spawnSync(process.execPath, ['app/tools/devtools-lite/check-assets.mjs', devToolsAssets], {
+    cwd: rootDir, stdio: 'inherit',
+  });
+  if (check.status !== 0) throw new Error('Bundled DevTools assets failed integrity verification');
+  const manifest = JSON.parse(await readFile(
+    path.join(devToolsAssets, 'manifest.json'), 'utf8',
+  ));
+  return [
+    ['Chrome DevTools Frontend (Chii Lite)', manifest.sourceRevision, 'BSD-3-Clause',
+      'https://github.com/liriliri/devtools-frontend'],
+    ['Chobitsu', manifest.chobitsuVersion, 'MIT', 'https://github.com/liriliri/chobitsu'],
+  ].map(([name, version, license, url]) => ({
+    uniqueId: `js:${name}@${version}`, artifactVersion: version, name,
+    description: 'Offline WebView DevTools. Bundled dependency notices are in devtools-lite/THIRD-PARTY-NOTICES.txt.',
+    website: url, developers: [], scm: {url, connection: `scm:git:${url}`},
+    licenses: [`js:${license}`], funding: [],
+  }));
+}
 
 function requiredArg(name) {
   const value = args.get(name);

@@ -144,6 +144,7 @@ fun NovelReaderAppBars(
     onReloadLocal: () -> Unit,
     onReloadSource: () -> Unit,
     onEditBottomBar: () -> Unit,
+    onDebugDevTools: () -> Unit,
 
     // Progress slider
     showProgressSlider: Boolean,
@@ -241,6 +242,7 @@ fun NovelReaderAppBars(
                         onReloadLocal = onReloadLocal,
                         onReloadSource = onReloadSource,
                         onEditBottomBar = onEditBottomBar,
+                        onDebugDevTools = onDebugDevTools,
                         onRetranslate = onRetranslate,
                         onSummarizeChapter = onSummarizeChapter,
                     )
@@ -492,6 +494,7 @@ private fun NovelReaderTopBar(
     onReloadLocal: () -> Unit,
     onReloadSource: () -> Unit,
     onEditBottomBar: () -> Unit,
+    onDebugDevTools: () -> Unit,
     onRetranslate: (() -> Unit)? = null,
     onSummarizeChapter: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -586,6 +589,12 @@ private fun NovelReaderTopBar(
                             ),
                         )
                     }
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(TDMR.strings.action_debug_devtools_lite),
+                            onClick = onDebugDevTools,
+                        ),
+                    )
                 },
             )
         },

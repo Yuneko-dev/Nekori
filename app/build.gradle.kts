@@ -11,6 +11,7 @@ import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.LocalState
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
@@ -41,6 +42,9 @@ abstract class GenerateShippedJsLicenses @Inject constructor(
     @get:InputFile
     abstract val licenseTemplate: RegularFileProperty
 
+    @get:InputDirectory
+    abstract val devToolsAssets: DirectoryProperty
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
@@ -60,6 +64,8 @@ abstract class GenerateShippedJsLicenses @Inject constructor(
                 readerMetafile.get().asFile.absolutePath,
                 "--license-template",
                 licenseTemplate.get().asFile.absolutePath,
+                "--devtools-assets",
+                devToolsAssets.get().asFile.absolutePath,
                 "--output",
                 outputDir.file("raw/aboutlibraries_js.json").get().asFile.absolutePath,
             )
@@ -101,6 +107,40 @@ abstract class BuildReaderRuntimeAssets @Inject constructor(
                 outputDir.get().asFile.absolutePath,
                 "--metafile",
                 metafile.get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+abstract class PrepareDevToolsAssets @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputFile
+    abstract val lockFile: RegularFileProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val scripts: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:LocalState
+    abstract val cacheDir: DirectoryProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @TaskAction
+    fun prepare() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                "app/tools/devtools-lite/prepare-assets.mjs",
+                lockFile.get().asFile.absolutePath,
+                outputDir.get().asFile.absolutePath,
+                cacheDir.get().asFile.absolutePath,
             )
         }
     }
@@ -460,8 +500,22 @@ dependencies {
     implementation(libs.androidx.media)
 }
 
+val prepareDevToolsAssets = tasks.register<PrepareDevToolsAssets>("prepareDevToolsAssets") {
+    val toolsDir = rootProject.layout.projectDirectory.dir("app/tools/devtools-lite")
+    lockFile.set(
+        rootProject.layout.projectDirectory.file(
+            providers.gradleProperty("devToolsLockFile").getOrElse("app/tools/devtools-lite/dist.lock.json"),
+        ),
+    )
+    scripts.from(toolsDir.file("prepare-assets.mjs"), toolsDir.file("import-assets.mjs"))
+    outputDir.set(layout.buildDirectory.dir("generated/assets/devtools"))
+    cacheDir.set(rootProject.layout.projectDirectory.dir(".gradle/devtools-dist"))
+    workingDirectory.set(rootProject.layout.projectDirectory)
+}
+
 androidComponents {
     onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(prepareDevToolsAssets) { it.outputDir }
         // Override RN's global pickFirsts so they cannot re-include x86 in universal APKs.
         variant.packaging.jniLibs.pickFirsts.set(
             supportedAbis.flatMap { abi ->
@@ -503,11 +557,13 @@ androidComponents {
                 "createBundle${variantName}JsAndAssets",
                 "prepareLibraryDefinitions$variantName",
                 buildReaderRuntimeTask,
+                prepareDevToolsAssets,
             )
             metroSourcemap.set(
                 layout.buildDirectory.file("generated/sourcemaps/react/${variant.name}/index.android.bundle.map"),
             )
             readerMetafile.set(readerMetafileFile)
+            devToolsAssets.set(prepareDevToolsAssets.flatMap { it.outputDir.dir("devtools-lite") })
             generatorScript.set(rootProject.layout.projectDirectory.file("app/tools/generate-shipped-js-licenses.mjs"))
             licenseTemplate.set(
                 layout.buildDirectory.file("generated/aboutLibraries/${variant.name}/res/raw/aboutlibraries.json"),

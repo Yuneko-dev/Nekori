@@ -150,6 +150,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     private val _ttsPlaybackState = MutableStateFlow(TtsPlaybackState.STOPPED)
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = _ttsPlaybackState.asStateFlow()
     private lateinit var webView: WebView
+    val devToolsTarget: WebView?
+        get() = if (::webView.isInitialized && !isDestroyed) webView else null
     private lateinit var readerBridge: NovelReaderBridge
     private var readerConfigJson: JsonObject? = null
     private var pendingErrorFeedback: JsonObject? = null

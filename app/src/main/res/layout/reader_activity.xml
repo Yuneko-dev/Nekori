@@ -3,28 +3,40 @@
     android:layout_height="match_parent">
 
     <FrameLayout
-        android:id="@+id/reader_container"
+        android:id="@+id/reader_pane"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
         <FrameLayout
-            android:id="@+id/viewer_container"
+            android:id="@+id/reader_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:id="@+id/viewer_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:descendantFocusability="blocksDescendants" />
+
+        </FrameLayout>
+
+        <eu.kanade.tachiyomi.ui.reader.ReaderNavigationOverlayView
+            android:id="@+id/navigation_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:descendantFocusability="blocksDescendants" />
+            android:clickable="false"
+            android:focusable="false"
+            android:visibility="gone" />
+
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/compose_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
     </FrameLayout>
 
-    <eu.kanade.tachiyomi.ui.reader.ReaderNavigationOverlayView
-        android:id="@+id/navigation_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clickable="false"
-        android:focusable="false"
-        android:visibility="gone" />
-
     <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/compose_overlay"
+        android:id="@+id/devtools_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

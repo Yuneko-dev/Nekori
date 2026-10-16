@@ -21,6 +21,7 @@ import android.view.View.LAYER_TYPE_HARDWARE
 import android.view.WindowManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -65,6 +66,7 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
 import com.hippo.unifile.UniFile
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.presentation.reader.DevToolsLiteWorkspace
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.EstimatedStatusBarHeight
 import eu.kanade.presentation.reader.NovelChapterDrawer
@@ -262,6 +264,7 @@ class ReaderActivity : BaseActivity() {
     private var showQuotesSheet by mutableStateOf(false)
     private var findInPageState by mutableStateOf<NovelFindInPageState?>(null)
     private var findInPageViewer: NovelWebViewViewer? = null
+    private var debuggerTarget by mutableStateOf<WebView?>(null)
     private val consumedFindShortcutKeys = mutableSetOf<Int>()
 
     internal fun isFindInPageOpen(): Boolean = findInPageState != null
@@ -356,6 +359,11 @@ class ReaderActivity : BaseActivity() {
         binding = ReaderActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.setComposeOverlay()
+        binding.devtoolsOverlay.setComposeContent {
+            debuggerTarget?.let { target ->
+                DevToolsLiteWorkspace(target, binding.readerPane) { debuggerTarget = null }
+            }
+        }
 
         ContextCompat.registerReceiver(
             this,
@@ -843,6 +851,8 @@ class ReaderActivity : BaseActivity() {
      * Called when the activity is destroyed. Cleans up the viewer, configuration and any view.
      */
     override fun onDestroy() {
+        debuggerTarget = null
+        binding.devtoolsOverlay.disposeComposition()
         stopBackgroundTtsIfRunning()
         ttsNotificationSyncJob?.cancel()
         unregisterReceiver(ttsNotificationControlReceiver)
@@ -940,6 +950,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (binding.devtoolsOverlay.hasFocus()) return super.onKeyUp(keyCode, event)
         if (isFindInPageOpen()) return super.onKeyUp(keyCode, event)
 
         if (keyCode == KeyEvent.KEYCODE_N) {
@@ -956,6 +967,7 @@ class ReaderActivity : BaseActivity() {
      * Dispatches a key event. If the viewer doesn't handle it, call the default implementation.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (binding.devtoolsOverlay.hasFocus()) return super.dispatchKeyEvent(event)
         if (handleFindInPageShortcut(event)) return true
         if (isFindInPageOpen()) return super.dispatchKeyEvent(event)
 
@@ -1022,6 +1034,7 @@ class ReaderActivity : BaseActivity() {
      * implementation.
      */
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (binding.devtoolsOverlay.hasFocus()) return super.dispatchGenericMotionEvent(event)
         val handled = viewModel.state.value.viewer?.handleGenericMotionEvent(event) ?: false
         return handled || super.dispatchGenericMotionEvent(event)
     }
@@ -1174,6 +1187,7 @@ class ReaderActivity : BaseActivity() {
                 bookmarked = state.bookmarked,
                 onToggleBookmarked = viewModel::toggleChapterBookmark,
                 onOpenInWebView = ::openChapterInWebView.takeIf { hasWebViewSupport },
+                onDebugDevTools = { debuggerTarget = novelViewer.devToolsTarget },
                 onOpenInBrowser = ::openChapterInBrowser.takeIf { hasWebViewSupport },
                 onShare = ::shareChapter.takeIf { hasWebViewSupport },
                 onReloadLocal = { viewModel.reloadChapter(fromSource = false) },
@@ -1581,6 +1595,7 @@ class ReaderActivity : BaseActivity() {
             return
         }
 
+        debuggerTarget = null
         val newViewer = NovelWebViewViewer(this)
 
         if (window.sharedElementEnterTransition is MaterialContainerTransform) {

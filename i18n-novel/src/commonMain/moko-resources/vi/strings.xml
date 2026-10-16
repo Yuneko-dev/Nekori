@@ -1478,4 +1478,9 @@
     <string name="pref_theme_cover_based_style_content">Mãn nguyện</string>
     <string name="pref_theme_cover_based_style">Phong cách của chủ đề dựa trên ảnh bìa</string>
     <string name="pref_theme_cover_based_summary">Dùng màu ảnh bìa cho trang chi tiết và các nút điều khiển trình đọc.</string>
+    <string name="action_debug_devtools_lite">Gỡ lỗi bằng DevTools (Lite)</string>
+    <string name="devtools_resize">Đổi kích thước DevTools</string>
+    <string name="devtools_split">Chuyển sang chia màn hình</string>
+    <string name="devtools_overlay">Chuyển sang lớp phủ</string>
+    <string name="devtools_swap">Đảo vị trí Reader và DevTools</string>
 </resources>
