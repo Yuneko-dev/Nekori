@@ -85,6 +85,7 @@ what the app does, not what this fork added. For the fork's own changes, see
 * Categories, light and dark themes, and scheduled library updates.
 * Read-ahead chapter downloads for offline reading.
 * Novel-only backup and restore, plus LNReader backup import.
+* WebDAV and Google Drive sync for library progress and selected settings.
 * Reading statistics: session tracking, publication status and storage breakdowns, and a reading heatmap.
 * Discord Rich Presence.
 

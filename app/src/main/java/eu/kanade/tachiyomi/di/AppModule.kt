@@ -160,6 +160,8 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { DownloadManager(app) }
         addSingletonFactory { DownloadCache(app) }
 
+        addSingletonFactory { eu.kanade.tachiyomi.data.sync.service.GoogleDriveService(app) }
+
         addSingletonFactory { TrackerManager() }
         addSingletonFactory { DelayedTrackingStore(app) }
         addSingletonFactory { SourceTrackerDispatcher(get(), get(), get(), get()) }

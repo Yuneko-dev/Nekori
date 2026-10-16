@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.source.isNovelSource
+import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import okio.buffer
@@ -224,13 +225,25 @@ class BackupCreator(
         out.write((v and 0x7F).toInt())
     }
 
-    private suspend fun backupCategories(options: BackupOptions): List<BackupCategory> {
+    suspend fun backupCategories(options: BackupOptions): List<BackupCategory> {
         if (!options.categories) return emptyList()
 
         return categoriesBackupCreator()
     }
 
-    private fun backupAppPreferences(options: BackupOptions): List<BackupPreference> {
+    suspend fun backupMangas(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
+        if (!options.libraryEntries) return emptyList()
+
+        val filtered = mangas.filter(::isNovel)
+        val orders = backupCategories(options).mapTo(mutableSetOf()) { it.order }
+        return mangaBackupCreator.backupMangaStream(filtered, options, orders).toList()
+    }
+
+    fun backupSources(mangas: List<BackupManga>): List<BackupSource> {
+        return sourcesBackupCreator.forSourceIds(mangas.mapTo(mutableSetOf()) { it.source })
+    }
+
+    fun backupAppPreferences(options: BackupOptions): List<BackupPreference> {
         if (!options.appSettings) return emptyList()
 
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
@@ -239,13 +252,13 @@ class BackupCreator(
     private fun isNovel(manga: Manga): Boolean =
         manga.isNovel || sourceManager.getOrStub(manga.source).isNovelSource()
 
-    private fun backupJsPluginRepositories(options: BackupOptions): List<BackupJsPluginRepository> {
+    fun backupJsPluginRepositories(options: BackupOptions): List<BackupJsPluginRepository> {
         if (!options.extensionRepositories) return emptyList()
 
         return jsPluginRepositoriesBackupCreator()
     }
 
-    private fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {
+    fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {
         if (!options.sourceSettings) return emptyList()
 
         return preferenceBackupCreator.createSource(includePrivatePreferences = options.privateSettings)

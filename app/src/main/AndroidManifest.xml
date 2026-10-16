@@ -276,6 +276,34 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.setting.track.GoogleDriveLoginActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <!-- Google redirects as scheme:/oauth2redirect (path form). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:path="/oauth2redirect"
+                    android:scheme="${GOOGLE_DRIVE_REDIRECT_SCHEME}" />
+            </intent-filter>
+            <!-- Some browsers rewrite to scheme://oauth2redirect (host form). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="oauth2redirect"
+                    android:scheme="${GOOGLE_DRIVE_REDIRECT_SCHEME}" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".data.notification.NotificationReceiver"
             android:exported="false" />

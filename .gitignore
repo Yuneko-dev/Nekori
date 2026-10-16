@@ -9,6 +9,7 @@ build
 /app/src/main/assets/devtools-lite/*
 !/app/src/main/assets/devtools-lite/android.html
 !/app/src/main/assets/devtools-lite/target.js
+gradle/build-logic/bin/
 
 # IDE files
 *.iml

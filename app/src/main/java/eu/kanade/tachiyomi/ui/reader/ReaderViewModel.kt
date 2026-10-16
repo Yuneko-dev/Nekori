@@ -14,6 +14,7 @@ import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.toSManga
+import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.reader.appbars.BottomBarItemState
@@ -24,6 +25,7 @@ import eu.kanade.tachiyomi.data.database.models.toDomainChapter
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.translation.TranslationRequestTracker
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.discord.SensitiveContentPolicy
@@ -1130,6 +1132,11 @@ class ReaderViewModel @JvmOverloads constructor(
                     selectedChapter.chapter.read = true
                     updateTrackChapterRead(selectedChapter)
                     deleteChapterIfNeeded(selectedChapter)
+                    maybeTriggerSyncOnChapterRead()
+                }
+
+                if (currentProgress == 0) {
+                    maybeTriggerSyncOnChapterOpen()
                 }
 
                 updateChapter.await(
@@ -1296,7 +1303,28 @@ class ReaderViewModel @JvmOverloads constructor(
 
             if (isComplete) {
                 updateChapterProgressOnComplete(readerChapter)
+                maybeTriggerSyncOnChapterRead()
             }
+
+            if (pageIndex == 0) {
+                maybeTriggerSyncOnChapterOpen()
+            }
+        }
+    }
+
+    private fun maybeTriggerSyncOnChapterRead() {
+        val syncPreferences: SyncPreferences = Injekt.get()
+        val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
+        if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnChapterRead) {
+            SyncDataJob.startNow(Injekt.get<Application>())
+        }
+    }
+
+    private fun maybeTriggerSyncOnChapterOpen() {
+        val syncPreferences: SyncPreferences = Injekt.get()
+        val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
+        if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnChapterOpen) {
+            SyncDataJob.startNow(Injekt.get<Application>())
         }
     }
 

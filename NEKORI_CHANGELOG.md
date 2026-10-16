@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 > **Breaking Change:** This release introduces a breaking change that drops backward compatibility with Tsundoku / LNReader `snippetJS` and `snippetCSS`. Existing user snippets will stop working and need to be updated, and LNReader plugins using `customJS` / `customCSS` will also be affected. Don't worry though - I've checked beforehand and only 2 official plugins actually use `customCSS`, and they only style chapter HTML elements without modifying the reader itself, so the impact should be minimal.
 
 ### Added
+- Add novel-only cross-device sync through WebDAV and Google Drive, with selectable data, automatic triggers and scheduling. Ported from Tsundoku PR `#437` / Komikku.
 - Add DevTools (Lite) to the Reader overflow menu. Works offline without Chrome remote debugging.
 - Add Import EPUB to the local source menu.
 - Add cover-based themes for novel details and reader controls, with nine palette styles and smooth transitions. Inspired by Reikai and Komikku.

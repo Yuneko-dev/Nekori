@@ -50,6 +50,39 @@ manual dispatch. Checks report failures without automatically rewriting source f
 Translations are done externally via Weblate. See [our website](https://nekori.yuneko.dev/docs/contribute#translation) for more details.
 
 
+# Google Drive sync (developers)
+
+See [SYNC_SETUP.md](./SYNC_SETUP.md) for WebDAV/Drive setup, first sync and conflict behavior.
+
+Library sync can use Google Drive’s hidden `appDataFolder`. Credentials are **not**
+committed. Set them in gitignored `local.properties` (or env vars) before building:
+
+```properties
+google.drive.client.id=YOUR_CLIENT_ID.apps.googleusercontent.com
+# Optional — Android OAuth clients often have no secret
+google.drive.client.secret=
+```
+
+Or `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET`.
+
+### Creating OAuth credentials
+
+1. [Google Cloud Console](https://console.cloud.google.com) → enable **Google Drive API**.
+2. Configure the OAuth consent screen; add scopes
+   `https://www.googleapis.com/auth/drive.file` and `https://www.googleapis.com/auth/drive.appdata`.
+3. Create an **Android** OAuth client ID:
+   - Package name must match the variant you install (debug from Android Studio is
+     `app.yuneko.nekori.dev`; release is `app.yuneko.nekori`).
+   - SHA-1 of the keystore that signs that build (debug keystore for local installs).
+   - Under Advanced settings, enable **Custom URI scheme**.
+4. Put the client ID in `local.properties` and rebuild.
+
+The app’s redirect URI is derived from the client ID as
+`com.googleusercontent.apps.<clientIdWithoutSuffix>:/oauth2redirect`.
+
+This feature was ported from [Komikku](https://github.com/komikku-app/komikku);
+see [`app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md`](app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md).
+
 # Forks
 
 Forks are allowed so long as they abide by [the project's LICENSE](https://github.com/Yuneko-dev/Nekori/blob/main/LICENSE).

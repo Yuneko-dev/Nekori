@@ -34,6 +34,7 @@ conscrypt = "2.6.1"
 diskLruCache = "2.0.2"
 firebase-bom = "34.17.0"
 firebase-crashlytics = "3.0.7"
+google-api-services-drive = "v3-rev20260624-2.0.0"
 google-services = "4.5.0"
 injekt = "91edab2317"
 jsoup = "1.23.1"
@@ -126,6 +127,7 @@ firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 injekt = { module = "com.github.mihonapp:injekt", version.ref = "injekt" }
+google-api-services-drive = { module = "com.google.apis:google-api-services-drive", version.ref = "google-api-services-drive" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
