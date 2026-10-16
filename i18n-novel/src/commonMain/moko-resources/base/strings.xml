@@ -1486,6 +1486,7 @@
     <string name="devtools_resize">Resize DevTools</string>
     <string name="devtools_split">Switch to split screen</string>
     <string name="devtools_overlay">Switch to overlay</string>
+    <string name="devtools_keyboard">Toggle DevTools keys</string>
     <string name="devtools_swap">Swap Reader and DevTools</string>
     <!-- Cloud sync (Tsundoku PR 437) -->
     <string name="label_triggers">Triggers</string>

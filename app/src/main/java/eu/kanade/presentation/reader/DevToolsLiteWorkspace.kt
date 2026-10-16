@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Splitscreen
 import androidx.compose.material.icons.outlined.SwapVert
@@ -33,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,12 +44,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.Constraints
@@ -66,6 +70,8 @@ fun DevToolsLiteWorkspace(target: WebView, readerPane: View, onDismiss: () -> Un
     val session = remember(target) { DevToolsLiteSession(target, { dismiss() }, { error = it }) }
     var overlay by remember(target) { mutableStateOf(false) }
     var toolsOnTop by remember(target) { mutableStateOf(false) }
+    var keysVisible by remember(target) { mutableStateOf(false) }
+    val modifiers by session.frontend.modifierState.collectAsState()
     var fraction by remember(target) { mutableFloatStateOf(0.5f) }
     var height by remember { mutableIntStateOf(1) }
     val resizeLabel = stringResource(TDMR.strings.devtools_resize)
@@ -96,7 +102,27 @@ fun DevToolsLiteWorkspace(target: WebView, readerPane: View, onDismiss: () -> Un
                         ),
                     ),
                     content = {
-                        Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    keysVisible = !keysVisible
+                                    if (!keysVisible) {
+                                        session.frontend.modifiers = 0
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp).focusProperties { canFocus = false }.semantics {
+                                    selected = keysVisible
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Keyboard,
+                                    stringResource(TDMR.strings.devtools_keyboard),
+                                    Modifier.size(16.dp),
+                                )
+                            }
                             Box(
                                 Modifier.weight(1f).height(28.dp).semantics {
                                     contentDescription = resizeLabel
@@ -138,6 +164,11 @@ fun DevToolsLiteWorkspace(target: WebView, readerPane: View, onDismiss: () -> Un
                             }
                         }
                         Column(Modifier.fillMaxSize()) {
+                            if (keysVisible) {
+                                DevToolsKeyPanel(modifiers, {
+                                    session.frontend.modifiers = session.frontend.modifiers xor it
+                                }, session.frontend::pressKey)
+                            }
                             error?.let { Text(it, Modifier.padding(8.dp)) }
                             AndroidView(factory = { session.frontend }, modifier = Modifier.weight(1f).fillMaxWidth())
                         }

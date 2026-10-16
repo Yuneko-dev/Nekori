@@ -29,7 +29,7 @@ internal class DevToolsLiteSession(
     private val onClose: () -> Unit,
     private val onError: (String) -> Unit,
 ) {
-    val frontend = WebView(target.context)
+    val frontend = DevToolsKeyboardWebView(target.context)
     private val handler = Handler(Looper.getMainLooper())
     private val key = "__nekoriDevTools_${UUID.randomUUID().toString().replace("-", "")}"
     private var port: WebMessagePort? = null

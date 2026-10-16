@@ -8,6 +8,11 @@ switch to overlay (Reader stays full size), and Swap to put DevTools above/below
 the Reader. The same frontend/session survives resize, mode changes, swapping and
 rotation. The handle also supports accessible progress adjustment.
 The compact toolbar is 28dp high with 16dp icons, matching the frontend's controls.
+The keyboard icon at its left toggles two rows of extra keys: Escape, slash, minus,
+Home, Up, End, Page Up / Tab, Ctrl, Alt, Left, Down, Right, Page Down.
+Ctrl and Alt apply to the next key, then release automatically (including their selected UI).
+Tap again to cancel; hiding the panel releases both.
+Extra keys and modified Android keyboard input go only to the frontend WebView.
 Repeating the menu action while open is a no-op. The original DevTools toolbar Close
 button or Android Back ends the session and restores the full Reader; the menu can
 then reopen it. There is no custom title or floating launcher. Only en-US is bundled.

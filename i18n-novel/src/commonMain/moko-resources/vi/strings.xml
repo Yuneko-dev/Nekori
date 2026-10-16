@@ -1482,6 +1482,7 @@
     <string name="devtools_resize">Đổi kích thước DevTools</string>
     <string name="devtools_split">Chuyển sang chia màn hình</string>
     <string name="devtools_overlay">Chuyển sang lớp phủ</string>
+    <string name="devtools_keyboard">Bật/tắt phím DevTools</string>
     <string name="devtools_swap">Đảo vị trí Reader và DevTools</string>
     <!-- Cloud sync (Tsundoku PR 437) -->
     <string name="label_triggers">Điều kiện kích hoạt</string>
