@@ -52,8 +52,6 @@ Translations are done externally via Weblate. See [our website](https://nekori.y
 
 # Google Drive sync (developers)
 
-See [SYNC_SETUP.md](./SYNC_SETUP.md) for WebDAV/Drive setup, first sync and conflict behavior.
-
 Library sync can use Google Drive’s hidden `appDataFolder`. Credentials are **not**
 committed. Set them in gitignored `local.properties` (or env vars) before building:
 

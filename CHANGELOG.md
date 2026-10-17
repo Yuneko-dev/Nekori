@@ -11,6 +11,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
+
+## [v0.3.4] - 2026-10-16
 ### Added
 - Webview paged reader [@mrissaoussama](https://github.com/mrissaoussama) [#420](https://github.com/tsundoku-otaku/tsundoku/pull/420)
 - Search text (optionally regex) across all downloaded chapters of an entry [@RibatTRW](https://github.com/RibatTRW) [#433](https://github.com/tsundoku-otaku/tsundoku/issues/433)
@@ -18,6 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 
 ### Improved
+- Fix monocolor icons/themed icons [@Rojikku](https://github.com/Rojikku) [#435](https://github.com/tsundoku-otaku/tsundoku/pull/435)
 - TTS media notification for pause/resume with headset buttons. Old notification available in advanced settings. [@mrissaoussama](https://github.com/mrissaoussama) [#421](https://github.com/tsundoku-otaku/tsundoku/pull/421)
 
 ### Fixed
@@ -401,7 +404,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - **Browse Screen Enhancements**: Jump-to-page, page range loading, back confirmation
 
 
-[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.3...main
+[Unreleased]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.4...main
+[v0.3.4]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.3...v0.3.4
 [v0.3.3]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/tsundoku-otaku/tsundoku/compare/v0.3.0...v0.3.1
