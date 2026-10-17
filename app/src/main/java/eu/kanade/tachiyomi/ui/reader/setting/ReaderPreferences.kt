@@ -56,6 +56,11 @@ class ReaderPreferences(
 
     val novelReadTracking: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_read_tracking", true)
 
+    val novelReadTrackingMinDuration: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_read_tracking_min_duration",
+        0,
+    )
+
     val useModernStats: Preference<Boolean> = preferenceStore.getBoolean("pref_use_modern_stats", true)
 
     // endregion

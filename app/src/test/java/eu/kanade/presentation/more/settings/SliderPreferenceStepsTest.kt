@@ -13,6 +13,7 @@ class SliderPreferenceStepsTest {
     )
 
     private val steppedRanges = listOf(
+        0..60 step 5,
         0..100 step 5,
         30..300 step 5,
         0..10_000 step 100,
@@ -29,6 +30,7 @@ class SliderPreferenceStepsTest {
 
     @Test
     fun `a stepped range gets one stop per value, not one per unit`() {
+        slider(0..60 step 5).steps shouldBe 11 // 13 values, minimum reading session duration
         slider(0..100 step 5).steps shouldBe 19 // 21 values, the auto-load-next threshold
         slider(30..300 step 5).steps shouldBe 53 // 55 values
         slider(0..10_000 step 100).steps shouldBe 99 // 101 values

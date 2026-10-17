@@ -818,6 +818,7 @@
     <!-- Reading statistics -->
     <string name="pref_novel_read_tracking_group">Reading statistics</string>
     <string name="pref_novel_read_tracking">Reading session tracking</string>
+    <string name="pref_novel_read_tracking_min_duration">Ignore reading sessions shorter than</string>
     <string name="pref_novel_read_tracking_summary">Record reading sessions for charts and detailed reading history. Chapter history and total reading time still work when disabled.</string>
     <string name="pref_novel_read_tracking_dialog_title">Keep reading session history?</string>
     <string name="pref_novel_read_tracking_dialog_message">Turning this off stops recording new sessions. Choose whether to keep or delete the sessions already saved.</string>

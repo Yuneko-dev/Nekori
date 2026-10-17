@@ -784,6 +784,7 @@
     <!-- Thống kê đọc -->
     <string name="pref_novel_read_tracking_group">Thống kê đọc</string>
     <string name="pref_novel_read_tracking">Theo dõi phiên đọc</string>
+    <string name="pref_novel_read_tracking_min_duration">Bỏ qua các phiên đọc có thời gian ngắn hơn</string>
     <string name="pref_novel_read_tracking_summary">Ghi lại các phiên đọc cho biểu đồ và lịch sử đọc chi tiết. Lịch sử chương và tổng thời gian đọc vẫn hoạt động khi tắt.</string>
     <string name="pref_novel_read_tracking_dialog_title">Giữ lại lịch sử phiên đọc?</string>
     <string name="pref_novel_read_tracking_dialog_message">Khi tắt, ứng dụng sẽ ngừng ghi phiên đọc mới. Hãy chọn giữ lại hoặc xóa các phiên đã lưu.</string>

@@ -77,6 +77,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.core.common.i18n.stringResource as contextStringResource
@@ -351,6 +352,8 @@ object SettingsTrackingScreen : SearchableSettings {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val repository = remember { Injekt.get<ReadingSessionRepository>() }
+        val trackingEnabled by readerPreferences.novelReadTracking.collectAsState()
+        val minDuration by readerPreferences.novelReadTrackingMinDuration.collectAsState()
         var showDisableDialog by remember { mutableStateOf(false) }
 
         if (showDisableDialog) {
@@ -409,6 +412,19 @@ object SettingsTrackingScreen : SearchableSettings {
                         if (!enabled) showDisableDialog = true
                         enabled
                     },
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = minDuration,
+                    title = stringResource(TDMR.strings.pref_novel_read_tracking_min_duration),
+                    valueString = if (minDuration == 0) {
+                        stringResource(MR.strings.tapping_inverted_none)
+                    } else {
+                        stringResource(TDMR.strings.novel_auto_page_interval_seconds, minDuration)
+                    },
+                    valueRange = 0..60 step 5,
+                    enabled = trackingEnabled,
+                    onValueChanged = readerPreferences.novelReadTrackingMinDuration::set,
+                    preference = readerPreferences.novelReadTrackingMinDuration,
                 ),
             ),
         )
