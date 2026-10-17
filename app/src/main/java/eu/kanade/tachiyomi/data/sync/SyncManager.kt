@@ -76,6 +76,8 @@ class SyncManager(
      * from the database using the BackupManager, then synchronizes the data with a sync service.
      */
     suspend fun syncData() {
+        if (!syncPreferences.isSyncEnabled()) return
+
         // Reset isSyncing in case it was left over or failed syncing during restore.
         database.mangasQueries.resetIsSyncing()
         database.chaptersQueries.resetIsSyncing()

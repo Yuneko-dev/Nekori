@@ -31,6 +31,7 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
     private val notifier = SyncNotifier(context)
 
     override suspend fun doWork(): Result {
+        if (!Injekt.get<SyncPreferences>().isSyncEnabled()) return Result.success()
         if (Injekt.get<eu.kanade.domain.source.interactor.GetIncognitoState>().await(null)) return Result.success()
         if (!Injekt.get<tachiyomi.domain.source.service.SourceManager>().awaitInitialized()) return Result.retry()
         if (tags.contains(TAG_AUTO)) {

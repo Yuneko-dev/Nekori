@@ -59,7 +59,9 @@ internal fun SettingsDataScreen.getSyncPreferences(
                         SyncManager.SyncService.NONE.value to stringResource(MR.strings.off),
                         SyncManager.SyncService.GOOGLE_DRIVE.value to stringResource(TDMR.strings.google_drive),
                         SyncManager.SyncService.WEB_DAV.value to stringResource(TDMR.strings.web_dav),
-                    ),
+                    ).filterKeys {
+                        it != SyncManager.SyncService.GOOGLE_DRIVE.value || GoogleDriveService.isConfigured
+                    },
                     title = stringResource(TDMR.strings.pref_sync_service),
                     onValueChanged = {
                         if (it != SyncManager.SyncService.NONE.value) {
@@ -80,6 +82,9 @@ private fun SettingsDataScreen.getSyncServicePreferences(
     syncPreferences: SyncPreferences,
     syncService: Int,
 ): List<Preference> {
+    if (syncService == SyncManager.SyncService.GOOGLE_DRIVE.value && !GoogleDriveService.isConfigured) {
+        return emptyList()
+    }
     val syncServiceType = SyncManager.SyncService.fromInt(syncService)
     val basePreferences = getBaseSyncPreferences(syncServiceType, syncPreferences)
 

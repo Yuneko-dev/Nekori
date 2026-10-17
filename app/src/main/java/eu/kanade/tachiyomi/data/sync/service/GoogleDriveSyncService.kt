@@ -251,6 +251,7 @@ class GoogleDriveService(private val context: Context) {
     var driveService: Drive? = null
     companion object {
         val REDIRECT_URI: String = BuildConfig.GOOGLE_DRIVE_REDIRECT_URI
+        val isConfigured: Boolean = BuildConfig.GOOGLE_DRIVE_CLIENT_ID.isNotBlank()
     }
     private val syncPreferences = Injekt.get<SyncPreferences>()
 
@@ -278,6 +279,7 @@ class GoogleDriveService(private val context: Context) {
      * and setting up the service using the obtained tokens.
      */
     private fun initGoogleDriveService() {
+        if (!isConfigured) return
         val accessToken = syncPreferences.googleDriveAccessToken().get()
         val refreshToken = syncPreferences.googleDriveRefreshToken().get()
 

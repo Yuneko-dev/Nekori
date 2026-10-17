@@ -3,6 +3,7 @@ package eu.kanade.domain.sync
 import eu.kanade.domain.sync.models.SyncSettings
 import eu.kanade.tachiyomi.data.sync.SyncManager
 import eu.kanade.tachiyomi.data.sync.models.SyncTriggerOptions
+import eu.kanade.tachiyomi.data.sync.service.GoogleDriveService
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import java.util.UUID
@@ -45,7 +46,11 @@ class SyncPreferences(
     }
 
     fun isSyncEnabled(): Boolean {
-        return syncService().get() != SyncManager.SyncService.NONE.value
+        return when (SyncManager.SyncService.fromInt(syncService().get())) {
+            SyncManager.SyncService.NONE -> false
+            SyncManager.SyncService.GOOGLE_DRIVE -> GoogleDriveService.isConfigured
+            SyncManager.SyncService.WEB_DAV -> true
+        }
     }
 
     fun getSyncSettings(): SyncSettings {
