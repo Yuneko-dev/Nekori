@@ -2,6 +2,7 @@ package tachiyomi.domain.translation.service
 
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.domain.translation.model.NovelGuidelinesAssignments
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.UserGuidelines
@@ -48,9 +49,11 @@ class TranslationPreferences(
     /** Serialized [tachiyomi.domain.translation.model.UserGuidelines] list. The key predates the
      *  rename from "system prompt" and must stay, or every existing install loses its guidelines. */
     fun userGuidelinesJson() = preferenceStore.getString(
-        "translation_system_prompts",
+        UserGuidelines.PREFERENCE_KEY,
         """[{"id":"${UserGuidelines.DEFAULT_ID}","name":"Default","guidelines":""}]""",
     )
+
+    fun novelGuidelinesJson() = preferenceStore.getString(NovelGuidelinesAssignments.PREFERENCE_KEY, "[]")
 
     fun structuredOutput() = preferenceStore.getBoolean("translation_structured_output", true)
 

@@ -24,6 +24,8 @@ import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RegexReplacementsProcessor
 import eu.kanade.tachiyomi.util.epub.EpubExportNaming
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
@@ -208,9 +210,6 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             "performExport called with ${mangaIds.size} manga IDs, outputUri=$outputUri, translationMode=$translationMode, joinVolumes=$joinVolumes"
         }
 
-        val bundledCss = if (includeCustomCss) collectActiveCustomCss() else null
-        val bundledJs = if (includeCustomJs) collectActiveCustomJs() else null
-
         val mangasById = mangaRepository.getMangasByIds(mangaIds).associateBy(Manga::id)
         val mangaList = mangaIds.mapNotNull(mangasById::get)
         if (mangaList.isEmpty()) {
@@ -233,6 +232,9 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
         try {
             for ((mangaIndex, manga) in mangaList.withIndex()) {
+                val target = ReplacementTarget(manga.source, manga.url)
+                val bundledCss = if (includeCustomCss) collectActiveCustomCss(target) else null
+                val bundledJs = if (includeCustomJs) collectActiveCustomJs(target) else null
                 val localEpubContexts = mutableMapOf<String, LocalEpubContext>()
                 try {
                     updateProgress(
@@ -443,7 +445,14 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
                                             }
                                         }
                                         if (outputChapter != null) {
-                                            session.append(outputChapter)
+                                            session.append(
+                                                applyOriginalExportRules(
+                                                    outputChapter,
+                                                    writeOriginal,
+                                                    readerPreferences,
+                                                    target,
+                                                ),
+                                            )
                                             writtenChapters += candidate
                                         }
                                     }
@@ -1232,7 +1241,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
      *
      * Returns null when there's nothing to bundle.
      */
-    private fun collectActiveCustomCss(): String? {
+    private fun collectActiveCustomCss(target: ReplacementTarget): String? {
         val pieces = mutableListOf<String>()
 
         readerPreferences.novelCustomCss.get()
@@ -1240,7 +1249,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             .takeIf { it.isNotBlank() }
             ?.let { pieces += "/* @custom-css */\n$it" }
 
-        decodeSnippets(readerPreferences.novelCustomCssSnippets.get(), "CSS")
+        CodeSnippet.effective(decodeSnippets(readerPreferences.novelCustomCssSnippets.get(), "CSS"), target)
             .filter { it.enabled && it.code.isNotBlank() }
             .forEach { snippet ->
                 pieces += "/* @snippet: ${snippet.title.ifBlank { "untitled" }} */\n${snippet.code}"
@@ -1255,7 +1264,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
      *
      * Returns null when nothing is enabled.
      */
-    private fun collectActiveCustomJs(): String? {
+    private fun collectActiveCustomJs(target: ReplacementTarget): String? {
         val pieces = mutableListOf<String>()
 
         readerPreferences.novelCustomJs.get()
@@ -1263,7 +1272,7 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
             .takeIf { it.isNotBlank() }
             ?.let { pieces += wrapJsPiece(title = "custom-js", code = it) }
 
-        decodeSnippets(readerPreferences.novelCustomJsSnippets.get(), "JS")
+        CodeSnippet.effective(decodeSnippets(readerPreferences.novelCustomJsSnippets.get(), "JS"), target)
             .filter { it.enabled && it.code.isNotBlank() }
             .forEach { snippet ->
                 pieces += wrapJsPiece(
@@ -1277,9 +1286,9 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
 
     private fun decodeSnippets(json: String, label: String): List<CodeSnippet> {
         return try {
-            Json.decodeFromString<List<CodeSnippet>>(json)
-        } catch (e: Exception) {
-            logcat(LogPriority.WARN, e) { "Failed to decode $label snippets for export" }
+            CodeSnippet.decode(json)
+        } catch (_: Exception) {
+            logcat(LogPriority.WARN) { "Failed to decode $label snippets for export" }
             emptyList()
         }
     }
@@ -1306,6 +1315,18 @@ class EpubExportJob(private val context: Context, workerParams: WorkerParameters
     }
 
     companion object {
+        internal fun applyOriginalExportRules(
+            chapter: EpubWriter.Chapter,
+            writeOriginal: Boolean,
+            preferences: ReaderPreferences,
+            target: ReplacementTarget,
+        ): EpubWriter.Chapter = if (writeOriginal) {
+            chapter.copy(content = RegexReplacementsProcessor.apply(chapter.content, preferences, target))
+        } else {
+            // Reader translations may already include replacements; export cached text verbatim.
+            chapter
+        }
+
         private const val TAG = "EpubExportJob"
         private const val KEY_MANGA_IDS = "manga_ids"
         private const val KEY_OUTPUT_URI = "output_uri"

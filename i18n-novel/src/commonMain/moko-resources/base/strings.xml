@@ -489,6 +489,7 @@
     <string name="pref_ai_purpose_translation">AI translation</string>
     <string name="pref_ai_provider">Provider</string>
     <string name="action_summarize_chapter">Summarize chapter</string>
+    <string name="action_resummarize_chapter">Summarize chapter again</string>
     <string name="chapter_summary_title">Chapter summary</string>
     <string name="chapter_summary_loading">Summarizing this chapter…</string>
     <string name="chapter_summary_no_content">This chapter has no text to summarize</string>
@@ -1528,4 +1529,17 @@
     <string name="update_30min">Every 30 minutes</string>
     <string name="update_1hour">Every hour</string>
     <string name="update_3hour">Every 3 hours</string>
+    <string name="ai_guidelines_inherit">Use Global Guidelines</string>
+    <string name="ai_guidelines_none">No Guidelines</string>
+    <string name="ai_guidelines_custom">Edit for this Novel</string>
+    <string name="ai_guidelines_custom_text">Novel Guidelines</string>
+    <string name="ai_guidelines_missing">Saved Guidelines are missing; using Default</string>
+    <string name="ai_guidelines_load_error">Could not read saved Guidelines. Existing data has been kept.</string>
+    <string name="ai_guidelines_save_error">Guidelines changed elsewhere or could not be saved. Your draft is still here; cancel and reopen to reload.</string>
+    <string name="ai_guidelines_save_conflict">Guidelines changed elsewhere. Reopen this editor and try again.</string>
+    <string name="ai_guidelines_invalid_config">Could not read the AI Guidelines configuration. Check saved Guidelines and try again.</string>
+    <string name="novel_database_cleanup_partial">Database cleared; some novel settings were retained</string>
+    <string name="novel_database_cleanup_failed">Could not clear database</string>
+    <string name="snippet_active_count">Applying %1$d snippets</string>
+    <string name="content_delete_selected">Delete %d selected items?</string>
 </resources>

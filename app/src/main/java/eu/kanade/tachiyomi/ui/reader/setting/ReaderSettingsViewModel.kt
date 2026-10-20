@@ -20,6 +20,7 @@ class ReaderSettingsViewModel(
 ) : ViewModel() {
 
     internal var replacementRulesDraft: ReplacementRulesDraft? = null
+    internal val snippetDrafts = mutableMapOf<Boolean, CodeSnippetsDraft>()
 
     val viewerFlow = readerState
         .map { it.viewer }

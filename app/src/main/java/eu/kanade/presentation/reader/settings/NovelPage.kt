@@ -4,7 +4,6 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,13 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignRight
-import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Css
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.FormatAlignCenter
@@ -33,7 +26,6 @@ import androidx.compose.material.icons.outlined.FormatAlignJustify
 import androidx.compose.material.icons.outlined.Javascript
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -44,11 +36,9 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,10 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageEffect
 import eu.kanade.tachiyomi.ui.reader.setting.NovelPageSpread
@@ -70,8 +57,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
 import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
@@ -83,15 +68,7 @@ import tachiyomi.presentation.core.components.StepperItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
-@Serializable
-data class CodeSnippet(
-    val title: String,
-    val code: String,
-    val enabled: Boolean = true,
-    // JS only. Default off so one-shot snippets don't re-run on every infinite-scroll append.
-    val runOnAppend: Boolean = false,
-    val id: String = "legacy-${java.util.Objects.hash(title, code)}",
-)
+typealias CodeSnippet = eu.kanade.tachiyomi.ui.reader.setting.CodeSnippet
 
 private val UNSAFE_TITLE_CHARS = Regex("[^A-Za-z0-9._-]")
 
@@ -740,6 +717,7 @@ internal fun ColumnScope.NovelAdvancedTab(
     screenModel: ReaderSettingsViewModel,
     target: ReplacementTarget?,
     onManageRules: () -> Unit,
+    onManageSnippets: (Boolean) -> Unit,
 ) {
     // Show embedded CSS/JS toggles even when not an EPUB source — these control embedded styles/scripts
     ReaderSwitchItem(
@@ -775,411 +753,58 @@ internal fun ColumnScope.NovelAdvancedTab(
         runCatching { RegexReplacement.decode(savedRules) }.getOrDefault(emptyList())
             .count { it.enabled && it.appliesTo(target) }
     }
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onManageRules),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.FindReplace, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text(
-                stringResource(TDMR.strings.novel_regex_find_replace),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            IconButton(onClick = onManageRules) {
-                Icon(Icons.Outlined.Edit, contentDescription = stringResource(TDMR.strings.novel_regex_find_replace))
+    ContentCustomizationItem(
+        title = stringResource(TDMR.strings.novel_regex_find_replace),
+        icon = Icons.Outlined.FindReplace,
+        summary = stringResource(TDMR.strings.replacement_active_count, activeCount),
+        onClick = onManageRules,
+    )
+    listOf(false, true).forEach { isJavaScript ->
+        val savedSnippets by (
+            if (isJavaScript) {
+                screenModel.preferences.novelCustomJsSnippets
+            } else {
+                screenModel.preferences.novelCustomCssSnippets
             }
+            ).collectAsState()
+        val activeSnippets = remember(savedSnippets, target) {
+            runCatching { CodeSnippet.effective(CodeSnippet.decode(savedSnippets), target).size }.getOrDefault(0)
+        }
+        ContentCustomizationItem(
+            title = stringResource(
+                if (isJavaScript) TDMR.strings.pref_novel_js_snippets else TDMR.strings.pref_novel_css_snippets,
+            ),
+            icon = if (isJavaScript) Icons.Outlined.Javascript else Icons.Outlined.Css,
+            summary = stringResource(TDMR.strings.snippet_active_count, activeSnippets),
+            onClick = { onManageSnippets(isJavaScript) },
+        )
+    }
+}
+
+@Composable
+private fun ContentCustomizationItem(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    summary: String,
+    onClick: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = null,
+                modifier = Modifier.padding(12.dp),
+            )
         }
         Text(
-            stringResource(TDMR.strings.replacement_active_count, activeCount),
+            summary,
             modifier = Modifier.padding(vertical = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
-    val cssSnippetsJson by screenModel.preferences.novelCustomCssSnippets.collectAsState()
-    val jsSnippetsJson by screenModel.preferences.novelCustomJsSnippets.collectAsState()
-
-    var showCssDialog by remember { mutableStateOf(false) }
-    var showJsDialog by remember { mutableStateOf(false) }
-    var editingCssSnippet by remember { mutableStateOf<CodeSnippet?>(null) }
-    var editingJsSnippet by remember { mutableStateOf<CodeSnippet?>(null) }
-
-    val cssSnippets = remember(cssSnippetsJson) {
-        try {
-            Json.decodeFromString<List<CodeSnippet>>(cssSnippetsJson)
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    val jsSnippets = remember(jsSnippetsJson) {
-        try {
-            Json.decodeFromString<List<CodeSnippet>>(jsSnippetsJson)
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    // CSS Snippets Section
-    SnippetSection(
-        title = stringResource(TDMR.strings.pref_novel_css_snippets),
-        icon = Icons.Outlined.Css,
-        snippets = cssSnippets,
-        onAddClick = { showCssDialog = true },
-        onEditClick = { snippet -> editingCssSnippet = snippet },
-        onDeleteClick = { id ->
-            val updated = cssSnippets.filterNot { it.id == id }
-            screenModel.preferences.novelCustomCssSnippets.set(Json.encodeToString(updated))
-        },
-        onToggleClick = { index ->
-            val updated = cssSnippets.toMutableList().apply {
-                this[index] = this[index].copy(enabled = !this[index].enabled)
-            }
-            screenModel.preferences.novelCustomCssSnippets.set(Json.encodeToString(updated))
-        },
-        onMove = { from, to ->
-            val updated = cssSnippets.toMutableList().apply { add(to, removeAt(from)) }
-            screenModel.preferences.novelCustomCssSnippets.set(Json.encodeToString(updated))
-        },
-        onSortEnabledFirst = {
-            val updated = cssSnippets.sortedByDescending { it.enabled }
-            screenModel.preferences.novelCustomCssSnippets.set(Json.encodeToString(updated))
-        },
-    )
-
-    // JS Snippets Section
-    SnippetSection(
-        title = stringResource(TDMR.strings.pref_novel_js_snippets),
-        icon = Icons.Outlined.Javascript,
-        snippets = jsSnippets,
-        onAddClick = { showJsDialog = true },
-        onEditClick = { snippet -> editingJsSnippet = snippet },
-        onDeleteClick = { id ->
-            val updated = jsSnippets.filterNot { it.id == id }
-            screenModel.preferences.novelCustomJsSnippets.set(Json.encodeToString(updated))
-        },
-        onToggleClick = { index ->
-            val updated = jsSnippets.toMutableList().apply {
-                this[index] = this[index].copy(enabled = !this[index].enabled)
-            }
-            screenModel.preferences.novelCustomJsSnippets.set(Json.encodeToString(updated))
-        },
-        onMove = { from, to ->
-            val updated = jsSnippets.toMutableList().apply { add(to, removeAt(from)) }
-            screenModel.preferences.novelCustomJsSnippets.set(Json.encodeToString(updated))
-        },
-        onSortEnabledFirst = {
-            val updated = jsSnippets.sortedByDescending { it.enabled }
-            screenModel.preferences.novelCustomJsSnippets.set(Json.encodeToString(updated))
-        },
-    )
-
-    // CSS Add/Edit Dialog
-    if (showCssDialog || editingCssSnippet != null) {
-        SnippetEditDialog(
-            title = if (editingCssSnippet != null) {
-                stringResource(TDMR.strings.novel_edit_css_snippet)
-            } else {
-                stringResource(TDMR.strings.novel_add_css_snippet)
-            },
-            initialSnippet = editingCssSnippet,
-            focusCodeFieldByDefault = editingCssSnippet != null,
-            showRunOnAppend = false,
-            existingSafeTitles = cssSnippets
-                .filterNot { it.id == editingCssSnippet?.id }
-                .mapTo(mutableSetOf()) { it.safeTitle() },
-            onDismiss = {
-                showCssDialog = false
-                editingCssSnippet = null
-            },
-            onConfirm = { snippet ->
-                val editingId = editingCssSnippet?.id
-                val updated = if (editingId != null) {
-                    cssSnippets.map { if (it.id == editingId) snippet else it }
-                } else {
-                    cssSnippets + snippet
-                }
-                screenModel.preferences.novelCustomCssSnippets.set(Json.encodeToString(updated))
-                showCssDialog = false
-                editingCssSnippet = null
-            },
-        )
-    }
-
-    // JS Add/Edit Dialog
-    if (showJsDialog || editingJsSnippet != null) {
-        SnippetEditDialog(
-            title = if (editingJsSnippet != null) {
-                stringResource(TDMR.strings.novel_edit_js_snippet)
-            } else {
-                stringResource(TDMR.strings.novel_add_js_snippet)
-            },
-            initialSnippet = editingJsSnippet,
-            focusCodeFieldByDefault = editingJsSnippet != null,
-            showRunOnAppend = true,
-            existingSafeTitles = jsSnippets
-                .filterNot { it.id == editingJsSnippet?.id }
-                .mapTo(mutableSetOf()) { it.safeTitle() },
-            onDismiss = {
-                showJsDialog = false
-                editingJsSnippet = null
-            },
-            onConfirm = { snippet ->
-                val editingId = editingJsSnippet?.id
-                val updated = if (editingId != null) {
-                    jsSnippets.map { if (it.id == editingId) snippet else it }
-                } else {
-                    jsSnippets + snippet
-                }
-                screenModel.preferences.novelCustomJsSnippets.set(Json.encodeToString(updated))
-                showJsDialog = false
-                editingJsSnippet = null
-            },
-        )
-    }
-}
-
-@Composable
-private fun SnippetSection(
-    title: String,
-    icon: ImageVector = Icons.Outlined.Code,
-    snippets: List<CodeSnippet>,
-    onAddClick: () -> Unit,
-    onEditClick: (CodeSnippet) -> Unit,
-    onDeleteClick: (String) -> Unit,
-    onToggleClick: (Int) -> Unit,
-    onMove: (Int, Int) -> Unit,
-    onSortEnabledFirst: () -> Unit,
-) {
-    var pendingDelete by remember { mutableStateOf<String?>(null) }
-
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (snippets.size > 1) {
-                    IconButton(onClick = onSortEnabledFirst) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.Sort,
-                            contentDescription = stringResource(TDMR.strings.novel_snippets_enabled_first),
-                        )
-                    }
-                }
-                IconButton(onClick = onAddClick) {
-                    Icon(Icons.Outlined.Add, contentDescription = stringResource(TDMR.strings.novel_add_snippet))
-                }
-            }
-        }
-
-        snippets.forEachIndexed { index, snippet ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clickable { onToggleClick(index) },
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = snippet.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f),
-                        color = if (snippet.enabled) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        },
-                    )
-                    Row {
-                        IconButton(
-                            onClick = { onMove(index, index - 1) },
-                            enabled = index > 0,
-                            modifier = Modifier.size(36.dp),
-                        ) {
-                            Icon(
-                                Icons.Outlined.ArrowUpward,
-                                contentDescription = stringResource(TDMR.strings.novel_snippet_move_up),
-                            )
-                        }
-                        IconButton(
-                            onClick = { onMove(index, index + 1) },
-                            enabled = index < snippets.lastIndex,
-                            modifier = Modifier.size(36.dp),
-                        ) {
-                            Icon(
-                                Icons.Outlined.ArrowDownward,
-                                contentDescription = stringResource(TDMR.strings.novel_snippet_move_down),
-                            )
-                        }
-                        IconButton(onClick = { onEditClick(snippet) }) {
-                            Icon(
-                                Icons.Outlined.Edit,
-                                contentDescription = stringResource(TDMR.strings.novel_edit_snippet),
-                            )
-                        }
-                        IconButton(onClick = { pendingDelete = snippet.id }) {
-                            Icon(
-                                Icons.Outlined.Delete,
-                                contentDescription = stringResource(TDMR.strings.novel_delete_snippet),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (snippets.isEmpty()) {
-            Text(
-                text = stringResource(TDMR.strings.novel_no_snippets),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-        }
-    }
-
-    pendingDelete?.let { id ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(TDMR.strings.novel_delete_snippet)) },
-            text = { Text(stringResource(TDMR.strings.novel_delete_snippet_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteClick(id)
-                        pendingDelete = null
-                    },
-                ) {
-                    Text(stringResource(MR.strings.action_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(MR.strings.action_cancel))
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun SnippetEditDialog(
-    title: String,
-    initialSnippet: CodeSnippet?,
-    focusCodeFieldByDefault: Boolean,
-    showRunOnAppend: Boolean,
-    existingSafeTitles: Set<String>,
-    onDismiss: () -> Unit,
-    onConfirm: (CodeSnippet) -> Unit,
-) {
-    var snippetTitle by remember { mutableStateOf(initialSnippet?.title ?: "") }
-    var snippetCode by remember { mutableStateOf(initialSnippet?.code ?: "") }
-    var runOnAppend by remember { mutableStateOf(initialSnippet?.runOnAppend ?: false) }
-    val codeFocusRequester = remember { FocusRequester() }
-    val trimmedSafeTitle = safeTitleOf(snippetTitle.trim())
-    val isDuplicateTitle = existingSafeTitles.contains(trimmedSafeTitle)
-
-    LaunchedEffect(focusCodeFieldByDefault) {
-        if (focusCodeFieldByDefault) {
-            codeFocusRequester.requestFocus()
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = snippetTitle,
-                    onValueChange = { snippetTitle = it },
-                    label = { Text(stringResource(TDMR.strings.novel_snippet_title)) },
-                    singleLine = true,
-                    isError = isDuplicateTitle,
-                    supportingText = if (isDuplicateTitle) {
-                        { Text(stringResource(TDMR.strings.novel_snippet_duplicate_title, trimmedSafeTitle)) }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = snippetCode,
-                    onValueChange = { snippetCode = it },
-                    label = { Text(stringResource(TDMR.strings.novel_snippet_code)) },
-                    minLines = 5,
-                    maxLines = 10,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .focusRequester(codeFocusRequester),
-                )
-                if (showRunOnAppend) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { runOnAppend = !runOnAppend }
-                            .padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Switch(
-                            checked = runOnAppend,
-                            onCheckedChange = { runOnAppend = it },
-                        )
-                        Text(
-                            text = stringResource(TDMR.strings.novel_snippet_run_on_append),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 4.dp),
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = snippetTitle.isNotBlank() && snippetCode.isNotBlank() && !isDuplicateTitle,
-                onClick = {
-                    onConfirm(
-                        CodeSnippet(
-                            title = snippetTitle.trim(),
-                            code = snippetCode,
-                            enabled = initialSnippet?.enabled ?: true,
-                            runOnAppend = runOnAppend,
-                            id = initialSnippet?.id ?: java.util.UUID.randomUUID().toString(),
-                        ),
-                    )
-                },
-            ) {
-                Text(stringResource(MR.strings.action_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

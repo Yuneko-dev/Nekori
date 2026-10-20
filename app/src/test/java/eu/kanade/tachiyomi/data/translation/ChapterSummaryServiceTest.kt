@@ -15,6 +15,9 @@ import tachiyomi.domain.translation.model.AiErrorCode
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmOutputFormat
 import tachiyomi.domain.translation.model.LlmResult
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelGuidelinesChoice
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.service.TranslationPreferences
 
@@ -24,7 +27,8 @@ class ChapterSummaryServiceTest {
     private val aiSettings = AiSettingsStore(preferences, json)
     private val generator = mockk<LlmGenerator>()
     private val noContentMessage = "Localized empty chapter"
-    private val service = ChapterSummaryService(generator, aiSettings, preferences) { noContentMessage }
+    private val service =
+        ChapterSummaryService(generator, aiSettings, preferences, { "Invalid Guidelines" }) { noContentMessage }
 
     @Test
     fun `an unconfigured provider means no summary can be requested`() {
@@ -108,6 +112,38 @@ class ChapterSummaryServiceTest {
             LlmResult.Success("A summary.")
         }
         return { requireNotNull(captured) }
+    }
+
+    @Test
+    fun `summary uses its own novel choice without translation choice or corrupt library`() = runTest {
+        aiSettings.saveProvider(provider, "secret")
+        val target = NovelTarget(5, "/a")
+        aiSettings.saveChoice(
+            target,
+            NovelAiTask.TRANSLATION,
+            NovelGuidelinesChoice("custom", text = "Translation only"),
+            "[]",
+        )
+        aiSettings.saveChoice(
+            target,
+            NovelAiTask.CHAPTER_SUMMARY,
+            NovelGuidelinesChoice("custom", text = "Novel summary"),
+            preferences.novelGuidelinesJson().get(),
+        )
+        preferences.userGuidelinesJson().set("broken")
+        val sent = captureRequest()
+        service.summarize("<p>Events</p>", target)
+        sent().systemPrompt shouldContain "Novel summary"
+        sent().systemPrompt.contains("Translation only") shouldBe false
+    }
+
+    @Test
+    fun `corrupt novel choices fail before provider call`() = runTest {
+        aiSettings.saveProvider(provider, "secret")
+        preferences.novelGuidelinesJson().set("broken")
+        val result = service.summarize("<p>Events</p>", NovelTarget(5, "/a"))
+        (result as LlmResult.Failure).code shouldBe AiErrorCode.REQUEST_INVALID
+        coVerify(exactly = 0) { generator.generate(any(), any()) }
     }
 
     private val provider = AIProvider(

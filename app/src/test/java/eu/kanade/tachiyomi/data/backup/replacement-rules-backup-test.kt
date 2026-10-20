@@ -52,7 +52,7 @@ class ReplacementRulesBackupTest {
     fun `malformed backup does not overwrite existing rules`() = runTest {
         mockkStatic(Log::class)
         try {
-            every { Log.e(any(), any(), any()) } returns 0
+            every { Log.e(any(), any()) } returns 0
             val store = InMemoryPreferenceStore()
             val existing = Json.encodeToString(listOf(RegexReplacement("Keep", "a", "b")))
             store.getString(RegexReplacement.PREFERENCE_KEY).set(existing)

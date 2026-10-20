@@ -24,9 +24,11 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
 import eu.kanade.tachiyomi.ui.reader.setting.ReplacementRulesDraft
 import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
+import eu.kanade.tachiyomi.ui.reader.setting.reorderScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import tachiyomi.core.common.preference.ContentPreferencesLock
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -109,11 +111,19 @@ private fun ReplacementRulesContent(
     fun close() {
         // Commit once on return, so multi-edit sessions rebuild the chapter only once.
         if (rules != initial) {
-            if (preferences.novelRegexReplacements.get() != original) {
+            val encoded = Json.encodeToString(rules)
+            val saved = synchronized(ContentPreferencesLock) {
+                if (preferences.novelRegexReplacements.get() != original) {
+                    false
+                } else {
+                    preferences.novelRegexReplacements.set(encoded)
+                    true
+                }
+            }
+            if (!saved) {
                 conflict = true
                 return
             }
-            preferences.novelRegexReplacements.set(Json.encodeToString(rules))
         }
         onBack()
     }
@@ -132,10 +142,13 @@ private fun ReplacementRulesContent(
         }
     }
     Surface(Modifier.fillMaxSize()) {
-        ReplacementRulesLayout(
+        ScopedContentLayout(
             entries = visible,
+            entryKey = { it.id },
+            addLabel = TDMR.strings.novel_add_rule,
             searching = query != null,
             selecting = selected.isNotEmpty(),
+            onReorder = { rules = reorderScope(rules, scoped, it) },
             onAdd = {
                 editingJson = Json.encodeToString(
                     RegexReplacement(
@@ -158,13 +171,14 @@ private fun ReplacementRulesContent(
                 },
             ),
             toolbar = {
-                ReplacementRulesToolbar(
+                ScopedContentToolbar(
+                    title = stringResource(TDMR.strings.novel_regex_find_replace),
                     scope = scope,
                     hasNovel = target != null,
                     novelTitle = novelTitle,
                     query = query,
                     selectedCount = selected.size,
-                    hasRules = scoped.isNotEmpty(),
+                    hasEntries = scoped.isNotEmpty(),
                     onBack = ::close,
                     onClearSelection = { selected = emptySet() },
                     onScope = {
@@ -185,9 +199,13 @@ private fun ReplacementRulesContent(
                     onDelete = { deleting = selected },
                 )
             },
-        ) { rule ->
-            ReplacementRuleRow(
-                rule = rule,
+        ) { rule, modifier ->
+            ScopedContentRow(
+                modifier = modifier,
+                title = rule.title,
+                subtitle = "${rule.pattern} → ${rule.replacement.ifEmpty { stringResource(MR.strings.action_delete) }}",
+                enabled = rule.enabled,
+                dragEnabled = query == null && selected.isEmpty(),
                 selected = rule.id in selected,
                 selecting = selected.isNotEmpty(),
                 onClick = {
@@ -200,8 +218,8 @@ private fun ReplacementRulesContent(
                 onSelect = { toggleSelection(rule.id) },
                 onEnable = { setEnabled(setOf(rule.id), it) },
                 onDelete = { deleting = setOf(rule.id) },
-                canMoveUp = query.isNullOrBlank() && scoped.firstOrNull()?.id != rule.id,
-                canMoveDown = query.isNullOrBlank() && scoped.lastOrNull()?.id != rule.id,
+                canMoveUp = query == null && scoped.firstOrNull()?.id != rule.id,
+                canMoveDown = query == null && scoped.lastOrNull()?.id != rule.id,
                 onMove = { offset ->
                     val neighbor = scoped[scoped.indexOf(rule) + offset]
                     rules = rules.toMutableList().apply {
@@ -217,10 +235,15 @@ private fun ReplacementRulesContent(
     editingJson?.let { json ->
         val editing = remember(json) { Json.decodeFromString<RegexReplacement>(json) }
         ReplacementRuleEditor(editing, target, onDismiss = { editingJson = null }) { updated ->
-            rules = if (rules.any { it.id == updated.id }) {
-                rules.map { if (it.id == updated.id) updated else it }
-            } else {
-                rules + updated
+            val previous = rules.firstOrNull { it.id == updated.id }
+            rules = when {
+                previous == null -> rules + updated
+                previous.scope != updated.scope || previous.target != updated.target -> rules.filterNot {
+                    it.id ==
+                        updated.id
+                } +
+                    updated
+                else -> rules.map { if (it.id == updated.id) updated else it }
             }
             editingJson = null
         }

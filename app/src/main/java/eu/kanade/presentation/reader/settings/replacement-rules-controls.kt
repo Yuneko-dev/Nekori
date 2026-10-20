@@ -6,13 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FindReplace
+import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,24 +26,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.more.settings.screen.ManagerRow
 import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
+import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-internal fun ReplacementRulesToolbar(
+internal fun ScopedContentToolbar(
     scope: String,
     hasNovel: Boolean,
+    title: String,
     novelTitle: String,
     query: String?,
     selectedCount: Int,
-    hasRules: Boolean,
+    hasEntries: Boolean,
     onBack: () -> Unit,
     onClearSelection: () -> Unit,
     onScope: (String) -> Unit,
@@ -98,9 +102,9 @@ internal fun ReplacementRulesToolbar(
                 searchQuery = query,
                 onChangeSearchQuery = onQuery,
                 navigateUp = onBack,
-                searchEnabled = hasRules,
+                searchEnabled = hasEntries,
                 actions = {
-                    if (!hasRules) {
+                    if (!hasEntries) {
                         IconButton(onClick = {}, enabled = false) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(MR.strings.action_search))
                         }
@@ -108,7 +112,7 @@ internal fun ReplacementRulesToolbar(
                 },
                 titleContent = {
                     AppBarTitle(
-                        title = stringResource(TDMR.strings.novel_regex_find_replace),
+                        title = title,
                         subtitle = novelTitle.takeIf { scope == RegexReplacement.NOVEL },
                     )
                 },
@@ -131,8 +135,11 @@ internal fun ReplacementRulesToolbar(
 }
 
 @Composable
-internal fun ReplacementRuleRow(
-    rule: RegexReplacement,
+internal fun ReorderableCollectionItemScope.ScopedContentRow(
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    dragEnabled: Boolean,
     selected: Boolean,
     selecting: Boolean,
     onClick: () -> Unit,
@@ -142,53 +149,60 @@ internal fun ReplacementRuleRow(
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMove: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ManagerRow(
-        title = rule.title,
-        subtitle = "${rule.pattern} → ${rule.replacement.ifEmpty { stringResource(MR.strings.action_delete) }}",
-        icon = {
-            if (selecting) {
-                Checkbox(selected, onCheckedChange = {
-                    onSelect()
-                })
+    ElevatedCard(modifier = modifier) {
+        ManagerRow(
+            title = title,
+            subtitle = subtitle,
+            icon = if (selecting) {
+                { Checkbox(selected, onCheckedChange = { onSelect() }) }
+            } else if (dragEnabled) {
+                {
+                    Icon(
+                        Icons.Outlined.DragHandle,
+                        contentDescription = stringResource(TDMR.strings.label_drag_to_reorder),
+                        modifier = Modifier.draggableHandle(),
+                    )
+                }
             } else {
-                Icon(Icons.Outlined.FindReplace, null)
-            }
-        },
-        onClick = onClick,
-        onLongClick = onSelect,
-        trailing = {
-            if (!selecting) {
-                Row {
-                    Switch(rule.enabled, onCheckedChange = onEnable)
-                    IconButton(onClick = {
-                        expanded = true
-                    }) { Icon(Icons.Outlined.MoreVert, stringResource(MR.strings.pref_reader_actions)) }
-                    DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(TDMR.strings.novel_snippet_move_up)) },
-                            enabled = canMoveUp,
-                            onClick = {
+                null
+            },
+            onClick = onClick,
+            onLongClick = onSelect,
+            trailing = {
+                if (!selecting) {
+                    Row {
+                        Switch(enabled, onCheckedChange = onEnable)
+                        IconButton(onClick = {
+                            expanded = true
+                        }) { Icon(Icons.Outlined.MoreVert, stringResource(MR.strings.pref_reader_actions)) }
+                        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(TDMR.strings.novel_snippet_move_up)) },
+                                enabled = canMoveUp,
+                                onClick = {
+                                    expanded = false
+                                    onMove(-1)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(TDMR.strings.novel_snippet_move_down)) },
+                                enabled = canMoveDown,
+                                onClick = {
+                                    expanded = false
+                                    onMove(1)
+                                },
+                            )
+                            DropdownMenuItem(text = { Text(stringResource(MR.strings.action_delete)) }, onClick = {
                                 expanded = false
-                                onMove(-1)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(TDMR.strings.novel_snippet_move_down)) },
-                            enabled = canMoveDown,
-                            onClick = {
-                                expanded = false
-                                onMove(1)
-                            },
-                        )
-                        DropdownMenuItem(text = { Text(stringResource(MR.strings.action_delete)) }, onClick = {
-                            expanded = false
-                            onDelete()
-                        })
+                                onDelete()
+                            })
+                        }
                     }
                 }
-            }
-        },
-    )
+            },
+        )
+    }
 }

@@ -14,8 +14,10 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
-import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
+import eu.kanade.tachiyomi.ui.reader.setting.NovelContentPreferences
+import kotlinx.coroutines.CancellationException
 import tachiyomi.core.common.preference.AndroidPreferenceStore
+import tachiyomi.core.common.preference.ContentPreferencesLock
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
@@ -33,8 +35,8 @@ class PreferenceRestorer(
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
         backupCategories: List<BackupCategory>?,
-    ) {
-        restorePreferences(
+    ): List<String> {
+        val failures = restorePreferences(
             preferences,
             preferenceStore,
             backupCategories,
@@ -42,26 +44,45 @@ class PreferenceRestorer(
 
         LibraryUpdateJob.setupTask(context)
         BackupCreateJob.setupTask(context)
+        return failures
     }
 
-    suspend fun restoreSource(preferences: List<BackupSourcePreferences>) {
-        preferences.forEach {
+    suspend fun restoreSource(preferences: List<BackupSourcePreferences>): List<String> =
+        preferences.flatMap {
             val sourcePrefs = AndroidPreferenceStore(context, sourcePreferences(it.sourceKey))
             restorePreferences(it.prefs, sourcePrefs)
         }
-    }
 
     internal suspend fun restorePreferences(
         toRestore: List<BackupPreference>,
         preferenceStore: PreferenceStore,
         backupCategories: List<BackupCategory>? = null,
-    ) {
+    ): List<String> {
+        val originalContent = synchronized(ContentPreferencesLock) {
+            preferenceStore.getAll().filterKeys { it in NovelContentPreferences.collectionKeys }
+        }
+        // Validate all present content values before the first preference write.
+        val contentValues = toRestore.filter { it.key in NovelContentPreferences.collectionKeys }.associate {
+            it.key to runCatching {
+                val raw = (it.value as? StringPreferenceValue)?.value
+                    ?: error("Content collection must be a string")
+                NovelContentPreferences.validatedRestoreValue(it.key, raw)
+            }
+        }
+        val failures = mutableListOf<String>()
         val allCategories = if (backupCategories != null) getCategories.await() else emptyList()
         val categoriesByName = allCategories.associateBy { it.name }
         val backupCategoriesById = backupCategories?.associateBy { it.id.toString() }.orEmpty()
         val prefs = preferenceStore.getAll()
         toRestore.forEach { (key, value) ->
             try {
+                contentValues[key]?.let { candidate ->
+                    synchronized(ContentPreferencesLock) {
+                        check(preferenceStore.getAll()[key] == originalContent[key])
+                        preferenceStore.getString(key).set(candidate.getOrThrow())
+                    }
+                    return@forEach
+                }
                 when (value) {
                     is IntPreferenceValue -> {
                         if (prefs[key] is Int?) {
@@ -87,8 +108,6 @@ class PreferenceRestorer(
                     }
                     is StringPreferenceValue -> {
                         if (prefs[key] is String?) {
-                            // Validate before replacing the existing list; malformed backups must not erase rules.
-                            if (key == RegexReplacement.PREFERENCE_KEY) RegexReplacement.decode(value.value)
                             preferenceStore.getString(key).set(value.value)
                         }
                     }
@@ -111,9 +130,13 @@ class PreferenceRestorer(
                     }
                 }
             } catch (e: Exception) {
-                Log.e("PreferenceRestorer", "Failed to restore preference <$key>", e)
+                if (e is CancellationException) throw e
+                failures += key
+                // Parser exceptions may contain the user's JSON; report only the preference key.
+                Log.e("PreferenceRestorer", "Failed to restore preference <$key>")
             }
         }
+        return failures
     }
 
     private fun restoreCategoriesPreference(

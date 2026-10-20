@@ -8,11 +8,15 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.AIProviderType
 import tachiyomi.domain.translation.model.AiExecutionConfig
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelGuidelinesChoice
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
 import tachiyomi.domain.translation.model.TranslationRequest
 import tachiyomi.domain.translation.model.TranslationResult
+import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.service.TranslationPreferences
 
 class TranslationEngineManagerTest {
@@ -91,6 +95,34 @@ class TranslationEngineManagerTest {
 
     private fun useEngine(purpose: TranslationPurpose, engineId: TranslationEngineId) {
         preferences.engineId(purpose).set(engineId.key)
+    }
+
+    @Test
+    fun `chapter snapshot keeps novel guidelines and engine after settings change`() = runTest {
+        aiSettings.saveProvider(provider("active"))
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.LLM)
+        val target = NovelTarget(Long.MAX_VALUE, "/novel/a#part")
+        aiSettings.saveChoice(target, NovelAiTask.TRANSLATION, NovelGuidelinesChoice("custom", text = "For A"), "[]")
+        val snapshot = manager.resolve(TranslationPurpose.CHAPTER, target)
+        useEngine(TranslationPurpose.CHAPTER, TranslationEngineId.GOOGLE_FREE)
+        preferences.novelGuidelinesJson().set("[]")
+        manager.translate(snapshot, TranslationRequest(listOf("title"), "en", "vi"))
+        llm.lastRequest?.config?.guidelines shouldBe "For A"
+        manager.translate(snapshot, TranslationRequest(listOf("chunk"), "en", "vi"))
+        llm.lastRequest?.config?.guidelines shouldBe "For A"
+        free.lastRequest shouldBe null
+    }
+
+    @Test
+    fun `metadata and browsing ignore corrupt novel assignments`() {
+        aiSettings.saveProvider(provider("active"))
+        aiSettings.saveGuidelines(UserGuidelines("global", "Global", "Global instructions"))
+        preferences.translationGuidelinesId().set("global")
+        preferences.novelGuidelinesJson().set("broken")
+        useEngine(TranslationPurpose.METADATA, TranslationEngineId.LLM)
+        manager.resolve(TranslationPurpose.METADATA, NovelTarget(1, "/a")).config?.guidelines shouldBe
+            "Global instructions"
+        manager.selectedEngine(TranslationPurpose.CHAPTER) shouldBe free
     }
 
     private fun provider(id: String) = AIProvider(

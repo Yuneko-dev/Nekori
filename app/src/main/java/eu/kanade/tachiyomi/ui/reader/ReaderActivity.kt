@@ -28,6 +28,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
@@ -72,8 +73,8 @@ import eu.kanade.presentation.reader.EstimatedStatusBarHeight
 import eu.kanade.presentation.reader.NovelChapterDrawer
 import eu.kanade.presentation.reader.NovelStatusBar
 import eu.kanade.presentation.reader.OrientationSelectDialog
+import eu.kanade.presentation.reader.ReaderAiTaskSheet
 import eu.kanade.presentation.reader.ReaderContentOverlay
-import eu.kanade.presentation.reader.TranslationLanguageSelectDialog
 import eu.kanade.presentation.reader.appbars.BottomBarEditorSheet
 import eu.kanade.presentation.reader.appbars.BottomBarItem
 import eu.kanade.presentation.reader.appbars.NovelReaderAppBars
@@ -138,6 +139,8 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.util.collectAsState
@@ -735,7 +738,7 @@ class ReaderActivity : BaseActivity() {
             }
 
             val onDismissRequest = viewModel::closeDialog
-            when (state.dialog) {
+            when (val dialog = state.dialog) {
                 is ReaderViewModel.Dialog.Settings -> {
                     ReaderSettingsDialog(
                         onDismissRequest = onDismissRequest,
@@ -755,28 +758,29 @@ class ReaderActivity : BaseActivity() {
                         },
                     )
                 }
-                is ReaderViewModel.Dialog.TranslationLanguageSelect -> {
-                    TranslationLanguageSelectDialog(
+                is ReaderViewModel.Dialog.TranslationLanguageSelect,
+                is ReaderViewModel.Dialog.ChapterSummaryMenu,
+                -> {
+                    val translation = dialog is ReaderViewModel.Dialog.TranslationLanguageSelect
+                    ReaderAiTaskSheet(
+                        task = if (translation) NovelAiTask.TRANSLATION else NovelAiTask.CHAPTER_SUMMARY,
+                        target = state.manga?.let { NovelTarget(it.source, it.url) },
                         onDismissRequest = onDismissRequest,
                         currentLanguage = viewModel.getTargetTranslationLanguage(),
                         autoTranslateEnabled = autoTranslateEnabled,
-                        onToggleAutoTranslate = { enabled ->
-                            readerPreferences.autoTranslate.set(enabled)
-                        },
+                        onToggleAutoTranslate = { readerPreferences.autoTranslate.set(it) },
                         onSelectLanguage = { languageCode ->
                             viewModel.setTargetTranslationLanguage(languageCode)
-                            // Optionally trigger translation with new language
-                            if (!viewModel.state.value.isTranslating) {
-                                viewModel.toggleTranslation()
-                            } else {
-                                // Retrigger translation with new language
-                                viewModel.toggleTranslation() // Turn off
-                                viewModel.toggleTranslation() // Turn on with new language
-                            }
+                            if (viewModel.state.value.isTranslating) viewModel.toggleTranslation()
+                            viewModel.toggleTranslation()
                         },
-                        onRetranslate = {
+                        onRun = {
                             onDismissRequest()
-                            viewModel.retranslateCurrentChapter()
+                            if (translation) {
+                                viewModel.retranslateCurrentChapter()
+                            } else {
+                                (state.viewer as? NovelWebViewViewer)?.requestChapterSummary(regenerate = true)
+                            }
                         },
                         onOpenSettings = {
                             onDismissRequest()
@@ -1254,6 +1258,7 @@ class ReaderActivity : BaseActivity() {
                 // Only the WebView viewer can host the card, so the action is absent elsewhere
                 // rather than present and inert.
                 onSummarizeChapter = { novelViewer.requestChapterSummary() },
+                onLongPressSummary = viewModel::openSummaryMenu,
                 isTtsActive = isTtsActive,
                 isTtsPaused = isTtsPaused,
                 ttsEnabled = ttsEnabled,

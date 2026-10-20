@@ -1,6 +1,7 @@
 package tachiyomi.domain.translation.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 @Serializable
 enum class TranslationEngineId(val key: String) {
@@ -173,6 +174,15 @@ data class UserGuidelines(
     companion object {
         const val DEFAULT_ID = "default"
         val DEFAULT = UserGuidelines(DEFAULT_ID, "Default")
+
+        const val PREFERENCE_KEY = "translation_system_prompts"
+
+        fun decode(raw: String): List<UserGuidelines> {
+            val values = Json.decodeFromString<List<UserGuidelines>>(raw)
+            require(values.all { it.id.isNotBlank() && it.name.isNotBlank() }) { "Invalid guidelines definition" }
+            require(values.map { it.id }.distinct().size == values.size) { "Duplicate guidelines ID" }
+            return if (values.any { it.id == DEFAULT_ID }) values else listOf(DEFAULT) + values
+        }
     }
 }
 
@@ -187,9 +197,13 @@ data class UserGuidelines(
 fun List<AIProvider>.resolve(id: String?): AIProvider? =
     if (id.isNullOrBlank()) firstOrNull() else firstOrNull { it.id == id }
 
-/** As [resolve], but deleted guidelines fall back to the empty default - no instructions, not a failure. */
+/** Blank means None; a missing named definition falls back to the user's saved Default text. */
 fun List<UserGuidelines>.resolve(id: String?): UserGuidelines =
-    id?.takeIf(String::isNotBlank)?.let { named -> firstOrNull { it.id == named } } ?: UserGuidelines.DEFAULT
+    if (id.isNullOrBlank()) {
+        UserGuidelines.DEFAULT
+    } else {
+        firstOrNull { it.id == id } ?: firstOrNull { it.id == UserGuidelines.DEFAULT_ID } ?: UserGuidelines.DEFAULT
+    }
 
 data class HeaderValidationResult(val errors: List<String>) {
     val isValid: Boolean get() = errors.isEmpty()

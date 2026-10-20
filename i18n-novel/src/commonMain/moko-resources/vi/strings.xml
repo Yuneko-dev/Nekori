@@ -460,6 +460,7 @@
     <string name="pref_ai_purpose_translation">Dịch AI</string>
     <string name="pref_ai_provider">Nhà cung cấp</string>
     <string name="action_summarize_chapter">Tóm tắt chương</string>
+    <string name="action_resummarize_chapter">Tóm tắt chương lại</string>
     <string name="chapter_summary_title">Tóm tắt chương</string>
     <string name="chapter_summary_loading">Đang tóm tắt chương này…</string>
     <string name="chapter_summary_no_content">Chương này không có nội dung để tóm tắt</string>
@@ -1524,4 +1525,17 @@
     <string name="update_30min">Mỗi 30 phút</string>
     <string name="update_1hour">Mỗi giờ</string>
     <string name="update_3hour">Mỗi 3 giờ</string>
+    <string name="ai_guidelines_load_error">Không đọc được hướng dẫn đã lưu. Dữ liệu của bạn chưa bị thay đổi.</string>
+    <string name="ai_guidelines_save_conflict">Hướng dẫn đã thay đổi ở nơi khác. Hãy mở lại trình chỉnh sửa và thử lại.</string>
+    <string name="ai_guidelines_invalid_config">Cấu hình hướng dẫn AI không hợp lệ. Hãy kiểm tra cài đặt AI.</string>
+    <string name="ai_guidelines_inherit">Dùng hướng dẫn toàn cục</string>
+    <string name="ai_guidelines_none">Không dùng hướng dẫn</string>
+    <string name="ai_guidelines_custom">Chỉnh riêng cho truyện này</string>
+    <string name="ai_guidelines_custom_text">Hướng dẫn riêng của truyện</string>
+    <string name="ai_guidelines_missing">Hướng dẫn đã lưu không còn; đang dùng Mặc định</string>
+    <string name="ai_guidelines_save_error">Hướng dẫn đã đổi ở nơi khác hoặc chưa thể lưu. Bản nháp vẫn còn; hãy hủy và mở lại để tải mới.</string>
+    <string name="novel_database_cleanup_partial">Đã dọn cơ sở dữ liệu; một số cài đặt truyện vẫn được giữ lại</string>
+    <string name="novel_database_cleanup_failed">Không dọn được cơ sở dữ liệu</string>
+    <string name="snippet_active_count">Đang áp dụng %1$d đoạn mã</string>
+    <string name="content_delete_selected">Xóa %d mục đã chọn?</string>
 </resources>

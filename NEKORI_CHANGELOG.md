@@ -23,6 +23,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 > **Breaking Change:** This release introduces a breaking change that drops backward compatibility with Tsundoku / LNReader `snippetJS` and `snippetCSS`. Existing user snippets will stop working and need to be updated, and LNReader plugins using `customJS` / `customCSS` will also be affected. Don't worry though - I've checked beforehand and only 2 official plugins actually use `customCSS`, and they only style chapter HTML elements without modifying the reader itself, so the impact should be minimal.
 
 ### Added
+- Add per-novel CSS/JavaScript snippets and drag reordering for snippets and find-and-replace rules.
+- Add per-novel translation and summary Guidelines: inherit Global, None, shared Guidelines or custom text from reader long-press menus.
 - Add a 0–60 second minimum reading session duration in Tracking settings to skip short sessions.
 - Add novel-only cross-device sync through WebDAV and Google Drive, with selectable data, automatic triggers and scheduling. Ported from Tsundoku PR `#437` / Komikku. Google Drive is unavailable in builds without an OAuth client ID.
 - Add DevTools (Lite) to the Reader overflow menu. Works offline without Chrome remote debugging.
@@ -55,6 +57,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Allow the last extension repository card to scroll clear of the Add button so its actions remain accessible.
 
 ### Other
+- Back up scoped reader settings, preserve local data on invalid restore, and remove per-novel settings after database cleanup.
 - Add CI checks for Kotlin style, unit tests and database migrations, JS runtime typing/lint/style and chapter contracts, and reader typing/lint/style with Node tests; keep Chromium acceptance tests opt-in outside Ubuntu CI.
 - Align plugin filter TypeScript contracts with LNReader's value-map refactor (`f18f497a`) and Nekori-plugins, preserving the existing JSON format.
 

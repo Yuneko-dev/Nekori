@@ -71,7 +71,7 @@ internal fun <T> ManagerScreen(
 internal fun ManagerRow(
     title: String,
     subtitle: String,
-    icon: @Composable () -> Unit,
+    icon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
@@ -85,7 +85,7 @@ internal fun ManagerRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Box(Modifier.padding(4.dp)) { icon() }
+        if (icon != null) Box(Modifier.padding(4.dp)) { icon() }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(

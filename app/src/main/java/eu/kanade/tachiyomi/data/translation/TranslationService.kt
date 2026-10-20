@@ -36,6 +36,7 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.domain.translation.model.TranslatedChapter
 import tachiyomi.domain.translation.model.TranslationContext
 import tachiyomi.domain.translation.model.TranslationEngineId
@@ -417,14 +418,17 @@ class TranslationService(
      * with a .tmp extension and can be resumed on the next attempt.
      */
     private suspend fun translateChapter(task: TranslationTask) = withContext(Dispatchers.IO) {
-        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
-            ?: throw IllegalStateException("No translation engine available")
-
         // Get chapter and manga from database
         val chapter = getChapter.await(task.chapterId)
             ?: throw IllegalStateException("Chapter ${task.chapterId} not found")
         val manga = getManga.await(task.mangaId)
             ?: throw IllegalStateException("Manga ${task.mangaId} not found")
+        val resolved = translationEngineManager.resolve(
+            TranslationPurpose.CHAPTER,
+            NovelTarget(manga.source, manga.url),
+        )
+        val engine = resolved.engine.takeIf { it.isConfigured(resolved.config) }
+            ?: throw IllegalStateException("No translation engine available")
         val source = sourceManager.awaitSource(manga.source)
             ?: throw IllegalStateException("Source ${manga.source} not found")
 
@@ -526,7 +530,7 @@ class TranslationService(
         var translatedTitle: String? = null
         try {
             val titleResult = translationEngineManager.translate(
-                TranslationPurpose.CHAPTER,
+                resolved,
                 TranslationRequest(listOf(chapter.name), task.sourceLanguage, task.targetLanguage),
             )
             if (titleResult is TranslationResult.Success) {
@@ -573,6 +577,7 @@ class TranslationService(
                         "(${chunk.sumOf(String::length)} chars)"
                 }
                 translatedChunks[chunkIndex] = translateChunk(
+                    resolved = resolved,
                     texts = chunk,
                     sourceLanguage = task.sourceLanguage,
                     targetLanguage = task.targetLanguage,
@@ -682,13 +687,14 @@ class TranslationService(
      * are worth another request; a second loop here only multiplied the requests a failure costs.
      */
     private suspend fun translateChunk(
+        resolved: TranslationEngineManager.Resolved,
         texts: List<String>,
         sourceLanguage: String,
         targetLanguage: String,
         context: TranslationContext? = null,
     ): List<String> {
         val result = translationEngineManager.translate(
-            TranslationPurpose.CHAPTER,
+            resolved,
             TranslationRequest(texts, sourceLanguage, targetLanguage, context = context),
         )
         // Which chunk this was belongs to the caller's error, which already names it.
@@ -874,6 +880,7 @@ class TranslationService(
         targetLanguage: String? = null,
         forceRetranslate: Boolean = false,
         onProgress: (Float) -> Unit = {},
+        target: NovelTarget? = null,
     ): String {
         if (!translationPreferences.translationEnabled().get()) {
             return content
@@ -903,7 +910,8 @@ class TranslationService(
         }
         if (translationPlan.texts.isEmpty()) return content
 
-        val engine = translationEngineManager.getEngine(TranslationPurpose.CHAPTER)
+        val resolved = translationEngineManager.resolve(TranslationPurpose.CHAPTER, target)
+        val engine = resolved.engine.takeIf { it.isConfigured(resolved.config) }
             ?: throw IllegalStateException("No translation engine available")
         val chunks = chunkForTranslation(translationPlan.texts, engine.id)
         val translatedChunks = MutableList<List<String>?>(chunks.size) { null }
@@ -938,6 +946,7 @@ class TranslationService(
                 }
                 try {
                     translatedChunks[index] = translateChunk(
+                        resolved = resolved,
                         texts = texts,
                         sourceLanguage = srcLang,
                         targetLanguage = tgtLang,
@@ -1022,7 +1031,7 @@ class TranslationService(
      * otherwise falls back to using the manga source's language setting.
      */
     suspend fun detectLanguage(text: String, mangaId: Long? = null): String? {
-        val engine = translationEngineManager.resolve(TranslationPurpose.CHAPTER).engine
+        val engine = translationEngineManager.selectedEngine(TranslationPurpose.CHAPTER)
 
         if (engine is LibreTranslateEngine) {
             val sample = text.take(DETECT_SAMPLE_SIZE)

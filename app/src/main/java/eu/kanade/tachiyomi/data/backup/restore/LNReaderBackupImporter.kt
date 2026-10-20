@@ -314,11 +314,14 @@ class LNReaderBackupImporter(
             }
             if (options.restoreCompatibleSettings && extracted.settings != null) {
                 notifier?.showRestoreProgress("Restoring compatible settings", indeterminate = true)
-                settingsRestorer.restore(
+                val settingsResult = settingsRestorer.restore(
                     settings = extracted.settings,
                     apiKeys = extracted.apiKeys,
                     restoreApiKeys = options.restoreAiApiKeys,
                 )
+                settingsResult.failedSettings.forEach { key ->
+                    errors.add(Date() to "Could not restore preference <$key>; existing value retained")
+                }
                 restoredCompatibleSettings = true
             }
 

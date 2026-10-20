@@ -19,6 +19,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
+import tachiyomi.core.common.preference.ContentPreferencesLock
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.translation.model.AIApiMode
@@ -43,9 +44,19 @@ class LNReaderSettingsRestorer(
     private val networkPreferences: NetworkPreferences = Injekt.get(),
     private val aiSettingsStore: AiSettingsStore = AiSettingsStore(),
 ) {
-    data class Result(val providerIds: Set<String>, val restoredSettings: Boolean)
+    data class Result(
+        val providerIds: Set<String>,
+        val restoredSettings: Boolean,
+        val failedSettings: List<String> = emptyList(),
+    )
 
     fun restore(settings: JsonObject, apiKeys: Map<String, String>, restoreApiKeys: Boolean): Result {
+        val translation = settings.objectValue("TRANSLATE_SETTINGS")
+        val originalGuidelines = synchronized(ContentPreferencesLock) {
+            translationPreferences.userGuidelinesJson().get()
+        }
+        val guidelines = runCatching { translation?.let(::incomingGuidelines) }
+        val failedSettings = mutableListOf<String>()
         restoreAppearance(settings)
         restoreNetwork(settings)
         restoreLibrary(settings.objectValue("LIBRARY_SETTINGS"))
@@ -53,7 +64,21 @@ class LNReaderSettingsRestorer(
             general = settings.objectValue("CHAPTER_GENERAL_SETTINGS"),
             reader = settings.objectValue("CHAPTER_READER_SETTINGS"),
         )
-        restoreTranslation(settings.objectValue("TRANSLATE_SETTINGS"))
+        restoreTranslation(translation)
+        if (guidelines.isFailure) {
+            failedSettings += "translation_system_prompts"
+        } else {
+            try {
+                synchronized(ContentPreferencesLock) {
+                    guidelines.getOrThrow()?.let {
+                        check(translationPreferences.userGuidelinesJson().get() == originalGuidelines)
+                        translationPreferences.userGuidelinesJson().set(it)
+                    }
+                }
+            } catch (_: Exception) {
+                failedSettings += "translation_system_prompts"
+            }
+        }
         val providers = restoreAi(settings)
         if (restoreApiKeys) {
             apiKeys.filterKeys(providers::contains).forEach { (id, key) ->
@@ -64,7 +89,7 @@ class LNReaderSettingsRestorer(
                 }
             }
         }
-        return Result(providers, restoredSettings = true)
+        return Result(providers, restoredSettings = true, failedSettings = failedSettings)
     }
 
     private fun restoreAppearance(settings: JsonObject) {
@@ -166,28 +191,26 @@ class LNReaderSettingsRestorer(
             0
         }
         retryCount?.let(translationPreferences.requestRetryCount()::set)
-        restoreGuidelines(value)
+        value.stringValue("activeSystemPromptId")?.let { id ->
+            translationPreferences.translationGuidelinesId().set(id)
+            translationPreferences.chapterSummaryGuidelinesId().set(id)
+        }
     }
 
     // "llmSystemPrompts" and "activeSystemPromptId" are LNReader's export keys, not ours: they stay
     // spelled its way regardless of what the concept is called on this side.
-    private fun restoreGuidelines(value: JsonObject) {
-        val guidelines = value.arrayValue("llmSystemPrompts").mapNotNull { element ->
-            runCatching {
-                val prompt = json.decodeFromJsonElement<LNPrompt>(element)
-                UserGuidelines(prompt.id, prompt.title, prompt.content)
-            }.getOrNull()?.takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
+    private fun incomingGuidelines(value: JsonObject): String? {
+        val element = value["llmSystemPrompts"] ?: return null
+        val array = when (element) {
+            is JsonArray -> element
+            is JsonPrimitive -> json.parseToJsonElement(element.content) as? JsonArray
+            else -> null
+        } ?: error("Invalid guidelines array")
+        val guidelines = array.map { entry ->
+            val prompt = json.decodeFromJsonElement<LNPrompt>(entry)
+            UserGuidelines(prompt.id, prompt.title, prompt.content)
         }
-        val restoredIds = guidelines.mapNotNullTo(mutableSetOf()) { entry ->
-            runCatching { aiSettingsStore.saveGuidelines(entry) }.map { entry.id }.getOrNull()
-        }
-        // LNReader has one active prompt where this app has one per AI task, so it seeds both.
-        value.stringValue("activeSystemPromptId")
-            ?.takeIf { it == UserGuidelines.DEFAULT_ID || it in restoredIds }
-            ?.let { id ->
-                translationPreferences.translationGuidelinesId().set(id)
-                translationPreferences.chapterSummaryGuidelinesId().set(id)
-            }
+        return Json.encodeToString(UserGuidelines.decode(Json.encodeToString(guidelines)))
     }
 
     private fun restoreAi(settings: JsonObject): Set<String> {

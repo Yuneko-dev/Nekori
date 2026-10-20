@@ -179,6 +179,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         NovelWebViewSummaryController(
             scope = scope,
             service = chapterSummaryService,
+            target = {
+                activity.viewModel.manga?.let {
+                    eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget(it.source, it.url)
+                }
+            },
             labels = NovelWebViewSummaryController.Labels(
                 title = activity.stringResource(TDMR.strings.chapter_summary_title),
                 loading = activity.stringResource(TDMR.strings.chapter_summary_loading),
@@ -187,6 +192,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 cancel = activity.stringResource(MR.strings.action_cancel),
                 cancelled = activity.stringResource(TDMR.strings.chapter_summary_cancelled),
                 contentUnavailable = activity.stringResource(TDMR.strings.chapter_summary_no_content),
+                invalidConfig = activity.stringResource(TDMR.strings.ai_guidelines_invalid_config),
             ),
             executeCommand = ::executeReaderCommand,
             chapterHtml = ::loadChapterHtml,
@@ -803,6 +809,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    if (::styler.isInitialized) styler.resetScriptState()
                     if (!expectingBridgeDocumentStart) readerBridge.endDocument()
                     expectingBridgeDocumentStart = false
                     protectedMediaPlaybackArmed = false
@@ -2292,10 +2299,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             ?: loadedChapters.firstOrNull { it.chapter.id == chapterId }
         )?.wordCount
 
-    /** Summarizes the chapter currently in view, or scrolls to the summary it already has. */
-    fun requestChapterSummary() {
+    /** A normal tap focuses an existing summary; the menu can explicitly regenerate it. */
+    fun requestChapterSummary(regenerate: Boolean = false) {
         val chapterId = getCurrentReaderChapter()?.chapter?.id ?: return
-        summaryController.request(chapterId)
+        if (regenerate) summaryController.onAction(chapterId, "regenerate") else summaryController.request(chapterId)
     }
 
     private fun requestChapterRecovery(chapterId: Long) {

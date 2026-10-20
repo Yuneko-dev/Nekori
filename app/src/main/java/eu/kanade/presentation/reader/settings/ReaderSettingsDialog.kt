@@ -162,6 +162,24 @@ private fun NovelReaderSettingsDialog(
                     novelTitle = manga?.title.orEmpty(),
                     onBack = { selectedPage = NovelSettingsPage.Settings },
                 )
+            } else if (currentPage == NovelSettingsPage.Css || currentPage == NovelSettingsPage.Js) {
+                val isJavaScript = currentPage == NovelSettingsPage.Js
+                CodeSnippetsScreen(
+                    preference = if (isJavaScript) {
+                        screenModel.preferences.novelCustomJsSnippets
+                    } else {
+                        screenModel.preferences.novelCustomCssSnippets
+                    },
+                    isJavaScript = isJavaScript,
+                    target = manga?.let { ReplacementTarget(it.source, it.url) },
+                    novelTitle = manga?.title.orEmpty(),
+                    draft = screenModel.snippetDrafts[isJavaScript],
+                    onDraft = { screenModel.snippetDrafts[isJavaScript] = it },
+                    onBack = {
+                        screenModel.snippetDrafts.remove(isJavaScript)
+                        selectedPage = NovelSettingsPage.Settings
+                    },
+                )
             } else {
                 BoxWithConstraints {
                     AdaptiveSheet(
@@ -188,6 +206,10 @@ private fun NovelReaderSettingsDialog(
                                         screenModel = screenModel,
                                         target = manga?.let { ReplacementTarget(it.source, it.url) },
                                         onManageRules = { selectedPage = NovelSettingsPage.Rules },
+                                        onManageSnippets = {
+                                            selectedPage =
+                                                if (it) NovelSettingsPage.Js else NovelSettingsPage.Css
+                                        },
                                     )
                                 }
                             }
@@ -199,4 +221,4 @@ private fun NovelReaderSettingsDialog(
     }
 }
 
-private enum class NovelSettingsPage { Settings, Rules, Backgrounds }
+private enum class NovelSettingsPage { Settings, Rules, Backgrounds, Css, Js }

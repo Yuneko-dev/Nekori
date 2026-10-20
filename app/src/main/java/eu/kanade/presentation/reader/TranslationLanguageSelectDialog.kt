@@ -1,251 +1,102 @@
 package eu.kanade.presentation.reader
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
+import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
+import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
+import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelTarget
+import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
+import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.novel.TDMR
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-/**
- * Data class representing a translation language option.
- */
-data class TranslationLanguage(
-    val code: String,
-    val displayName: String,
-)
-
-/**
- * Fallback language list used only when the engine provides no languages.
- */
-private val fallbackLanguages = listOf(
-    TranslationLanguage("en", "English"),
-    TranslationLanguage("es", "Spanish"),
-    TranslationLanguage("fr", "French"),
-    TranslationLanguage("de", "German"),
-    TranslationLanguage("it", "Italian"),
-    TranslationLanguage("pt", "Portuguese"),
-    TranslationLanguage("ru", "Russian"),
-    TranslationLanguage("ja", "Japanese"),
-    TranslationLanguage("ko", "Korean"),
-    TranslationLanguage("zh", "Chinese (Simplified)"),
-    TranslationLanguage("ar", "Arabic"),
-)
-
 @Composable
-fun TranslationLanguageSelectDialog(
+fun ReaderAiTaskSheet(
+    task: NovelAiTask,
+    target: NovelTarget?,
     onDismissRequest: () -> Unit,
     currentLanguage: String,
     autoTranslateEnabled: Boolean,
     onToggleAutoTranslate: (Boolean) -> Unit,
     onSelectLanguage: (String) -> Unit,
-    onRetranslate: () -> Unit,
+    onRun: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    AdaptiveSheet(onDismissRequest = onDismissRequest) {
-        DialogContent(
-            currentLanguage = currentLanguage,
-            autoTranslateEnabled = autoTranslateEnabled,
-            onToggleAutoTranslate = onToggleAutoTranslate,
-            onRetranslate = onRetranslate,
-            onOpenSettings = onOpenSettings,
-            onSelectLanguage = { code ->
-                onSelectLanguage(code)
-                onDismissRequest()
-            },
-        )
-    }
-}
-
-@Composable
-private fun DialogContent(
-    currentLanguage: String,
-    autoTranslateEnabled: Boolean,
-    onToggleAutoTranslate: (Boolean) -> Unit,
-    onSelectLanguage: (String) -> Unit,
-    onRetranslate: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    var selected by remember { mutableStateOf(currentLanguage) }
-
-    // Use the selected engine's supported languages, falling back to a basic list
+    val translation = task == NovelAiTask.TRANSLATION
+    val prefs = remember { Injekt.get<TranslationPreferences>() }
+    val engineId by prefs.engineId(TranslationPurpose.CHAPTER).collectAsState()
     val engineManager = remember { Injekt.get<TranslationEngineManager>() }
-    val languages = remember {
-        val engineLangs = engineManager.getSupportedLanguages(TranslationPurpose.CHAPTER)
-        if (engineLangs.isNotEmpty()) {
-            engineLangs
-                .filter { it.first != "auto" }
-                .map { TranslationLanguage(it.first, it.second) }
-        } else {
-            fallbackLanguages
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(MaterialTheme.padding.medium),
-    ) {
-        Text(
-            text = stringResource(TDMR.strings.action_translate),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = MaterialTheme.padding.medium),
-        )
-
-        ActionRow(
-            title = stringResource(TDMR.strings.action_retranslate),
-            icon = Icons.Outlined.Refresh,
-            onClick = onRetranslate,
-        )
-        ActionRow(
-            title = stringResource(TDMR.strings.action_translation_settings),
-            icon = Icons.Outlined.Settings,
-            onClick = onOpenSettings,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onToggleAutoTranslate(!autoTranslateEnabled)
-                }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(TDMR.strings.translation_smart_auto),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(TDMR.strings.translation_smart_auto_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    AdaptiveSheet(onDismissRequest = onDismissRequest) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 16.dp)) {
+            Text(
+                text = stringResource(
+                    if (translation) TDMR.strings.action_translate else TDMR.strings.action_summarize_chapter,
+                ),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            TextPreferenceWidget(
+                title = stringResource(
+                    if (translation) TDMR.strings.action_retranslate else TDMR.strings.action_resummarize_chapter,
+                ),
+                icon = Icons.Outlined.Refresh,
+                onPreferenceClick = onRun,
+            )
+            if (translation) {
+                TextPreferenceWidget(
+                    title = stringResource(TDMR.strings.action_translation_settings),
+                    icon = Icons.Outlined.Settings,
+                    onPreferenceClick = onOpenSettings,
                 )
             }
-            Switch(
-                checked = autoTranslateEnabled,
-                onCheckedChange = { enabled ->
-                    onToggleAutoTranslate(enabled)
-                },
-            )
-        }
-
-        Text(
-            text = stringResource(TDMR.strings.translation_select_target_language),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = MaterialTheme.padding.small),
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false),
-        ) {
-            items(languages) { language ->
-                LanguageItem(
-                    language = language,
-                    isSelected = selected == language.code,
-                    onClick = {
-                        selected = language.code
-                        onSelectLanguage(language.code)
+            if (!translation || TranslationEngineId.fromKey(engineId) == TranslationEngineId.LLM) {
+                NovelGuidelinesSelect(task = task, target = target)
+            }
+            if (translation) {
+                val languages = remember(engineId) {
+                    engineManager.getSupportedLanguages(TranslationPurpose.CHAPTER).filter {
+                        it.first != "auto"
+                    }.toMap()
+                }
+                ListPreferenceWidget(
+                    value = currentLanguage,
+                    title = stringResource(TDMR.strings.pref_translation_target_language),
+                    subtitle = languages[currentLanguage] ?: currentLanguage,
+                    icon = null,
+                    entries = languages,
+                    onValueChange = {
+                        onSelectLanguage(it)
+                        onDismissRequest()
                     },
                 )
+                SwitchPreferenceWidget(
+                    title = stringResource(TDMR.strings.translation_smart_auto),
+                    subtitle = stringResource(TDMR.strings.translation_smart_auto_summary),
+                    checked = autoTranslateEnabled,
+                    onCheckedChanged = onToggleAutoTranslate,
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun ActionRow(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null)
-        Spacer(Modifier.width(16.dp))
-        Text(title, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun LanguageItem(
-    language: TranslationLanguage,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(
-                horizontal = MaterialTheme.padding.medium,
-                vertical = MaterialTheme.padding.small,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-        )
-
-        Spacer(modifier = Modifier.width(MaterialTheme.padding.small))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = language.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = language.code,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        if (isSelected) {
-            Icon(
-                imageVector = Icons.Outlined.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
         }
     }
 }

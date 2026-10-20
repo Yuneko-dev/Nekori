@@ -178,6 +178,7 @@ fun NovelReaderAppBars(
     onLongPressTranslation: () -> Unit,
     onRetranslate: (() -> Unit)? = null,
     onSummarizeChapter: (() -> Unit)? = null,
+    onLongPressSummary: () -> Unit = {},
     isTtsActive: Boolean,
     isTtsPaused: Boolean,
     ttsEnabled: Boolean,
@@ -340,6 +341,7 @@ fun NovelReaderAppBars(
                         onFindInPage = onFindInPage,
                         onReloadSource = onReloadSource,
                         onSummarizeChapter = onSummarizeChapter,
+                        onLongPressSummary = onLongPressSummary,
                         onOpenInWebView = onOpenInWebView,
                         onShare = onShare,
                         onNextChapter = onNextChapter,
@@ -608,6 +610,7 @@ private fun NovelReaderBottomBar(
     onFindInPage: () -> Unit,
     onReloadSource: () -> Unit,
     onSummarizeChapter: (() -> Unit)?,
+    onLongPressSummary: () -> Unit,
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     onPreviousChapter: () -> Unit,
@@ -730,9 +733,12 @@ private fun NovelReaderBottomBar(
                         )
                     }
 
-                    BottomBarItem.SUMMARIZE_CHAPTER -> IconButton(
-                        onClick = { onSummarizeChapter?.invoke() },
-                        modifier = Modifier.size(buttonSize),
+                    BottomBarItem.SUMMARIZE_CHAPTER -> Box(
+                        modifier = Modifier.size(buttonSize).combinedClickable(
+                            onClick = { onSummarizeChapter?.invoke() },
+                            onLongClick = onLongPressSummary,
+                        ),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Outlined.Description,

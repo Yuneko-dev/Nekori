@@ -468,6 +468,23 @@ FROM mangas
 WHERE favorite = 0
 GROUP BY source;
 
+getNonLibraryMangaToDelete:
+SELECT source, url FROM mangas
+WHERE favorite = 0
+AND source IN :sourceIds
+AND (
+    :keepReadManga = 0
+    OR _id NOT IN (
+        SELECT DISTINCT manga_id
+        FROM chapters
+        WHERE read = 1
+        OR last_page_read != 0
+    )
+);
+
+getIdentitiesBySourceIds:
+SELECT DISTINCT source, url FROM mangas WHERE source IN :sourceIds;
+
 deleteNonLibraryManga:
 DELETE FROM mangas
 WHERE favorite = 0

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import eu.kanade.tachiyomi.data.translation.ChapterSummaryService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import tachiyomi.domain.translation.model.LlmResult
+import tachiyomi.domain.translation.model.NovelTarget
 
 /** Owns summary requests while the page runtime owns summary-card DOM. */
 internal class NovelWebViewSummaryController(
@@ -22,6 +24,7 @@ internal class NovelWebViewSummaryController(
     private val chapterHtml: suspend (Long) -> String?,
     private val onUnconfigured: () -> Unit,
     private val onUnavailable: () -> Unit,
+    private val target: () -> NovelTarget? = { null },
 ) {
     data class Labels(
         val title: String,
@@ -31,15 +34,12 @@ internal class NovelWebViewSummaryController(
         val cancel: String,
         val cancelled: String,
         val contentUnavailable: String,
+        val invalidConfig: String = contentUnavailable,
     )
 
     private val jobs = mutableMapOf<Long, Job>()
 
     fun request(chapterId: Long) {
-        if (!service.isConfigured()) {
-            onUnconfigured()
-            return
-        }
         executeCommand(
             command("summary.focus") { put("chapterId", chapterId.toString()) },
         ) { result ->
@@ -71,13 +71,30 @@ internal class NovelWebViewSummaryController(
 
     private fun start(chapterId: Long) {
         jobs.remove(chapterId)?.cancel()
+        val novel = target()
+        val config = try {
+            service.resolveConfig(novel)
+        } catch (_: IllegalArgumentException) {
+            render(chapterId, STATE_FAILED, labels.invalidConfig)
+            return
+        }
+        if (!config.isComplete) {
+            onUnconfigured()
+            return
+        }
         render(chapterId, STATE_LOADING)
         jobs[chapterId] = scope.launch {
-            val html = chapterHtml(chapterId)
-            val result = if (html.isNullOrBlank()) {
+            val result = try {
+                val html = chapterHtml(chapterId)
+                if (html.isNullOrBlank()) {
+                    LlmResult.Failure(labels.contentUnavailable)
+                } else {
+                    service.summarize(html, novel, config)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 LlmResult.Failure(labels.contentUnavailable)
-            } else {
-                service.summarize(html)
             }
             jobs.remove(chapterId)
             when (result) {

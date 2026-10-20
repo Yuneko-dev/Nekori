@@ -7,6 +7,8 @@ import tachiyomi.domain.translation.model.AiExecutionConfig
 import tachiyomi.domain.translation.model.LanguageCodes
 import tachiyomi.domain.translation.model.LlmGenerationRequest
 import tachiyomi.domain.translation.model.LlmResult
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.domain.translation.service.TranslationPreferences
 import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.Injekt
@@ -22,12 +24,15 @@ class ChapterSummaryService(
     private val generator: LlmGenerator = Injekt.get(),
     private val aiSettings: AiSettingsStore = Injekt.get(),
     private val preferences: TranslationPreferences = Injekt.get(),
+    private val invalidConfigMessage: () -> String = {
+        Injekt.get<Application>().stringResource(TDMR.strings.ai_guidelines_invalid_config)
+    },
     private val noContentMessage: () -> String = {
         Injekt.get<Application>().stringResource(TDMR.strings.chapter_summary_no_content)
     },
 ) {
     /** Whether a summary can be requested at all; false means the user has AI left unconfigured. */
-    fun isConfigured(): Boolean = resolveConfig().isComplete
+    fun isConfigured(target: NovelTarget? = null): Boolean = resolveConfig(target).isComplete
 
     /**
      * Summarizes [chapterHtml] in one request.
@@ -36,12 +41,20 @@ class ChapterSummaryService(
      * loses exactly the through-line the reader wants. A provider whose context is too small says so,
      * and that message is shown as-is.
      */
-    suspend fun summarize(chapterHtml: String): LlmResult {
+    suspend fun summarize(
+        chapterHtml: String,
+        target: NovelTarget? = null,
+        snapshot: AiExecutionConfig? = null,
+    ): LlmResult {
         val text = TranslationHtmlUtils.extractTextFromHtml(chapterHtml).trim()
         if (text.isEmpty()) {
             return LlmResult.Failure(noContentMessage(), AiErrorCode.REQUEST_INVALID)
         }
-        val config = resolveConfig()
+        val config = try {
+            snapshot ?: resolveConfig(target)
+        } catch (_: IllegalArgumentException) {
+            return LlmResult.Failure(invalidConfigMessage(), AiErrorCode.REQUEST_INVALID)
+        }
         val request = LlmGenerationRequest(
             systemPrompt = ChapterSummaryPromptBuilder.build(
                 targetLanguage = LanguageCodes.getDisplayName(preferences.targetLanguage().get()),
@@ -55,9 +68,11 @@ class ChapterSummaryService(
         ) { generator.generate(config, request) }
     }
 
-    private fun resolveConfig(): AiExecutionConfig = aiSettings.resolveConfig(
+    fun resolveConfig(target: NovelTarget? = null): AiExecutionConfig = aiSettings.resolveConfig(
         preferences.chapterSummaryProviderId().get(),
         preferences.chapterSummaryGuidelinesId().get(),
+        target,
+        NovelAiTask.CHAPTER_SUMMARY,
     )
 }
 

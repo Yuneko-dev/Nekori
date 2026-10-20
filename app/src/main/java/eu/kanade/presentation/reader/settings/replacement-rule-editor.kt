@@ -4,28 +4,23 @@ package eu.kanade.presentation.reader.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import eu.kanade.presentation.more.settings.screen.ManagerSwitchRow
 import eu.kanade.tachiyomi.ui.reader.setting.RegexReplacement
 import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
@@ -34,7 +29,6 @@ import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 internal fun ReplacementRuleEditor(
     initial: RegexReplacement,
     target: ReplacementTarget?,
@@ -59,102 +53,79 @@ internal fun ReplacementRuleEditor(
         caseSensitive = caseSensitive,
         matchWholeWord = wholeWord,
     )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        // Let Compose handle IME insets instead of also panning the window to the text cursor.
-        properties = DialogProperties(decorFitsSystemWindows = false),
-        modifier = Modifier.systemBarsPadding().imePadding(),
-        title = {
-            Text(
-                stringResource(
-                    if (initial.pattern.isEmpty()) TDMR.strings.novel_add_rule else TDMR.strings.novel_edit_rule,
-                ),
-            )
-        },
-        text = {
-            Column(
-                Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = scope == RegexReplacement.NOVEL,
-                        enabled = target != null,
-                        onClick = { scope = RegexReplacement.NOVEL },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        label = { Text(stringResource(TDMR.strings.replacement_scope_novel)) },
-                    )
-                    SegmentedButton(
-                        selected = scope == RegexReplacement.GLOBAL,
-                        onClick = { scope = RegexReplacement.GLOBAL },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        label = { Text(stringResource(TDMR.strings.replacement_scope_global)) },
-                    )
-                }
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(MR.strings.title)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = pattern,
-                    onValueChange = {
-                        pattern = it
-                        error = null
-                    },
-                    label = {
-                        Text(
-                            stringResource(
-                                if (isRegex) TDMR.strings.novel_regex_pattern else TDMR.strings.novel_find_text,
-                            ),
-                        )
-                    },
-                    isError = error != null,
-                    supportingText = error?.let { message -> { Text(message) } },
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = replacement,
-                    onValueChange = { replacement = it },
-                    label = { Text(stringResource(TDMR.strings.novel_replace_with)) },
-                    supportingText = { Text(stringResource(TDMR.strings.replacement_remove_hint)) },
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Column {
-                    ManagerSwitchRow(stringResource(TDMR.strings.novel_use_regex), isRegex) {
-                        isRegex = it
-                        error = null
-                    }
-                    ManagerSwitchRow(stringResource(TDMR.strings.label_case_sensitive_matching), caseSensitive) {
-                        caseSensitive = it
-                    }
-                    if (!isRegex) {
-                        ManagerSwitchRow(stringResource(TDMR.strings.novel_match_whole_word), wholeWord) {
-                            wholeWord = it
-                        }
-                    }
-                }
-                ReplacementRuleTest(rule)
+    ScopedContentEditor(
+        title = stringResource(
+            if (initial.pattern.isEmpty()) TDMR.strings.novel_add_rule else TDMR.strings.novel_edit_rule,
+        ),
+        scope = scope,
+        target = target,
+        onScope = { scope = it },
+        canSave = title.isNotBlank() && pattern.isNotBlank() && (scope != RegexReplacement.NOVEL || target != null),
+        onDismiss = onDismiss,
+        onSave = {
+            try {
+                rule.compile()
+                onSave(rule)
+            } catch (e: IllegalArgumentException) {
+                error = e.localizedMessage
             }
         },
-        confirmButton = {
-            TextButton(
-                enabled =
-                title.isNotBlank() && pattern.isNotBlank() && (scope != RegexReplacement.NOVEL || target != null),
-                onClick = {
-                    try {
-                        rule.compile()
-                        onSave(rule)
-                    } catch (e: IllegalArgumentException) {
-                        error = e.localizedMessage
-                    }
-                },
-            ) { Text(stringResource(MR.strings.action_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
-    )
+    ) {
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text(stringResource(MR.strings.title)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = pattern,
+            onValueChange = {
+                pattern = it
+                error = null
+            },
+            label = {
+                Text(
+                    stringResource(
+                        if (isRegex) TDMR.strings.novel_regex_pattern else TDMR.strings.novel_find_text,
+                    ),
+                )
+            },
+            isError = error != null,
+            supportingText = error?.let { message -> { Text(message) } },
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = replacement,
+            onValueChange = { replacement = it },
+            label = { Text(stringResource(TDMR.strings.novel_replace_with)) },
+            supportingText = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text(stringResource(TDMR.strings.replacement_remove_hint))
+                }
+            },
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column {
+            ManagerSwitchRow(stringResource(TDMR.strings.novel_use_regex), isRegex) {
+                isRegex = it
+                error = null
+            }
+            ManagerSwitchRow(stringResource(TDMR.strings.label_case_sensitive_matching), caseSensitive) {
+                caseSensitive = it
+            }
+            if (!isRegex) {
+                ManagerSwitchRow(stringResource(TDMR.strings.novel_match_whole_word), wholeWord) {
+                    wholeWord = it
+                }
+            }
+        }
+        ReplacementRuleTest(rule)
+    }
 }

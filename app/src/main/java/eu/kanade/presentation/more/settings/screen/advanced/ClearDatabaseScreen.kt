@@ -32,16 +32,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.reader.setting.NovelContentPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import mihon.core.viewmodel.StateViewModel
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.toLong
@@ -51,6 +56,7 @@ import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.model.SourceWithCount
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.LazyColumnWithAction
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -113,10 +119,17 @@ class ClearDatabaseScreen : Screen() {
                             TextButton(
                                 onClick = {
                                     scope.launchUI {
-                                        viewModel.removeMangaBySourceId(keepReadManga)
+                                        val result = viewModel.removeMangaBySourceId(keepReadManga)
                                         viewModel.clearSelection()
                                         viewModel.hideConfirmation()
-                                        context.toast(MR.strings.clear_database_completed)
+                                        when (result) {
+                                            ClearDatabaseViewModel.CleanupResult.Complete ->
+                                                context.toast(MR.strings.clear_database_completed)
+                                            ClearDatabaseViewModel.CleanupResult.Partial ->
+                                                context.toast(TDMR.strings.novel_database_cleanup_partial)
+                                            ClearDatabaseViewModel.CleanupResult.Failed ->
+                                                context.toast(TDMR.strings.novel_database_cleanup_failed)
+                                        }
                                     }
                                 },
                             ) {
@@ -223,6 +236,7 @@ class ClearDatabaseScreen : Screen() {
 class ClearDatabaseViewModel : StateViewModel<ClearDatabaseViewModel.State>(State.Loading) {
     private val getSourcesWithNonLibraryManga: GetSourcesWithNonLibraryManga = Injekt.get()
     private val database: Database = Injekt.get()
+    private val preferenceStore: PreferenceStore = Injekt.get()
 
     init {
         viewModelScope.launchIO {
@@ -240,10 +254,41 @@ class ClearDatabaseViewModel : StateViewModel<ClearDatabaseViewModel.State>(Stat
     }
 
     suspend fun removeMangaBySourceId(keepReadManga: Boolean) = withNonCancellableContext {
-        val state = state.value as? State.Ready ?: return@withNonCancellableContext
-        database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
-        database.historyQueries.removeResettedHistory()
+        val state = state.value as? State.Ready ?: return@withNonCancellableContext CleanupResult.Failed
+        val original = try {
+            NovelContentPreferences.cleanupSnapshot(preferenceStore)
+        } catch (_: Exception) {
+            return@withNonCancellableContext CleanupResult.Failed
+        }
+        val deleted: Set<ReplacementTarget> = try {
+            database.transactionWithResult<Set<ReplacementTarget>> {
+                val candidates = database.mangasQueries
+                    .getNonLibraryMangaToDelete(state.selection, keepReadManga.toLong())
+                    .awaitAsList().mapTo(mutableSetOf()) { ReplacementTarget(it.source, it.url) }
+                database.mangasQueries.deleteNonLibraryManga(state.selection, keepReadManga.toLong())
+                database.historyQueries.removeResettedHistory()
+                val surviving = database.mangasQueries.getIdentitiesBySourceIds(state.selection)
+                    .awaitAsList().mapTo(mutableSetOf()) { ReplacementTarget(it.source, it.url) }
+                candidates - surviving
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            return@withNonCancellableContext CleanupResult.Failed
+        }
+        // A source lookup may have added the identity back after the deletion transaction committed.
+        val confirmed = try {
+            val surviving = database.mangasQueries.getIdentitiesBySourceIds(state.selection)
+                .awaitAsList().mapTo(mutableSetOf()) { ReplacementTarget(it.source, it.url) }
+            deleted - surviving
+        } catch (_: Exception) {
+            return@withNonCancellableContext CleanupResult.Partial
+        }
+        // SQL and preferences cannot commit together. On uncertainty retain settings, never sweep orphans.
+        val failures = NovelContentPreferences.cleanupDeletedTargets(preferenceStore, original, confirmed)
+        if (failures.isEmpty()) CleanupResult.Complete else CleanupResult.Partial
     }
+
+    enum class CleanupResult { Complete, Partial, Failed }
 
     fun toggleSelection(source: Source) = mutableState.update { state ->
         if (state !is State.Ready) return@update state

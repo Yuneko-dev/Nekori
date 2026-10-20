@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import tachiyomi.presentation.core.util.secondaryItemAlpha
@@ -25,6 +26,7 @@ fun TextPreferenceWidget(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     widget: @Composable (() -> Unit)? = null,
     onPreferenceClick: (() -> Unit)? = null,
+    subtitleMaxLines: Int = 10,
 ) {
     BasePreferenceWidget(
         modifier = modifier,
@@ -37,7 +39,8 @@ fun TextPreferenceWidget(
                         .padding(horizontal = PrefsHorizontalPadding)
                         .secondaryItemAlpha(),
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 10,
+                    maxLines = subtitleMaxLines,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         } else {

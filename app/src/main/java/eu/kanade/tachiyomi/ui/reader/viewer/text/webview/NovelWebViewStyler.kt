@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.jsplugin.JsPluginManager
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelProgress
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ThemeUtils
 import kotlinx.serialization.json.Json
@@ -32,6 +33,21 @@ internal class NovelWebViewStyler(
     private val executeCommand: (ReaderCommand) -> Unit,
 ) {
     private val background = NovelWebViewBackground(context, preferences)
+    private var cachedCssSnippets: Pair<String, List<CodeSnippet>>? = null
+    private var cachedJsSnippets: Pair<String, List<CodeSnippet>>? = null
+
+    private fun decodedSnippets(isJavaScript: Boolean): List<CodeSnippet> {
+        val raw = if (isJavaScript) {
+            preferences.novelCustomJsSnippets.get()
+        } else {
+            preferences.novelCustomCssSnippets.get()
+        }
+        val cached = if (isJavaScript) cachedJsSnippets else cachedCssSnippets
+        if (cached?.first == raw) return cached.second
+        val decoded = CodeSnippet.decode(raw)
+        if (isJavaScript) cachedJsSnippets = raw to decoded else cachedCssSnippets = raw to decoded
+        return decoded
+    }
 
     fun interceptBackground(url: String) = background.intercept(url)
 
@@ -74,8 +90,8 @@ internal class NovelWebViewStyler(
             .takeIf { preferences.novelPluginUseCustomCss.get() }.orEmpty()
         val useOriginalFonts = preferences.novelUseOriginalFonts.get() || fontFamily.isBlank()
         val enabledSnippetsCss = try {
-            Json.decodeFromString<List<CodeSnippet>>(preferences.novelCustomCssSnippets.get())
-                .filter { it.enabled }.joinToString("\n") { it.code }
+            CodeSnippet.effective(decodedSnippets(isJavaScript = false), currentTarget())
+                .joinToString("\n") { it.code }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to parse CSS snippets" }
             ""
@@ -127,6 +143,11 @@ internal class NovelWebViewStyler(
     fun initialPluginJavaScript(): String =
         if (preferences.novelPluginUseCustomJs.get()) currentJsSource()?.customJS.orEmpty() else ""
 
+    private fun currentTarget(): ReplacementTarget? {
+        val activity = context as? ReaderActivity ?: return null
+        return activity.viewModel.manga?.let { ReplacementTarget(it.source, it.url) }
+    }
+
     private fun currentJsSource(): JsSource? {
         val readerActivity = context as? ReaderActivity ?: return null
         (readerActivity.viewModel.getSource() as? JsSource)?.let { return it }
@@ -157,6 +178,15 @@ internal class NovelWebViewStyler(
     @Volatile private var cachedFontBytes: Pair<String, ByteArray>? = null
     private var lastAppliedSnippetCode: Map<String, String> = emptyMap()
     private var lastAppliedCustomJs: String? = null
+    private var lastAppliedSnippets = emptyList<CodeSnippet>()
+    private var scriptTarget: ReplacementTarget? = null
+
+    fun resetScriptState() {
+        lastAppliedSnippetCode = emptyMap()
+        lastAppliedCustomJs = null
+        lastAppliedSnippets = emptyList()
+        scriptTarget = currentTarget()
+    }
 
     fun interceptFont(url: String): android.webkit.WebResourceResponse? {
         if (!url.startsWith(FONT_URL_PREFIX)) return null
@@ -198,6 +228,7 @@ internal class NovelWebViewStyler(
     }
 
     fun injectScript(isAppend: Boolean = false, reapplyChangedOnly: Boolean = false) {
+        if (scriptTarget != currentTarget()) resetScriptState()
         if (!isAppend) {
             val customJs = preferences.novelCustomJs.get()
             val shouldRun = !reapplyChangedOnly || lastAppliedCustomJs != customJs
@@ -205,15 +236,17 @@ internal class NovelWebViewStyler(
             lastAppliedCustomJs = customJs
         }
         val enabledSnippets = try {
-            Json.decodeFromString<List<CodeSnippet>>(preferences.novelCustomJsSnippets.get())
-                .filter { it.enabled && (!isAppend || it.runOnAppend) }
+            CodeSnippet.effective(decodedSnippets(isJavaScript = true), currentTarget(), isAppend)
         } catch (_: Exception) {
             logcat(LogPriority.ERROR) { "Failed to parse JS snippets" }
             emptyList()
         }
+        lastAppliedSnippetCode = remapRepairedSnippetIds(lastAppliedSnippets, enabledSnippets, lastAppliedSnippetCode)
         snippetsToRun(enabledSnippets, reapplyChangedOnly, lastAppliedSnippetCode)
             .forEach { runSnippet(it.code, it.safeTitle()) }
         lastAppliedSnippetCode = nextAppliedSnippetCode(lastAppliedSnippetCode, enabledSnippets)
+        lastAppliedSnippets =
+            lastAppliedSnippets.filterNot { old -> enabledSnippets.any { it.id == old.id } } + enabledSnippets
     }
 
     private fun runSnippet(code: String, name: String) {
@@ -302,6 +335,34 @@ internal class NovelWebViewStyler(
             enabledSnippets.filter { lastAppliedSnippetCode[it.id] != it.code }
         } else {
             enabledSnippets
+        }
+
+        internal fun remapRepairedSnippetIds(
+            previous: List<CodeSnippet>,
+            current: List<CodeSnippet>,
+            applied: Map<String, String>,
+        ): Map<String, String> {
+            val removed = previous.toMutableList()
+            // Reserve one occurrence per unchanged ID; duplicate legacy IDs retain spare occurrences.
+            current.forEach { item ->
+                val index = removed.indexOfFirst { it.id == item.id }
+                if (index >= 0) removed.removeAt(index)
+            }
+            return applied.toMutableMap().apply {
+                current.filter { it.id !in applied }.forEach { item ->
+                    val index = removed.indexOfFirst {
+                        it.code == item.code &&
+                            (
+                                it.id.isBlank() || it.id.startsWith("legacy-") ||
+                                    previous.count { old -> old.id == it.id } > 1
+                                )
+                    }
+                    if (index >= 0) {
+                        this[item.id] = item.code
+                        removed.removeAt(index)
+                    }
+                }
+            }
         }
 
         internal fun nextAppliedSnippetCode(

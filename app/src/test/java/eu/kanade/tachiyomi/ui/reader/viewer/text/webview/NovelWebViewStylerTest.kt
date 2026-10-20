@@ -9,6 +9,51 @@ import org.junit.jupiter.api.Test
 class NovelWebViewStylerTest {
 
     @Test
+    fun `repairing duplicate legacy IDs does not replay unchanged scripts`() {
+        val legacy = CodeSnippet(title = "same", code = "x()", id = "legacy-x")
+        val repaired = listOf(legacy, legacy.copy(id = "uuid"))
+        val baseline = NovelWebViewStyler.remapRepairedSnippetIds(
+            listOf(legacy, legacy),
+            repaired,
+            mapOf(legacy.id to legacy.code),
+        )
+        assertTrue(NovelWebViewStyler.snippetsToRun(repaired, true, baseline).isEmpty())
+    }
+
+    @Test
+    fun `adding another identical snippet still executes the new item`() {
+        val old = CodeSnippet(title = "same", code = "x()", id = "old")
+        val added = old.copy(id = "new")
+        val baseline = NovelWebViewStyler.remapRepairedSnippetIds(
+            listOf(old),
+            listOf(old, added),
+            mapOf(old.id to old.code),
+        )
+        assertEquals(listOf(added), NovelWebViewStyler.snippetsToRun(listOf(old, added), true, baseline))
+    }
+
+    @Test
+    fun `reorder or disable does not replay previously executed snippets`() {
+        val a = CodeSnippet(title = "a", code = "a()", id = "a")
+        val b = CodeSnippet(title = "b", code = "b()", id = "b")
+        val baseline = mapOf(a.id to a.code, b.id to b.code)
+        assertTrue(NovelWebViewStyler.snippetsToRun(listOf(b, a), true, baseline).isEmpty())
+        assertTrue(NovelWebViewStyler.snippetsToRun(listOf(b), true, baseline).isEmpty())
+    }
+
+    @Test
+    fun `replacing a modern item with the same code does not count as legacy repair`() {
+        val old = CodeSnippet(title = "old", code = "run()", id = "modern-old")
+        val added = old.copy(id = "modern-new")
+        val baseline = NovelWebViewStyler.remapRepairedSnippetIds(
+            listOf(old),
+            listOf(added),
+            mapOf(old.id to old.code),
+        )
+        assertEquals(listOf(added), NovelWebViewStyler.snippetsToRun(listOf(added), true, baseline))
+    }
+
+    @Test
     fun snippetCommandPreservesUserCodeBytes() {
         val code = "/*\r\n user */\nwindow.x = '</script>'"
         val command = NovelWebViewStyler.snippetCommand("saved", code)

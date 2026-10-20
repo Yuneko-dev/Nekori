@@ -6,6 +6,8 @@ import eu.kanade.tachiyomi.data.translation.engine.GoogleTranslateScraperEngine
 import eu.kanade.tachiyomi.data.translation.engine.LibreTranslateEngine
 import eu.kanade.tachiyomi.data.translation.engine.LlmTranslationEngine
 import tachiyomi.domain.translation.model.AiExecutionConfig
+import tachiyomi.domain.translation.model.NovelAiTask
+import tachiyomi.domain.translation.model.NovelTarget
 import tachiyomi.domain.translation.model.TranslationEngine
 import tachiyomi.domain.translation.model.TranslationEngineId
 import tachiyomi.domain.translation.model.TranslationPurpose
@@ -43,7 +45,7 @@ class TranslationEngineManager(
     data class Resolved(val engine: TranslationEngine, val config: AiExecutionConfig?)
 
     /** The engine and overrides [purpose] should use. */
-    fun resolve(purpose: TranslationPurpose): Resolved {
+    fun resolve(purpose: TranslationPurpose, target: NovelTarget? = null): Resolved {
         val engine = getEngineById(TranslationEngineId.fromKey(preferences.engineId(purpose).get()))
         // Only the LLM engine reads the config, and building it decodes the provider and guidelines
         // stores; skip that work entirely for the others.
@@ -51,6 +53,8 @@ class TranslationEngineManager(
             aiSettings.resolveConfig(
                 preferences.translationProviderId().get(),
                 preferences.translationGuidelinesId().get(),
+                target.takeIf { purpose == TranslationPurpose.CHAPTER },
+                NovelAiTask.TRANSLATION,
             )
         } else {
             null
@@ -74,12 +78,20 @@ class TranslationEngineManager(
     /**
      * Get supported languages for the engine [purpose] uses.
      */
-    fun getSupportedLanguages(purpose: TranslationPurpose): List<Pair<String, String>> {
-        return resolve(purpose).engine.supportedLanguages
-    }
+    fun getSupportedLanguages(purpose: TranslationPurpose): List<Pair<String, String>> =
+        selectedEngine(purpose).supportedLanguages
+
+    /** Language detection needs the engine, not the optional Guidelines store. */
+    fun selectedEngine(purpose: TranslationPurpose): TranslationEngine =
+        getEngineById(TranslationEngineId.fromKey(preferences.engineId(purpose).get()))
 
     suspend fun translate(purpose: TranslationPurpose, request: TranslationRequest): TranslationResult {
-        val (engine, config) = resolve(purpose)
+        return translate(resolve(purpose), request)
+    }
+
+    /** A chapter keeps this same engine/config through title, chunks and retries. */
+    suspend fun translate(resolved: Resolved, request: TranslationRequest): TranslationResult {
+        val (engine, config) = resolved
         return AiRetryPolicy.execute(
             retries = preferences.requestRetryCount().get(),
             failureCode = { (it as? TranslationResult.Error)?.errorCode },

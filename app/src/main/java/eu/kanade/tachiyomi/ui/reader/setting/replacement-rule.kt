@@ -5,9 +5,7 @@ package eu.kanade.tachiyomi.ui.reader.setting
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Portable identity: database IDs change on restore; source paths must remain verbatim. */
-@Serializable
-data class ReplacementTarget(val source: Long, val path: String)
+typealias ReplacementTarget = tachiyomi.domain.translation.model.NovelTarget
 
 @Serializable
 data class RegexReplacement(
@@ -50,8 +48,17 @@ data class RegexReplacement(
 
         // Strict decoding also protects newer/unknown data from being silently rewritten by this UI.
         fun decode(value: String): List<RegexReplacement> {
-            val rules = if (value.isBlank()) emptyList() else Json.decodeFromString<List<RegexReplacement>>(value)
+            val rules = Json.decodeFromString<List<RegexReplacement>>(value)
             require(rules.all { it.id.isNotBlank() } && rules.map { it.id }.distinct().size == rules.size)
+            require(
+                rules.all {
+                    when (it.scope) {
+                        GLOBAL -> it.target == null
+                        NOVEL -> it.target?.path?.isNotBlank() == true
+                        else -> false
+                    }
+                },
+            )
             return rules
         }
     }

@@ -1713,6 +1713,9 @@ class ReaderViewModel @JvmOverloads constructor(
         return try {
             val translated = translationService.translateChapterContent(
                 content = content,
+                target = manga?.let {
+                    eu.kanade.tachiyomi.ui.reader.setting.ReplacementTarget(it.source, it.url)
+                },
                 locator = locator,
                 forceRetranslate = force,
                 onProgress = { progress ->
@@ -1814,6 +1817,10 @@ class ReaderViewModel @JvmOverloads constructor(
 
     fun openTranslationLanguageDialog() {
         mutableState.update { it.copy(dialog = Dialog.TranslationLanguageSelect) }
+    }
+
+    fun openSummaryMenu() {
+        mutableState.update { it.copy(dialog = Dialog.ChapterSummaryMenu) }
     }
 
     fun closeDialog() {
@@ -2129,6 +2136,7 @@ class ReaderViewModel @JvmOverloads constructor(
         data object Settings : Dialog
         data object OrientationModeSelect : Dialog
         data object TranslationLanguageSelect : Dialog
+        data object ChapterSummaryMenu : Dialog
     }
 
     sealed interface Event {

@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
+import eu.kanade.presentation.reader.settings.CodeSnippetsManagerScreen
 import eu.kanade.presentation.reader.settings.ColorPickerDialog
 import eu.kanade.presentation.reader.settings.NovelBackgroundManagerScreen
 import eu.kanade.presentation.reader.settings.NovelTtsEnginePreference
@@ -773,10 +774,19 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getContentGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
         val autoLoadNextAt = readerPreferences.novelAutoLoadNextChapterAt.collectAsState().value
         val markAsReadThreshold = readerPreferences.novelMarkAsReadThreshold.collectAsState().value
+        val navigator = LocalNavigator.currentOrThrow
 
         return Preference.PreferenceGroup(
             title = stringResource(TDMR.strings.settings_reader_content_group),
             preferenceItems = listOf(
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(TDMR.strings.pref_novel_css_snippets),
+                    onClick = { navigator.push(CodeSnippetsManagerScreen(false)) },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(TDMR.strings.pref_novel_js_snippets),
+                    onClick = { navigator.push(CodeSnippetsManagerScreen(true)) },
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.novelInfiniteScroll,
                     title = stringResource(TDMR.strings.pref_novel_infinite_scroll),

@@ -8,10 +8,12 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.data.translation.AiSettingsStore
+import tachiyomi.core.common.preference.ContentPreferencesLock
 import tachiyomi.domain.translation.model.AIProvider
 import tachiyomi.domain.translation.model.UserGuidelines
 import tachiyomi.domain.translation.model.resolve
 import tachiyomi.domain.translation.service.TranslationPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -37,7 +39,8 @@ object SettingsAiScreen : SearchableSettings {
         val providersJson by prefs.aiProvidersJson().collectAsState()
         val guidelinesJson by prefs.userGuidelinesJson().collectAsState()
         val providers = remember(providersJson) { store.providers() }
-        val guidelines = remember(guidelinesJson) { store.guidelines() }
+        val guidelinesResult = remember(guidelinesJson) { runCatching { store.guidelines() } }
+        val guidelines = guidelinesResult.getOrDefault(emptyList())
         val retries by prefs.requestRetryCount().collectAsState()
         val rpm by prefs.aiRpmLimit().collectAsState()
         val noProviders = stringResource(TDMR.strings.pref_ai_no_providers)
@@ -53,7 +56,13 @@ object SettingsAiScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(TDMR.strings.pref_ai_user_guidelines),
-                        subtitle = stringResource(TDMR.strings.pref_ai_guidelines_summary),
+                        subtitle = stringResource(
+                            if (guidelinesResult.isSuccess) {
+                                TDMR.strings.pref_ai_guidelines_summary
+                            } else {
+                                TDMR.strings.ai_guidelines_load_error
+                            },
+                        ),
                         onClick = { navigator.push(UserGuidelinesManagerScreen) },
                     ),
                     // Retries and the request ceiling apply to every AI task, so they belong with the
@@ -118,6 +127,7 @@ object SettingsAiScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val providerId by providerPreference.collectAsState()
         val guidelinesId by guidelinesPreference.collectAsState()
+        val none = stringResource(MR.strings.none)
         return Preference.PreferenceGroup(
             title = title,
             preferenceItems = listOf(
@@ -133,10 +143,14 @@ object SettingsAiScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.BasicListPreference(
                     value = guidelinesId,
-                    entries = guidelines.associate { it.id to it.name },
+                    entries = mapOf("" to none) + guidelines.associate { it.id to it.name },
                     title = stringResource(TDMR.strings.pref_ai_user_guidelines),
-                    subtitle = guidelines.resolve(guidelinesId).name,
-                    onValueChanged = { guidelinesPreference.set(it) },
+                    subtitle = when {
+                        guidelinesId.isBlank() -> none
+                        guidelines.isEmpty() -> stringResource(TDMR.strings.ai_guidelines_load_error)
+                        else -> guidelines.resolve(guidelinesId).name
+                    },
+                    onValueChanged = { synchronized(ContentPreferencesLock) { guidelinesPreference.set(it) } },
                 ),
             ) + extraItems,
         )

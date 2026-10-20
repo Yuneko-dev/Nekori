@@ -306,7 +306,7 @@ class BackupRestorer(
         preferenceRestorer.restoreApp(
             preferences,
             categories,
-        )
+        ).forEach { key -> errors.add(Date() to "Could not restore preference <$key>; existing value retained") }
 
         val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
@@ -323,6 +323,7 @@ class BackupRestorer(
     ) = launch {
         ensureActive()
         preferenceRestorer.restoreSource(preferences.filter { it.sourceKey in allowedSourceKeys })
+            .forEach { key -> errors.add(Date() to "Could not restore preference <$key>; existing value retained") }
 
         val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
