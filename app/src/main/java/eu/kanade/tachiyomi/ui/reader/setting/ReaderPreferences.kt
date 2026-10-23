@@ -249,6 +249,10 @@ class ReaderPreferences(
     // Replacement rules are a JSON list; absent scope remains global for existing settings/backups.
     // Applied before translation/rendering, using the current novel identity.
     val novelRegexReplacements: Preference<String> = preferenceStore.getString(RegexReplacement.PREFERENCE_KEY, "[]")
+    val novelRegexReplacementsAfterTranslation: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_regex_replacements_after_translation",
+        false,
+    )
 
     // Infinite scroll - automatically load next/previous chapters
     val novelInfiniteScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_infinite_scroll", false)

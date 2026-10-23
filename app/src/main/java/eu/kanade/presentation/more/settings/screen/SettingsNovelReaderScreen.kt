@@ -91,6 +91,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelTheme,
             readerPref.novelCustomBrightnessValue,
             readerPref.novelAutoSplitText,
+            readerPref.novelRegexReplacementsAfterTranslation,
             readerPref.novelAutoSplitWordCount,
             readerPref.novelChapterTitleDisplay,
             readerPref.novelMarkAsReadThreshold,

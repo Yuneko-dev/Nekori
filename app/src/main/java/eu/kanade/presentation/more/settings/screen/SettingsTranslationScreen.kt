@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.data.translation.TranslationChunkMode
 import eu.kanade.tachiyomi.data.translation.TranslationEngineManager
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import tachiyomi.domain.translation.model.TranslationEngine
@@ -49,10 +50,12 @@ object SettingsTranslationScreen : SearchableSettings {
     @Composable
     override fun getAdditionalResetPreferences(): List<tachiyomi.core.common.preference.Preference<*>> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
+        val readerPrefs = remember { Injekt.get<ReaderPreferences>() }
         return TranslationPurpose.entries.map(prefs::engineId) + listOf(
             prefs.rateLimitDelayMs(),
             prefs.translationTimeoutMs(),
             prefs.maxParallelTranslations(),
+            readerPrefs.novelRegexReplacementsAfterTranslation,
         )
     }
 
@@ -63,6 +66,7 @@ object SettingsTranslationScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val prefs = remember { Injekt.get<TranslationPreferences>() }
+        val readerPrefs = remember { Injekt.get<ReaderPreferences>() }
         val engines = remember { Injekt.get<TranslationEngineManager>() }
         val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
@@ -216,7 +220,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     testButton(engines.engines.first { it.id == TranslationEngineId.GOOGLE_CLOUD }),
                 ),
             ),
-            behaviorGroup(prefs, isLlmChapterEngine = chapterEngineId == TranslationEngineId.LLM),
+            behaviorGroup(prefs, readerPrefs, isLlmChapterEngine = chapterEngineId == TranslationEngineId.LLM),
             Preference.PreferenceGroup(
                 title = stringResource(TDMR.strings.pref_translation_queue),
                 preferenceItems = listOf(
@@ -286,6 +290,7 @@ object SettingsTranslationScreen : SearchableSettings {
     @Composable
     private fun behaviorGroup(
         prefs: TranslationPreferences,
+        readerPrefs: ReaderPreferences,
         isLlmChapterEngine: Boolean,
     ): Preference.PreferenceGroup {
         val splitLargeChapters by prefs.splitLargeChapters().collectAsState()
@@ -349,6 +354,11 @@ object SettingsTranslationScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_behavior),
             preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPrefs.novelRegexReplacementsAfterTranslation,
+                    title = stringResource(TDMR.strings.pref_translation_replace_after_translation),
+                    subtitle = stringResource(TDMR.strings.pref_translation_replace_after_translation_summary),
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.autoDownloadBeforeTranslate(),
                     title = stringResource(TDMR.strings.pref_translation_auto_download),

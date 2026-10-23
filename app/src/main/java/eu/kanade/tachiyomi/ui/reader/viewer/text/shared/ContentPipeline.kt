@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.util.TextSplitter
 /**
  * Order (kept stable — changing it changes user-visible output for some chapters):
  * stripChapterTitle → normalize → regex replacements → forceLowercase → autoSplit →
- * translate → sanitizeForRender.
+ * translate → optional regex replacements → sanitizeForRender.
  */
 class ContentPipeline(private val preferences: ReaderPreferences) {
 
@@ -50,7 +50,14 @@ class ContentPipeline(private val preferences: ReaderPreferences) {
         translator: (suspend (String) -> String)? = null,
     ): ProcessedContent {
         var content = pre.text
-        if (translator != null) content = translator(content)
+        if (translator != null) {
+            val translated = translator(content)
+            content = if (translated != content && preferences.novelRegexReplacementsAfterTranslation.get()) {
+                RegexReplacementsProcessor.apply(translated, preferences, config.replacementTarget)
+            } else {
+                translated
+            }
+        }
 
         if (!pre.isPlainText) {
             content = HtmlUtils.sanitizeForRender(

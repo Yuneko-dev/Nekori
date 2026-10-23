@@ -59,6 +59,7 @@ internal class NovelWebViewPreferenceObserver(
                 preferences.enableEpubJs.changes().drop(1),
                 preferences.novelForceTextLowercase.changes().drop(1),
                 preferences.novelRegexReplacements.changes().drop(1),
+                preferences.novelRegexReplacementsAfterTranslation.changes().drop(1),
                 preferences.novelSourceCssPriority.changes().drop(1),
                 preferences.novelPluginUseCustomCss.changes().drop(1),
                 preferences.novelPluginUseCustomJs.changes().drop(1),

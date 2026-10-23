@@ -516,6 +516,8 @@
     <string name="pref_translation_auto_download_summary">Tải nội dung chương nếu chưa có</string>
     <string name="pref_translation_auto_translate">Tự dịch nội dung tải xuống</string>
     <string name="pref_translation_auto_translate_summary">Tự động dịch chương khi tải xong</string>
+    <string name="pref_translation_replace_after_translation">Áp dụng Tìm và thay thế sau khi dịch</string>
+    <string name="pref_translation_replace_after_translation_summary">Áp dụng lại các quy tắc của chương lên bản dịch trước khi hiển thị</string>
     <string name="pref_translation_auto_next_chapter">Dịch trước chương kế</string>
     <string name="pref_translation_auto_next_chapter_summary">Dịch nền chương kế tiếp trong lúc bạn đọc, để mở là có ngay. Tốn quota cho cả chương bạn có thể không đọc tới.</string>
     <string name="pref_translation_rate_limit">Giới hạn tần suất</string>

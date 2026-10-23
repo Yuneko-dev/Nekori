@@ -745,6 +745,10 @@ internal fun ColumnScope.NovelAdvancedTab(
         label = stringResource(TDMR.strings.pref_novel_plugin_use_custom_js),
         pref = screenModel.preferences.novelPluginUseCustomJs,
     )
+    ReaderSwitchItem(
+        label = stringResource(TDMR.strings.pref_translation_replace_after_translation),
+        pref = screenModel.preferences.novelRegexReplacementsAfterTranslation,
+    )
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

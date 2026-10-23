@@ -545,6 +545,8 @@
     <string name="pref_translation_auto_download_summary">Download chapter content if not already available</string>
     <string name="pref_translation_auto_translate">Auto-translate downloads</string>
     <string name="pref_translation_auto_translate_summary">Automatically translate chapters when downloaded</string>
+    <string name="pref_translation_replace_after_translation">Apply Find &amp; Replace after translation</string>
+    <string name="pref_translation_replace_after_translation_summary">Apply the same chapter rules to translated text before displaying it</string>
     <string name="pref_translation_auto_next_chapter">Translate the next chapter ahead</string>
     <string name="pref_translation_auto_next_chapter_summary">Translate the following chapter in the background while you read, so it opens without waiting. Spends quota on chapters you may not reach.</string>
     <string name="pref_translation_rate_limit">Rate Limiting</string>

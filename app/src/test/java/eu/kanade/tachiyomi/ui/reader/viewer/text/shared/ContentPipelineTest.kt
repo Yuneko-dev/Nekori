@@ -44,11 +44,13 @@ class ContentPipelineTest {
 
     private fun pipelineWith(
         regexRulesJson: String = "[]",
+        replaceAfterTranslation: Boolean = false,
         autoSplit: Boolean = false,
         autoSplitWordCount: Int = 20,
     ): ContentPipeline {
         val prefs = mockk<ReaderPreferences>()
         every { prefs.novelRegexReplacements } returns fakePref(regexRulesJson)
+        every { prefs.novelRegexReplacementsAfterTranslation } returns fakeBoolPref(replaceAfterTranslation)
         every { prefs.novelAutoSplitText } returns fakeBoolPref(autoSplit)
         every { prefs.novelAutoSplitWordCount } returns fakeIntPref(autoSplitWordCount)
         return ContentPipeline(prefs)
@@ -203,6 +205,31 @@ class ContentPipelineTest {
         val pipeline = pipelineWith()
         val result = pipeline.process("<p>Body</p>", cfg())
         assertTrue(result.text.contains("Body"))
+    }
+
+    @Test
+    fun `translated text receives a second replacement pass only when enabled`() = runBlocking {
+        val rules = """[{"title":"name","pattern":"Wrong Name","replacement":"Right Name","isRegex":false,"enabled":true,"caseSensitive":true,"matchWholeWord":false}]"""
+        val config = cfg(target = RenderTarget.WEB_VIEW)
+        val translated: suspend (String) -> String = { "<p>Wrong Name</p>" }
+
+        assertEquals("<p>Wrong Name</p>", pipelineWith(rules).process("<p>Original</p>", config, translated).text)
+        assertEquals(
+            "<p>Right Name</p>",
+            pipelineWith(rules, replaceAfterTranslation = true).process("<p>Original</p>", config, translated).text,
+        )
+    }
+
+    @Test
+    fun `unchanged translation result does not repeat a non-idempotent rule`() = runBlocking {
+        val rules = """[{"title":"suffix","pattern":"Name","replacement":"Name!","isRegex":false,"enabled":true,"caseSensitive":true,"matchWholeWord":false}]"""
+        val pipeline = pipelineWith(rules, replaceAfterTranslation = true)
+        val config = cfg(target = RenderTarget.WEB_VIEW)
+        val original = pipeline.process("<p>Name</p>", config)
+        val unchanged = pipeline.process("<p>Name</p>", config) { it }
+
+        assertEquals("<p>Name!</p>", original.text)
+        assertEquals(original.text, unchanged.text)
     }
 
     // ── Plain-text mode propagation ────────────────────────────────────────────────
