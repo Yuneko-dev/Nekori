@@ -19,6 +19,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-10-23
+
 > [!WARNING]
 > **Breaking Change:** This release introduces a breaking change that drops backward compatibility with Tsundoku / LNReader `snippetJS` and `snippetCSS`. Existing user snippets will stop working and need to be updated, and LNReader plugins using `customJS` / `customCSS` will also be affected. Don't worry though - I've checked beforehand and only 2 official plugins actually use `customCSS`, and they only style chapter HTML elements without modifying the reader itself, so the impact should be minimal.
 
