@@ -22,6 +22,10 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ### Added
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 
+### Fixed
+- Prevent checkpoint chapters from saving reading progress or being automatically marked as read.
+- Align the statistics time bar for novels outside the library with the other novel rows.
+
 ## [v0.1.3] - 2026-10-23
 
 > [!WARNING]

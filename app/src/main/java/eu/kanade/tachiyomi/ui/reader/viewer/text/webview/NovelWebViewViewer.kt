@@ -1800,6 +1800,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val prepared = withContext(Dispatchers.Default) {
             val directives = page.chapterContent?.let(NovelWebViewChapterDirectives::fromContent)
                 ?: NovelWebViewChapterDirectives.parse(rawContent)
+            chapter.isCheckpoint = directives.checkpoint
             val loadedHtml = directives.adaptLoadedHtml(rawContent)
             var processed = contentPipeline.process(loadedHtml, cfg, if (directives.checkpoint) null else translator)
             // Keep only the count so enabling the bar later never refetches no-cache content.

@@ -953,6 +953,8 @@ private fun LazyItemScope.MostReadSection(
                 }
                 if (item != null) {
                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                } else {
+                    Spacer(modifier = Modifier.size(24.dp))
                 }
             }
             if (index != visibleItems.lastIndex) {

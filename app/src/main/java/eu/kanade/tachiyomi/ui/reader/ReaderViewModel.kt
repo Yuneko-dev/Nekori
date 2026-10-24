@@ -1095,6 +1095,7 @@ class ReaderViewModel @JvmOverloads constructor(
         progressPercentage: Int,
         backwardJumpAllowancePercent: Int = 10,
     ) {
+        if (selectedChapter.isCheckpoint) return
         if (isPreview) {
             selectedChapter.chapter.last_page_read = progressPercentage.coerceIn(0, 100)
             return
@@ -1105,6 +1106,7 @@ class ReaderViewModel @JvmOverloads constructor(
             // Serialize saves so concurrent calls don't race each other and save
             // old progress values over newer ones (e.g. multiple chapters in flight).
             novelProgressMutex.withLock {
+                if (selectedChapter.isCheckpoint) return@withLock
                 val clampedProgress = progressPercentage.coerceIn(0, 100)
                 val currentProgress = selectedChapter.chapter.last_page_read
 
@@ -1280,6 +1282,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
         if (
             !sensitiveContentPolicy.isBlocked(SensitiveContentPolicy.Action.READING_PROGRESS, manga?.source) &&
+            !readerChapter.isCheckpoint &&
             page.status !is Page.State.Error
         ) {
             readerChapter.chapter.last_page_read = pageIndex

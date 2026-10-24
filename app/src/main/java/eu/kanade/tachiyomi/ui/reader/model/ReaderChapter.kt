@@ -10,6 +10,11 @@ data class ReaderChapter(val chapter: Chapter) {
 
     val stateFlow = MutableStateFlow<State>(State.Wait)
     val wordCount = MutableStateFlow<Int?>(null)
+
+    // Retain checkpoint policy after no-cache HTML or recycled pages have been discarded.
+    var isCheckpoint: Boolean = false
+        get() = pages?.firstOrNull()?.chapterContent?.isCheckpoint ?: field
+
     var state: State
         get() = stateFlow.value
         set(value) {
