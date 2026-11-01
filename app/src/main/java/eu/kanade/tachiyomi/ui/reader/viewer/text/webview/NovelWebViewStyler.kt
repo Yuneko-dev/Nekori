@@ -132,6 +132,9 @@ internal class NovelWebViewStyler(
             css = css,
             bodyClasses = buildList {
                 if (hideChapterTitle) add("nekori-reader-hide-title")
+                if (preferences.novelInfiniteScroll.get() && preferences.novelHideChapterSeparator.get()) {
+                    add("nekori-reader-hide-chapter-separator")
+                }
                 if (!preferences.novelSourceCssPriority.get()) add("nekori-reader-force-style")
                 if (useOriginalFonts) add("nekori-reader-original-font")
             }.joinToString(" "),

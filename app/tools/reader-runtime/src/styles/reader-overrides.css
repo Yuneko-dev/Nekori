@@ -29,6 +29,22 @@ nekori-chapter {
     opacity: .4;
 }
 
+/* Keep boundary markers in flow so progress still measures the real chapter offsets. */
+.nekori-reader > .nekori-chapter-divider:not(nekori-chapter ~ .nekori-chapter-divider),
+.nekori-reader-hide-chapter-separator .nekori-reader:not(.is-paged) > .nekori-chapter-divider {
+    visibility: hidden;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+/* Incoming paragraphs supply the normal gap; trim only the outgoing duplicate at a join. */
+.nekori-reader-hide-chapter-separator .nekori-reader:not(.is-paged) > nekori-chapter:has(~ nekori-chapter) > p:last-child,
+.nekori-reader-hide-chapter-separator .nekori-reader:not(.is-paged) > nekori-chapter:has(~ nekori-chapter) > .nekori-plain-text:last-child > p:last-child {
+    margin-block-end: 0;
+}
+
 #nekori-image-modal {
     z-index: 9999998;
 }

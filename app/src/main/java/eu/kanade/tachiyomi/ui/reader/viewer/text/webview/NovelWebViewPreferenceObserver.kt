@@ -78,6 +78,7 @@ internal class NovelWebViewPreferenceObserver(
             // so reload the whole view for a consistent state instead of patching it live.
             merge(
                 preferences.novelInfiniteScroll.changes().drop(1),
+                preferences.novelHideChapterSeparator.changes().drop(1),
                 preferences.novelReadingLayout.changes().drop(1),
                 preferences.novelPageSpread.changes().drop(1),
             ).collect { onChapterReloadRequested() }

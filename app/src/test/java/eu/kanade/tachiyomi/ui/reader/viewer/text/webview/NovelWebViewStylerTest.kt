@@ -1,12 +1,45 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
+import android.content.Context
+import android.util.DisplayMetrics
 import eu.kanade.presentation.reader.settings.CodeSnippet
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 class NovelWebViewStylerTest {
+
+    @Test
+    fun `separator class requires both preferences and leaves margin CSS unchanged`() {
+        val preferences = ReaderPreferences(InMemoryPreferenceStore()).apply { novelTheme.set("light") }
+        val context = mockk<Context> {
+            every { resources.displayMetrics } returns DisplayMetrics().apply { density = 1f }
+        }
+        val styler = mockk<NovelWebViewStyler>(relaxed = true)
+        val background = mockk<NovelWebViewBackground> { every { configJson() } returns "{}" }
+        for ((name, value) in mapOf("context" to context, "preferences" to preferences, "background" to background)) {
+            NovelWebViewStyler::class.java.getDeclaredField(name).apply { isAccessible = true }.set(styler, value)
+        }
+        every { styler.buildPayload() } answers { callOriginal() }
+        every { styler["resolveFontFace"](any<String>(), any<Boolean>()) } returns ("" to "inherit")
+        every { styler["decodedSnippets"](false) } returns emptyList<CodeSnippet>()
+        val original = styler.buildPayload()
+        val className = "nekori-reader-hide-chapter-separator"
+        assertFalse(className in original.bodyClasses)
+        preferences.novelHideChapterSeparator.set(true)
+        assertFalse(className in styler.buildPayload().bodyClasses)
+        preferences.novelInfiniteScroll.set(true)
+        assertTrue(className in styler.buildPayload().bodyClasses)
+        assertEquals(original.css, styler.buildPayload().css)
+        preferences.novelHideChapterSeparator.set(false)
+        assertFalse(className in styler.buildPayload().bodyClasses)
+    }
 
     @Test
     fun `repairing duplicate legacy IDs does not replay unchanged scripts`() {

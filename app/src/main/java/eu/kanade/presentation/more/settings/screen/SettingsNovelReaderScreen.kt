@@ -69,6 +69,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             readerPref.novelMarginRight,
             readerPref.novelMarginTop,
             readerPref.novelMarginBottom,
+            readerPref.novelHideChapterSeparator,
             readerPref.novelAutoLoadNextChapterAt,
             readerPref.novelSourceCssPriority,
             readerPref.novelTtsSpeed,
@@ -775,6 +776,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getContentGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
         val autoLoadNextAt = readerPreferences.novelAutoLoadNextChapterAt.collectAsState().value
         val markAsReadThreshold = readerPreferences.novelMarkAsReadThreshold.collectAsState().value
+        val infiniteScrollEnabled = readerPreferences.novelInfiniteScroll.collectAsState().value
+        val readingLayout = readerPreferences.novelReadingLayout.collectAsState().value
         val navigator = LocalNavigator.currentOrThrow
 
         return Preference.PreferenceGroup(
@@ -792,6 +795,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = readerPreferences.novelInfiniteScroll,
                     title = stringResource(TDMR.strings.pref_novel_infinite_scroll),
                     subtitle = stringResource(TDMR.strings.settings_reader_infinite_scroll_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelHideChapterSeparator,
+                    title = stringResource(TDMR.strings.pref_novel_hide_chapter_separator),
+                    enabled = infiniteScrollEnabled && !readingLayout.isPaged,
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     value = autoLoadNextAt,

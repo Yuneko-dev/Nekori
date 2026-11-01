@@ -1543,4 +1543,7 @@
     <string name="error_cant_edit_error_page">Không thể chỉnh sửa trang báo lỗi</string>
     <string name="error_cant_edit_while_loading">Không thể chỉnh sửa khi chương đang tải</string>
     <string name="error_cant_edit_no_chapter">Không có nội dung chương để chỉnh sửa</string>
+    <string name="based_on_tsundoku">Dựa trên Tsundoku</string>
+    <string name="based_on_mihon">Dựa trên Mihon</string>
+    <string name="pref_novel_hide_chapter_separator">Ẩn đường phân cách chương</string>
 </resources>

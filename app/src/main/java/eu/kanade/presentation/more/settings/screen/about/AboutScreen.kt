@@ -48,6 +48,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import tachiyomi.presentation.core.components.LinkIcon
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -158,6 +159,20 @@ object AboutScreen : Screen() {
                     TextPreferenceWidget(
                         title = stringResource(MR.strings.privacy_policy),
                         onPreferenceClick = { uriHandler.openUri("https://nekori.yuneko.dev/privacy/") },
+                    )
+                }
+
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(TDMR.strings.based_on_tsundoku),
+                        onPreferenceClick = { uriHandler.openUri("https://github.com/tsundoku-otaku/tsundoku") },
+                    )
+                }
+
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(TDMR.strings.based_on_mihon),
+                        onPreferenceClick = { uriHandler.openUri("https://github.com/mihonapp/mihon") },
                     )
                 }
 

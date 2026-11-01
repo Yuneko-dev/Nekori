@@ -636,6 +636,12 @@ internal fun ColumnScope.NovelControlsTab(screenModel: ReaderSettingsViewModel) 
     // Auto-load next chapter at percentage (only relevant when infinite scroll is enabled)
     val autoLoadAt by screenModel.preferences.novelAutoLoadNextChapterAt.collectAsState()
     if (infiniteScrollEnabled) {
+        if (!readingLayout.isPaged) {
+            ReaderSwitchItem(
+                label = stringResource(TDMR.strings.pref_novel_hide_chapter_separator),
+                pref = screenModel.preferences.novelHideChapterSeparator,
+            )
+        }
         SliderItem(
             label = stringResource(TDMR.strings.pref_novel_auto_load_next_at),
             value = autoLoadAt,

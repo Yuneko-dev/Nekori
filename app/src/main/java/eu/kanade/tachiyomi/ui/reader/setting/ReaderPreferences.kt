@@ -256,6 +256,8 @@ class ReaderPreferences(
 
     // Infinite scroll - automatically load next/previous chapters
     val novelInfiniteScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_infinite_scroll", false)
+    val novelHideChapterSeparator: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_novel_hide_chapter_separator", false)
 
     // Custom brightness for novel reader
     val novelCustomBrightness: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_custom_brightness", false)
