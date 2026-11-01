@@ -312,26 +312,18 @@ class MangaRestorer(
 
         val backupCategoriesByOrder = backupCategories.associateBy { it.order }
 
-        val mangaCategoriesToUpdate = categories.mapNotNull { backupCategoryOrder ->
+        val categoryIdsToRestore = categories.mapNotNull { backupCategoryOrder ->
             backupCategoriesByOrder[backupCategoryOrder]?.let { backupCategory ->
-                val dbCategory = if (backupCategory.contentType !=
-                    tachiyomi.domain.category.model.Category.CONTENT_TYPE_ALL
-                ) {
-                    dbCategoriesByName[backupCategory.name]?.firstOrNull {
-                        it.contentType == backupCategory.contentType
-                    }
-                } else {
-                    dbCategoriesByName[backupCategory.name]?.firstOrNull()
-                }
-                dbCategory?.let { Pair(manga.id, it.id) }
+                dbCategoriesByName[backupCategory.name].orEmpty()
+                    .restoreMatch(backupCategory.contentType)?.id
             }
-        }
+        }.distinct()
 
-        if (mangaCategoriesToUpdate.isNotEmpty()) {
+        if (categoryIdsToRestore.isNotEmpty()) {
             database.transaction {
                 database.mangas_categoriesQueries.deleteMangaCategoryByMangaId(manga.id)
-                mangaCategoriesToUpdate.forEach { (mangaId, categoryId) ->
-                    database.mangas_categoriesQueries.insert(mangaId, categoryId)
+                categoryIdsToRestore.forEach { categoryId ->
+                    database.mangas_categoriesQueries.insert(manga.id, categoryId)
                 }
             }
         }

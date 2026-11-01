@@ -18,23 +18,25 @@ class CategoriesRestorer(
     suspend operator fun invoke(backupCategories: List<BackupCategory>) {
         if (backupCategories.isNotEmpty()) {
             val dbCategories = getCategories.await()
-            val dbCategoriesByName = dbCategories.groupBy { it.name }
+            val dbCategoriesByName = dbCategories.groupBy { it.name }.toMutableMap()
             var nextOrder = dbCategories.maxOfOrNull { it.order }?.plus(1) ?: 0
 
             val categories = backupCategories
                 .sortedBy { it.order }
                 .map {
-                    val dbCategory = if (it.contentType != Category.CONTENT_TYPE_ALL) {
-                        dbCategoriesByName[it.name]?.firstOrNull { db -> db.contentType == it.contentType }
-                    } else {
-                        dbCategoriesByName[it.name]?.firstOrNull()
+                    dbCategoriesByName[it.name].orEmpty().restoreMatch(it.contentType)?.let { existing ->
+                        return@map existing
                     }
-                    if (dbCategory != null) return@map dbCategory
                     val order = nextOrder++
-                    database.categoriesQueries.insert(it.name, order, it.flags, it.contentType.toLong())
-                    database.categoriesQueries.selectLastInsertedRowId()
-                        .awaitAsOne()
-                        .let { id -> it.toCategory(id).copy(order = order) }
+                    val category = database.transactionWithResult {
+                        database.categoriesQueries.insert(it.name, order, it.flags, it.contentType.toLong())
+                        database.categoriesQueries.selectLastInsertedRowId()
+                            .awaitAsOne()
+                            .let { id -> it.toCategory(id).copy(order = order) }
+                    }
+                    // Later backup orders with this same raw name must see the row just inserted.
+                    dbCategoriesByName[it.name] = dbCategoriesByName[it.name].orEmpty() + category
+                    category
                 }
 
             libraryPreferences.categorizedDisplaySettings.set(
@@ -45,3 +47,6 @@ class CategoriesRestorer(
         }
     }
 }
+
+internal fun List<Category>.restoreMatch(contentType: Int): Category? =
+    firstOrNull { it.contentType == contentType } ?: firstOrNull { it.contentType == Category.CONTENT_TYPE_ALL }

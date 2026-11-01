@@ -531,6 +531,7 @@ dependencies {
 
     // Tests
     testImplementation(libs.bundles.test)
+    testImplementation(libs.sqldelight.sqliteDriver)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     // Android Instrumentation Tests (for auto-discovery extension testing)

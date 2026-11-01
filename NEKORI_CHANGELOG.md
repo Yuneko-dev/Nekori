@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 
 ### Fixed
+- Reuse matching categories when restoring backups, preserve their local settings, and avoid duplicate categories or novel-category links.
 - Keep chapters opened from search results unread until actual completion, including scrolling, TTS and video playback.
 - Reject editing on loading/error documents, retry downloaded chapters locally when possible, and retain replaced reader loaders until their active streams finish.
 - Share chapter loads safely between reader callers and let surviving waiters recover when the load owner is canceled.
