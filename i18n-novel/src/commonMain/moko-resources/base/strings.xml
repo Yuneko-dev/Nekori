@@ -1550,4 +1550,6 @@
     <string name="based_on_tsundoku">Based on Tsundoku</string>
     <string name="based_on_mihon">Based on Mihon</string>
     <string name="pref_novel_hide_chapter_separator">Hide chapter separator</string>
+    <string name="action_scroll_to_next_unread">Scroll to next unread</string>
+    <string name="manga_no_unread_chapter">No unread chapter in this list</string>
 </resources>

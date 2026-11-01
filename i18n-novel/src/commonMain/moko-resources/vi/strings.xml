@@ -1546,4 +1546,6 @@
     <string name="based_on_tsundoku">Dựa trên Tsundoku</string>
     <string name="based_on_mihon">Dựa trên Mihon</string>
     <string name="pref_novel_hide_chapter_separator">Ẩn đường phân cách chương</string>
+    <string name="action_scroll_to_next_unread">Cuộn tới chương chưa đọc tiếp theo</string>
+    <string name="manga_no_unread_chapter">Không có chương chưa đọc trong danh sách này</string>
 </resources>

@@ -64,7 +64,7 @@ import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import kotlinx.coroutines.launch
+import eu.kanade.tachiyomi.util.system.toast
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -349,6 +349,15 @@ private fun MangaScreenSmallImpl(
 
     val chapterListState = rememberLazyListState()
     val scrollScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scrollActions = chapterScrollActions(
+        scope = scrollScope,
+        listState = chapterListState,
+        items = listItem,
+        headerCount = chapterScrollHeaderCount(tablet = false, sectionNavigation = state.sectionNames.size > 1),
+        nextUnreadId = { chapters.getNextUnread(state.manga)?.id },
+        onNoTarget = { context.toast(TDMR.strings.manga_no_unread_chapter) },
+    )
 
     BackHandler(enabled = isAnySelected) {
         onAllChapterSelected(false)
@@ -392,12 +401,9 @@ private fun MangaScreenSmallImpl(
                 onClickExportEpub = onExportEpubClicked,
                 onClickSearchChapters = onSearchChaptersClicked,
                 onClickWordCount = onWordCountClicked,
-                onClickScrollToTop = {
-                    scrollScope.launch { chapterListState.animateScrollToItem(0) }
-                },
-                onClickScrollToBottom = {
-                    scrollScope.launch { chapterListState.animateScrollToItem(listItem.size + 3) }
-                },
+                onClickScrollToTop = scrollActions.toTop,
+                onClickScrollToNextUnread = scrollActions.toNextUnread,
+                onClickScrollToBottom = scrollActions.toBottom,
                 actionModeCounter = selectedChapterCount,
                 onCancelActionMode = { onAllChapterSelected(false) },
                 onSelectAll = { onAllChapterSelected(true) },
@@ -669,6 +675,15 @@ fun MangaScreenLargeImpl(
 
     val chapterListState = rememberLazyListState()
     val scrollScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scrollActions = chapterScrollActions(
+        scope = scrollScope,
+        listState = chapterListState,
+        items = listItem,
+        headerCount = chapterScrollHeaderCount(tablet = true, sectionNavigation = state.sectionNames.size > 1),
+        nextUnreadId = { chapters.getNextUnread(state.manga)?.id },
+        onNoTarget = { context.toast(TDMR.strings.manga_no_unread_chapter) },
+    )
 
     BackHandler(enabled = isAnySelected) {
         onAllChapterSelected(false)
@@ -699,12 +714,9 @@ fun MangaScreenLargeImpl(
                 onClickExportEpub = onExportEpubClicked,
                 onClickSearchChapters = onSearchChaptersClicked,
                 onClickWordCount = onWordCountClicked,
-                onClickScrollToTop = {
-                    scrollScope.launch { chapterListState.animateScrollToItem(0) }
-                },
-                onClickScrollToBottom = {
-                    scrollScope.launch { chapterListState.animateScrollToItem(listItem.size) }
-                },
+                onClickScrollToTop = scrollActions.toTop,
+                onClickScrollToNextUnread = scrollActions.toNextUnread,
+                onClickScrollToBottom = scrollActions.toBottom,
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = selectedChapterCount,
                 onSelectAll = { onAllChapterSelected(true) },

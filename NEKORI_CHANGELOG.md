@@ -26,6 +26,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Changed
 - Increase the scrolling speed of app bar subtitles.
+- Move chapter-list scroll actions into the overflow menu and add scrolling to the next unread chapter in the displayed list.
 
 ### Fixed
 - Reuse matching categories when restoring backups, preserve their local settings, and avoid duplicate categories or novel-category links.
