@@ -9,7 +9,11 @@ import eu.kanade.tachiyomi.source.awaitInitialized
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -39,35 +43,39 @@ class ChapterLoader(
      * is already loaded.
      */
     suspend fun loadChapter(chapter: ReaderChapter, forceFromSource: Boolean = false) {
-        if (!forceFromSource && chapterIsReady(chapter)) {
-            return
-        }
-
-        chapter.state = ReaderChapter.State.Loading
-        withIOContext {
-            logcat { "Loading pages for ${chapter.chapter.name}${if (forceFromSource) " (from source)" else ""}" }
-            try {
+        currentCoroutineContext().ensureActive()
+        if (!forceFromSource && chapterIsReady(chapter)) return
+        val generation = chapter.beginPageLoad()
+        try {
+            withIOContext {
+                logcat { "Loading pages for ${chapter.chapter.name}${if (forceFromSource) " (from source)" else ""}" }
                 val loader = getPageLoader(chapter, forceFromSource)
-                chapter.pageLoader = loader
-
-                val pages = loader.getPages()
-                    .onEach { it.chapter = chapter }
-
-                if (pages.isEmpty()) {
-                    throw Exception(context.stringResource(MR.strings.page_list_empty_error))
+                if (!currentCoroutineContext().isActive) {
+                    loader.recycle()
+                    currentCoroutineContext().ensureActive()
                 }
-
-                // If the chapter is partially read, set the starting page to the last the user read
-                // otherwise use the requested page.
-                if (!chapter.chapter.read) {
-                    chapter.requestedPage = chapter.chapter.last_page_read
+                if (!chapter.attachPageLoader(generation, loader)) {
+                    loader.recycle()
+                    throw CancellationException("Chapter load superseded")
                 }
-
-                chapter.state = ReaderChapter.State.Loaded(pages)
-            } catch (e: Throwable) {
-                chapter.state = ReaderChapter.State.Error(e)
-                throw e
+                chapter.withPageLoader(loader) {
+                    val pages = loader.getPages()
+                    currentCoroutineContext().ensureActive()
+                    pages.onEach { it.chapter = chapter }
+                    if (pages.isEmpty()) throw Exception(context.stringResource(MR.strings.page_list_empty_error))
+                    if (!chapter.completePageLoad(generation, loader, pages)) {
+                        throw CancellationException("Chapter load superseded")
+                    }
+                }
             }
+        } catch (error: Throwable) {
+            val context = currentCoroutineContext()
+            val owned = chapter.failPageLoad(generation, error, cancelled = !context.isActive)
+            context.ensureActive()
+            if (!owned && error !is CancellationException) {
+                throw CancellationException("Chapter load superseded").apply { initCause(error) }
+            }
+            throw error
         }
     }
 

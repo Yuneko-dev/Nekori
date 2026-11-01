@@ -1540,4 +1540,7 @@
     <string name="novel_database_cleanup_failed">Không dọn được cơ sở dữ liệu</string>
     <string name="snippet_active_count">Đang áp dụng %1$d đoạn mã</string>
     <string name="content_delete_selected">Xóa %d mục đã chọn?</string>
+    <string name="error_cant_edit_error_page">Không thể chỉnh sửa trang báo lỗi</string>
+    <string name="error_cant_edit_while_loading">Không thể chỉnh sửa khi chương đang tải</string>
+    <string name="error_cant_edit_no_chapter">Không có nội dung chương để chỉnh sửa</string>
 </resources>

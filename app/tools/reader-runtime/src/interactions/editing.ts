@@ -6,6 +6,8 @@ const EDITABLE_ATTR = 'data-nekori-editable';
 export function registerEditingCommands(host: ReaderHost): Unsubscribe[] {
   const document = host.root.ownerDocument;
   const snapshots = new Map<string, string>();
+  const chapters = (): HTMLElement[] => Array.from(host.root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME))
+    .filter(chapter => host.config.chapters.some(item => item.id === chapter.getAttribute(CHAPTER_ID_ATTR)));
   let inputListener: (() => void) | null = null;
   const disable = (): void => {
     if (inputListener) document.removeEventListener('input', inputListener);
@@ -17,53 +19,44 @@ export function registerEditingCommands(host: ReaderHost): Unsubscribe[] {
     });
     document.getElementById('nekori-edit-mode-style')?.remove();
   };
-  const enter = (): void => {
+  const enter = (): boolean => {
+    const targets = chapters();
+    if (host.config.mode !== 'reader' || targets.length === 0) {
+      disable();
+      snapshots.clear();
+      return false;
+    }
     document.designMode = 'off';
-    snapshots.clear();
-    const chapters = Array.from(host.root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME));
-    for (const chapter of chapters) {
+    for (const chapter of targets) {
       const id = chapter.getAttribute(CHAPTER_ID_ATTR);
-      if (id !== null) snapshots.set(id, chapter.innerHTML);
+      if (id !== null && !snapshots.has(id)) snapshots.set(id, chapter.innerHTML);
       chapter.setAttribute('contenteditable', 'true');
       chapter.setAttribute(EDITABLE_ATTR, '1');
       chapter.setAttribute('tabindex', '0');
-    }
-    if (chapters.length === 0) {
-      const fallback = document.getElementById('nekori-reader');
-      if (!fallback) return;
-      snapshots.set(host.chapter.id, fallback.innerHTML);
-      fallback.setAttribute('contenteditable', 'true');
-      fallback.setAttribute(EDITABLE_ATTR, '1');
-      fallback.setAttribute('tabindex', '0');
     }
     installEditStyles(document);
     if (!inputListener) {
       inputListener = () => host.emit('edit.changed', {});
       document.addEventListener('input', inputListener);
     }
+    return true;
   };
   const saveAndExit = (): void => {
-    const contents = Array.from(host.root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME)).map((chapter) => ({
+    const contents = chapters().map((chapter) => ({
       id: chapter.getAttribute(CHAPTER_ID_ATTR) ?? '',
       content: chapter.innerHTML,
     }));
-    if (contents.length === 0) {
-      const chapter = document.getElementById('nekori-reader');
-      if (chapter) contents.push({ id: host.chapter.id, content: chapter.innerHTML });
+    if (host.config.mode === 'reader' && snapshots.size > 0 && contents.length > 0) {
+      host.emit('edit.save', { content: JSON.stringify(contents) });
     }
-    host.emit('edit.save', { content: JSON.stringify(contents) });
     disable();
     snapshots.clear();
   };
   const discard = (): void => {
     for (const [id, html] of snapshots) {
-      const chapter = Array.from(host.root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME))
+      const chapter = chapters()
         .find((item) => item.getAttribute(CHAPTER_ID_ATTR) === id);
       if (chapter) chapter.innerHTML = html;
-      else if (id === host.chapter.id) {
-        const fallback = document.getElementById('nekori-reader');
-        if (fallback) fallback.innerHTML = html;
-      }
     }
     disable();
     snapshots.clear();

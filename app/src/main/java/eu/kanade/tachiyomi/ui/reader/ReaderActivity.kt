@@ -1174,6 +1174,12 @@ class ReaderActivity : BaseActivity() {
             var showBottomBarEditor by remember { mutableStateOf(false) }
             var showEditSaveDialog by remember { mutableStateOf(false) }
             var isEditing by remember { mutableStateOf(false) }
+            LaunchedEffect(novelViewer) {
+                novelViewer.editModeEnded.collect {
+                    isEditing = false
+                    showEditSaveDialog = false
+                }
+            }
 
             NovelReaderAppBars(
                 visible = state.menuVisible,
@@ -1317,8 +1323,7 @@ class ReaderActivity : BaseActivity() {
                             novelViewer.toggleEditMode(isEditing = false, save = false)
                         }
                     } else {
-                        isEditing = true
-                        novelViewer.toggleEditMode(true)
+                        isEditing = novelViewer.toggleEditMode(true)
                     }
                 },
 

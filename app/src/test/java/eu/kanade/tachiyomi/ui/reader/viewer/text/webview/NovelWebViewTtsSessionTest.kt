@@ -70,7 +70,10 @@ class NovelWebViewTtsSessionTest {
             val next = ReaderChapter(mockk<Chapter> { every { id } returns 11L })
             val page = ReaderPage(0, text = "<p>Chapter eleven</p>").apply { chapter = next }
             next.state = ReaderChapter.State.Loaded(listOf(page))
-            next.pageLoader = mockk()
+            next.pageLoader = object : PageLoader() {
+                override var isLocal = true
+                override suspend fun getPages() = listOf(page)
+            }
             coEvery { viewModel.prepareNextChapterForInfiniteScroll(anchor) } returns next
 
             val viewer = mockk<NovelWebViewViewer>(relaxed = true)

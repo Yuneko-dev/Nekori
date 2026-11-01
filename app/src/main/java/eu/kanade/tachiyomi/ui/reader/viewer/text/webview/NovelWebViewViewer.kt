@@ -95,6 +95,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -291,6 +292,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     var isDestroyed = false
         private set
     private var isEditingMode = false
+    private var editRequestGeneration = 0L
+    private var loadedDocumentHasChapter = false
+    val editModeEnded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var activeFindQuery = ""
 
     private var isAutoScrolling = false
@@ -797,10 +801,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     assetLoader.intercept(url)?.let { return it }
                     styler.interceptFont(url)?.let { return it }
                     styler.interceptBackground(url)?.let { return it }
-                    val fallbackChapterId =
-                        currentPage?.chapter?.chapter?.id ?: currentChapters?.currChapter?.chapter?.id
-                    val fallbackLoader = activity.viewModel.state.value.viewerChapters?.currChapter?.pageLoader
-                    imageCache.intercept(url, fallbackChapterId, fallbackLoader)?.let { return it }
+                    val fallbackChapter = activity.viewModel.state.value.viewerChapters?.currChapter
+                    val fallbackChapterId = currentPage?.chapter?.chapter?.id ?: fallbackChapter?.chapter?.id
+                    val fallbackLoader = fallbackChapter?.pageLoader
+                    imageCache.intercept(url, fallbackChapterId, fallbackLoader, fallbackChapter)?.let { return it }
                     if (preferences.novelWebViewNetworkMode.get() == NovelWebViewNetworkMode.NETWORK_HELPER) {
                         interceptNetworkRequest(request)?.let { return it }
                     }
@@ -1066,7 +1070,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 "reader.error" -> payload.string("message")?.let { message ->
                     if (webChapterContentReady) inlineFeedback.showInlineError(message) else activity.toast(message)
                 }
-                "edit.changed" -> activity.viewModel.setHasUnsavedChanges(true)
+                "edit.changed" -> if (isEditingMode) activity.viewModel.setHasUnsavedChanges(true)
                 "edit.save" -> payload.string("content")
                     ?.takeIf(::isAllowedEditPayload)
                     ?.let(activity.viewModel::saveEditedChapterContent)
@@ -1272,8 +1276,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun retryCurrentChapter() {
         if (isDestroyed || !webChapterIsError) return
-        showLoadingIndicator()
-        activity.viewModel.reloadChapter(fromSource = true)
+        val page = activity.viewModel.state.value.viewerChapters?.currChapter?.pages?.firstOrNull()
+        if (activity.viewModel.reloadChapter(fromSource = shouldRetryFromSource(page))) showLoadingIndicator()
     }
 
     private fun copyToClipboard(text: String) {
@@ -1827,7 +1831,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 language = contentLanguage,
             )
         }
-        imageCache.schedulePrefetch(prepared.processed.text, chapter.chapter.id, page.chapter.pageLoader)
+        imageCache.schedulePrefetch(prepared.processed.text, chapter.chapter.id, page.chapter.pageLoader, page.chapter)
         return prepared
     }
 
@@ -1884,6 +1888,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         direction: NovelContentDirection = NovelContentDirection.LTR,
         language: String = "",
     ) {
+        beginDocumentTransition(chapter != null)
         activity.closeFindInPage(this)
         inlineFeedback.clear()
         nextLoadRequiresManualRetry = false
@@ -2538,6 +2543,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun showLoadingIndicator(message: String = activity.stringResource(MR.strings.loading)) {
+        beginDocumentTransition(false)
         activity.closeFindInPage(this)
         readerBridge.endDocument()
         pendingErrorFeedback = null
@@ -2562,6 +2568,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun displayError(error: Throwable) {
+        beginDocumentTransition(false)
         activity.closeFindInPage(this)
         inlineFeedback.clear()
         pagedController.disable()
@@ -2702,58 +2709,107 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         return false
     }
 
-    fun toggleEditMode(isEditing: Boolean, save: Boolean = true) {
-        if (!isEditing && !save) {
-            this.isEditingMode = false
-            executeReaderCommand(readerCommand("edit.discard"))
-            executeReaderCommand(NovelWebViewReadingCommands.blurSelection())
-            webView.clearFocus()
-            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-            activity.viewModel.reloadChapter(fromSource = false)
-            return
-        }
+    private fun beginDocumentTransition(hasChapter: Boolean) {
+        endEditingForDocumentChange()
+        docState = DocState.LOADING
+        loadedDocumentHasChapter = hasChapter
+    }
 
-        if (isEditing) styler.setBionicReading(false)
-        this.isEditingMode = isEditing
-        executeReaderCommand(readerCommand(if (isEditing) "edit.enter" else "edit.exit"))
-        patchReaderState(buildJsonObject { put("editing", isEditing) })
-        updateChapterMetaJs()
-        if (isEditing) styler.injectReaderUi()
+    private fun hideEditKeyboard() {
+        webView.clearFocus()
+        val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+    }
 
+    private fun endEditingForDocumentChange() {
+        ++editRequestGeneration
+        activity.viewModel.setHasUnsavedChanges(false)
+        if (!isEditingMode) return
+        isEditingMode = false
+        ++scrollRestoreToken
+        isRestoringScroll = false
+        executeReaderCommand(readerCommand("edit.discard"))
+        patchReaderState(buildJsonObject { put("editing", false) })
+        hideEditKeyboard()
+        editModeEnded.tryEmit(Unit)
+    }
+
+    private fun isCurrentEdit(request: Long, documentId: String?): Boolean =
+        !isDestroyed && isEditingMode && editRequestGeneration == request && readerBridge.documentId == documentId
+
+    fun toggleEditMode(isEditing: Boolean, save: Boolean = true): Boolean {
         if (isEditing) {
-            val restoreRatio = lastSavedProgress
-            isRestoringScroll = true
-            val token = ++scrollRestoreToken
-            webView.post {
-                activity.window.decorView.clearFocus()
-                webView.requestFocus()
-                webView.requestFocusFromTouch()
-                val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                imm?.showSoftInput(webView, 0)
-                webView.postDelayed({ imm?.showSoftInput(webView, 0) }, 120)
+            val reason = novelEditBlockedReason(
+                isError = docState == DocState.ERROR,
+                isReady = docState == DocState.READY,
+                hasChapter = loadedDocumentHasChapter,
+            )
+            if (reason != null) {
+                activity.toast(activity.stringResource(reason))
+                return false
             }
-            webView.postDelayed({
-                if (token != scrollRestoreToken) return@postDelayed
-                executeReaderCommand(
-                    readerCommand(
-                        "scroll.seekVertical",
-                        buildJsonObject {
-                            put("percent", (restoreRatio * 100).toInt().coerceIn(0, 100))
-                        },
-                    ),
-                )
-                liftRestoreGuard(token)
-            }, 220)
-        } else {
-            isRestoringScroll = true
-            val token = ++scrollRestoreToken
-            executeReaderCommand(NovelWebViewReadingCommands.blurSelection())
-            webView.clearFocus()
-            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-            liftRestoreGuard(token)
+            val request = ++editRequestGeneration
+            val documentId = readerBridge.documentId
+            isEditingMode = true
+            executeReaderCommand(readerCommand("edit.enter")) { result ->
+                if (!isCurrentEdit(request, documentId)) return@executeReaderCommand
+                if (result != "true") {
+                    endEditingForDocumentChange()
+                    if (result ==
+                        "false"
+                    ) {
+                        activity.toast(activity.stringResource(TDMR.strings.error_cant_edit_no_chapter))
+                    }
+                    return@executeReaderCommand
+                }
+                styler.setBionicReading(false)
+                patchReaderState(buildJsonObject { put("editing", true) })
+                updateChapterMetaJs()
+                styler.injectReaderUi()
+                showEditKeyboard(request, documentId)
+            }
+            return isEditingMode
         }
+        ++editRequestGeneration
+        isEditingMode = false
+        activity.viewModel.setHasUnsavedChanges(false)
+        executeReaderCommand(readerCommand(if (save) "edit.exit" else "edit.discard"))
+        patchReaderState(buildJsonObject { put("editing", false) })
+        updateChapterMetaJs()
+        executeReaderCommand(NovelWebViewReadingCommands.blurSelection())
+        hideEditKeyboard()
+        styler.setBionicReading(preferences.novelBionicReading.get())
+        if (!save) activity.viewModel.reloadChapter(fromSource = false)
+        return true
+    }
+
+    private fun showEditKeyboard(request: Long, documentId: String?) {
+        val restoreRatio = lastSavedProgress
+        isRestoringScroll = true
+        val token = ++scrollRestoreToken
+        webView.post {
+            if (!isCurrentEdit(request, documentId)) return@post
+            activity.window.decorView.clearFocus()
+            webView.requestFocus()
+            webView.requestFocusFromTouch()
+            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(webView, 0)
+            webView.postDelayed({
+                if (isCurrentEdit(request, documentId)) imm?.showSoftInput(webView, 0)
+            }, 120)
+        }
+        webView.postDelayed({
+            if (token != scrollRestoreToken || !isCurrentEdit(request, documentId)) return@postDelayed
+            executeReaderCommand(
+                readerCommand(
+                    "scroll.seekVertical",
+                    buildJsonObject {
+                        put("percent", (restoreRatio * 100).toInt().coerceIn(0, 100))
+                    },
+                ),
+            )
+            liftRestoreGuard(token)
+        }, 220)
     }
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 

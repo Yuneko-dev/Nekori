@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import android.webkit.WebResourceResponse
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -31,9 +32,23 @@ internal class NovelWebViewImageCache(
     private val prefetchPermits = Semaphore(3)
     private val prefetchJobs = ConcurrentHashMap<String, Job>()
     private val foregroundLocks = ConcurrentHashMap<String, ReentrantLock>()
-    private val chapterLoaderMap = ConcurrentHashMap<Long, PageLoader>()
+    private class AssetSource(val loader: PageLoader, val chapter: ReaderChapter?) {
+        suspend fun open(path: String) = if (chapter ==
+            null
+        ) {
+            loader.getPageDataStream(path)
+        } else {
+            chapter.openPageDataStream(loader, path)
+        }
+    }
+    private val chapterLoaderMap = ConcurrentHashMap<Long, AssetSource>()
 
-    fun intercept(url: String, fallbackChapterId: Long?, fallbackLoader: PageLoader?): WebResourceResponse? {
+    fun intercept(
+        url: String,
+        fallbackChapterId: Long?,
+        fallbackLoader: PageLoader?,
+        fallbackChapter: ReaderChapter? = null,
+    ): WebResourceResponse? {
         if (!url.startsWith(URL_SCHEME_NOVEL_IMAGE)) return null
         val encodedSuffix = url.removePrefix(URL_SCHEME_NOVEL_IMAGE)
 
@@ -54,11 +69,11 @@ internal class NovelWebViewImageCache(
         }
         val imagePath = runCatching { URLDecoder.decode(encodedImagePath, "UTF-8") }.getOrNull() ?: return null
 
-        val loader = chapterId?.let { chapterLoaderMap[it] } ?: fallbackLoader
+        val source = chapterId?.let { chapterLoaderMap[it] } ?: fallbackLoader?.let { AssetSource(it, fallbackChapter) }
         val cacheKey = buildCacheKey(chapterId, imagePath)
         return foregroundLocks.computeIfAbsent(cacheKey) { ReentrantLock() }.withLock {
             files.open(cacheKey)?.let { return@withLock WebResourceResponse(guessMimeType(imagePath), "UTF-8", it) }
-            if (loader == null) return@withLock null
+            if (source == null) return@withLock null
             val owner = Any()
             synchronized(lock) {
                 prefetchJobs.remove(cacheKey)?.cancel()
@@ -66,7 +81,7 @@ internal class NovelWebViewImageCache(
             }
             try {
                 runBlocking {
-                    loader.getPageDataStream(imagePath)?.use { input ->
+                    source.open(imagePath)?.use { input ->
                         files.write(cacheKey, owner, imagePath, input) { true }
                     }
                 }
@@ -80,9 +95,10 @@ internal class NovelWebViewImageCache(
         }
     }
 
-    fun schedulePrefetch(content: String, chapterId: Long?, loader: PageLoader?) {
+    fun schedulePrefetch(content: String, chapterId: Long?, loader: PageLoader?, chapter: ReaderChapter? = null) {
         if (chapterId == null || loader == null || !scope.isActive) return
-        chapterLoaderMap[chapterId] = loader
+        val source = AssetSource(loader, chapter)
+        chapterLoaderMap[chapterId] = source
         IMAGE_URL_PATTERN.findAll(content)
             .map { it.groupValues[1] }
             .distinct()
@@ -96,7 +112,7 @@ internal class NovelWebViewImageCache(
                     }
                 val imagePath = runCatching { URLDecoder.decode(encodedImagePath, "UTF-8") }.getOrNull()
                     ?: return@forEach
-                prefetch(chapterId, imagePath, loader)
+                prefetch(chapterId, imagePath, source)
             }
     }
 
@@ -107,7 +123,7 @@ internal class NovelWebViewImageCache(
         chapterLoaderMap.clear()
     }
 
-    private fun prefetch(chapterId: Long, imagePath: String, loader: PageLoader) {
+    private fun prefetch(chapterId: Long, imagePath: String, source: AssetSource) {
         val cacheKey = buildCacheKey(chapterId, imagePath)
         val owner = Any()
         lateinit var job: Job
@@ -115,7 +131,7 @@ internal class NovelWebViewImageCache(
             try {
                 prefetchPermits.withPermit {
                     if (!isActive) return@withPermit
-                    loader.getPageDataStream(imagePath)?.use { input ->
+                    source.open(imagePath)?.use { input ->
                         files.write(cacheKey, owner, imagePath, input) { isActive }
                     }
                 }

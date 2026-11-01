@@ -40,7 +40,7 @@ internal class ArchivePageLoader(private val reader: ArchiveReader) : PageLoader
     }
 
     override suspend fun getPageDataStream(url: String): java.io.InputStream? {
-        return reader.getInputStream(url)?.readBytes()?.let { java.io.ByteArrayInputStream(it) }
+        return reader.getInputStream(url)?.use { it.readBytes() }?.let { java.io.ByteArrayInputStream(it) }
     }
 
     override suspend fun loadPage(page: ReaderPage) {

@@ -1544,4 +1544,7 @@
     <string name="novel_database_cleanup_failed">Could not clear database</string>
     <string name="snippet_active_count">Applying %1$d snippets</string>
     <string name="content_delete_selected">Delete %d selected items?</string>
+    <string name="error_cant_edit_error_page">Can\'t edit an error page</string>
+    <string name="error_cant_edit_while_loading">Can\'t edit while the chapter is loading</string>
+    <string name="error_cant_edit_no_chapter">Nothing to edit in this chapter</string>
 </resources>
