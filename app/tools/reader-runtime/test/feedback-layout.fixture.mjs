@@ -105,6 +105,8 @@ export async function mountProductionReader(page, entry, css, config, boundaryCh
     </main></body></html>`);
   await page.addScriptTag({ content: entry });
   await page.waitForFunction(() => window.__nativeMessages.some((message) => message.kind === 'ready'));
+  // Protocol readiness precedes the animation frame that measures the initial paged layout.
+  if (config.layout.enabled) await page.waitForFunction(() => Boolean(window.nekori?.layout?.position));
 }
 
 export async function sendNativeCommand(page, requestId, method, payload = {}) {

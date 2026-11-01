@@ -23,6 +23,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 
 ### Fixed
+- Recount paged-reader layouts when existing chapter text nodes change.
+- Keep a delayed layout refresh from undoing page turns or anchor navigation after showing reader feedback.
 - Prevent checkpoint chapters from saving reading progress or being automatically marked as read.
 - Align the statistics time bar for novels outside the library with the other novel rows.
 

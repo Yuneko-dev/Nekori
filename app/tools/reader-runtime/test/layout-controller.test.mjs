@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLayout } from '../src/layout/index.ts';
+import { observeLayout } from '../src/layout/observers.ts';
 
 class Observer {
   observe() {}
@@ -106,4 +107,59 @@ test('a pending reflow preserves an anchor reveal before the scroll publisher ru
   flushFrames();
 
   assert.equal(root.scrollLeft, 200);
+});
+
+test('an explicit page turn supersedes a pending feedback viewport restore', () => {
+  const { root, layout, flushFrames } = layoutFixture();
+  layout.configure({ enabled: true, spread: 'single', direction: 'ltr', vertical: false, infinite: false, threshold: 0.8, chapterId: 'chapter-4' });
+  flushFrames();
+  layout.seekUnit(1);
+  layout.reflow(true);
+  assert.equal(layout.moveBy(1), true);
+  assert.equal(root.scrollLeft, 200);
+  flushFrames();
+  assert.equal(root.scrollLeft, 200, 'delayed feedback reflow must keep the newly requested page');
+});
+
+test('an anchor reveal supersedes a pending feedback viewport restore', () => {
+  const { root, layout, flushFrames } = layoutFixture();
+  layout.configure({ enabled: true, spread: 'single', direction: 'ltr', vertical: false, infinite: false, threshold: 0.8, chapterId: 'chapter-5' });
+  flushFrames();
+  layout.seekUnit(1);
+  layout.reflow(true);
+  assert.equal(layout.revealElement({ getBoundingClientRect: () => ({ left: 100, right: 150, top: 0, bottom: 20 }) }), true);
+  assert.equal(root.scrollLeft, 200);
+  flushFrames();
+  assert.equal(root.scrollLeft, 200, 'delayed feedback reflow must keep the revealed anchor page');
+});
+
+test('layout observes characterData edits even when no element is resized', () => {
+  let mutationCallback;
+  let observation;
+  let reflows = 0;
+  const document = {
+    defaultView: {
+      ResizeObserver: Observer,
+      MutationObserver: class extends Observer {
+        constructor(callback) { super(); mutationCallback = callback; }
+        observe(target, options) { observation = { target, options }; }
+      },
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const root = { ownerDocument: document };
+  const observers = observeLayout(root, () => { reflows++; });
+  try {
+    // A text-node edit has no added/removed nodes and does not imply a resize event.
+    mutationCallback([{
+      type: 'characterData', target: { nodeType: 3 }, addedNodes: [], removedNodes: [],
+    }]);
+    assert.equal(reflows, 1, 'text changes must schedule reflow independently of ResizeObserver');
+    assert.equal(observation.target, root);
+    assert.equal(observation.options.characterData, true);
+    assert.equal(observation.options.subtree, true);
+  } finally {
+    observers.dispose();
+  }
 });

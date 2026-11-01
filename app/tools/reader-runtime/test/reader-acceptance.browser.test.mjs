@@ -185,6 +185,57 @@ browserTest(test, 'compiled reader boots after source HTML and accepts a native 
   }
 });
 
+browserTest(test, 'paged layout keeps existing text-node edits navigable in chapter wrappers', async (t) => {
+  const entry = await bundle('test/acceptance/reader-browser-entry.ts');
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    for (const vertical of [false, true]) {
+      await t.test(vertical ? 'vertical RTL' : 'horizontal LTR', async () => {
+        const page = await browser.newPage({ viewport: { width: 384, height: 832 } });
+        try {
+          await mountModuleReader(page, entry, `<main id="reader" class="nekori-reader">
+            <nekori-chapter class="nekori-chapter" data-nekori-chapter-id="1">
+              <p id="edited">${'Text 中文 Tiếng Việt '.repeat(200)}</p>
+            </nekori-chapter>
+          </main>`, config({ layout: {
+            enabled: true, spread: 'single', direction: vertical ? 'rtl' : 'ltr', vertical,
+            infinite: false, threshold: 0.8, chapterId: '1',
+          } }));
+          await page.waitForFunction(() => Boolean(window.acceptanceHarness.layout?.position));
+          await page.evaluate(async () => {
+            await document.fonts.ready;
+            for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame);
+          });
+          const initialPages = await page.evaluate(() => window.acceptanceHarness.layout.position.totalPages);
+          // This covers the supported chapter DOM; the observer unit test isolates characterData.
+          await page.evaluate(() => {
+            document.querySelector('#edited').firstChild.data = 'Text 中文 Tiếng Việt '.repeat(2000);
+          });
+          await page.waitForFunction((previous) => window.acceptanceHarness.layout.position.totalPages > previous,
+            initialPages, { timeout: 2000 });
+          assert.equal(await page.evaluate(() => window.acceptanceHarness.layout.position.chapterId), '1');
+          await page.evaluate(() => window.acceptanceHarness.layout.seekPercent(100));
+          const end = await page.locator('#edited').evaluate((element) => {
+            const node = element.firstChild;
+            const range = document.createRange();
+            range.setStart(node, node.length - 5);
+            range.setEnd(node, node.length);
+            return range.getBoundingClientRect().toJSON();
+          });
+          assert.ok(end.right > 0 && end.left < 384 && end.bottom > 0 && end.top < 832, JSON.stringify(end));
+          await page.evaluate(() => { document.querySelector('#edited').firstChild.data = 'Short again.'; });
+          await page.waitForFunction(() => window.acceptanceHarness.layout.position.totalPages === 1);
+          assert.equal(await page.evaluate(() => window.acceptanceHarness.layout.position.chapterId), '1');
+        } finally {
+          await page.close();
+        }
+      });
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 browserTest(test, 'vertical multilingual pagination uses real CSS, one-column turns, and chapter-local reflow', async () => {
   const entry = await bundle('test/acceptance/reader-browser-entry.ts');
   const css = await readerCss();
@@ -588,6 +639,8 @@ browserTest(test, 'TTS dock drags, restores, cancels, taps, clamps, and tolerate
     }));
     assert.deepEqual(dock, { left: '20px', transform: 'translateX(0px)', top: '120px' });
     await page.setViewportSize({ width: 400, height: 180 });
+    // Chromium dispatches resize asynchronously after updating the viewport.
+    await page.waitForFunction(() => document.querySelector('#nekori-tts-controller').style.top === '90px');
     assert.equal(await page.locator('#nekori-tts-controller').evaluate((element) => element.style.top), '90px');
 
     await page.evaluate((value) => {

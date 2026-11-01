@@ -44,6 +44,8 @@ export function createLayoutCommands(options: LayoutCommandOptions): LayoutComma
     const config = getConfig();
     const chapter = chapterForLeaf(getPageMap(), leaf);
     if (!chapter) return;
+    // A requested destination supersedes a delayed feedback-card viewport restore.
+    if (!transitions.silent && transitions.restore?.unitIndex !== undefined) transitions.restore = null;
     const localLeaf = Math.min(Math.max(leaf - chapter.startLeaf, 0), chapter.leafCount - 1);
     const localUnit = Math.floor(localLeaf / perUnit());
     onProgress(progressForUnit(localUnit, unitCount(chapter.leafCount, config.spread)));

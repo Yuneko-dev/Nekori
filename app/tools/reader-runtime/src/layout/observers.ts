@@ -12,7 +12,7 @@ export function observeLayout(root: HTMLElement, scheduleReflow: () => void): La
   const resizeObserver = view.ResizeObserver ? new view.ResizeObserver(scheduleReflow) : null;
   const mutationObserver = view.MutationObserver
     ? new view.MutationObserver((mutations) => {
-        const external = mutations.some((mutation) =>
+        const external = mutations.some((mutation) => mutation.type === 'characterData' ||
           [...mutation.addedNodes, ...mutation.removedNodes].some((node) =>
             node.nodeType !== 1 || !(node as Element).classList.contains('nekori-layout-blank-leaf'),
           ),
@@ -24,7 +24,7 @@ export function observeLayout(root: HTMLElement, scheduleReflow: () => void): La
     if (event.target instanceof view.HTMLImageElement) scheduleReflow();
   };
   const fonts = document.fonts;
-  mutationObserver?.observe(root, { childList: true, subtree: true });
+  mutationObserver?.observe(root, { childList: true, characterData: true, subtree: true });
   document.addEventListener('load', onResourceLoad, true);
   void fonts?.ready.then(scheduleReflow);
   fonts?.addEventListener('loadingdone', scheduleReflow);
