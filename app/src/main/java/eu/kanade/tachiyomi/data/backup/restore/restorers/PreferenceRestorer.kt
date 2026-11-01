@@ -24,6 +24,7 @@ import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.NovelDownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -50,13 +51,14 @@ class PreferenceRestorer(
     suspend fun restoreSource(preferences: List<BackupSourcePreferences>): List<String> =
         preferences.flatMap {
             val sourcePrefs = AndroidPreferenceStore(context, sourcePreferences(it.sourceKey))
-            restorePreferences(it.prefs, sourcePrefs)
+            restorePreferences(it.prefs, sourcePrefs, isAppPreferences = false)
         }
 
     internal suspend fun restorePreferences(
         toRestore: List<BackupPreference>,
         preferenceStore: PreferenceStore,
         backupCategories: List<BackupCategory>? = null,
+        isAppPreferences: Boolean = true,
     ): List<String> {
         val originalContent = synchronized(ContentPreferencesLock) {
             preferenceStore.getAll().filterKeys { it in NovelContentPreferences.collectionKeys }
@@ -107,7 +109,9 @@ class PreferenceRestorer(
                         }
                     }
                     is StringPreferenceValue -> {
-                        if (prefs[key] is String?) {
+                        val keepsSavedSecret = isAppPreferences && TranslationPreferences.isSecretKey(key) &&
+                            value.value.isBlank() && !(prefs[key] as? String).isNullOrBlank()
+                        if (prefs[key] is String? && !keepsSavedSecret) {
                             preferenceStore.getString(key).set(value.value)
                         }
                     }

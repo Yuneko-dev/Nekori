@@ -85,6 +85,8 @@ what the app does, not what this fork added. For the fork's own changes, see
 * Categories, light and dark themes, and scheduled library updates.
 * Read-ahead chapter downloads for offline reading.
 * Novel-only backup and restore, plus LNReader backup import.
+  AI provider definitions (including custom headers and endpoints) require **Include sensitive settings** in
+  backups and sync. Dedicated API keys are private too; task provider references still travel with app settings.
 * WebDAV and Google Drive sync for library progress and selected settings.
 * Reading statistics: session tracking, publication status and storage breakdowns, and a reading heatmap.
 * Discord Rich Presence.

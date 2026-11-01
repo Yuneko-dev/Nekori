@@ -39,10 +39,10 @@ class TranslationPreferences(
 
     fun chapterSummaryGuidelinesId() = preferenceStore.getString("chapter_summary_ai_guidelines", "")
 
-    fun aiProvidersJson() = preferenceStore.getString("translation_ai_providers", "[]")
+    fun aiProvidersJson() = preferenceStore.getString(PROVIDERS_KEY, "[]")
 
     fun aiProviderApiKey(providerId: String) = preferenceStore.getString(
-        Preference.privateKey("translation_ai_provider_key_$providerId"),
+        Preference.privateKey("$PROVIDER_KEY_PREFIX$providerId"),
         "",
     )
 
@@ -134,7 +134,7 @@ class TranslationPreferences(
      * LibreTranslate server URL.
      */
     fun libreTranslateUrl() = preferenceStore.getString(
-        "translation_libretranslate_url",
+        LIBRETRANSLATE_URL,
         "https://libretranslate.com/translate",
     )
 
@@ -142,7 +142,7 @@ class TranslationPreferences(
      * LibreTranslate API key (optional).
      */
     fun libreTranslateApiKey() = preferenceStore.getString(
-        Preference.privateKey("translation_libretranslate_api_key"),
+        Preference.privateKey(LIBRETRANSLATE_KEY),
         "",
     )
 
@@ -150,7 +150,7 @@ class TranslationPreferences(
      * DeepL API key.
      */
     fun deepLApiKey() = preferenceStore.getString(
-        Preference.privateKey("translation_deepl_api_key"),
+        Preference.privateKey(DEEPL_KEY),
         "",
     )
 
@@ -158,7 +158,7 @@ class TranslationPreferences(
      * Google Cloud Translation API key.
      */
     fun googleApiKey() = preferenceStore.getString(
-        Preference.privateKey("translation_google_api_key"),
+        Preference.privateKey(GOOGLE_KEY),
         "",
     )
 
@@ -259,4 +259,26 @@ class TranslationPreferences(
         "translation_contextual_anchoring_paragraphs",
         2,
     )
+
+    companion object {
+        private const val PROVIDERS_KEY = "translation_ai_providers"
+        private const val PROVIDER_KEY_PREFIX = "translation_ai_provider_key_"
+        private const val LIBRETRANSLATE_URL = "translation_libretranslate_url"
+        private const val LIBRETRANSLATE_KEY = "translation_libretranslate_api_key"
+        private const val DEEPL_KEY = "translation_deepl_api_key"
+        private const val GOOGLE_KEY = "translation_google_api_key"
+
+        // Plain legacy keys can survive a restore; provider definitions may contain auth headers or token URLs.
+        private val secretKeys = setOf(
+            PROVIDERS_KEY, LIBRETRANSLATE_URL, LIBRETRANSLATE_KEY, DEEPL_KEY, GOOGLE_KEY,
+            "translation_openai_api_key", "translation_nvidia_nim_base_url", "translation_nvidia_nim_api_key",
+            "translation_deepseek_api_key", "translation_systran_api_key", "translation_ollama_url",
+            "translation_custom_http_url", "translation_custom_http_api_key", "translation_custom_http_headers",
+            "translation_custom_http_request_template", "translation_gemini_api_key",
+        )
+
+        fun isSecretKey(key: String): Boolean =
+            key.removePrefix(Preference.privateKey("")) in secretKeys ||
+                key.startsWith(Preference.privateKey(PROVIDER_KEY_PREFIX))
+    }
 }
