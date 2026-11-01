@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text.webview
 
 import android.webkit.WebResourceResponse
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -9,20 +10,27 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import logcat.logcat
 import mihon.core.archive.NOVEL_IMAGE_SCHEME
 import java.io.File
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 internal class NovelWebViewImageCache(
-    private val cacheDir: File,
+    cacheDir: File,
     private val scope: CoroutineScope,
 ) {
 
-    private val cache = ConcurrentHashMap<String, File>()
+    private val lock = Any()
+    private val files = NovelImageCacheFiles(cacheDir, lock)
+    private val prefetchPermits = Semaphore(3)
     private val prefetchJobs = ConcurrentHashMap<String, Job>()
+    private val foregroundLocks = ConcurrentHashMap<String, ReentrantLock>()
     private val chapterLoaderMap = ConcurrentHashMap<Long, PageLoader>()
 
     fun intercept(url: String, fallbackChapterId: Long?, fallbackLoader: PageLoader?): WebResourceResponse? {
@@ -48,36 +56,32 @@ internal class NovelWebViewImageCache(
 
         val loader = chapterId?.let { chapterLoaderMap[it] } ?: fallbackLoader
         val cacheKey = buildCacheKey(chapterId, imagePath)
-        cache[cacheKey]?.takeIf { it.exists() }?.let { cachedFile ->
-            return WebResourceResponse(
-                guessMimeType(imagePath),
-                "UTF-8",
-                cachedFile.inputStream(),
-            )
-        }
-
-        if (loader == null) return null
-        prefetchJobs.remove(cacheKey)?.cancel()
-        return try {
-            val cachedFile = makeCachedFile(cacheKey, imagePath)
-            // Stream source → file (no full-image byte[] held in memory), then serve from the file.
-            val wrote = runBlocking {
-                loader.getPageDataStream(imagePath)?.use { input ->
-                    cachedFile.outputStream().use { output -> input.copyTo(output) }
-                    true
-                } ?: false
+        return foregroundLocks.computeIfAbsent(cacheKey) { ReentrantLock() }.withLock {
+            files.open(cacheKey)?.let { return@withLock WebResourceResponse(guessMimeType(imagePath), "UTF-8", it) }
+            if (loader == null) return@withLock null
+            val owner = Any()
+            synchronized(lock) {
+                prefetchJobs.remove(cacheKey)?.cancel()
+                files.claim(cacheKey, owner)
             }
-            if (!wrote) return null
-            cache[cacheKey] = cachedFile
-            WebResourceResponse(guessMimeType(imagePath), "UTF-8", cachedFile.inputStream())
-        } catch (e: Exception) {
-            logcat(LogPriority.DEBUG) { "NovelWebViewImageCache: sync load $imagePath failed: ${e.message}" }
-            null
+            try {
+                runBlocking {
+                    loader.getPageDataStream(imagePath)?.use { input ->
+                        files.write(cacheKey, owner, imagePath, input) { true }
+                    }
+                }
+                files.open(cacheKey)?.let { WebResourceResponse(guessMimeType(imagePath), "UTF-8", it) }
+            } catch (e: Exception) {
+                logcat(LogPriority.DEBUG) { "NovelWebViewImageCache: sync load $imagePath failed: ${e.message}" }
+                null
+            } finally {
+                files.release(cacheKey, owner)
+            }
         }
     }
 
     fun schedulePrefetch(content: String, chapterId: Long?, loader: PageLoader?) {
-        if (chapterId == null || loader == null) return
+        if (chapterId == null || loader == null || !scope.isActive) return
         chapterLoaderMap[chapterId] = loader
         IMAGE_URL_PATTERN.findAll(content)
             .map { it.groupValues[1] }
@@ -96,55 +100,51 @@ internal class NovelWebViewImageCache(
             }
     }
 
-    fun clear() {
+    fun clear() = synchronized(lock) {
         prefetchJobs.values.forEach { it.cancel() }
         prefetchJobs.clear()
-        cache.values.forEach { runCatching { it.delete() } }
-        cache.clear()
+        files.clear()
         chapterLoaderMap.clear()
     }
 
     private fun prefetch(chapterId: Long, imagePath: String, loader: PageLoader) {
         val cacheKey = buildCacheKey(chapterId, imagePath)
-        if (cache[cacheKey]?.exists() == true) return
-
-        val job = scope.launch(start = CoroutineStart.LAZY, context = Dispatchers.IO) {
+        val owner = Any()
+        lateinit var job: Job
+        job = scope.launch(start = CoroutineStart.LAZY, context = Dispatchers.IO) {
             try {
-                val stream = loader.getPageDataStream(imagePath) ?: return@launch
-                val cachedFile = makeCachedFile(cacheKey, imagePath)
-                stream.use { input ->
-                    cachedFile.outputStream().use { output -> input.copyTo(output) }
+                prefetchPermits.withPermit {
+                    if (!isActive) return@withPermit
+                    loader.getPageDataStream(imagePath)?.use { input ->
+                        files.write(cacheKey, owner, imagePath, input) { isActive }
+                    }
                 }
-                if (isActive) cache[cacheKey] = cachedFile else runCatching { cachedFile.delete() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logcat(LogPriority.DEBUG) { "NovelWebViewImageCache: prefetch $imagePath failed: ${e.message}" }
-            } finally {
-                prefetchJobs.remove(cacheKey)
             }
         }
-
-        if (prefetchJobs.putIfAbsent(cacheKey, job) != null) {
-            job.cancel()
-            return
+        synchronized(lock) {
+            if (!scope.isActive || job.isCancelled || files.contains(cacheKey) || files.isClaimed(cacheKey) ||
+                prefetchJobs.putIfAbsent(cacheKey, job) != null
+            ) {
+                job.cancel()
+                return
+            }
+            files.claim(cacheKey, owner)
+            job.invokeOnCompletion {
+                synchronized(lock) {
+                    prefetchJobs.remove(cacheKey, job)
+                    files.release(cacheKey, owner)
+                }
+            }
         }
         job.start()
     }
 
     private fun buildCacheKey(chapterId: Long?, imagePath: String): String =
         "${chapterId ?: -1L}:$imagePath"
-
-    private fun makeCachedFile(cacheKey: String, imagePath: String): File {
-        // substringAfterLast('.') alone would scan the whole path, not just the filename -- a '.' in
-        // a directory segment (e.g. "v1.2/cover.png") would put a "/" into the suffix and point the
-        // cache file at a nonexistent subdirectory.
-        val fileName = imagePath.substringAfterLast('/')
-        val fileSuffix = fileName.substringAfterLast('.', "bin").ifBlank { "bin" }
-        val keyHash = java.security.MessageDigest.getInstance("SHA-256")
-            .digest(cacheKey.toByteArray())
-            .take(16)
-            .joinToString("") { "%02x".format(it) }
-        return File(cacheDir, "novel-image-$keyHash.$fileSuffix")
-    }
 
     private fun guessMimeType(imagePath: String): String =
         when (imagePath.substringBefore('?').substringAfterLast('.', "").lowercase()) {
