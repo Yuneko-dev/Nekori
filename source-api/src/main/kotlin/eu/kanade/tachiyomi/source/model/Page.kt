@@ -44,6 +44,9 @@ open class Page(
             _statusFlow.value = value
         }
 
+    /** Changes the state only if another page loader has not already moved it forward. */
+    fun tryClaim(from: State, to: State): Boolean = _statusFlow.compareAndSet(from, to)
+
     @Transient
     private val _progressFlow = MutableStateFlow(0)
 

@@ -13,6 +13,8 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runInterruptible
@@ -63,6 +65,8 @@ internal class HttpPageLoader(
     }
 
     override var isLocal: Boolean = false
+
+    override val handlesPageRetries: Boolean = true
 
     /**
      * Returns the page list for a chapter. It tries to return the page list from the local cache,
@@ -126,9 +130,8 @@ internal class HttpPageLoader(
      * Retries a page. This method is only called from user interaction on the viewer.
      */
     override fun retryPage(page: ReaderPage) {
-        if (page.status is Page.State.Error) {
-            page.status = Page.State.Queue
-        }
+        val status = page.status
+        if (status is Page.State.Error) page.tryClaim(status, Page.State.Queue)
         queue.offer(PriorityPage(page, PriorityPage.RETRY))
     }
 
@@ -199,7 +202,9 @@ internal class HttpPageLoader(
 
             if (treatAsNovel) {
                 page.status = Page.State.LoadPage
-                page.chapterContent = source.fetchChapterContent(page)
+                val content = source.fetchChapterContent(page)
+                currentCoroutineContext().ensureActive()
+                page.chapterContent = content
                 page.status = Page.State.Ready
                 return
             }
@@ -218,12 +223,12 @@ internal class HttpPageLoader(
             }
 
             page.stream = { chapterCache.getImageFile(imageUrl).inputStream() }
+            currentCoroutineContext().ensureActive()
             page.status = Page.State.Ready
         } catch (e: Throwable) {
+            // Recycle ends the worker permanently, so re-queuing would strand its waiters.
             page.status = Page.State.Error(e)
-            if (e is CancellationException) {
-                throw e
-            }
+            currentCoroutineContext().ensureActive()
         }
     }
 }

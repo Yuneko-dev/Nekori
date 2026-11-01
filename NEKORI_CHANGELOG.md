@@ -23,6 +23,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 
 ### Fixed
+- Share chapter loads safely between reader callers and let surviving waiters recover when the load owner is canceled.
 - Publish cached reader assets atomically, keep canceled writers from erasing newer images, and limit concurrent image prefetches.
 - Load native lazy chapter images eagerly and sanitize embedded scripts, handlers and executable links according to reader settings, while retaining enabled CSS/JS and media policies.
 - Preserve custom update intervals when loading novels through resident, paged and reactive library queries.

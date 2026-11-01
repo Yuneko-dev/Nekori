@@ -7,6 +7,10 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import logcat.LogPriority
 import logcat.logcat
 import tachiyomi.core.common.util.lang.withIOContext
@@ -53,24 +57,37 @@ class LocalNovelPageLoader(
     }
 
     override suspend fun loadPage(page: ReaderPage) = withIOContext {
-        if (page.status == Page.State.Ready) return@withIOContext
-
-        page.status = Page.State.LoadPage
+        while (true) {
+            when (val status = page.status) {
+                Page.State.Ready -> return@withIOContext
+                Page.State.LoadPage -> {
+                    // Only a cancelled owner releases its claim back to the queue.
+                    if (page.statusFlow.first { it != Page.State.LoadPage } != Page.State.Queue) return@withIOContext
+                }
+                else -> if (page.tryClaim(status, Page.State.LoadPage)) break
+            }
+        }
         try {
+            currentCoroutineContext().ensureActive()
             if (source.isNovelSource) {
                 // A reload from source must outlive the plugin's chapter-text cache, or it replays
                 // the same HTML for as long as that entry stays fresh.
                 if (forceRefresh) (source as? JsSource)?.invalidateChapterText(page.url)
-                page.chapterContent = source.fetchChapterContent(page)
+                val content = source.fetchChapterContent(page)
+                // A source may swallow cancellation or turn it into an ordinary I/O failure.
+                currentCoroutineContext().ensureActive()
+                page.chapterContent = content
                 page.status = Page.State.Ready
             } else {
                 throw IllegalStateException("Source is not a NovelSource")
             }
         } catch (e: Throwable) {
-            logcat(LogPriority.ERROR) {
-                "LocalNovelPageLoader: Failed to load page for ${chapter.chapter.name}: ${e.javaClass.name}: ${e.message}\n${e.stackTraceToString()}"
+            if (currentCoroutineContext().isActive) {
+                logcat(LogPriority.ERROR) {
+                    "LocalNovelPageLoader: Failed to load page for ${chapter.chapter.name}: ${e.javaClass.name}: ${e.message}\n${e.stackTraceToString()}"
+                }
             }
-            page.status = Page.State.Error(e)
+            onPageLoadFailed(page, e)
         }
     }
 }

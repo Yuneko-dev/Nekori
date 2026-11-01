@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -33,45 +34,43 @@ object NovelPageLoader {
             logcat(LogPriority.DEBUG) { "$tag: page text already available, text.length=${page.text?.length ?: 0}" }
             return true
         }
-        if (page.status is Page.State.Ready) {
-            page.status = Page.State.Queue
-        }
-
         var loadJob: kotlinx.coroutines.Job? = null
-        if (page.status is Page.State.Error) {
-            // Re-fetch a page cached in Error from a prior failed attempt, else statusFlow returns
-            // Error immediately and the load can never recover once the network is back. retryPage
-            // resets it to Queue and re-queues.
-            loader.retryPage(page)
-            // retryPage is a no-op in the PageLoader base class; if the loader didn't reset the
-            // state, fall back to launching the load directly so recovery still works.
-            if (page.status is Page.State.Error) {
-                // Clear the stale Error first: statusFlow replays its current value, so leaving it
-                // Error makes the first{} below match immediately and return before loadPage runs.
-                page.status = Page.State.Queue
-                loadJob = scope.launch(Dispatchers.IO) {
-                    try {
-                        loader.loadPage(page)
-                    } catch (_: kotlinx.coroutines.CancellationException) {
-                        // Expected when scope is cancelled
-                    }
-                }
-            }
-        } else if (page.status is Page.State.Queue) {
-            loadJob = scope.launch(Dispatchers.IO) {
+        fun launchLoad(): kotlinx.coroutines.Job {
+            // A closed reader scope cannot own queued work, even if this waiter is still active.
+            scope.coroutineContext.ensureActive()
+            return scope.launch(Dispatchers.IO) {
                 try {
                     loader.loadPage(page)
                 } catch (_: kotlinx.coroutines.CancellationException) {
-                    // Expected when scope is cancelled
+                    // The load owner releases its claim when cancelled.
                 }
             }
         }
+        val initialStatus = page.status
+        when (initialStatus) {
+            is Page.State.Error -> {
+                loader.retryPage(page)
+                // A loader that resets the error owns its retry; the base implementation does not.
+                if (page.tryClaim(initialStatus, Page.State.Queue)) loadJob = launchLoad()
+            }
+            Page.State.Ready -> if (page.tryClaim(initialStatus, Page.State.Queue)) loadJob = launchLoad()
+            Page.State.Queue -> loadJob = launchLoad()
+            else -> Unit
+        }
+
+        // Keep the first snapshot: an existing owner can release LoadPage before we subscribe.
+        val restartOnQueue = initialStatus !is Page.State.Error || !loader.handlesPageRetries || loadJob != null
+        fun settled(state: Page.State) = state is Page.State.Ready || state is Page.State.Error ||
+            (restartOnQueue && state is Page.State.Queue && (loadJob == null || loadJob?.isCancelled == true))
 
         return try {
             val finalState = withTimeout(timeoutMs) {
-                page.statusFlow.first { state ->
-                    state is Page.State.Ready || state is Page.State.Error
+                var state = page.statusFlow.first(::settled)
+                while (state is Page.State.Queue) {
+                    loadJob = launchLoad()
+                    state = page.statusFlow.first(::settled)
                 }
+                state
             }
 
             when (finalState) {
