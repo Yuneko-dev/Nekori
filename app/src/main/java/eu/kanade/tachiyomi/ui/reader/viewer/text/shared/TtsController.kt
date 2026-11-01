@@ -33,6 +33,7 @@ class TtsController(
         fun onChunkStarted(chunkIndex: Int, chunk: String, startOffset: Int, paragraphIndex: Int)
         fun onClearHighlights()
         fun onLastChunkDone()
+        fun onChapterCompleted(chapterId: Long)
         fun onError(error: Throwable)
         fun runOnUiThread(action: () -> Unit)
     }
@@ -74,6 +75,7 @@ class TtsController(
 
     @Volatile var ttsResumeChunkIndex: Int = 0
     private var playbackGeneration = 0L
+    private var completedGeneration = -1L
     var ttsViewportParagraphIndex: Int = 0
     var hasViewportStartOverride: Boolean = false
     var pendingStartRequest: StartRequest? = null
@@ -169,18 +171,29 @@ class TtsController(
             }
             return
         }
-        if (finishedIndex < ttsChunks.lastIndex) return
+        if (finishedIndex != ttsChunks.lastIndex || finishedIndex < 0) return
 
-        if (isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
-            callbacks.runOnUiThread {
+        val generation = playbackGeneration
+        val chapterId = ttsPlaybackChapterId
+        callbacks.runOnUiThread {
+            if (generation != playbackGeneration || chapterId != ttsPlaybackChapterId ||
+                completedGeneration == generation
+            ) {
+                return@runOnUiThread
+            }
+            completedGeneration = generation
+            if (chapterId != null) callbacks.onChapterCompleted(chapterId)
+            if (isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
                 scope.launch {
                     delay(LAST_CHUNK_DONE_DELAY_MS)
-                    if (!isSpeaking()) callbacks.onLastChunkDone()
+                    if (generation == playbackGeneration && chapterId == ttsPlaybackChapterId && !isSpeaking()) {
+                        callbacks.onLastChunkDone()
+                    }
                 }
+            } else {
+                isTtsAutoPlay = false
+                callbacks.onClearHighlights()
             }
-        } else {
-            isTtsAutoPlay = false
-            callbacks.runOnUiThread(callbacks::onClearHighlights)
         }
     }
 

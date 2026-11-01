@@ -9,6 +9,12 @@ import kotlin.math.roundToInt
  */
 object NovelProgress {
 
+    fun shouldMarkRead(percent: Int, threshold: Int, searchJump: Boolean, reachedEnd: Boolean): Boolean =
+        if (searchJump) reachedEnd else percent >= threshold
+
+    fun hasReadingEndProof(atEnd: Boolean, manualInteraction: Boolean, ttsPlaying: Boolean): Boolean =
+        atEnd && manualInteraction && !ttsPlaying
+
     /**
      * Scroll ratio at/above which a chapter counts as fully read. Shared by every renderer and by
      * the scroll-tracking JS so a chapter marks read at the same point regardless of viewer.

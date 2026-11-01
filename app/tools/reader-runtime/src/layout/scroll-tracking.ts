@@ -71,7 +71,7 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
     if (progress.isLast && progress.chapterProgress >= 1 && lastSliderProgress !== 1) {
       lastSliderProgress = 1;
       host.emit('scroll.progressPreview', { progress: 1 });
-      host.emit('scroll.progressPersist', { progress: 1 });
+      host.emit('scroll.progressPersist', { progress: 1, atEnd: progress.atEnd });
       dispatchProgress(progress);
     }
   }
@@ -114,7 +114,7 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
     lastSliderProgress = current.chapterProgress;
     host.emit('scroll.progressPreview', { progress: current.chapterProgress });
     dispatchProgress(current);
-    host.emit('scroll.progressPersist', { progress: current.chapterProgress });
+    host.emit('scroll.progressPersist', { progress: current.chapterProgress, atEnd: current.atEnd });
   }
 
   const onScrollEnd = (): void => persistCurrent();

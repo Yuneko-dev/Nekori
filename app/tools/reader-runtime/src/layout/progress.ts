@@ -10,6 +10,7 @@ export interface VerticalProgress {
   readonly boundaryIndex: number;
   readonly chapterId: string | null;
   readonly isLast: boolean;
+  readonly atEnd: boolean;
 }
 
 export function computeVerticalProgress(
@@ -21,6 +22,7 @@ export function computeVerticalProgress(
   doneThreshold: number,
 ): VerticalProgress {
   const scrollable = documentHeight - viewportHeight;
+  let atEnd = scrollable > 0 && scrollTop >= scrollable - 2;
   let progress = scrollable > 0 ? scrollTop / scrollable : 1;
   if (scrollable > 0 && scrollTop >= scrollable - 2) progress = 1;
   if (progress >= doneThreshold) progress = 1;
@@ -47,13 +49,14 @@ export function computeVerticalProgress(
         chapterProgress = progress;
       } else {
         const effectiveHeight = Math.max(boundary.height - (isLast ? viewportHeight : 0), 1);
+        atEnd = chapterScrollTop >= effectiveHeight - 2;
         chapterProgress = Math.min(chapterScrollTop / effectiveHeight, 1);
         if (chapterProgress >= doneThreshold) chapterProgress = 1;
       }
     }
   }
 
-  return { progress, chapterProgress, boundaryIndex, chapterId, isLast };
+  return { progress, chapterProgress, boundaryIndex, chapterId, isLast, atEnd };
 }
 
 export function shouldLoadNextChapter(

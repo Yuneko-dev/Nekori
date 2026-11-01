@@ -63,7 +63,7 @@ export function createPositionPublisher(options: PositionPublisherOptions): Posi
         host.emit('layout.positionChanged', position);
         host.emit('scroll.progressPreview', { progress });
       }
-      if (persist) host.emit('scroll.progressPersist', { progress });
+      if (persist) host.emit('scroll.progressPersist', { progress, atEnd: unitIndex === count - 1 });
       if (config.infinite && chapter === pageMap.at(-1) && progress >= config.threshold) requestNext(false);
       lastChapterId = chapter.chapterId;
       lastChapterProgress = progress;

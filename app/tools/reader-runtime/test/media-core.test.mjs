@@ -83,11 +83,28 @@ test('playback emits opaque chapter progress and next navigation with fractional
   assert.equal(values.get(VIDEO_FRACTION_KEY), '{"/opaque//path#part":0.23}');
   video.dispatchEvent(new Event('ended'));
   assert.deepEqual(events, [
-    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 51 }],
-    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 100 }],
+    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 51, ended: false }],
+    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 100, ended: true }],
     ['navigation.next', {}],
   ]);
   assert.equal(values.get(VIDEO_FRACTION_KEY), '{}');
+  progress.dispose();
+});
+
+test('timeupdate at one hundred is distinct from actual media completion', () => {
+  const events = [];
+  const video = Object.assign(new EventTarget(), { currentTime: 10, duration: 10 });
+  const progress = new PlaybackProgress({
+    host: { chapter: { id: '1' }, emit: (name, payload) => events.push([name, payload]) },
+    directive: { path: '/opaque//video', progress: 0 }, storage: null,
+    onResume() {}, onDismissed: () => false, log() {},
+  });
+  progress.attach(video, null, assert.fail);
+  video.dispatchEvent(new Event('timeupdate'));
+  assert.equal(events.at(-1)[1].progress, 100);
+  assert.equal(events.at(-1)[1].ended, false);
+  video.dispatchEvent(new Event('ended'));
+  assert.equal(events.at(-1)[1].ended, true);
   progress.dispose();
 });
 

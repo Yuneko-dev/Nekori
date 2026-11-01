@@ -255,6 +255,31 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     // Blocks flushing the backward-entry 1f baseline until a real scroll sample replaces it.
     private var awaitingFirstScrollSample = false
+    private var hasManualReadingInteraction = false
+    private var readingEndProof = false
+    private var geometricEndChapterId: Long? = null
+    private var shortChapterFitId: Long? = null
+
+    private fun noteReadingInteraction() {
+        if (!ttsController.isTtsAutoPlay) hasManualReadingInteraction = true
+    }
+
+    private fun resetReadingEndProof() {
+        hasManualReadingInteraction = false
+        readingEndProof = false
+    }
+
+    /** A forward user action may finish a short chapter that cannot produce a scroll gesture. */
+    fun onManualChapterAdvance(atBoundary: Boolean = false) {
+        if (isRestoringScroll || !webChapterContentReady || isVideoChapter() || ttsController.isTtsAutoPlay) return
+        val page = currentPage ?: return
+        if (!activity.viewModel.isSearchJumpGuarded(page.chapter.chapter.id)) return
+        if (atBoundary || geometricEndChapterId == page.chapter.chapter.id ||
+            shortChapterFitId == page.chapter.chapter.id
+        ) {
+            activity.saveNovelProgress(page, 100, reachedEnd = true)
+        }
+    }
 
     // Timestamp of the last slider seek; scroll->slider echoes are ignored briefly after so a stale
     // async onScrollUpdate can't overwrite the value the user is dragging to.
@@ -539,6 +564,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 override fun onLastChunkDone() {
                     if (!isTtsEnabled) return
                     loadNextChapterForTts()
+                }
+
+                override fun onChapterCompleted(chapterId: Long) {
+                    if (isDestroyed || ttsController.ttsPlaybackChapterId != chapterId) return
+                    loadedChapters.firstOrNull { it.chapter.id == chapterId }?.let {
+                        activity.viewModel.saveNovelProgress(it, 100, reachedEnd = true)
+                    }
                 }
 
                 override fun onError(error: Throwable) {
@@ -1061,12 +1093,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                     val path = payload.string("path")
                     val currentChapter = getCurrentReaderChapter()?.chapter
                     if (currentChapter != null && chapterId == currentChapter.id && path == currentChapter.url) {
-                        payload.int("progress")?.let(::saveVideoProgress)
+                        payload.int("progress")?.let { saveVideoProgress(it, payload["ended"] == JsonPrimitive(true)) }
                     }
                 }
                 "reader.refetch" -> activity.viewModel.reloadChapter(fromSource = true)
                 "navigation.next" -> activity.loadNextChapter()
-                "navigation.loadNext" -> loadNextChapterFromPage()
+                "navigation.loadNext" -> {
+                    if (payload["atBoundary"] == JsonPrimitive(true) && hasManualReadingInteraction) {
+                        onManualChapterAdvance(atBoundary = true)
+                    }
+                    loadNextChapterFromPage()
+                }
                 "reader.error" -> payload.string("message")?.let { message ->
                     if (webChapterContentReady) inlineFeedback.showInlineError(message) else activity.toast(message)
                 }
@@ -1074,7 +1111,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 "edit.save" -> payload.string("content")
                     ?.takeIf(::isAllowedEditPayload)
                     ?.let(activity.viewModel::saveEditedChapterContent)
-                "scroll.progressPersist" -> payload.float("progress")?.let(::onScrollProgress)
+                "scroll.progressPersist" -> payload.float("progress")?.let {
+                    onScrollProgress(it, payload["atEnd"] == JsonPrimitive(true))
+                }
                 "scroll.progressPreview" -> payload.float("progress")?.let(::onScrollPreview)
                 "chapter.visible" -> {
                     val id = payload.long("chapterId")
@@ -1091,7 +1130,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 "chapter.appended" -> {
                     if (payload.long("chapterId") != null) refreshFindInPage()
                 }
-                "gesture.claim" -> payload.string("owner")?.let { gestureTarget = ReaderGestureTarget.fromWire(it) }
+                "gesture.claim" -> payload.string("owner")?.let {
+                    gestureTarget = ReaderGestureTarget.fromWire(it)
+                    if (gestureTarget == ReaderGestureTarget.SURFACE) noteReadingInteraction()
+                }
                 "gesture.ready" -> pageOwnsGestures = true
                 "tts.toggle" -> toggleTtsFromPage()
                 "tts.startAtParagraph" -> payload.int("index")?.let(::startTtsAtPageParagraph)
@@ -1147,7 +1189,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         return valid && seenIds == allowedIds
     }
 
-    private fun saveVideoProgress(progress: Int) {
+    private fun saveVideoProgress(progress: Int, ended: Boolean = false) {
         if (!isVideoChapter()) return
         val page = currentPage ?: return
         val bounded = progress.coerceIn(0, 100)
@@ -1155,15 +1197,28 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         lastPersistedPercent = bounded
         awaitingFirstScrollSample = false
         // Video seeking and disabled/live progress can legitimately move back to zero.
-        activity.saveNovelProgress(page, bounded, backwardJumpAllowancePercent = 100)
+        activity.saveNovelProgress(
+            page,
+            bounded,
+            backwardJumpAllowancePercent = 100,
+            reachedEnd =
+            ended && bounded == 100,
+        )
         activity.onNovelProgressChanged(lastSavedProgress)
     }
 
-    private fun onScrollProgress(progress: Float) {
+    private fun onScrollProgress(progress: Float, atEnd: Boolean) {
         if (isVideoChapter() || isRestoringScroll || !progress.isFinite()) return
         awaitingFirstScrollSample = false
         lastSavedProgress = progress.coerceIn(0f, 1f)
-        if (NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent) saveProgress()
+        geometricEndChapterId = currentPage?.chapter?.chapter?.id?.takeIf { atEnd }
+        readingEndProof =
+            NovelProgress.hasReadingEndProof(atEnd, hasManualReadingInteraction, ttsController.isTtsAutoPlay)
+        if (NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent ||
+            (readingEndProof && activity.viewModel.isSearchJumpGuarded(currentPage?.chapter?.chapter?.id))
+        ) {
+            saveProgress()
+        }
     }
 
     private fun onScrollPreview(progress: Float) {
@@ -1173,6 +1228,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             return
         }
         awaitingFirstScrollSample = false
+        readingEndProof = false
         lastSavedProgress = progress.coerceIn(0f, 1f)
         activity.onNovelProgressChanged(lastSavedProgress)
     }
@@ -1188,9 +1244,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         val titleChanged = activity.viewModel.state.value.novelVisibleChapter?.id != id
         if (identityChanged) {
             NovelProgress.forwardChaptersToMarkRead(oldIndex, chapterIndex, loadedChapters.size).forEach { idx ->
-                loadedChapters.getOrNull(idx)?.let { activity.viewModel.saveNovelProgress(it, 100) }
+                loadedChapters.getOrNull(idx)?.let {
+                    activity.viewModel.saveNovelProgress(
+                        it,
+                        100,
+                        reachedEnd = NovelProgress.hasReadingEndProof(
+                            true,
+                            hasManualReadingInteraction,
+                            ttsController.isTtsAutoPlay,
+                        ),
+                    )
+                }
             }
             currentChapterIndex = chapterIndex
+            resetReadingEndProof()
+            geometricEndChapterId = null
+            shortChapterFitId = null
         }
         if (identityChanged || titleChanged) {
             activity.viewModel.setNovelVisibleChapter(chapter.chapter)
@@ -1206,6 +1275,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
         }
         keepOnlyRelevantChapterRecovery(id)
         if (identityChanged || pageChanged) {
+            readingEndProof = false
+            geometricEndChapterId = null
+            shortChapterFitId = null
             currentPage = newPage
             activity.onPageSelected(newPage)
             lastSavedProgress = progress.coerceIn(0f, 1f)
@@ -1268,6 +1340,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun markCurrentChapterShort() {
+        shortChapterFitId = currentPage?.chapter?.chapter?.id
+        if (activity.viewModel.isSearchJumpGuarded(currentPage?.chapter?.chapter?.id)) {
+            startNextChapterAppend()
+            return
+        }
         lastSavedProgress = 1f
         saveProgress()
         activity.onNovelProgressChanged(1f)
@@ -1351,6 +1428,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun restoreScrollPosition() {
+        resetReadingEndProof()
         val page = currentPage ?: run {
             liftRestoreGuard(scrollRestoreToken)
             return
@@ -1573,7 +1651,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      */
     fun flushProgress() {
         if (awaitingFirstScrollSample) return
-        if (lastSavedProgress > 0f && NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent) {
+        if (lastSavedProgress > 0f &&
+            (NovelProgress.progressToPercent(lastSavedProgress) != lastPersistedPercent || readingEndProof)
+        ) {
             saveProgress()
         }
     }
@@ -1586,7 +1666,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             val unitCount = pagedController.position.value
                 ?.takeIf { pagedController.enabled && it.chapterId == page.chapter.chapter.id }
                 ?.unitCount
-            activity.saveNovelProgress(page, progressValue, NovelProgress.backwardJumpAllowancePercent(unitCount))
+            activity.saveNovelProgress(
+                page,
+                progressValue,
+                NovelProgress.backwardJumpAllowancePercent(unitCount),
+                readingEndProof,
+            )
             logcat(LogPriority.DEBUG) { "NovelWebViewViewer: Saving progress $progressValue%" }
         }
     }
@@ -2671,6 +2756,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             -> {
                 if (!preferences.novelVolumeKeysScroll.get()) return false
                 if (!isUp) {
+                    noteReadingInteraction()
                     var direction = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) 1 else -1
                     if (pagedController.enabled && preferences.novelVolumeKeysInverted.get()) direction = -direction
                     val distance = preferences.novelVolumeKeysScrollDistance.get().coerceIn(
@@ -2683,6 +2769,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
             KeyEvent.KEYCODE_SPACE -> {
                 if (!isUp) {
+                    noteReadingInteraction()
                     if (pagedController.enabled) {
                         pageScrollBy(if (event.isShiftPressed) -1 else 1)
                     } else if (event.isShiftPressed) {
@@ -2695,12 +2782,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
             }
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
                 if (!isUp) {
+                    noteReadingInteraction()
                     if (pagedController.enabled) pageScrollBy(-1) else webView.pageUp(false)
                 }
                 return true
             }
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> {
                 if (!isUp) {
+                    noteReadingInteraction()
                     if (pagedController.enabled) pageScrollBy(1) else webView.pageDown(false)
                 }
                 return true
@@ -2710,6 +2799,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun beginDocumentTransition(hasChapter: Boolean) {
+        resetReadingEndProof()
+        geometricEndChapterId = null
+        shortChapterFitId = null
         endEditingForDocumentChange()
         docState = DocState.LOADING
         loadedDocumentHasChapter = hasChapter
@@ -3153,7 +3245,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     fun toggleAutoScroll() {
-        if (isAutoScrolling) stopAutoScroll() else startAutoScroll()
+        if (isAutoScrolling) {
+            stopAutoScroll()
+        } else {
+            noteReadingInteraction()
+            startAutoScroll()
+        }
     }
 
     private fun startAutoScroll() {
@@ -3220,11 +3317,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     fun isPagedMode(): Boolean = pagedController.enabled
 
     fun setPagedUnit(unitIndex: Int) {
+        noteReadingInteraction()
         stopAutoScroll()
         pagedController.seekUnit(unitIndex)
     }
 
     fun setProgressPercent(percent: Int) {
+        noteReadingInteraction()
+        readingEndProof = false
         val progress = percent.coerceIn(0, 100)
         lastSavedProgress = progress / 100f
         awaitingFirstScrollSample = false
@@ -3265,6 +3365,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     fun startTts() {
         if (!isTtsEnabled) return
+        resetReadingEndProof()
         if (isVideoChapter()) {
             stopTts()
             return
@@ -3340,6 +3441,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     fun resumeTts() {
         if (!isTtsEnabled) return
+        resetReadingEndProof()
         ttsController.resume()
         dispatchTtsState()
     }
@@ -3354,6 +3456,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
 
     private fun stepTtsParagraph(delta: Int) {
         if (!isTtsEnabled) return
+        resetReadingEndProof()
         ttsController.stepParagraph(delta) { startTtsFromViewport() }
         dispatchTtsState()
     }
@@ -3441,6 +3544,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
     }
 
     private fun startTtsAtParagraph(index: Int) {
+        resetReadingEndProof()
         if (!isTtsEnabled) return
         if (isVideoChapter()) {
             stopTts()

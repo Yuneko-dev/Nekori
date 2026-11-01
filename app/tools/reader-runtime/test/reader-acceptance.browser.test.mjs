@@ -294,6 +294,9 @@ browserTest(test, 'vertical multilingual pagination uses real CSS, one-column tu
     // ResizeObserver schedules reflow on the next animation frame.
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.evaluate(() => window.acceptanceHarness.layout.seekPercent(100));
+    await page.waitForFunction(() => window.acceptanceHarness.messages.some(
+      (message) => message.method === 'scroll.progressPersist' && message.payload.atEnd === true,
+    ));
     const rotatedEnd = await page.locator('#end').boundingBox();
     assert.ok(rotatedEnd.y >= 29 && rotatedEnd.y < 440 && rotatedEnd.x >= 0 && rotatedEnd.x < 900,
       JSON.stringify(rotatedEnd));

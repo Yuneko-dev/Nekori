@@ -51,6 +51,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.ContentPipeline
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelPageLoader
+import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.NovelProgress
 import eu.kanade.tachiyomi.ui.reader.viewer.text.shared.RenderTarget
 import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewViewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
@@ -188,6 +189,18 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     val mangaId = savedState.get<Long>("manga") ?: -1L
     private val initialChapterId = savedState.get<Long>("chapter") ?: -1L
+
+    @Volatile
+    private var searchJumpChapterId: Long? = if (savedState.contains("search_jump_guard_chapter")) {
+        savedState["search_jump_guard_chapter"]
+    } else {
+        initialChapterId.takeIf {
+            it > 0 && savedState.get<Float>(ReaderActivity.INITIAL_POSITION)
+                ?.let { position -> position.isFinite() && position > 0f && position <= 1f } == true
+        }.also { savedState["search_jump_guard_chapter"] = it }
+    }
+
+    fun isSearchJumpGuarded(chapterId: Long?): Boolean = chapterId != null && searchJumpChapterId == chapterId
 
     fun takeInitialPosition(chapterId: Long): Float? =
         if (chapterId == initialChapterId) {
@@ -1097,13 +1110,15 @@ class ReaderViewModel @JvmOverloads constructor(
         page: ReaderPage,
         progressPercentage: Int,
         backwardJumpAllowancePercent: Int = 10,
-    ) = saveNovelProgress(page.chapter, progressPercentage, backwardJumpAllowancePercent)
+        reachedEnd: Boolean = false,
+    ) = saveNovelProgress(page.chapter, progressPercentage, backwardJumpAllowancePercent, reachedEnd)
 
     /** Saves progress when infinite scroll retained the chapter identity but recycled its page. */
     fun saveNovelProgress(
         selectedChapter: ReaderChapter,
         progressPercentage: Int,
         backwardJumpAllowancePercent: Int = 10,
+        reachedEnd: Boolean = false,
     ) {
         if (selectedChapter.isCheckpoint) return
         if (isPreview) {
@@ -1121,7 +1136,12 @@ class ReaderViewModel @JvmOverloads constructor(
                 val currentProgress = selectedChapter.chapter.last_page_read
 
                 // Skip save if progress hasn't changed at all
-                if (clampedProgress == currentProgress) return@withLock
+                val guarded = isSearchJumpGuarded(selectedChapter.chapter.id)
+                if (clampedProgress == currentProgress &&
+                    !(guarded && reachedEnd && !selectedChapter.chapter.read)
+                ) {
+                    return@withLock
+                }
 
                 // Reject large backward jumps, including spurious 0% reports that fire during
                 // relayout/recreation (e.g. orientation lock). A 0 used to be exempted here,
@@ -1140,8 +1160,23 @@ class ReaderViewModel @JvmOverloads constructor(
                 // Mark as read if at the configured threshold or more
                 val markAsReadThreshold = readerPreferences.novelMarkAsReadThreshold.get()
                 val wasRead = selectedChapter.chapter.read
-                if (clampedProgress >= markAsReadThreshold && !wasRead) {
+                if (NovelProgress.shouldMarkRead(
+                        clampedProgress,
+                        markAsReadThreshold,
+                        guarded,
+                        reachedEnd,
+                    ) && !wasRead
+                ) {
                     selectedChapter.chapter.read = true
+                    if (guarded) {
+                        withUIContext {
+                            if (searchJumpChapterId == selectedChapter.chapter.id) {
+                                searchJumpChapterId = null
+                                // Keep a null tombstone: a restored launch extra must not re-arm the guard.
+                                savedState["search_jump_guard_chapter"] = null
+                            }
+                        }
+                    }
                     updateTrackChapterRead(selectedChapter)
                     deleteChapterIfNeeded(selectedChapter)
                     maybeTriggerSyncOnChapterRead()
@@ -1301,7 +1336,8 @@ class ReaderViewModel @JvmOverloads constructor(
             // Marking complete via page-index would always fire on selection.
             // Novel completion is handled by saveNovelProgress (marks at >=95%).
             val isNovelChapter = manga?.isNovel == true && (readerChapter.pages?.size ?: 0) <= 1
-            val isComplete = !isNovelChapter && readerChapter.pages?.lastIndex == pageIndex
+            val isComplete = !isNovelChapter && readerChapter.pages?.lastIndex == pageIndex &&
+                !isSearchJumpGuarded(readerChapter.chapter.id)
             if (isComplete) {
                 readerChapter.chapter.read = true
             }

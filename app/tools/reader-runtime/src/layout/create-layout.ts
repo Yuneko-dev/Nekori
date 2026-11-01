@@ -67,14 +67,14 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
 
   function requestNext(atBoundary: boolean): void {
     if (!config.infinite) {
-      host.emit('navigation.loadNext', {});
+      host.emit('navigation.loadNext', { atBoundary });
       return;
     }
     if (root.dataset.nekoriLoadingNext === 'true' ||
         (root.dataset.nekoriNoMoreChapters === 'true' && !atBoundary)) return;
     root.dataset.nekoriLoadingNext = 'true';
     try {
-      host.emit('navigation.loadNext', {});
+      host.emit('navigation.loadNext', { atBoundary });
     } catch {
       root.dataset.nekoriLoadingNext = 'false';
     }

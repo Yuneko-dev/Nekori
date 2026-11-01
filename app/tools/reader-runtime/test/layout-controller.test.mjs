@@ -66,6 +66,16 @@ function layoutFixture() {
   return { root, layout, events, flushFrames };
 }
 
+test('moving forward past the final page distinguishes a boundary action from prefetch', () => {
+  const { layout, events, flushFrames } = layoutFixture();
+  layout.configure({ enabled: true, spread: 'single', direction: 'ltr', vertical: false, infinite: false, threshold: 0.8, chapterId: '1' });
+  flushFrames();
+  layout.seekUnit(layout.position.unitCount - 1);
+  events.length = 0;
+  layout.moveBy(1);
+  assert.deepEqual(events.find(event => event.name === 'navigation.loadNext')?.payload, { atBoundary: true });
+});
+
 test('paged layout restores a single-page blank-safe position and reports page ranges', () => {
   const { layout, events, flushFrames } = layoutFixture();
   layout.configure({ enabled: true, spread: 'double', direction: 'ltr', vertical: false, infinite: false, threshold: 0.8, chapterId: 'chapter-1' });

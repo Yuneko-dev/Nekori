@@ -42,9 +42,12 @@ import tachiyomi.domain.translation.service.TranslationPreferences
 internal class ReaderViewModelTestFixture(
     scheduler: TestCoroutineScheduler,
     initialPosition: Float? = null,
+    restoredState: Map<String, Any?> = emptyMap(),
 ) : AutoCloseable {
     val preferences = InMemoryPreferenceStore()
-    val savedState = SavedStateHandle(mapOf("manga" to -1L, "chapter" to 1L, "chapter_id" to 1L)).apply {
+    val savedState = SavedStateHandle(
+        mapOf("manga" to -1L, "chapter" to 1L, "chapter_id" to 1L) + restoredState,
+    ).apply {
         if (initialPosition != null) set(ReaderActivity.INITIAL_POSITION, initialPosition)
     }
     val sourceManager = mockk<SourceManager>(relaxed = true)

@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { computeVerticalProgress, shouldLoadNextChapter, boundariesFromOffsets } from '../src/layout/progress.ts';
 
+test('snapped completion keeps geometric end separate from the reading threshold', () => {
+  const near = computeVerticalProgress(9990, 10100, 100, [], false, 0.95);
+  assert.equal(near.chapterProgress, 1);
+  assert.equal(near.atEnd, false);
+  assert.equal(computeVerticalProgress(10000, 10100, 100, [], false, 0.95).atEnd, true);
+  assert.equal(computeVerticalProgress(0, 80, 100, [], false, 0.95).atEnd, false);
+});
+
 test('vertical progress attributes a short trailing chapter at the reachable document bottom', () => {
   const boundaries = [
     { chapterId: 'first', startOffset: 0, height: 500 },

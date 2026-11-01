@@ -32,9 +32,9 @@ export class PlaybackProgress {
   attach(video: HTMLMediaElement, popup: HTMLElement | null, fail: (message: string) => void): void {
     const path = this.directive.path;
     const disable = Boolean(this.directive.disableProgress);
-    const save = (progress: number, fraction = 0) => {
+    const save = (progress: number, fraction = 0, ended = false) => {
       if (this.storage && path) writeFraction(this.storage, path, fraction);
-      this.host.emit("reader.saveVideoProgress", { chapterId: this.host.chapter.id, path, progress });
+      this.host.emit("reader.saveVideoProgress", { chapterId: this.host.chapter.id, path, progress, ended });
     };
     if (disable) save(0);
     this.listen(video, "loadedmetadata", () => {
@@ -63,7 +63,8 @@ export class PlaybackProgress {
     });
     this.listen(video, "ended", () => {
       this.log("Video ended");
-      save(disable || !Number.isFinite(video.duration) ? 0 : 100);
+      const completed = !disable && Number.isFinite(video.duration) && video.duration > 0;
+      save(completed ? 100 : 0, 0, completed);
       if (this.host.nextChapter ?? this.directive.nextChapter) this.host.emit("navigation.next", {});
     });
     this.listen(video, "error", () => {

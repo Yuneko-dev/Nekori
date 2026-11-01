@@ -17,15 +17,16 @@ export interface ReaderEventMap {
   };
   'scroll.progressPersist': {
     progress: number;
+    atEnd?: boolean;
   };
   'scroll.progressPreview': { progress: number };
   'chapter.visible': { chapterId: string; progress: number };
-  'navigation.loadNext': Record<string, never>;
+  'navigation.loadNext': { atBoundary?: boolean };
   'gesture.claim': { owner: 'blocked' | 'image' | 'surface' };
   'gesture.ready': Record<string, never>;
   'reader.error': { message: string };
   'media.requestProtectedPlayback': Record<string, never>;
-  'reader.saveVideoProgress': { chapterId: string; path: string; progress: number };
+  'reader.saveVideoProgress': { chapterId: string; path: string; progress: number; ended?: boolean };
   'reader.refetch': Record<string, never>;
   'navigation.next': Record<string, never>;
   'edit.changed': Record<string, never>;
