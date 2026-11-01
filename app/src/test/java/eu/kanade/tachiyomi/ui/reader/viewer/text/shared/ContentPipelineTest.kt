@@ -263,8 +263,11 @@ class ContentPipelineTest {
         @Suppress("ktlint:standard:max-line-length")
         val rules = """[{"title":"r","pattern":"<p>","replacement":"<P>","isRegex":false,"enabled":true,"caseSensitive":true,"matchWholeWord":false}]"""
         val pipeline = pipelineWith(rules)
-        val result = pipeline.process("<p>foo</p>", cfg(url = "x.html"))
-        assertTrue(result.text.contains("<P>"))
+        val config = cfg(url = "x.html")
+        val beforeSanitize = pipeline.preTranslate("<p>foo</p>", config)
+        assertTrue(beforeSanitize.text.contains("<P>"))
+        val result = pipeline.finalize(beforeSanitize, config)
+        assertEquals("foo", org.jsoup.Jsoup.parseBodyFragment(result.text).selectFirst("p")?.text())
     }
 
     @Test

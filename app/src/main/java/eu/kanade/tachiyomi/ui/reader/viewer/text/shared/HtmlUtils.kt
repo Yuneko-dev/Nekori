@@ -40,24 +40,6 @@ object HtmlUtils {
         Regex("""part\s*\d+""", RegexOption.IGNORE_CASE),
     )
 
-    @Suppress("ktlint:standard:max-line-length")
-    private val scriptTagRegex =
-        Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val scriptSelfClosingRegex = Regex("<script[^>]*/>", RegexOption.IGNORE_CASE)
-
-    @Suppress("ktlint:standard:max-line-length")
-    private val styleTagRegex =
-        Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val styleSelfClosingRegex = Regex("<style[^>]*/>", RegexOption.IGNORE_CASE)
-    private val linkStylesheetRegex1 = Regex("<link[^>]*rel[^>]*stylesheet[^>]*>", RegexOption.IGNORE_CASE)
-    private val linkStylesheetRegex2 = Regex("<link[^>]*stylesheet[^>]*rel[^>]*>", RegexOption.IGNORE_CASE)
-
-    @Suppress("ktlint:standard:max-line-length")
-    private val noscriptTagRegex =
-        Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val htmlCommentRegex = Regex("<!--.*?-->", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-    private val encodedCommentRegex = Regex("&lt;!--.*?--&gt;", RegexOption.DOT_MATCHES_ALL)
-
     private val imgTagRegex = Regex("<img[^>]*>", RegexOption.IGNORE_CASE)
     private val imageTagRegex = Regex("</?image[^>]*>", RegexOption.IGNORE_CASE)
 
@@ -220,40 +202,7 @@ object HtmlUtils {
         keepEmbeddedCss: Boolean,
         keepEmbeddedJs: Boolean,
         blockMedia: Boolean,
-    ): String {
-        var result = content
-
-        val stripJs = target == RenderTarget.TEXT_VIEW || !keepEmbeddedJs
-        val stripCss = target == RenderTarget.TEXT_VIEW || !keepEmbeddedCss
-
-        if (stripJs) {
-            result = result.replace(scriptTagRegex, "")
-            result = result.replace(scriptSelfClosingRegex, "")
-        }
-
-        if (stripCss) {
-            result = result.replace(styleTagRegex, "")
-            result = result.replace(styleSelfClosingRegex, "")
-            if (target == RenderTarget.WEB_VIEW) {
-                result = result.replace(linkStylesheetRegex1, "")
-                result = result.replace(linkStylesheetRegex2, "")
-                try {
-                    val doc = org.jsoup.Jsoup.parseBodyFragment(result)
-                    doc.body().select("*").removeAttr("style")
-                    result = doc.body().html()
-                } catch (_: Exception) {
-                    // Keep the partially sanitized result if parsing fails.
-                }
-            }
-        }
-
-        result = result.replace(noscriptTagRegex, "")
-        result = result.replace(htmlCommentRegex, "")
-        result = result.replace(encodedCommentRegex, "")
-
-        if (blockMedia) result = stripMediaTags(result)
-        return result
-    }
+    ): String = ChapterHtmlSanitizer.sanitize(content, target, keepEmbeddedCss, keepEmbeddedJs, blockMedia)
 
     fun stripMediaTags(content: String): String {
         return content
