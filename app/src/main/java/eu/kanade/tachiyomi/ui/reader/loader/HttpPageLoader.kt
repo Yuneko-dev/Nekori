@@ -13,8 +13,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runInterruptible
@@ -130,8 +128,9 @@ internal class HttpPageLoader(
      * Retries a page. This method is only called from user interaction on the viewer.
      */
     override fun retryPage(page: ReaderPage) {
-        val status = page.status
-        if (status is Page.State.Error) page.tryClaim(status, Page.State.Queue)
+        if (page.status is Page.State.Error) {
+            page.status = Page.State.Queue
+        }
         queue.offer(PriorityPage(page, PriorityPage.RETRY))
     }
 
@@ -202,9 +201,7 @@ internal class HttpPageLoader(
 
             if (treatAsNovel) {
                 page.status = Page.State.LoadPage
-                val content = source.fetchChapterContent(page)
-                currentCoroutineContext().ensureActive()
-                page.chapterContent = content
+                page.chapterContent = source.fetchChapterContent(page)
                 page.status = Page.State.Ready
                 return
             }
@@ -223,12 +220,12 @@ internal class HttpPageLoader(
             }
 
             page.stream = { chapterCache.getImageFile(imageUrl).inputStream() }
-            currentCoroutineContext().ensureActive()
             page.status = Page.State.Ready
         } catch (e: Throwable) {
-            // Recycle ends the worker permanently, so re-queuing would strand its waiters.
             page.status = Page.State.Error(e)
-            currentCoroutineContext().ensureActive()
+            if (e is CancellationException) {
+                throw e
+            }
         }
     }
 }

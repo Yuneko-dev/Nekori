@@ -17,6 +17,7 @@ import logcat.LogPriority
 import logcat.logcat
 import mihon.core.archive.NOVEL_IMAGE_SCHEME
 import java.io.File
+import java.io.InputStream
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -33,12 +34,12 @@ internal class NovelWebViewImageCache(
     private val prefetchJobs = ConcurrentHashMap<String, Job>()
     private val foregroundLocks = ConcurrentHashMap<String, ReentrantLock>()
     private class AssetSource(val loader: PageLoader, val chapter: ReaderChapter?) {
-        suspend fun open(path: String) = if (chapter ==
-            null
-        ) {
-            loader.getPageDataStream(path)
-        } else {
-            chapter.openPageDataStream(loader, path)
+        suspend fun useStream(path: String, block: (InputStream) -> Unit) {
+            if (chapter == null) {
+                loader.getPageDataStream(path)?.use(block)
+            } else {
+                chapter.withPageDataStream(loader, path, block)
+            }
         }
     }
     private val chapterLoaderMap = ConcurrentHashMap<Long, AssetSource>()
@@ -81,7 +82,7 @@ internal class NovelWebViewImageCache(
             }
             try {
                 runBlocking {
-                    source.open(imagePath)?.use { input ->
+                    source.useStream(imagePath) { input ->
                         files.write(cacheKey, owner, imagePath, input) { true }
                     }
                 }
@@ -131,7 +132,7 @@ internal class NovelWebViewImageCache(
             try {
                 prefetchPermits.withPermit {
                     if (!isActive) return@withPermit
-                    source.open(imagePath)?.use { input ->
+                    source.useStream(imagePath) { input ->
                         files.write(cacheKey, owner, imagePath, input) { isActive }
                     }
                 }

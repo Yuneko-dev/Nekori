@@ -13,7 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.chapter.model.Chapter
@@ -65,7 +65,7 @@ class ReaderChapterResourceTest {
     }
 
     @Test
-    fun `a source stream pins its retired loader until close and closes only once`() = runBlocking {
+    fun `a scoped copy pins its retired loader and closes its stream once`() = runBlocking {
         val chapter = ReaderChapter(Chapter.create())
         val old = Loader()
         val current = Loader()
@@ -80,17 +80,16 @@ class ReaderChapterResourceTest {
         }
         chapter.ref()
         chapter.pageLoader = old
-        val stream = chapter.openPageDataStream(old, "image")!!
-        chapter.pageLoader = current
-        chapter.unref()
-        assertEquals(0, old.closes)
-        assertEquals(1, current.closes)
-        assertEquals(7, stream.read())
-        stream.close()
-        stream.close()
+        chapter.withPageDataStream(old, "image") { stream ->
+            chapter.pageLoader = current
+            chapter.unref()
+            assertEquals(0, old.closes)
+            assertEquals(1, current.closes)
+            assertEquals(7, stream.read())
+        }
         assertEquals(1, streamCloses.get())
         assertEquals(1, old.closes)
-        assertNull(chapter.openPageDataStream(old, "late"))
+        chapter.withPageDataStream(old, "late") { error("Retired loader must not reopen") }
     }
 
     @Test
@@ -138,7 +137,9 @@ class ReaderChapterResourceTest {
         }
         chapter.ref()
         chapter.pageLoader = loader
-        val job = launch { chapter.openPageDataStream(loader, "image")?.close() }
+        val job = launch {
+            chapter.withPageDataStream(loader, "image") { error("Cancelled opening must not start a copy") }
+        }
         entered.await()
         job.cancel()
         chapter.unref()
@@ -158,7 +159,9 @@ class ReaderChapterResourceTest {
             chapter.ref()
             chapter.pageLoader = loader
             loader.open = { if (fail) throw IOException("source failure") else null }
-            val result = runCatching { chapter.openPageDataStream(loader, "image") }
+            val result = runCatching {
+                chapter.withPageDataStream(loader, "image") { error("No stream should be opened") }
+            }
             assertEquals(fail, result.isFailure)
             chapter.unref()
             assertEquals(1, loader.closes)
@@ -166,23 +169,38 @@ class ReaderChapterResourceTest {
     }
 
     @Test
-    fun `failed stream close still releases exactly one loader lease`() = runBlocking {
-        val chapter = ReaderChapter(Chapter.create())
-        val loader = Loader()
-        loader.open = {
-            object : ByteArrayInputStream(byteArrayOf()) {
-                override fun close() {
-                    throw IOException("close failure")
+    fun `copy and close failures preserve the original error and release the lease once`() = runBlocking {
+        for (failCopy in listOf(false, true)) {
+            val chapter = ReaderChapter(Chapter.create())
+            val loader = Loader()
+            val copyError = IOException("copy failure")
+            val closeError = IOException("close failure")
+            val streamCloses = AtomicInteger()
+            loader.open = {
+                object : ByteArrayInputStream(byteArrayOf()) {
+                    override fun close() {
+                        streamCloses.incrementAndGet()
+                        throw closeError
+                    }
                 }
             }
+            chapter.ref()
+            chapter.pageLoader = loader
+            val result = runCatching {
+                chapter.withPageDataStream(loader, "image") {
+                    chapter.unref()
+                    if (failCopy) throw copyError
+                }
+            }
+            val expected = if (failCopy) copyError else closeError
+            val failure = result.exceptionOrNull()
+            assertEquals(expected.message, failure?.message)
+            // Coroutine stack recovery can copy an exception while retaining its original cause.
+            assertTrue(generateSequence(failure) { it.cause }.any { it === expected })
+            if (failCopy) assertSame(closeError, copyError.suppressed.single())
+            assertEquals(1, streamCloses.get())
+            assertEquals(1, loader.closes)
         }
-        chapter.ref()
-        chapter.pageLoader = loader
-        val stream = chapter.openPageDataStream(loader, "image")!!
-        chapter.unref()
-        assertTrue(runCatching { stream.close() }.isFailure)
-        assertFalse(runCatching { stream.close() }.isFailure)
-        assertEquals(1, loader.closes)
     }
 
     @Test

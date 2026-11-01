@@ -8,10 +8,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
-import java.io.FilterInputStream
 import java.io.InputStream
 import java.util.IdentityHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 data class ReaderChapter(val chapter: Chapter) {
 
@@ -102,38 +100,19 @@ data class ReaderChapter(val chapter: Chapter) {
         }
     }
 
-    suspend fun openPageDataStream(loader: PageLoader, path: String): InputStream? {
-        val lease = acquire(loader) ?: return null
-        var input: InputStream? = null
-        var handedOff = false
+    suspend fun withPageDataStream(loader: PageLoader, path: String, block: (InputStream) -> Unit) {
+        val lease = acquire(loader) ?: return
+        val caller = currentCoroutineContext()
         try {
-            // Opening a local closeable must hand it back before caller cancellation can discard it.
-            // Page/plugin operations use withPageLoader instead and remain cancellable.
-            withContext(NonCancellable) { input = loader.getPageDataStream(path) }
-            currentCoroutineContext().ensureActive()
-            val opened = input ?: return null
-            val stream = object : FilterInputStream(opened) {
-                private val closed = AtomicBoolean()
-                override fun close() {
-                    if (!closed.compareAndSet(false, true)) return
-                    try {
-                        super.close()
-                    } finally {
-                        release(lease)
-                    }
+            // Keep local open/copy/close together; cancellation must not discard an opened stream.
+            withContext(NonCancellable) {
+                loader.getPageDataStream(path).use { stream ->
+                    caller.ensureActive()
+                    if (stream != null) block(stream)
                 }
             }
-            handedOff = true
-            return stream
-        } catch (error: Throwable) {
-            try {
-                input?.close()
-            } catch (closeError: Throwable) {
-                error.addSuppressed(closeError)
-            }
-            throw error
         } finally {
-            if (!handedOff) release(lease)
+            release(lease)
         }
     }
 

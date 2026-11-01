@@ -18,6 +18,26 @@ import tachiyomi.domain.chapter.model.Chapter
 
 class SearchEndEvidenceTest {
     @Test
+    fun `ordinary TTS completion does not force progress to one hundred`() {
+        val fixture = Fixture()
+        val model = fixture.activity.viewModel
+        every { model.isSearchJumpGuarded(1) } returns false
+        fixture.call("onTtsChapterCompleted", 1L)
+        verify(exactly = 0) { model.saveNovelProgress(any<ReaderChapter>(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `guarded TTS completion only saves for the live playback chapter`() {
+        val fixture = Fixture()
+        val model = fixture.activity.viewModel
+        fixture.call("onTtsChapterCompleted", 1L)
+        fixture.call("onTtsChapterCompleted", 2L)
+        fixture.set("isDestroyed", true)
+        fixture.call("onTtsChapterCompleted", 1L)
+        verify(exactly = 1) { model.saveNovelProgress(fixture.page.chapter, 100, any(), true) }
+    }
+
+    @Test
     fun `initial programmatic last page sample and exit are not completion`() {
         val fixture = Fixture()
         fixture.persist(1f, true)
@@ -98,6 +118,9 @@ class SearchEndEvidenceTest {
             val paged = mockk<NovelWebViewPagedController>(relaxed = true)
             every { paged.position } returns MutableStateFlow<NovelPagePosition?>(null)
             every { activity.viewModel.isSearchJumpGuarded(any()) } returns true
+            every { tts.ttsPlaybackChapterId } returns 1L
+            every { viewer getProperty "loadedChapters" } answers { callOriginal() }
+            every { viewer["onTtsChapterCompleted"](any<Long>()) } answers { callOriginal() }
             every { viewer["isVideoChapter"]() } returns false
             every { viewer getProperty "webChapterContentReady" } returns true
             every { viewer["onScrollProgress"](any<Float>(), any<Boolean>()) } answers { callOriginal() }
@@ -112,6 +135,7 @@ class SearchEndEvidenceTest {
             set("ttsController", tts)
             set("pagedController", paged)
             set("currentPage", page)
+            set("chapterQueue", ChapterQueue<ReaderChapter> { it.chapter.id }.apply { reset(page.chapter) })
             set("lastPersistedPercent", -1)
             val ready = NovelWebViewViewer::class.java.declaredClasses.single { it.simpleName == "DocState" }
                 .enumConstants.single { it.toString() == "READY" }

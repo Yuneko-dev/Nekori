@@ -567,10 +567,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
                 }
 
                 override fun onChapterCompleted(chapterId: Long) {
-                    if (isDestroyed || ttsController.ttsPlaybackChapterId != chapterId) return
-                    loadedChapters.firstOrNull { it.chapter.id == chapterId }?.let {
-                        activity.viewModel.saveNovelProgress(it, 100, reachedEnd = true)
-                    }
+                    onTtsChapterCompleted(chapterId)
                 }
 
                 override fun onError(error: Throwable) {
@@ -1684,10 +1681,24 @@ class NovelWebViewViewer(val activity: ReaderActivity) : Viewer {
      * service would lose progress until the user returns.
      */
     private var lastSavedTtsChunkIndex: Int = -1
+
+    private fun onTtsChapterCompleted(chapterId: Long) {
+        if (isDestroyed || ttsController.ttsPlaybackChapterId != chapterId ||
+            !activity.viewModel.isSearchJumpGuarded(chapterId)
+        ) {
+            return
+        }
+        loadedChapters.firstOrNull { it.chapter.id == chapterId }?.let {
+            activity.viewModel.saveNovelProgress(it, 100, reachedEnd = true)
+        }
+    }
+
     private fun saveTtsProgressForChunk(chunkIndex: Int) {
         // Foreground: the per-chapter scroll bridge (onScrollProgress) owns progress and the slider.
         // Persist from TTS only when backgrounded, where the JS scroll bridge is paused and this is
         // the sole progress source. The TTS queue is scoped to ttsPlaybackChapterId.
+        // TODO: Save foreground TTS progress independently of highlighting and follow-scroll.
+        // This early return can leave progress behind when speech does not scroll the document.
         if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         if (chunkIndex == lastSavedTtsChunkIndex) return
         lastSavedTtsChunkIndex = chunkIndex
