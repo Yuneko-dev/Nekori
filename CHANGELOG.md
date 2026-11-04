@@ -11,6 +11,12 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
+### Changed
+- Increase chapter title marquee scroll speed [@mrissaoussama](https://github.com/mrissaoussama) [#472](https://github.com/tsundoku-otaku/tsundoku/pull/472)
+
+### Fixed
+- Route headset media to TTS session [@mrissaoussama](https://github.com/mrissaoussama) [#466](https://github.com/tsundoku-otaku/tsundoku/pull/466)
+
 
 ## [v0.3.4] - 2026-10-16
 ### Added
