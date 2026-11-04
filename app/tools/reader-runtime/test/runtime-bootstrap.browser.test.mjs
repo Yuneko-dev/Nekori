@@ -38,6 +38,56 @@ async function bundleEntry() {
   return result.outputFiles[0].text;
 }
 
+browserTest(test, 'fresh reader documents restore saved background and UI preferences without live commands', async () => {
+  const bundle = await bundleEntry();
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><path fill="red" d="M0 0h2v2H0z"/></svg>');
+    const config = {
+      documentId: 'background-boot', mode: 'reader',
+      novel: { id: 'n', name: 'Novel', path: '/novel' },
+      chapter: { id: '1', name: 'Chapter', path: '/one', progress: 0 },
+      nextChapter: null, chapters: [], strings: {}, autoSaveInterval: 5000,
+      runtime: {
+        editing: false, infinite: false, textSelectionBlocked: false, forcedLowercase: false,
+        menuVisible: false, immersive: false, ttsState: 'stopped', loadingChapter: false,
+        loadingNext: false, noMoreChapters: false,
+      },
+      style: { background: { image, opacity: 45, blur: 2, size: 'contain', position: 'bottom', repeat: true } },
+      ui: { ttsEnabled: false, bionicEnabled: true, labels: { tts: 'Read aloud', imageClose: 'Close image' } },
+    };
+    // Each new page has a fresh runtime, as when leaving and reopening the reader.
+    for (let opening = 0; opening < 2; opening++) {
+      const page = await browser.newPage();
+      await page.setContent(`<script>window.__nekoriNativeTransport={onmessage:null,postMessage(){}};</script>
+        <script id="nekori-reader-config" type="application/json">${JSON.stringify(config)}</script>
+        <main data-nekori-reader-root><nekori-chapter data-nekori-chapter-id="1"><p>Text</p></nekori-chapter></main>`);
+      await page.addScriptTag({ content: bundle });
+      await page.waitForFunction(() => window.nekori !== undefined);
+      await page.evaluate(() => window.nekori.ready);
+      // Wait for the real image decode too; ready does not wait for decorative assets.
+      await page.waitForFunction(() => document.querySelector('#nekori-reader-background')?.style.backgroundImage.includes('data:image/svg+xml'), null, { timeout: 3000 });
+      const { image: loadedImage, ...settings } = await page.locator('#nekori-reader-background').evaluate(layer => ({
+        image: layer.style.backgroundImage,
+        opacity: layer.style.opacity,
+        blur: layer.style.filter,
+        size: layer.style.backgroundSize,
+        position: layer.style.backgroundPosition,
+        repeat: layer.style.backgroundRepeat,
+      }));
+      assert.ok(loadedImage.includes(image));
+      assert.deepEqual(settings, {
+        opacity: '0.45', blur: 'blur(2px)', size: 'contain', position: 'center bottom', repeat: 'repeat',
+      });
+      assert.equal(await page.locator('#nekori-tts-controller').evaluate(el => el.classList.contains('hidden')), true);
+      assert.ok(await page.locator('nekori-chapter b[data-nekori-bionic]').count() > 0);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 browserTest(test, 'head bootstrap initializes plain-text chapters before ready and source plugin scripts', async () => {
   const bundle = await bundleEntry();
   const browser = await chromium.launch({ executablePath: chromiumPath });

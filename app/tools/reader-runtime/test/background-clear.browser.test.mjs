@@ -21,9 +21,7 @@ browserTest(test, 'style.apply clears a background and ignores an older pending 
   const browser = await chromium.launch({ executablePath: chromiumPath });
   try {
     const page = await browser.newPage();
-    await page.setContent(`<!doctype html><html><head>
-      <script id="nekori-reader-background-config" type="application/json">{"image":"","errorMessage":"failed"}</script>
-    </head><body><main id="reader"></main></body></html>`);
+    await page.setContent('<!doctype html><html><body><main id="reader"></main></body></html>');
     await page.addScriptTag({ content: await bundleStyles() });
     const result = await page.evaluate(() => {
       const pending = [];
@@ -32,7 +30,7 @@ browserTest(test, 'style.apply clears a background and ignores an older pending 
       };
       const handlers = new Map();
       const host = {
-        root: document.querySelector('#reader'), config: {}, context: {}, strings: {}, chapter: {}, nextChapter: null,
+        root: document.querySelector('#reader'), config: { style: { background: { image: '', errorMessage: 'failed' } } }, context: {}, strings: {}, chapter: {}, nextChapter: null,
         events: { subscribe() { return () => {}; } },
         emit() {}, request: async () => undefined, onDispose() { return () => {}; }, fetch() {}, fetchNative() {},
         boot() {}, start() {}, dispose() {},

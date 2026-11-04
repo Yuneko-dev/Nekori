@@ -49,8 +49,8 @@ export function createReaderBackground(host: ReaderHost): { apply(value: unknown
     };
     image.src = value.image;
   };
-  const config = document.getElementById('nekori-reader-background-config');
-  if (config?.textContent) apply(JSON.parse(config.textContent) as unknown);
+  const config = host.config.style?.background;
+  if (config !== undefined) apply(config);
   return {
     apply,
     dispose() { generation++; layer?.remove(); layer = null; },
