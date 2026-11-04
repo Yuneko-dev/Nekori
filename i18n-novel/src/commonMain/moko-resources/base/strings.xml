@@ -1356,6 +1356,13 @@
     <string name="novel_tts_keep_highlight_in_view">Keep highlighted paragraph in view</string>
     <string name="novel_tts_auto_start_on_panel_open">Auto-start TTS when opening controls panel</string>
     <string name="novel_tts_background_playback">Keep TTS running in background</string>
+    <string name="pref_novel_tts_legacy_notification">Use classic TTS notification</string>
+    <string name="pref_novel_tts_legacy_notification_summary">Show a progress bar and leave media controls to your music player</string>
+    <string name="tts_notification_title">TTS playback</string>
+    <string name="tts_notification_paused">Paused</string>
+    <string name="tts_notification_reading">Reading in background</string>
+    <string name="tts_notification_progress">Paragraph %1$d of %2$d</string>
+    <string name="tts_stop">Stop</string>
     <string name="novel_tts_background_playback_summary">Continue while the reader stays open; closing it or removing the app from recents stops playback.</string>
     <string name="novel_tts_highlight_style">Highlight style</string>
     <string name="novel_tts_highlight_style_background">Background</string>

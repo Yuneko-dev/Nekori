@@ -1203,6 +1203,13 @@
     <string name="novel_tts_keep_highlight_in_view">Giữ đoạn văn tô sáng trong tầm nhìn</string>
     <string name="novel_tts_auto_start_on_panel_open">Tự động bắt đầu TTS khi mở bảng điều khiển</string>
     <string name="novel_tts_background_playback">Giữ TTS chạy nền</string>
+    <string name="pref_novel_tts_legacy_notification">Dùng thông báo TTS cổ điển</string>
+    <string name="pref_novel_tts_legacy_notification_summary">Hiển thị thanh tiến trình và dành nút điều khiển đa phương tiện cho ứng dụng nghe nhạc</string>
+    <string name="tts_notification_title">Phát TTS</string>
+    <string name="tts_notification_paused">Đã tạm dừng</string>
+    <string name="tts_notification_reading">Đang đọc nền</string>
+    <string name="tts_notification_progress">Đoạn %1$d trên %2$d</string>
+    <string name="tts_stop">Dừng</string>
     <string name="novel_tts_background_playback_summary">Tiếp tục khi trình đọc còn mở; đóng trình đọc hoặc xóa ứng dụng khỏi màn hình gần đây sẽ dừng phát.</string>
     <string name="novel_tts_highlight_style">Kiểu tô sáng</string>
     <string name="novel_tts_highlight_style_background">Nền</string>

@@ -993,6 +993,11 @@ internal fun ColumnScope.NovelTtsTab(screenModel: ReaderSettingsViewModel) {
         label = stringResource(TDMR.strings.novel_tts_background_playback),
         pref = screenModel.preferences.novelTtsBackgroundPlayback,
     )
+    ReaderSwitchItem(
+        label = stringResource(TDMR.strings.pref_novel_tts_legacy_notification),
+        pref = screenModel.preferences.novelTtsLegacyNotification,
+        summary = stringResource(TDMR.strings.pref_novel_tts_legacy_notification_summary),
+    )
 }
 
 @Composable

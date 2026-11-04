@@ -20,6 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Add an optional classic TTS notification with paragraph progress, leaving media controls available to music players.
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 - Add an option to hide infinite-scroll chapter separators, preserving normal paragraph spacing and outer reading margins.
 - Credit Tsundoku and Mihon in the About screen.

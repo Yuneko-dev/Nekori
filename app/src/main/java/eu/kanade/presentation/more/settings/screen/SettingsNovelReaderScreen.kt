@@ -901,6 +901,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(TDMR.strings.novel_tts_background_playback),
                     subtitle = stringResource(TDMR.strings.novel_tts_background_playback_summary),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.novelTtsLegacyNotification,
+                    title = stringResource(TDMR.strings.pref_novel_tts_legacy_notification),
+                    subtitle = stringResource(TDMR.strings.pref_novel_tts_legacy_notification_summary),
+                ),
                 Preference.PreferenceItem.InfoPreference(
                     stringResource(TDMR.strings.novel_tts_advanced_settings_info),
                 ),

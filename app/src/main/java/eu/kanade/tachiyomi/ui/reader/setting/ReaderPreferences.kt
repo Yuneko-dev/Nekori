@@ -368,6 +368,10 @@ class ReaderPreferences(
         "pref_novel_tts_background_playback",
         false,
     )
+    val novelTtsLegacyNotification: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_novel_tts_legacy_notification",
+        false,
+    )
     val novelTtsControlsVisible: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_novel_tts_controls_visible",
         false,

@@ -1519,7 +1519,9 @@ class ReaderActivity : BaseActivity() {
 
     private fun currentNovelTtsState(): NovelTtsState? {
         val readerState = viewModel.state.value
-        val novelTitle = readerState.manga?.title.orEmpty().ifBlank { "TTS playback" }
+        val novelTitle = readerState.manga?.title.orEmpty().ifBlank {
+            stringResource(TDMR.strings.tts_notification_title)
+        }
         val chapterTitle = readerState.novelVisibleChapter?.name ?: readerState.currentChapter?.chapter?.name.orEmpty()
         val mangaId = readerState.manga?.id ?: -1L
         val chapterId = readerState.currentChapter?.chapter?.id ?: -1L

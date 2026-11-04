@@ -21,6 +21,7 @@ import coil3.request.ImageRequest
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +30,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.i18n.MR
+import tachiyomi.i18n.novel.TDMR
 import uy.kohesive.injekt.injectLazy
 
 class TtsPlaybackService : Service() {
@@ -38,18 +42,20 @@ class TtsPlaybackService : Service() {
     private var isPaused: Boolean = false
     private var paragraphIndex: Int = 0
     private var paragraphCount: Int = 0
-    private var novelTitle: String = "TTS playback"
+    private var novelTitle: String = ""
     private var chapterTitle: String = ""
     private var mangaId: Long = -1L
     private var chapterId: Long = -1L
     private var coverBitmap: Bitmap? = null
     private lateinit var mediaSession: MediaSession
     private val getManga: GetManga by injectLazy()
+    private val readerPreferences: ReaderPreferences by injectLazy()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var coverLoadJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
+        novelTitle = stringResource(TDMR.strings.tts_notification_title)
         mediaSession = MediaSession(this, "TtsPlaybackService").apply {
             setCallback(
                 object : MediaSession.Callback() {
@@ -65,7 +71,6 @@ class TtsPlaybackService : Service() {
                     }
                 },
             )
-            isActive = true
         }
     }
 
@@ -92,7 +97,8 @@ class TtsPlaybackService : Service() {
                 isPaused = intent.getBooleanExtra(EXTRA_IS_PAUSED, false)
                 paragraphIndex = intent.getIntExtra(EXTRA_PARAGRAPH_INDEX, 0).coerceAtLeast(0)
                 paragraphCount = intent.getIntExtra(EXTRA_PARAGRAPH_COUNT, 0).coerceAtLeast(0)
-                novelTitle = intent.getStringExtra(EXTRA_NOVEL_TITLE).orEmpty().ifBlank { "TTS playback" }
+                novelTitle = intent.getStringExtra(EXTRA_NOVEL_TITLE).orEmpty()
+                    .ifBlank { stringResource(TDMR.strings.tts_notification_title) }
                 chapterTitle = intent.getStringExtra(EXTRA_CHAPTER_TITLE).orEmpty()
                 val syncedMangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1L)
                 if (mangaId != syncedMangaId) {
@@ -100,7 +106,6 @@ class TtsPlaybackService : Service() {
                     loadNovelCover()
                 }
                 chapterId = intent.getLongExtra(EXTRA_CHAPTER_ID, -1L)
-                updateMediaSession()
             }
         }
 
@@ -124,6 +129,8 @@ class TtsPlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startForegroundWithNotification() {
+        val classic = readerPreferences.novelTtsLegacyNotification.get()
+        updateMediaSession(classic)
         val playPauseIntent = PendingIntent.getService(
             this,
             1001,
@@ -161,8 +168,10 @@ class TtsPlaybackService : Service() {
             openReaderIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val statusText = if (isPaused) "Paused" else "Reading in background"
-        mediaSession.setSessionActivity(openReaderPendingIntent)
+        val statusText = stringResource(
+            if (isPaused) TDMR.strings.tts_notification_paused else TDMR.strings.tts_notification_reading,
+        )
+        mediaSession.setSessionActivity(if (classic) null else openReaderPendingIntent)
         val contentText = if (chapterTitle.isNotBlank()) "$chapterTitle · $statusText" else statusText
 
         val notification = Notification.Builder(this, Notifications.CHANNEL_TTS_PLAYBACK)
@@ -178,42 +187,54 @@ class TtsPlaybackService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
-            .addAction(
-                Notification.Action.Builder(
-                    Icon.createWithResource(this, R.drawable.ic_skip_previous_24dp),
-                    "Previous",
-                    prevParagraphIntent,
-                ).build(),
-            )
+            .apply {
+                // Regular notifications show only three actions; keep Stop accessible.
+                if (!classic) {
+                    addAction(
+                        Notification.Action.Builder(
+                            Icon.createWithResource(this@TtsPlaybackService, R.drawable.ic_skip_previous_24dp),
+                            stringResource(TDMR.strings.tts_prev_paragraph),
+                            prevParagraphIntent,
+                        ).build(),
+                    )
+                }
+            }
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(
                         this,
                         if (isPaused) R.drawable.ic_play_arrow_24dp else R.drawable.ic_pause_24dp,
                     ),
-                    if (isPaused) "Resume" else "Pause",
+                    stringResource(if (isPaused) MR.strings.action_resume else MR.strings.action_pause),
                     playPauseIntent,
                 ).build(),
             )
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(this, R.drawable.ic_skip_next_24dp),
-                    "Next",
+                    stringResource(TDMR.strings.tts_next_paragraph),
                     nextParagraphIntent,
                 ).build(),
             )
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(this, R.drawable.ic_close_24dp),
-                    "Stop",
+                    stringResource(TDMR.strings.tts_stop),
                     stopIntent,
                 ).build(),
             )
-            .setStyle(
-                Notification.MediaStyle()
-                    .setMediaSession(mediaSession.sessionToken)
-                    .setShowActionsInCompactView(0, 1, 2),
-            )
+            .apply {
+                if (classic) {
+                    val progress = if (paragraphCount > 0) paragraphIndex.coerceIn(0, paragraphCount - 1) + 1 else 0
+                    setProgress(paragraphCount, progress, false)
+                } else {
+                    setStyle(
+                        Notification.MediaStyle()
+                            .setMediaSession(mediaSession.sessionToken)
+                            .setShowActionsInCompactView(0, 1, 2),
+                    )
+                }
+            }
             .build()
 
         try {
@@ -240,7 +261,14 @@ class TtsPlaybackService : Service() {
         }
     }
 
-    private fun updateMediaSession() {
+    private fun updateMediaSession(classic: Boolean) {
+        // Classic must leave headset/lockscreen controls with the music player.
+        mediaSession.isActive = !classic
+        if (classic) {
+            mediaSession.setPlaybackState(null)
+            mediaSession.setMetadata(null)
+            return
+        }
         val position = paragraphIndex.coerceIn(0, (paragraphCount - 1).coerceAtLeast(0)).toLong() * SEEK_UNIT_MS
         mediaSession.setMetadata(
             MediaMetadata.Builder()
@@ -287,7 +315,6 @@ class TtsPlaybackService : Service() {
                 ?.getBitmapOrNull()
             if (mangaId != loadingMangaId) return@launch
             coverBitmap = bitmap
-            updateMediaSession()
             startForegroundWithNotification()
         }
     }
@@ -295,7 +322,7 @@ class TtsPlaybackService : Service() {
     private fun paragraphProgressLabel(): String? {
         if (paragraphCount <= 0) return null
         val current = paragraphIndex.coerceIn(0, paragraphCount - 1) + 1
-        return "Paragraph $current of $paragraphCount"
+        return stringResource(TDMR.strings.tts_notification_progress, current, paragraphCount)
     }
 
     private fun sendControlBroadcast(command: String, seekParagraphIndex: Int? = null) {
