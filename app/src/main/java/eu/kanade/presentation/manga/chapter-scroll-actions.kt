@@ -3,9 +3,22 @@
 package eu.kanade.presentation.manga
 
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.graphics.vector.ImageVector
+import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+
+internal fun chapterScrollAction(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    inOverflow: Boolean,
+): AppBar.AppBarAction = if (inOverflow) {
+    AppBar.OverflowAction(title = title, onClick = onClick)
+} else {
+    AppBar.Action(title = title, icon = icon, onClick = onClick)
+}
 
 // Phone: info, actions, description, chapter header. Tablet: chapter header only.
 internal fun chapterScrollHeaderCount(tablet: Boolean, sectionNavigation: Boolean): Int =

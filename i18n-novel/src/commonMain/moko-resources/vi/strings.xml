@@ -1555,4 +1555,6 @@
     <string name="pref_novel_hide_chapter_separator">Ẩn đường phân cách chương</string>
     <string name="action_scroll_to_next_unread">Cuộn tới chương chưa đọc tiếp theo</string>
     <string name="manga_no_unread_chapter">Không có chương chưa đọc trong danh sách này</string>
+    <string name="pref_manga_scroll_actions_in_overflow">Thao tác cuộn trong menu ba chấm</string>
+    <string name="pref_manga_scroll_actions_in_overflow_summary">Hiển thị thao tác cuộn lên đầu, tới chương chưa đọc tiếp theo và xuống cuối trong menu ba chấm thay vì thanh công cụ</string>
 </resources>

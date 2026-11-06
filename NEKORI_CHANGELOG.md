@@ -27,7 +27,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Changed
 - Increase the scrolling speed of app bar subtitles.
-- Move chapter-list scroll actions into the overflow menu and add scrolling to the next unread chapter in the displayed list.
+- Add scrolling to the next unread chapter in the displayed list, with an Appearance setting to place chapter-list scroll actions in the overflow menu; toolbar icons are the default.
 
 ### Fixed
 - Restore the saved custom reader background when reopening the reader (#17)

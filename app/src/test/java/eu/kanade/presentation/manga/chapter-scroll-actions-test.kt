@@ -3,7 +3,10 @@
 package eu.kanade.presentation.manga
 
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.ui.unit.IntSize
+import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import io.mockk.coEvery
@@ -14,10 +17,34 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.chapter.model.Chapter
 
 class ChapterScrollActionsTest {
+    @Test
+    fun `placement changes presentation while retaining label and callback`() {
+        var clicks = 0
+        val label = "Scroll to bottom"
+        val icon = Icons.Outlined.ArrowDownward
+        for (inOverflow in listOf(false, true)) {
+            val action = chapterScrollAction(label, icon, { clicks++ }, inOverflow)
+            if (inOverflow) {
+                assertTrue(action is AppBar.OverflowAction)
+                action as AppBar.OverflowAction
+                assertEquals(label, action.title)
+                action.onClick()
+            } else {
+                assertTrue(action is AppBar.Action)
+                action as AppBar.Action
+                assertEquals(label, action.title)
+                assertEquals(icon, action.icon)
+                action.onClick()
+            }
+        }
+        assertEquals(2, clicks)
+    }
+
     @Test
     fun `actions use the mapped row center and actual list edges`() = runTest {
         val listState = listState(totalItems = 8)
