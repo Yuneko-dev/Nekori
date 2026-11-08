@@ -11,7 +11,8 @@
     "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
-    "check": "pnpm run type-check && pnpm run lint && pnpm run format:check"
+    "check": "pnpm run type-check && pnpm run lint && pnpm run format:check",
+    "prepare": "cd .. && ./js-runtime/node_modules/.bin/husky js-runtime/.husky"
   },
   "codegenConfig": {
     "name": "TsundokuJsRuntimeSpec",
@@ -66,6 +67,8 @@
     "eslint-plugin-simple-import-sort": "12.1.1",
     "eslint-plugin-unused-imports": "4.3.0",
     "hermes-compiler": "250829098.0.16",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "2.8.8",
     "typescript": "^6.0.3"
   }

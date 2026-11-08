@@ -1,0 +1,4 @@
+cd "$(git rev-parse --show-toplevel)/js-runtime"
+pnpm exec lint-staged
+pnpm run type-check
+pnpm run test:chapter
