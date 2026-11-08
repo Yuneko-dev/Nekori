@@ -15,9 +15,9 @@ for (let index = 2; index < process.argv.length; index += 2) {
 const metroSourcemap = requiredArg("--metro-sourcemap");
 const licenseTemplate = requiredArg("--license-template");
 const outputFile = requiredArg("--output");
-const jsRuntimeDir = path.join(rootDir, "js-runtime");
-const videoBundleDir = path.join(rootDir, "app", "tools", "videojs-bundle");
-const readerRuntimeDir = path.join(rootDir, "app", "tools", "reader-runtime");
+const jsRuntimeDir = path.join(rootDir, "packages", "js-runtime");
+const videoBundleDir = path.join(rootDir, "packages", "videojs-bundle");
+const readerRuntimeDir = path.join(rootDir, "packages", "reader");
 const videoLibrariesCache = path.join(videoBundleDir, "shipped-libraries.json");
 
 await mkdir(path.dirname(outputFile), { recursive: true });

@@ -10,7 +10,7 @@ on:
       - 'app/build.gradle.kts'
       - 'app/src/test/js/**'
       - '.github/workflows/reader-checks.yml'
-      - 'js-runtime/.nvmrc'
+      - 'packages/js-runtime/.nvmrc'
       - '.editorconfig'
   push:
     branches:
@@ -42,7 +42,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version-file: js-runtime/.nvmrc
+          node-version-file: packages/js-runtime/.nvmrc
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

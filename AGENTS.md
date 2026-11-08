@@ -14,4 +14,4 @@ Multi-context layout (`GLOSSARY-MAP.md` + `docs/contexts/<name>/GLOSSARY.md`, al
 
 ### Toolchain
 
-`packageManager: "bun@1.4.4"`. JS workspace uses Bun + Turborepo (`js-runtime/` + `packages/*` per ADR-0002). Kotlin stays Gradle (`spotlessCheck`, `ktlint`). Run `bun fmt` before `bun lint`. `js-runtime` is self-contained (keeps `js-runtime/node_modules` for RN Gradle). Hermes stays the shipped engine; `test:chapter` and RN Gradle resolve stay on Node until proven on Bun.
+`packageManager: "bun@1.4.4"`. JS workspace uses Bun + Turborepo (`packages/*` per ADR-0002). Kotlin stays Gradle (`spotlessCheck`, `ktlint`). Run `bun fmt` before `bun lint`. `packages/js-runtime` is self-contained (keeps `packages/js-runtime/node_modules` for RN Gradle). Hermes stays the shipped engine; `test:chapter` and RN Gradle resolve stay on Node until proven on Bun.

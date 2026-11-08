@@ -12,7 +12,7 @@ IS_SQL=0
 IS_READER=0
 IS_I18N=0
 
-if printf '%s\n' "$STAGED" | grep -qE '^js-runtime/'; then IS_JS=1; fi
+if printf '%s\n' "$STAGED" | grep -qE '^packages/js-runtime/'; then IS_JS=1; fi
 if printf '%s\n' "$STAGED" | grep -qE '\.(kt|kts|xml)$'; then IS_KOTLIN=1; fi
 if printf '%s\n' "$STAGED" | grep -qE '\.sqm?$'; then IS_SQL=1; fi
 if printf '%s\n' "$STAGED" | grep -qE '^packages/reader/|^packages/videojs-bundle/|^app/tools/devtools-lite/|^app/tools/generate-shipped-js-licenses\.mjs$|^app/src/test/js/'; then IS_READER=1; fi
@@ -41,14 +41,14 @@ fi
 # lint-staged already formats staged files.
 if [ "$IS_JS" -eq 1 ]; then
   echo "js-runtime: lint-staged, type-check, lint, test:chapter"
-  if [ ! -d "$ROOT/js-runtime/node_modules" ]; then
+  if [ ! -d "$ROOT/packages/js-runtime/node_modules" ]; then
     echo "js-runtime/node_modules missing, running bun install"
     bun install --frozen-lockfile
   fi
-  (cd js-runtime && bunx lint-staged)
-  (cd js-runtime && bun run type-check)
-  (cd js-runtime && bun run lint)
-  (cd js-runtime && bun run test:chapter)
+  (cd packages/js-runtime && bunx lint-staged)
+  (cd packages/js-runtime && bun run type-check)
+  (cd packages/js-runtime && bun run lint)
+  (cd packages/js-runtime && bun run test:chapter)
 fi
 
 # Reader runtime: bun check (typecheck, lint, build, test) plus devtools

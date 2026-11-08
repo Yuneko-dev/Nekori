@@ -5,7 +5,7 @@
     "*.md",
     "**/next-env.d.ts",
     "**/*.min.js",
-    "js-runtime/patches/**",
-    "js-runtime/src/plugins/modules/node-html-markdown/**"
+    "packages/js-runtime/patches/**",
+    "packages/js-runtime/src/plugins/modules/node-html-markdown/**"
   ]
 }

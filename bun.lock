@@ -8,7 +8,15 @@
         "turbo": "2.9.6",
       },
     },
-    "js-runtime": {
+    "packages/cheerio-bundle": {
+      "name": "cheerio-bundle",
+      "version": "1.0.0",
+      "dependencies": {
+        "cheerio": "^1.0.0",
+        "esbuild": "^0.28.0",
+      },
+    },
+    "packages/js-runtime": {
       "name": "nekori-js-runtime",
       "version": "0.0.0",
       "dependencies": {
@@ -54,14 +62,6 @@
         "typescript": "^6.0.3",
       },
     },
-    "packages/cheerio-bundle": {
-      "name": "cheerio-bundle",
-      "version": "1.0.0",
-      "dependencies": {
-        "cheerio": "^1.0.0",
-        "esbuild": "^0.28.0",
-      },
-    },
     "packages/reader": {
       "name": "@nekori/reader",
       "version": "0.1.0",
@@ -92,11 +92,11 @@
     },
   },
   "patchedDependencies": {
-    "@react-native/gradle-plugin@0.87.0": "js-runtime/patches/@react-native__gradle-plugin@0.87.0.patch",
-    "react-native-quick-crypto@1.1.7": "js-runtime/patches/react-native-quick-crypto@1.1.7.patch",
-    "whatwg-fetch@3.6.20": "js-runtime/patches/whatwg-fetch@3.6.20.patch",
-    "react-native-nitro-modules@0.37.1": "js-runtime/patches/react-native-nitro-modules@0.37.1.patch",
-    "react-native-nitro-buffer@0.2.2": "js-runtime/patches/react-native-nitro-buffer@0.2.2.patch",
+    "@react-native/gradle-plugin@0.87.0": "packages/js-runtime/patches/@react-native__gradle-plugin@0.87.0.patch",
+    "react-native-quick-crypto@1.1.7": "packages/js-runtime/patches/react-native-quick-crypto@1.1.7.patch",
+    "whatwg-fetch@3.6.20": "packages/js-runtime/patches/whatwg-fetch@3.6.20.patch",
+    "react-native-nitro-modules@0.37.1": "packages/js-runtime/patches/react-native-nitro-modules@0.37.1.patch",
+    "react-native-nitro-buffer@0.2.2": "packages/js-runtime/patches/react-native-nitro-buffer@0.2.2.patch",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@8.0.6", "", { "dependencies": { "@babel/helper-validator-identifier": "^8.0.6", "js-tokens": "^10.0.0" } }, "sha512-uMHhvmDmwFiLuiozaoRYTZHqMFuu3fem/X9JY78lohAuLoh8LSGGC8JqUzo2cVuBsBxkjMZNk56CE7ock8Xxkw=="],
@@ -1065,7 +1065,7 @@
 
     "negotiator": ["negotiator@0.6.4", "", {}, "sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w=="],
 
-    "nekori-js-runtime": ["nekori-js-runtime@workspace:js-runtime"],
+    "nekori-js-runtime": ["nekori-js-runtime@workspace:packages/js-runtime"],
 
     "nocache": ["nocache@3.0.4", "", {}, "sha512-WDD0bdg9mbq6F4mRxEYcPWwfA1vxd0mrvKOyxI7Xj/atfRHVeutzuWByG//jfm4uPzp0y4Kj051EORCBSQMycw=="],
 

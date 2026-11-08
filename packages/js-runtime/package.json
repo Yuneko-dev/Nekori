@@ -14,7 +14,7 @@
     "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
     "test": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
     "check": "bun run type-check && bun run lint && bun run format:check",
-    "prepare": "cd .. && ./js-runtime/node_modules/.bin/husky js-runtime/.husky"
+    "prepare": "./node_modules/.bin/husky .husky"
   },
   "codegenConfig": {
     "name": "TsundokuJsRuntimeSpec",

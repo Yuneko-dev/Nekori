@@ -68,7 +68,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # The React Native Gradle plugin lives in js-runtime/node_modules, and settings.gradle.kts
+      # The React Native Gradle plugin lives in packages/js-runtime/node_modules, and settings.gradle.kts
       # resolves it by shelling out to `node` during settings evaluation. Without these steps
       # the build dies before Gradle configures a single project.
       - name: Set up Bun
@@ -79,7 +79,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version-file: js-runtime/.nvmrc
+          node-version-file: packages/js-runtime/.nvmrc
 
       - name: Install JS dependencies
         run: bun install --frozen-lockfile

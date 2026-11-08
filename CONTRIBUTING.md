@@ -32,7 +32,7 @@ Before you start, please note that the ability to use following technologies is 
   Failed tests upload reports from all modules. The workflow can also be run manually.
 - `.github/workflows/js-runtime-checks.yml` runs JS runtime type checking, ESLint, Prettier
   and chapter-content tests independently. Locally, run `bun run check` and
-  `bun run test:chapter` from `js-runtime/`.
+  `bun run test:chapter` from `packages/js-runtime/`.
 - `.github/workflows/reader-checks.yml` runs `bun run --filter @nekori/reader check`:
   TypeScript checking, ESLint (including whitespace style checks), build and Node tests.
   Chromium acceptance tests are excluded from `bun test` and Ubuntu CI; `bun run browser`
