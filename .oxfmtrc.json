@@ -1,0 +1,11 @@
+{
+  "singleQuote": true,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "*.md",
+    "**/next-env.d.ts",
+    "**/*.min.js",
+    "js-runtime/patches/**",
+    "js-runtime/src/plugins/modules/node-html-markdown/**"
+  ]
+}

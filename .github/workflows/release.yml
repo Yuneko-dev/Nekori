@@ -46,28 +46,20 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # The React Native Gradle plugin lives in js-runtime/node_modules, and settings.gradle.kts
-      # resolves it by shelling out to `node` during settings evaluation. Without these three steps
+      # resolves it by shelling out to `node` during settings evaluation. Without these steps
       # the build dies before Gradle configures a single project.
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          # The npm root is js-runtime/, not the repo root, so the action cannot find the
-          # packageManager pin on its own.
-          package_json_file: js-runtime/package.json
+          bun-version: latest
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version-file: js-runtime/.nvmrc
-          cache: pnpm
-          cache-dependency-path: js-runtime/pnpm-lock.yaml
 
-      - name: Install JS runtime dependencies
-        working-directory: js-runtime
-        run: pnpm install --frozen-lockfile
-
-      - name: Install reader runtime dependencies
-        run: npm ci --prefix app/tools/reader-runtime
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build
         run: ./gradlew assembleRelease -Penable-updater

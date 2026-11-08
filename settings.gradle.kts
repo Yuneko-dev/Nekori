@@ -34,7 +34,7 @@ extensions.configure<com.facebook.react.ReactSettingsExtension> {
     autolinkLibrariesFromCommand(
         workingDirectory = rootDir.resolve("js-runtime"),
         lockFiles = settings.layout.rootDirectory.files(
-            "js-runtime/pnpm-lock.yaml",
+            "bun.lock",
             "js-runtime/package.json",
             // The CLI config cannot infer this repo's layout, so react-native.config.js states it.
             // It has to invalidate the cached autolinking output like the lockfiles do.

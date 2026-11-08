@@ -7,8 +7,13 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packageDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const npmCli = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const repositoryDir = path.resolve(packageDir, '../../..');
+
+function resolveWorkspaceModule(relativePath) {
+  const local = path.join(packageDir, 'node_modules', relativePath);
+  const root = path.join(repositoryDir, 'node_modules', relativePath);
+  return { local, root };
+}
 
 test('packed package installs and typechecks from a TypeScript consumer', async () => {
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'nekori-reader-consumer-'));
@@ -18,9 +23,18 @@ test('packed package installs and typechecks from a TypeScript consumer', async 
     await mkdir(packDirectory);
     await mkdir(consumerDirectory);
     const readerPackage = runNpm(['pack', '--json', '--pack-destination', packDirectory]);
-    const vanjsPackage = runNpm([
-      'pack', '--json', '--pack-destination', packDirectory, './node_modules/vanjs-core',
-    ]);
+    const vanjsDir = resolveWorkspaceModule('vanjs-core').local;
+    const vanjsDirRoot = resolveWorkspaceModule('vanjs-core').root;
+    let vanjsPackage;
+    try {
+      vanjsPackage = runNpm([
+        'pack', '--json', '--pack-destination', packDirectory, vanjsDir,
+      ]);
+    } catch {
+      vanjsPackage = runNpm([
+        'pack', '--json', '--pack-destination', packDirectory, vanjsDirRoot,
+      ]);
+    }
     const readerTarball = path.join(packDirectory, JSON.parse(readerPackage.stdout)[0].filename);
     const vanjsTarball = path.join(packDirectory, JSON.parse(vanjsPackage.stdout)[0].filename);
     await writeFile(path.join(consumerDirectory, 'package.json'), JSON.stringify({
@@ -74,8 +88,17 @@ void browserApi;
       },
       files: ['consumer.ts'],
     }));
+    const typescriptLocal = resolveWorkspaceModule('typescript/bin/tsc').local;
+    const typescriptRoot = resolveWorkspaceModule('typescript/bin/tsc').root;
+    let tscPath = typescriptLocal;
+    try {
+      const { statSync } = await import('node:fs');
+      statSync(tscPath);
+    } catch {
+      tscPath = typescriptRoot;
+    }
     const typecheck = spawnSync(process.execPath, [
-      path.join(packageDir, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', 'tsconfig.json',
+      tscPath, '-p', 'tsconfig.json',
     ], { cwd: consumerDirectory, encoding: 'utf8' });
     assert.equal(typecheck.status, 0, `${typecheck.stdout}\n${typecheck.stderr}`);
 
@@ -92,7 +115,7 @@ void browserApi;
 });
 
 function runNpm(args, cwd = packageDir) {
-  const result = spawnSync(process.execPath, [npmCli, ...args], { cwd, encoding: 'utf8' });
+  const result = spawnSync('npm', args, { cwd, encoding: 'utf8' });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   return result;
 }

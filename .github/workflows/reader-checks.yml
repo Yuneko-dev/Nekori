@@ -29,27 +29,26 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: app/tools/reader-runtime
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version-file: js-runtime/.nvmrc
-          cache: npm
-          cache-dependency-path: app/tools/reader-runtime/package-lock.json
 
-      - name: Install reader runtime dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-      # Chromium acceptance tests remain opt-in via npm run browser.
+      # Chromium acceptance tests remain opt-in via bun run browser.
       - name: Check reader types, lint, style, build and Node tests
-        run: npm run check
+        run: bun run --filter @nekori/reader check
 
       - name: Check pinned DevTools distribution preparation
-        working-directory: .
         run: node app/tools/devtools-lite/test-dist.mjs

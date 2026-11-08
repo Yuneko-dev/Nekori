@@ -8,7 +8,23 @@ import { pipFeature, remotePlaybackFeature } from "./src/no-remote-feature.js";
 const toolDir = path.dirname(fileURLToPath(import.meta.url));
 const assetDir = path.resolve(toolDir, "../../src/main/assets/novel-reader");
 const sourceDir = path.join(toolDir, "src");
+const repositoryDir = path.resolve(toolDir, "../../..");
 const checkOnly = process.argv.includes("--check");
+// ponytail: hoisted-aware package resolve. Upgrade if: Bun emits per-package node_modules again.
+function resolvePackageFile(relativePath) {
+  const local = path.resolve(toolDir, "node_modules", relativePath);
+  const root = path.resolve(repositoryDir, "node_modules", relativePath);
+  return { local, root };
+}
+async function readPackageFile(relativePath) {
+  for (const candidate of [resolvePackageFile(relativePath).local, resolvePackageFile(relativePath).root]) {
+    try {
+      return await readFile(candidate, "utf8");
+    } catch {
+    }
+  }
+  throw new Error(`Cannot read package file: ${relativePath}`);
+}
 const licenseInputsIndex = process.argv.indexOf("--license-inputs");
 const licenseInputsPath = licenseInputsIndex < 0 ? null : process.argv[licenseInputsIndex + 1];
 
@@ -149,8 +165,14 @@ for (const requiredSymbol of [
 // The skin drags every locale's translation table in whether or not it is registered, so presence of the
 // strings proves nothing. Check a non-English translation is reachable and that the registration loop ran.
 {
-  const localeDir = path.resolve(toolDir, "node_modules/@videojs/core/dist/default/i18n/locales");
-  const sample = await readFile(path.join(localeDir, "vi.js"), "utf8");
+  const localeDir = path.resolve(repositoryDir, "node_modules/@videojs/core/dist/default/i18n/locales");
+  const localeDirLocal = path.resolve(toolDir, "node_modules/@videojs/core/dist/default/i18n/locales");
+  let sample;
+  try {
+    sample = await readFile(path.join(localeDirLocal, "vi.js"), "utf8");
+  } catch {
+    sample = await readFile(path.join(localeDir, "vi.js"), "utf8");
+  }
   const phrase = sample.match(/pause:\s*"([^"]*)"/)?.[1];
   if (!phrase) throw new Error("Cannot read a sample translation to verify i18n");
   // esbuild emits charset=ascii, so non-ASCII becomes \xNN below U+0100 and \uNNNN above it.
@@ -173,16 +195,16 @@ if ([...bundledInputs].some(([input, bytes]) => bytes > 0 && /skins\/minimal-[^/
   throw new Error("Unexpected minimal skin markup");
 }
 
-const hlsPackage = JSON.parse(await readFile(path.resolve(toolDir, "node_modules/hls.js/package.json"), "utf8"));
-if (hlsPackage.version !== "1.7.3") throw new Error(`Expected hls.js 1.7.3, found ${hlsPackage.version}`);
-const videoPackage = JSON.parse(
-  await readFile(path.resolve(toolDir, "node_modules/@videojs/html/package.json"), "utf8"),
+const hlsPackage = JSON.parse(
+  await readPackageFile("hls.js/package.json"),
 );
+if (hlsPackage.version !== "1.7.3") throw new Error(`Expected hls.js 1.7.3, found ${hlsPackage.version}`);
+const videoPackage = JSON.parse(await readPackageFile("@videojs/html/package.json"));
 if (videoPackage.version !== "10.0.1") {
   throw new Error(`Expected @videojs/html 10.0.1, found ${videoPackage.version}`);
 }
 
-let hlsSource = await readFile(path.resolve(toolDir, "node_modules/hls.js/dist/hls.js"), "utf8");
+let hlsSource = await readPackageFile("hls.js/dist/hls.js");
 const captureAnchor = `      if (discontinuity || trackSwitch || initSegmentChange || resetMuxers) {\n`;
 const capturePatch = `      if (!keyData && this.config.tsundokuCaptureFragments) {\n        var offset = this.demuxer instanceof TSDemuxer ? Math.max(0, TSDemuxer.syncOffset(uintData)) : 0;\n        var end = this.demuxer instanceof TSDemuxer ? uintData.length - (uintData.length - offset) % 188 : uintData.length;\n        var payload = uintData.subarray(offset, end);\n        this.observer.emit(Events.FRAG_DECRYPTED, Events.FRAG_DECRYPTED, {\n          frag: undefined,\n          payload: payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength ? payload.buffer : payload.slice().buffer,\n          stats: { tstart: stats.executeStart, tdecrypt: now() }\n        });\n      }\n`;
 if (!hlsSource.includes(captureAnchor)) throw new Error("hls.js capture patch anchor changed");

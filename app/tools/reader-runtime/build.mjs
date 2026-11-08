@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -139,10 +140,21 @@ function readOption(name) {
 }
 
 function runTypeScriptDeclarations() {
-  const result = spawnSync(
-    process.execPath,
-    ["node_modules/typescript/bin/tsc", "-p", "tsconfig.types.json"],
-    { cwd: packageDir, stdio: "inherit" },
-  );
+  const tscCandidates = [
+    path.join(packageDir, "node_modules/typescript/bin/tsc"),
+    path.join(repositoryDir, "node_modules/typescript/bin/tsc"),
+  ];
+  const tscPath = tscCandidates.find((candidate) => {
+    try {
+      return statSync(candidate).size > 0;
+    } catch {
+      return false;
+    }
+  });
+  if (!tscPath) throw new Error("Could not find TypeScript compiler");
+  const result = spawnSync(process.execPath, [tscPath, "-p", "tsconfig.types.json"], {
+    cwd: packageDir,
+    stdio: "inherit",
+  });
   if (result.status !== 0) throw new Error("Could not emit reader TypeScript declarations");
 }

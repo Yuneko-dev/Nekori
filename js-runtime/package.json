@@ -2,16 +2,18 @@
   "name": "nekori-js-runtime",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "bun@1.4.4",
   "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
   "scripts": {
     "lint": "eslint src specs --ext .js,.ts",
-    "lint:fix": "pnpm run lint --fix",
+    "lint:fix": "bun run lint --fix",
     "format": "prettier --write \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
-    "type-check": "tsc --noEmit",
+    "type-check": "bun check --no-script",
+    "typecheck": "bun check --no-script",
     "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
-    "check": "pnpm run type-check && pnpm run lint && pnpm run format:check",
+    "test": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
+    "check": "bun run type-check && bun run lint && bun run format:check",
     "prepare": "cd .. && ./js-runtime/node_modules/.bin/husky js-runtime/.husky"
   },
   "codegenConfig": {
@@ -40,11 +42,12 @@
     "urlencode": "^2.0.0"
   },
   "//hermes-compiler": [
-    "Transitive dependency of react-native, promoted to a direct one because pnpm's isolated",
-    "node_modules only symlinks direct deps and the React Native Gradle plugin looks for hermesc at",
-    "the literal path node_modules/hermes-compiler/hermesc/%OS-BIN%/ (PathUtils.kt:243).",
-    "The version MUST equal HERMES_VERSION_NAME in",
-    "node_modules/react-native/sdks/hermes-engine/version.properties — js-runtime/build.gradle.kts",
+    "Transitive dependency of react-native, kept as a direct one because the",
+    "React Native Gradle plugin looks for hermesc at the literal path",
+    "node_modules/hermes-compiler/hermesc/%OS-BIN%/ (PathUtils.kt:243).",
+    "js-runtime is self-contained (Bun workspaces), so js-runtime/node_modules",
+    "holds a full tree and Gradle paths stay in place. The version MUST equal",
+    "HERMES_VERSION_NAME in node_modules/react-native/sdks/hermes-engine/version.properties — js-runtime/build.gradle.kts",
     "fails the build if they diverge."
   ],
   "devDependencies": {

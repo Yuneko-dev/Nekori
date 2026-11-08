@@ -1,0 +1,34 @@
+{
+  "name": "nekori",
+  "private": true,
+  "packageManager": "bun@1.4.4",
+  "workspaces": {
+    "packages": [
+      "js-runtime",
+      "app/tools/reader-runtime",
+      "app/tools/cheerio-bundle",
+      "app/tools/videojs-bundle"
+    ],
+    "selfContained": [
+      "js-runtime"
+    ]
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check"
+  },
+  "devDependencies": {
+    "turbo": "2.9.6"
+  },
+  "patchedDependencies": {
+    "@react-native/gradle-plugin@0.87.0": "js-runtime/patches/@react-native__gradle-plugin@0.87.0.patch",
+    "react-native-nitro-buffer@0.2.2": "js-runtime/patches/react-native-nitro-buffer@0.2.2.patch",
+    "react-native-nitro-modules@0.37.1": "js-runtime/patches/react-native-nitro-modules@0.37.1.patch",
+    "react-native-quick-crypto@1.1.7": "js-runtime/patches/react-native-quick-crypto@1.1.7.patch",
+    "whatwg-fetch@3.6.20": "js-runtime/patches/whatwg-fetch@3.6.20.patch"
+  }
+}

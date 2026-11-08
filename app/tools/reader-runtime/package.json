@@ -2,6 +2,7 @@
   "name": "@nekori/reader",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.4.4",
   "type": "module",
   "description": "Typed, browser-based reader runtime for Nekori Android",
   "license": "Apache-2.0",
@@ -20,12 +21,12 @@
     "./vendor/*": "./dist/vendor/*"
   },
   "scripts": {
-    "build": "node build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "bun build.mjs",
+    "typecheck": "bun check -p tsconfig.json --no-script",
     "lint": "eslint src --ext .ts",
     "test": "node test-unit.mjs",
     "browser": "node browser-tests.mjs",
-    "check": "npm run typecheck && npm run lint && npm run build && npm test"
+    "check": "bun run typecheck && bun run lint && bun run build && bun run test"
   },
   "dependencies": {
     "vanjs-core": "1.6.1"
@@ -36,6 +37,7 @@
     "@typescript-eslint/parser": "8.58.0",
     "esbuild": "0.25.9",
     "eslint": "8.57.1",
+    "tsundoku-videojs-bundle": "workspace:*",
     "typescript": "5.9.3"
   }
 }

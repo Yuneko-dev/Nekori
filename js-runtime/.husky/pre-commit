@@ -42,24 +42,24 @@ fi
 if [ "$IS_JS" -eq 1 ]; then
   echo "js-runtime: lint-staged, type-check, lint, test:chapter"
   if [ ! -d "$ROOT/js-runtime/node_modules" ]; then
-    echo "js-runtime/node_modules missing, running pnpm install"
-    (cd js-runtime && pnpm install --frozen-lockfile)
+    echo "js-runtime/node_modules missing, running bun install"
+    bun install --frozen-lockfile
   fi
-  (cd js-runtime && pnpm exec lint-staged)
-  (cd js-runtime && pnpm run type-check)
-  (cd js-runtime && pnpm run lint)
-  (cd js-runtime && pnpm run test:chapter)
+  (cd js-runtime && bunx lint-staged)
+  (cd js-runtime && bun run type-check)
+  (cd js-runtime && bun run lint)
+  (cd js-runtime && bun run test:chapter)
 fi
 
-# Reader runtime: npm check (typecheck, lint, build, test) plus devtools
+# Reader runtime: bun check (typecheck, lint, build, test) plus devtools
 # dist check. Mirrors reader-checks.yml.
 if [ "$IS_READER" -eq 1 ]; then
-  echo "reader-runtime: npm run check"
-  if [ ! -d "$ROOT/app/tools/reader-runtime/node_modules" ]; then
-    echo "reader node_modules missing, running npm ci"
-    (cd app/tools/reader-runtime && npm ci)
+  echo "reader-runtime: bun run check"
+  if [ ! -d "$ROOT/node_modules" ]; then
+    echo "node_modules missing, running bun install"
+    bun install --frozen-lockfile
   fi
-  (cd app/tools/reader-runtime && npm run check)
+  bun run --filter @nekori/reader check
   node app/tools/devtools-lite/test-dist.mjs
 fi
 

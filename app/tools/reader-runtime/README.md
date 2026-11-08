@@ -5,16 +5,16 @@ The package exports ESM, declarations, and reader CSS. Android classic-script as
 generated into Gradle's build directory; generated files are not committed to this repository.
 
 ```sh
-npm ci
-npm run check
-npm run browser
-npm pack
+bun install --frozen-lockfile
+bun run check
+bun run browser
+bun pm pack
 ```
 
 To refresh the independent Electron dev client, build here and copy the output explicitly:
 
 ```sh
-npm run build
+bun run build
 node sync-dev-client.mjs /path/to/nekori-plugins
 ```
 
@@ -24,8 +24,8 @@ its installation and normal builds do not need this checkout or a reader package
 
 `.github/workflows/reader-checks.yml` runs TypeScript checking, ESLint, build and Node tests,
 separately from APK build/release workflows. ESLint includes final-newline, tab and trailing-space
-style checks for TypeScript sources. `npm test` excludes `*.browser.test.mjs`; Chromium acceptance
-tests run only with the explicit `npm run browser` command and are not run on Ubuntu CI.
+style checks for TypeScript sources. `bun test` excludes `*.browser.test.mjs`; Chromium acceptance
+tests run only with the explicit `bun run browser` command and are not run on Ubuntu CI.
 Gradle still builds the runtime assets required by the APK.
 
 The browser bundle targets Chromium 138, matching Nekori's minimum supported Android System

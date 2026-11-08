@@ -3,6 +3,9 @@
 .kotlin
 build
 .cxx
+node_modules
+.turbo
+dist
 
 # DevTools distribution is fetched at the commit in app/tools/devtools-lite/dist.lock.json.
 # Keep only the Android host scripts here; imported files belong in generated build assets.

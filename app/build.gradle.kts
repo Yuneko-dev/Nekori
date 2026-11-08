@@ -585,7 +585,7 @@ androidComponents {
             sourceDirectory.set(readerPackageDir.dir("src"))
             packageFiles.from(
                 readerPackageDir.file("package.json"),
-                readerPackageDir.file("package-lock.json"),
+                rootProject.layout.projectDirectory.file("bun.lock"),
                 readerPackageDir.file("tsconfig.json"),
                 readerPackageDir.file("tsconfig.types.json"),
                 readerPackageDir.file("build.mjs"),

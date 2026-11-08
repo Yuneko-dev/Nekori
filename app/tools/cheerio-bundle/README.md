@@ -11,8 +11,8 @@ bumping the cheerio version.
 
 ```sh
 cd app/tools/cheerio-bundle
-npm install
-npm run build
+bun install --frozen-lockfile
+bun run build
 ```
 
 `build.mjs` produces a browser-target (htmlparser2 backend), minified IIFE that sets

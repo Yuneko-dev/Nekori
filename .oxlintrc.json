@@ -1,0 +1,57 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["react", "react_perf", "nextjs", "typescript", "import", "jest", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "varsIgnorePattern": "^_",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "no-explicit-any": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-debugger": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react/no-array-index-key": "warn",
+    "eslint/no-underscore-dangle": "off",
+    "import/no-duplicates": ["error", { "prefer-inline": true }],
+    "import/no-named-as-default-member": "off",
+    "import/no-unassigned-import": "off",
+    "max-lines": ["error", 300]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{test,spec}.{ts,tsx}"],
+      "plugins": ["jest", "vitest"],
+      "rules": {
+        "no-explicit-any": "off",
+        "jest/expect-expect": "off",
+        "vitest/expect-expect": "off",
+        "jest/no-conditional-expect": "off",
+        "vitest/no-conditional-expect": "off",
+        "jest/valid-title": "off",
+        "vitest/valid-title": "off",
+        "vitest/require-mock-type-parameters": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    ".next/**",
+    "coverage/**",
+    ".turbo/**",
+    "build/**",
+    "www/**",
+    "test-results/**",
+    ".expo/**",
+    "**/next-env.d.ts"
+  ]
+}

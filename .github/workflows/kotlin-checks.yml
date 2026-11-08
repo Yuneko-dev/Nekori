@@ -30,25 +30,18 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # settings.gradle.kts resolves the React Native Gradle plugin from node_modules.
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          package_json_file: js-runtime/package.json
+          bun-version: latest
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version-file: js-runtime/.nvmrc
-          cache: pnpm
-          cache-dependency-path: js-runtime/pnpm-lock.yaml
 
-      - name: Install JS runtime dependencies
-        working-directory: js-runtime
-        run: pnpm install --frozen-lockfile
-
-      - name: Install reader runtime dependencies
-        if: matrix.check == 'tests'
-        run: npm ci --prefix app/tools/reader-runtime
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
 
       - name: Check Kotlin style
         if: matrix.check == 'style'
