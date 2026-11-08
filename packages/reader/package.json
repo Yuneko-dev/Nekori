@@ -23,8 +23,9 @@
   "scripts": {
     "build": "bun build.mjs",
     "typecheck": "bun check -p tsconfig.json --no-script",
-    "lint": "eslint src --ext .ts",
+    "lint": "bun lint --no-script src",
     "test": "node test-unit.mjs",
+    "test:check": "bun check -p tsconfig.json --no-script",
     "browser": "node browser-tests.mjs",
     "check": "bun run typecheck && bun run lint && bun run build && bun run test"
   },

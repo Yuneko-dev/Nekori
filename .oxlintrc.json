@@ -42,7 +42,7 @@
       }
     },
     {
-      "files": ["**/*.browser.test.mjs", "apps/android/app/tools/generate-shipped-js-licenses.mjs", "packages/videojs-bundle/test.mjs", "packages/videojs-bundle/build.mjs", "packages/reader/src/media/player-controller.ts", "packages/reader/test/media-core.test.mjs"],
+      "files": ["**/*.browser.test.mjs", "apps/android/app/tools/generate-shipped-js-licenses.mjs", "packages/videojs-bundle/test.mjs"],
       "rules": {
         "max-lines": "off"
       }

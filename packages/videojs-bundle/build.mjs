@@ -4,29 +4,13 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipFeature, remotePlaybackFeature } from './src/no-remote-feature.js';
+import { readPackageFile } from './build-paths.mjs';
 
 const toolDir = path.dirname(fileURLToPath(import.meta.url));
 const assetDir = path.resolve(toolDir, '../../apps/android/app/src/main/assets/novel-reader');
 const sourceDir = path.join(toolDir, 'src');
 const repositoryDir = path.resolve(toolDir, '../..');
 const checkOnly = process.argv.includes('--check');
-// ponytail: hoisted-aware package resolve. Upgrade if: Bun emits per-package node_modules again.
-function resolvePackageFile(relativePath) {
-  const local = path.resolve(toolDir, 'node_modules', relativePath);
-  const root = path.resolve(repositoryDir, 'node_modules', relativePath);
-  return { local, root };
-}
-async function readPackageFile(relativePath) {
-  for (const candidate of [
-    resolvePackageFile(relativePath).local,
-    resolvePackageFile(relativePath).root,
-  ]) {
-    try {
-      return await readFile(candidate, 'utf8');
-    } catch {}
-  }
-  throw new Error(`Cannot read package file: ${relativePath}`);
-}
 const licenseInputsIndex = process.argv.indexOf('--license-inputs');
 const licenseInputsPath = licenseInputsIndex < 0 ? null : process.argv[licenseInputsIndex + 1];
 
@@ -234,15 +218,15 @@ if (
   throw new Error('Unexpected minimal skin markup');
 }
 
-const hlsPackage = JSON.parse(await readPackageFile('hls.js/package.json'));
+const hlsPackage = JSON.parse(await readPackageFile(toolDir, repositoryDir, 'hls.js/package.json'));
 if (hlsPackage.version !== '1.7.3')
   throw new Error(`Expected hls.js 1.7.3, found ${hlsPackage.version}`);
-const videoPackage = JSON.parse(await readPackageFile('@videojs/html/package.json'));
+const videoPackage = JSON.parse(await readPackageFile(toolDir, repositoryDir, '@videojs/html/package.json'));
 if (videoPackage.version !== '10.0.1') {
   throw new Error(`Expected @videojs/html 10.0.1, found ${videoPackage.version}`);
 }
 
-let hlsSource = await readPackageFile('hls.js/dist/hls.js');
+let hlsSource = await readPackageFile(toolDir, repositoryDir, 'hls.js/dist/hls.js');
 const captureAnchor = `      if (discontinuity || trackSwitch || initSegmentChange || resetMuxers) {\n`;
 const capturePatch = `      if (!keyData && this.config.tsundokuCaptureFragments) {\n        var offset = this.demuxer instanceof TSDemuxer ? Math.max(0, TSDemuxer.syncOffset(uintData)) : 0;\n        var end = this.demuxer instanceof TSDemuxer ? uintData.length - (uintData.length - offset) % 188 : uintData.length;\n        var payload = uintData.subarray(offset, end);\n        this.observer.emit(Events.FRAG_DECRYPTED, Events.FRAG_DECRYPTED, {\n          frag: undefined,\n          payload: payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength ? payload.buffer : payload.slice().buffer,\n          stats: { tstart: stats.executeStart, tdecrypt: now() }\n        });\n      }\n`;
 if (!hlsSource.includes(captureAnchor)) throw new Error('hls.js capture patch anchor changed');

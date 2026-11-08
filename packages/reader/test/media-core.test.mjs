@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DIRECT_PLAYERS, buildDashSource, buildHlsSource } from '../src/media/direct.ts';
-import {
-  VIDEO_FRACTION_KEY,
-  combineResumeProgress,
-  readFractions,
-  writeFraction,
-} from '../src/media/progress.ts';
+import { VIDEO_FRACTION_KEY, combineResumeProgress, readFractions, writeFraction } from '../src/media/progress.ts';
 import { toWebVtt } from '../src/media/subtitles.ts';
 import { DownloadSink, writeResponseToSink } from '../src/media/download-sink.ts';
 import { awaitPlayerElements } from '../src/media/player-elements.ts';
@@ -293,11 +288,7 @@ for (const [label, disableProgress, duration] of [
     for (const name of ['loadedmetadata', 'timeupdate', 'ended'])
       video.dispatchEvent(new Event(name));
     assert.ok(events.length > 0);
-    assert.ok(
-      events.every(
-        ([name, payload]) => name === 'reader.saveVideoProgress' && payload.progress === 0,
-      ),
-    );
+    assert.ok(events.every(([name, payload]) => name === 'reader.saveVideoProgress' && payload.progress === 0));
     assert.equal(values.get(VIDEO_FRACTION_KEY), '{}');
     progress.dispose();
   });

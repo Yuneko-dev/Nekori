@@ -6,13 +6,15 @@
   "description": "Headless React Native runtime hosting LNReader-compatible JS plugins.",
   "scripts": {
     "lint": "eslint src specs --ext .js,.ts",
+    "lint:ox": "bun lint --no-script src specs",
     "lint:fix": "bun run lint --fix",
-    "format": "prettier --write \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
     "type-check": "bun check --no-script",
     "typecheck": "bun check --no-script",
     "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
     "test": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
+    "test:check": "bun check --no-script",
     "check": "bun run type-check && bun run lint && bun run format:check",
     "prepare": "./node_modules/.bin/husky .husky"
   },

@@ -7,36 +7,13 @@ import { PlayerDomFactory } from './player-dom.ts';
 import { ResumePrompt } from './resume-prompt.ts';
 import type { StringStorage } from './progress.ts';
 import { SubtitleManager } from './subtitles.ts';
-import type {
-  DashConfig,
-  PlayerConfig,
-  PlayerDelegate,
-  ReaderMediaHost,
-  SubtitleTrack,
-} from './types.ts';
-import type { HlsConstructor } from './hls-download.ts';
-
-type VideoEngine = {
-  readonly events?: { readonly ERROR?: string };
-  setProtectionData?(data: Record<string, unknown>): void;
-  attachSource?(url: string | null): void;
-  on?(event: string, listener: (event: EngineError) => void): void;
-};
-type EngineError = {
-  readonly error?: { readonly message?: string };
-  readonly event?: { readonly message?: string };
-  readonly message?: string;
-};
-type VideoJsElement = HTMLMediaElement & {
-  src: string;
-  source?: Record<string, unknown>;
-  engine?: VideoEngine;
-  currentTime: number;
-  duration: number;
-  play(): Promise<void>;
-  error?: MediaError | null;
-};
-type WindowWithHls = Window & { Hls?: HlsConstructor };
+import type { PlayerConfig, PlayerDelegate, ReaderMediaHost } from './types.ts';
+import {
+  errorMessage,
+  type VideoEngine,
+  type VideoJsElement,
+  type WindowWithHls,
+} from './player-types.ts';
 
 export class PlayerController implements PlayerDelegate {
   private readonly host: ReaderMediaHost;
@@ -113,7 +90,7 @@ export class PlayerController implements PlayerDelegate {
     });
   }
 
-  async playDash(url: string, dashConfig: DashConfig = {}): Promise<void> {
+  async playDash(url: string, dashConfig: Parameters<PlayerDelegate['playDash']>[1] = {}): Promise<void> {
     if (this.disposed) return;
     if (this.config.mode === 'download')
       return this.fail('DASH and DRM video downloads are not supported');
@@ -184,7 +161,7 @@ export class PlayerController implements PlayerDelegate {
     this.setDebug(!this.debugEnabled);
   }
 
-  addSubtitles(tracks: SubtitleTrack | readonly SubtitleTrack[]): Promise<void> {
+  addSubtitles(tracks: Parameters<PlayerDelegate['addSubtitles']>[0]): Promise<void> {
     return this.subtitles.add(tracks, this.videoElement);
   }
 
@@ -313,20 +290,10 @@ export class PlayerController implements PlayerDelegate {
   private tryPlay(video: VideoJsElement): void {
     this.resumePrompt.tryPlay(video, (message) => this.log(message));
   }
-
   private getStorage(): StringStorage | null {
-    try {
-      return this.view.localStorage;
-    } catch {
-      return null;
-    }
+    try { return this.view.localStorage; } catch { return null; }
   }
 }
-
 export function createPlayer(host: ReaderMediaHost, config: PlayerConfig): PlayerDelegate {
   return new PlayerController(host, config);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
