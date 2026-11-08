@@ -16,12 +16,18 @@ export function installScopedAnchors(
   const onClick = (rawEvent: Event): void => {
     const event = rawEvent as MouseEvent;
     if (
-      event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
-      event.shiftKey || event.altKey
-    ) return;
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
 
     const target = event.target;
-    const targetElement = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
+    const targetElement =
+      target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
     const link = targetElement?.closest<HTMLAnchorElement>('a[href^="#"]');
     if (!link || !root.contains(link)) return;
 

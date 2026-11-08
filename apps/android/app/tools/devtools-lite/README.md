@@ -57,7 +57,7 @@ as its parent. Publication uses an explicit `--force-with-lease`; a concurrent
 update fails instead of overwriting another release. PR builds do not publish.
 
 After that workflow succeeds, copy the resulting **dist** commit into
-`app/tools/devtools-lite/dist.lock.json` and review/commit that lock with the app
+`apps/android/app/tools/devtools-lite/dist.lock.json` and review/commit that lock with the app
 changes. No frontend source checkout or depot_tools is needed to build Nekori.
 Git and Node must be on PATH. The normal Android build runs `:app:prepareDevToolsAssets`:
 
@@ -80,7 +80,7 @@ and published with the distribution. Runtime still loads packaged assets entirel
 Run the build-script checks without a published repository:
 
 ```text
-node app/tools/devtools-lite/test-dist.mjs
+node apps/android/app/tools/devtools-lite/test-dist.mjs
 ```
 
 This uses local Git fixtures to check pin enforcement, old pins, dist-only object
@@ -92,7 +92,7 @@ verification; it does not alter the checked-in lock. Fixture assets are not a us
 After preparing a real pinned distribution, check its packaged closure with:
 
 ```text
-node app/tools/devtools-lite/check-assets.mjs
+node apps/android/app/tools/devtools-lite/check-assets.mjs
 ```
 
 Device verification requires a real pinned frontend: `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin` and

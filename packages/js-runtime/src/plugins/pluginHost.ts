@@ -1,9 +1,6 @@
 import { load } from 'cheerio';
 import dayjs from 'dayjs';
-import {
-  decode as decodeHtmlEntities,
-  encode as encodeHtmlEntities,
-} from 'html-entities';
+import { decode as decodeHtmlEntities, encode as encodeHtmlEntities } from 'html-entities';
 import { Parser } from 'htmlparser2';
 import { Buffer } from 'react-native-nitro-buffer';
 import NodeCrypto from 'react-native-quick-crypto';
@@ -14,20 +11,8 @@ import CookieManager from './helpers/cookie';
 import { fetchApi, fetchProto, fetchText } from './helpers/fetch';
 import { isUrlAbsolute } from './helpers/isAbsoluteUrl';
 import { getUserAgent } from './helpers/nativeHost';
-import {
-  bytesToUtf8,
-  cbc,
-  cfb,
-  ctr,
-  ecb,
-  gcm,
-  utf8ToBytes,
-} from './helpers/nobleWrapper';
-import {
-  hydratePluginStorage,
-  removePluginStorageContext,
-  storageModule,
-} from './helpers/storage';
+import { bytesToUtf8, cbc, cfb, ctr, ecb, gcm, utf8ToBytes } from './helpers/nobleWrapper';
+import { hydratePluginStorage, removePluginStorageContext, storageModule } from './helpers/storage';
 import {
   NodeHtmlMarkdown,
   PostProcessResult,
@@ -51,18 +36,13 @@ const contentWarningValues = new Set<number>([
 
 const contentTypeValues = new Set<string>(Object.values(PluginContentType));
 
-const normalizePluginContentWarning = (
-  contentWarning: unknown,
-): PluginContentWarning => {
-  return typeof contentWarning === 'number' &&
-    contentWarningValues.has(contentWarning)
+const normalizePluginContentWarning = (contentWarning: unknown): PluginContentWarning => {
+  return typeof contentWarning === 'number' && contentWarningValues.has(contentWarning)
     ? contentWarning
     : PluginContentWarning.UNSPECIFIED;
 };
 
-const normalizePluginContentType = (
-  contentType: unknown,
-): PluginContentType => {
+const normalizePluginContentType = (contentType: unknown): PluginContentType => {
   return typeof contentType === 'string' && contentTypeValues.has(contentType)
     ? (contentType as PluginContentType)
     : PluginContentType.NOVEL;
@@ -148,9 +128,7 @@ function makeRequire(runtimeKey: string): (name: string) => unknown {
     }
     const loaded = nekoriPackages[name] ?? packages[name];
     if (loaded === undefined) {
-      console.warn(
-        `Plugin "${runtimeKey}" tried to require unknown module "${name}"`,
-      );
+      console.warn(`Plugin "${runtimeKey}" tried to require unknown module "${name}"`);
     }
     return loaded;
   };
@@ -178,9 +156,7 @@ export async function initPlugin(
       throw new Error(`Plugin "${pluginId}" evaluated but exported no default`);
     }
     if (validateId && plugin.id !== pluginId) {
-      throw new Error(
-        `Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`,
-      );
+      throw new Error(`Plugin id mismatch: expected "${pluginId}", got "${plugin.id}"`);
     }
 
     if (
@@ -189,9 +165,7 @@ export async function initPlugin(
         plugin.minApiVersion < 1 ||
         plugin.minApiVersion > NEKORI_API_VERSION)
     ) {
-      throw new Error(
-        'Unsupported Nekori API version: ' + plugin.minApiVersion,
-      );
+      throw new Error('Unsupported Nekori API version: ' + plugin.minApiVersion);
     }
 
     if (!plugin.imageRequestInit) {
@@ -204,7 +178,7 @@ export async function initPlugin(
       }
 
       const hasUserAgent = Object.keys(plugin.imageRequestInit.headers).some(
-        header => header.toLowerCase() === 'user-agent',
+        (header) => header.toLowerCase() === 'user-agent',
       );
 
       if (!hasUserAgent) {
@@ -230,11 +204,7 @@ export function getPlugin(runtimeKey: string): Plugin {
   return plugin;
 }
 
-export function resolvePluginUrl(
-  runtimeKey: string,
-  path: string,
-  isNovel?: boolean,
-): string {
+export function resolvePluginUrl(runtimeKey: string, path: string, isNovel?: boolean): string {
   if (isUrlAbsolute(path)) {
     return path;
   }
@@ -252,15 +222,9 @@ export function resolvePluginUrl(
   return plugin.site + path;
 }
 
-export async function evaluatePlugin(
-  runtimeKey: string,
-  expression: string,
-): Promise<unknown> {
+export async function evaluatePlugin(runtimeKey: string, expression: string): Promise<unknown> {
   const plugin = getPlugin(runtimeKey);
-  const result = Function(
-    'plugin',
-    `return (${expression});`,
-  )(plugin) as unknown;
+  const result = Function('plugin', `return (${expression});`)(plugin) as unknown;
   return Promise.resolve(result);
 }
 

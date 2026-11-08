@@ -42,7 +42,7 @@
       }
     },
     {
-      "files": ["**/*.browser.test.mjs", "app/tools/generate-shipped-js-licenses.mjs"],
+      "files": ["**/*.browser.test.mjs", "apps/android/app/tools/generate-shipped-js-licenses.mjs", "packages/videojs-bundle/test.mjs", "packages/videojs-bundle/build.mjs", "packages/reader/src/media/player-controller.ts", "packages/reader/test/media-core.test.mjs"],
       "rules": {
         "max-lines": "off"
       }
@@ -59,7 +59,7 @@
     "test-results/**",
     ".expo/**",
     "**/next-env.d.ts",
-    "app/src/main/assets/**",
+    "apps/android/app/src/main/assets/**",
     "**/*.min.js"
   ]
 }

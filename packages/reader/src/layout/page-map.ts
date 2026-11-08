@@ -31,7 +31,9 @@ export function measureChapterMap(
   return Array.from(root.querySelectorAll<HTMLElement>('.nekori-chapter')).map((element) => {
     let rects = Array.from(element.getClientRects());
     if (rects.length === 0) rects = [element.getBoundingClientRect()];
-    const leaves = rects.map((rect) => leafForRect(rect, hostRect, offset, leafSize, vertical, direction));
+    const leaves = rects.map((rect) =>
+      leafForRect(rect, hostRect, offset, leafSize, vertical, direction),
+    );
     const first = Math.min(...leaves);
     const last = Math.max(...leaves);
     return {
@@ -43,7 +45,11 @@ export function measureChapterMap(
   });
 }
 
-export function rebuildBlankLeaves(root: HTMLElement, chapters: readonly MeasuredChapter[], double: boolean): void {
+export function rebuildBlankLeaves(
+  root: HTMLElement,
+  chapters: readonly MeasuredChapter[],
+  double: boolean,
+): void {
   root.querySelectorAll('.nekori-layout-blank-leaf').forEach((blank) => blank.remove());
   if (!double) return;
   for (const chapter of chapters) {

@@ -7,5 +7,10 @@ export function boxType(bytes: Uint8Array): string {
 }
 
 export function sameBytes(left: Uint8Array | undefined, right: Uint8Array | null): boolean {
-  return Boolean(left && right && left.byteLength === right.byteLength && left.every((value, index) => value === right[index]));
+  return Boolean(
+    left &&
+    right &&
+    left.byteLength === right.byteLength &&
+    left.every((value, index) => value === right[index]),
+  );
 }

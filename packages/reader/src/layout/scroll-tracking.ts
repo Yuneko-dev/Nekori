@@ -1,4 +1,8 @@
-import { computeVerticalProgress, shouldLoadNextChapter, type ChapterBoundary } from './progress.ts';
+import {
+  computeVerticalProgress,
+  shouldLoadNextChapter,
+  type ChapterBoundary,
+} from './progress.ts';
 import type { LayoutHost, ScrollTrackingConfig } from './types.ts';
 import { measureChapterBoundaries } from './boundary-measurement.ts';
 
@@ -17,7 +21,11 @@ export interface ScrollTrackingOptions {
   readonly isPaged?: () => boolean;
 }
 
-export function createScrollTracking({ root, host, isPaged = () => false }: ScrollTrackingOptions): ScrollTrackingController {
+export function createScrollTracking({
+  root,
+  host,
+  isPaged = () => false,
+}: ScrollTrackingOptions): ScrollTrackingController {
   const document = root.ownerDocument;
   const activeWindow = document.defaultView;
   if (!activeWindow) throw new Error('Scroll tracking requires an active document window');
@@ -42,27 +50,39 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
   const settleMs = 400;
   const scrollingElement = document.scrollingElement ?? document.documentElement;
 
-  const scrollTop = (): number => view.scrollY || scrollingElement.scrollTop || document.body?.scrollTop || 0;
-  const documentHeight = (): number => Math.max(scrollingElement.scrollHeight, document.body?.scrollHeight ?? 0);
+  const scrollTop = (): number =>
+    view.scrollY || scrollingElement.scrollTop || document.body?.scrollTop || 0;
+  const documentHeight = (): number =>
+    Math.max(scrollingElement.scrollHeight, document.body?.scrollHeight ?? 0);
   const viewportHeight = (): number => view.innerHeight || scrollingElement.clientHeight;
-  const state = () => computeVerticalProgress(
-    scrollTop(), documentHeight(), viewportHeight(), boundaries,
-    config.infiniteScrollEnabled, config.doneThreshold,
-  );
+  const state = () =>
+    computeVerticalProgress(
+      scrollTop(),
+      documentHeight(),
+      viewportHeight(),
+      boundaries,
+      config.infiniteScrollEnabled,
+      config.doneThreshold,
+    );
 
   function dispatchProgress(progress: ReturnType<typeof state>): void {
-    view.dispatchEvent(new view.CustomEvent('nekori:progress', {
-      detail: {
-        progress: progress.progress,
-        chapterProgress: progress.chapterProgress,
-        chapterId: progress.chapterId,
-        isLast: progress.isLast,
-      },
-    }));
+    view.dispatchEvent(
+      new view.CustomEvent('nekori:progress', {
+        detail: {
+          progress: progress.progress,
+          chapterProgress: progress.chapterProgress,
+          chapterId: progress.chapterId,
+          isLast: progress.isLast,
+        },
+      }),
+    );
   }
 
   function publishProgress(progress: ReturnType<typeof state>): void {
-    if (Math.abs(progress.chapterProgress - lastSliderProgress) > 0.01 && Date.now() - lastSliderUpdateAt > 50) {
+    if (
+      Math.abs(progress.chapterProgress - lastSliderProgress) > 0.01 &&
+      Date.now() - lastSliderUpdateAt > 50
+    ) {
       lastSliderProgress = progress.chapterProgress;
       lastSliderUpdateAt = Date.now();
       host.emit('scroll.progressPreview', { progress: progress.chapterProgress });
@@ -90,9 +110,16 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
     frame = null;
     if (disposed || isPaged()) return;
     const current = state();
-    if (config.infiniteScrollEnabled && current.chapterId !== null && current.chapterId !== lastVisibleChapterId) {
+    if (
+      config.infiniteScrollEnabled &&
+      current.chapterId !== null &&
+      current.chapterId !== lastVisibleChapterId
+    ) {
       lastVisibleChapterId = current.chapterId;
-      host.emit('chapter.visible', { chapterId: current.chapterId, progress: current.chapterProgress });
+      host.emit('chapter.visible', {
+        chapterId: current.chapterId,
+        progress: current.chapterProgress,
+      });
     }
     publishProgress(current);
     if (shouldLoadNextChapter(current, boundaries, config.loadThreshold)) requestNextChapter();
@@ -114,7 +141,10 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
     lastSliderProgress = current.chapterProgress;
     host.emit('scroll.progressPreview', { progress: current.chapterProgress });
     dispatchProgress(current);
-    host.emit('scroll.progressPersist', { progress: current.chapterProgress, atEnd: current.atEnd });
+    host.emit('scroll.progressPersist', {
+      progress: current.chapterProgress,
+      atEnd: current.atEnd,
+    });
   }
 
   const onScrollEnd = (): void => persistCurrent();
@@ -142,13 +172,11 @@ export function createScrollTracking({ root, host, isPaged = () => false }: Scro
 
   view.addEventListener('scroll', onScroll, { passive: true });
   view.addEventListener('scrollend', onScrollEnd, { passive: true });
-  const bodyResizeObserver = view.ResizeObserver && document.body
-    ? new view.ResizeObserver(onResize)
-    : null;
+  const bodyResizeObserver =
+    view.ResizeObserver && document.body ? new view.ResizeObserver(onResize) : null;
   bodyResizeObserver?.observe(document.body!);
-  const boundaryResizeObserver = view.ResizeObserver && root
-    ? new view.ResizeObserver(scheduleBoundaryRebuild)
-    : null;
+  const boundaryResizeObserver =
+    view.ResizeObserver && root ? new view.ResizeObserver(scheduleBoundaryRebuild) : null;
   boundaryResizeObserver?.observe(root);
   const mutationObserver = view.MutationObserver
     ? new view.MutationObserver(scheduleBoundaryRebuild)

@@ -1,4 +1,10 @@
-import { chapterForLeaf, logicalOffset, progressForUnit, unitCount, unitFromProgress } from './math.ts';
+import {
+  chapterForLeaf,
+  logicalOffset,
+  progressForUnit,
+  unitCount,
+  unitFromProgress,
+} from './math.ts';
 import { leafForRect, type MeasuredChapter } from './page-map.ts';
 import type { LayoutConfig, LayoutController } from './types.ts';
 
@@ -31,13 +37,32 @@ export interface LayoutCommandOptions {
   readonly transitions: LayoutTransitions;
 }
 
-type LayoutCommands = Pick<LayoutController,
-  'moveBy' | 'seekUnit' | 'seekPercent' | 'revealElement' | 'reflow' | 'prepareSilentTurn' | 'finishSilentTurn'>;
+type LayoutCommands = Pick<
+  LayoutController,
+  | 'moveBy'
+  | 'seekUnit'
+  | 'seekPercent'
+  | 'revealElement'
+  | 'reflow'
+  | 'prepareSilentTurn'
+  | 'finishSilentTurn'
+>;
 
 export function createLayoutCommands(options: LayoutCommandOptions): LayoutCommands {
   const {
-    root, getConfig, getPageMap, getTotalLeaves, getCurrentUnit, perUnit, viewport,
-    scrollToUnit, requestNext, scheduleReflow, emitPosition, onProgress, transitions,
+    root,
+    getConfig,
+    getPageMap,
+    getTotalLeaves,
+    getCurrentUnit,
+    perUnit,
+    viewport,
+    scrollToUnit,
+    requestNext,
+    scheduleReflow,
+    emitPosition,
+    onProgress,
+    transitions,
   } = options;
 
   function rememberLeafProgress(leaf: number): void {
@@ -45,7 +70,8 @@ export function createLayoutCommands(options: LayoutCommandOptions): LayoutComma
     const chapter = chapterForLeaf(getPageMap(), leaf);
     if (!chapter) return;
     // A requested destination supersedes a delayed feedback-card viewport restore.
-    if (!transitions.silent && transitions.restore?.unitIndex !== undefined) transitions.restore = null;
+    if (!transitions.silent && transitions.restore?.unitIndex !== undefined)
+      transitions.restore = null;
     const localLeaf = Math.min(Math.max(leaf - chapter.startLeaf, 0), chapter.leafCount - 1);
     const localUnit = Math.floor(localLeaf / perUnit());
     onProgress(progressForUnit(localUnit, unitCount(chapter.leafCount, config.spread)));
@@ -94,7 +120,9 @@ export function createLayoutCommands(options: LayoutCommandOptions): LayoutComma
       const leaf = leafForRect(
         element.getBoundingClientRect(),
         root.getBoundingClientRect(),
-        config.vertical ? root.scrollTop || 0 : logicalOffset(root.scrollLeft || 0, config.direction),
+        config.vertical
+          ? root.scrollTop || 0
+          : logicalOffset(root.scrollLeft || 0, config.direction),
         viewport() / perUnit(),
         config.vertical,
         config.direction,
@@ -123,14 +151,16 @@ export function createLayoutCommands(options: LayoutCommandOptions): LayoutComma
     prepareSilentTurn(preserveViewport = true) {
       const chapter = chapterForLeaf(getPageMap(), getCurrentUnit() * perUnit());
       transitions.silentSourceUnit = getCurrentUnit();
-      transitions.restore = preserveViewport && chapter
-        ? { chapterId: chapter.chapterId, progress: transitions.lastChapterProgress ?? 0 }
-        : null;
+      transitions.restore =
+        preserveViewport && chapter
+          ? { chapterId: chapter.chapterId, progress: transitions.lastChapterProgress ?? 0 }
+          : null;
       transitions.silent = true;
       return true;
     },
     finishSilentTurn(reflow = true, commit = true) {
-      if (!commit && transitions.silentSourceUnit !== null) scrollToUnit(transitions.silentSourceUnit);
+      if (!commit && transitions.silentSourceUnit !== null)
+        scrollToUnit(transitions.silentSourceUnit);
       transitions.silentSourceUnit = null;
       transitions.silent = false;
       if (!reflow) emitPosition(commit);

@@ -20,10 +20,7 @@ import { registerHandler, startBridge } from './bridge/nativeHost';
 import { registerPluginStorageHandlers } from './handlers/plugin-storage';
 import { registerSpikeHandlers } from './handlers/spike-handlers';
 import { normalizeChapterContent } from './plugins/helpers/chapterContent';
-import {
-  normalizePluginChapters,
-  normalizePluginNovel,
-} from './plugins/helpers/chapterPage';
+import { normalizePluginChapters, normalizePluginNovel } from './plugins/helpers/chapterPage';
 import { flushPluginStorage } from './plugins/helpers/storage';
 import {
   evaluatePlugin,
@@ -46,7 +43,7 @@ registerSpikeHandlers();
 // Returns everything the host needs to identify a plugin, because the loaded code is the only
 // authority on that. A repository index entry is a catalogue listing: it can be stale, or describe
 // a version that was never the one written to disk.
-registerHandler('plugin.load', async args => {
+registerHandler('plugin.load', async (args) => {
   const {
     id,
     code,
@@ -74,7 +71,7 @@ registerHandler('plugin.load', async args => {
   };
 });
 
-registerHandler('plugin.eval', async args => {
+registerHandler('plugin.eval', async (args) => {
   const { id, key, expression } = args as {
     id: string;
     key?: string;
@@ -88,7 +85,7 @@ registerHandler('plugin.eval', async args => {
   }
 });
 
-registerHandler('plugin.unload', async args => {
+registerHandler('plugin.unload', async (args) => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;
   await flushPluginStorage(runtimeKey);
@@ -98,7 +95,7 @@ registerHandler('plugin.unload', async args => {
 
 registerPluginStorageHandlers();
 
-registerHandler('plugin.popularNovels', async args => {
+registerHandler('plugin.popularNovels', async (args) => {
   const {
     id,
     key,
@@ -125,7 +122,7 @@ registerHandler('plugin.popularNovels', async args => {
   }
 });
 
-registerHandler('plugin.searchNovels', async args => {
+registerHandler('plugin.searchNovels', async (args) => {
   const { id, key, query, page } = args as {
     id: string;
     key?: string;
@@ -140,7 +137,7 @@ registerHandler('plugin.searchNovels', async args => {
   }
 });
 
-registerHandler('plugin.metadata', async args => {
+registerHandler('plugin.metadata', async (args) => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;
   try {
@@ -155,7 +152,7 @@ registerHandler('plugin.metadata', async args => {
   }
 });
 
-registerHandler('plugin.filters', async args => {
+registerHandler('plugin.filters', async (args) => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;
   try {
@@ -165,7 +162,7 @@ registerHandler('plugin.filters', async args => {
   }
 });
 
-registerHandler('plugin.settings', async args => {
+registerHandler('plugin.settings', async (args) => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;
   try {
@@ -175,7 +172,7 @@ registerHandler('plugin.settings', async args => {
   }
 });
 
-registerHandler('plugin.parseNovel', async args => {
+registerHandler('plugin.parseNovel', async (args) => {
   const { id, key, path } = args as {
     id: string;
     key?: string;
@@ -190,8 +187,7 @@ registerHandler('plugin.parseNovel', async args => {
       !paged &&
       Array.isArray(sourceNovel.chapters) &&
       sourceNovel.chapters.some(
-        chapter =>
-          typeof chapter.page === 'string' && chapter.page.trim().length > 0,
+        (chapter) => typeof chapter.page === 'string' && chapter.page.trim().length > 0,
       );
     const novel = normalizePluginNovel(id, sourceNovel, paged);
     return {
@@ -203,7 +199,7 @@ registerHandler('plugin.parseNovel', async args => {
   }
 });
 
-registerHandler('plugin.parsePage', async args => {
+registerHandler('plugin.parsePage', async (args) => {
   const { id, key, path, page } = args as {
     id: string;
     key?: string;
@@ -227,7 +223,7 @@ registerHandler('plugin.parsePage', async args => {
   }
 });
 
-registerHandler('plugin.resolveUrl', args => {
+registerHandler('plugin.resolveUrl', (args) => {
   const { id, key, path, isNovel } = args as {
     id: string;
     key?: string;
@@ -237,7 +233,7 @@ registerHandler('plugin.resolveUrl', args => {
   return { url: resolvePluginUrl(key ?? id, path, isNovel) };
 });
 
-registerHandler('plugin.parseChapter', async args => {
+registerHandler('plugin.parseChapter', async (args) => {
   const { id, key, path } = args as {
     id: string;
     key?: string;
@@ -246,10 +242,7 @@ registerHandler('plugin.parseChapter', async args => {
   const runtimeKey = key ?? id;
   try {
     const plugin = getPlugin(runtimeKey);
-    return normalizeChapterContent(
-      await plugin.parseChapter(path),
-      plugin.isNekoriPlugin === true,
-    );
+    return normalizeChapterContent(await plugin.parseChapter(path), plugin.isNekoriPlugin === true);
   } finally {
     await flushPluginStorage(runtimeKey);
   }

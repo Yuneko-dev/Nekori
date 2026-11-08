@@ -1,8 +1,4 @@
-import {
-  CHAPTER_ID_ATTR,
-  CHAPTER_TAG_NAME,
-  type ChapterMetadata,
-} from '../chapters/metadata.ts';
+import { CHAPTER_ID_ATTR, CHAPTER_TAG_NAME, type ChapterMetadata } from '../chapters/metadata.ts';
 import {
   createChapterElements,
   appendChapter as appendNodes,
@@ -14,18 +10,25 @@ import type { ScrollTrackingController } from '../layout/index.ts';
 import type { ReaderConfig } from '../protocol/reader-config.ts';
 
 export function initializeInitialContent(root: HTMLElement, config: ReaderConfig): void {
-  const chapter = Array.from(root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME))
-    .find((element) => element.getAttribute(CHAPTER_ID_ATTR) === config.chapter.id) ?? null;
+  const chapter =
+    Array.from(root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME)).find(
+      (element) => element.getAttribute(CHAPTER_ID_ATTR) === config.chapter.id,
+    ) ?? null;
   if (!chapter) {
     if (config.mode === 'error' && !config.initialContent) return;
     const nodes = createChapterElements(root.ownerDocument, chapterMetadata(config.chapter));
     // The initial chapter needs a tracking marker, not a visible separator above its content.
     nodes.divider.style.cssText = 'visibility:hidden;height:0;margin:0;padding:0;border:none;';
-    if (config.initialContent) applyProcessedContent(root.ownerDocument, nodes.element, config.initialContent);
+    if (config.initialContent)
+      applyProcessedContent(root.ownerDocument, nodes.element, config.initialContent);
     appendNodes(root, nodes);
     return;
   }
-  if (config.initialContent && chapter.childElementCount === 0 && (chapter.textContent ?? '').trim().length === 0) {
+  if (
+    config.initialContent &&
+    chapter.childElementCount === 0 &&
+    (chapter.textContent ?? '').trim().length === 0
+  ) {
     applyProcessedContent(root.ownerDocument, chapter, config.initialContent);
   }
 }
@@ -38,23 +41,35 @@ export function appendChapter(
   tracking: ScrollTrackingController | null,
   refreshWidgets: (() => void) | null,
 ): boolean {
-  if (!isRecord(payload) || !isRecord(payload.chapter) || !isRecord(payload.content)) throw new TypeError('Invalid chapter.append payload');
+  if (!isRecord(payload) || !isRecord(payload.chapter) || !isRecord(payload.content))
+    throw new TypeError('Invalid chapter.append payload');
   const metadata = payload.chapter;
-  if (typeof metadata.id !== 'string' || typeof metadata.name !== 'string' || typeof metadata.path !== 'string' ||
-      typeof metadata.absoluteUrl !== 'string' || typeof metadata.number !== 'number') throw new TypeError('Invalid appended chapter metadata');
+  if (
+    typeof metadata.id !== 'string' ||
+    typeof metadata.name !== 'string' ||
+    typeof metadata.path !== 'string' ||
+    typeof metadata.absoluteUrl !== 'string' ||
+    typeof metadata.number !== 'number'
+  )
+    throw new TypeError('Invalid appended chapter metadata');
   const chapterMetadata: ChapterMetadata = {
     id: metadata.id,
     name: metadata.name,
     number: metadata.number,
     path: metadata.path,
     url: metadata.absoluteUrl,
-    ...(metadata.direction === 'ltr' || metadata.direction === 'rtl' ? { direction: metadata.direction } : {}),
+    ...(metadata.direction === 'ltr' || metadata.direction === 'rtl'
+      ? { direction: metadata.direction }
+      : {}),
     ...(typeof metadata.language === 'string' ? { language: metadata.language } : {}),
   };
   const nodes = createChapterElements(root.ownerDocument, chapterMetadata);
   const content = payload.content;
   if (content.kind === 'plainText' && typeof content.text === 'string') {
-    applyProcessedContent(root.ownerDocument, nodes.element, { kind: 'plainText', text: content.text });
+    applyProcessedContent(root.ownerDocument, nodes.element, {
+      kind: 'plainText',
+      text: content.text,
+    });
   } else if (content.kind === 'html' && typeof content.html === 'string') {
     applyProcessedContent(root.ownerDocument, nodes.element, { kind: 'html', html: content.html });
   } else {
@@ -98,7 +113,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function stringField(payload: unknown, name: string): string {
-  if (!isRecord(payload) || typeof payload[name] !== 'string') throw new TypeError(`${name} must be a string`);
+  if (!isRecord(payload) || typeof payload[name] !== 'string')
+    throw new TypeError(`${name} must be a string`);
   return payload[name];
 }
-

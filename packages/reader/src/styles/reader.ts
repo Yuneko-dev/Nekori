@@ -5,9 +5,15 @@ export function registerStyleCommand(host: ReaderHost): { dispose(): void } {
   const document = host.root.ownerDocument;
   const background = createReaderBackground(host);
   const initialClasses = host.config.style?.bodyClasses;
-  const appliedClasses = new Set<string>(typeof initialClasses === 'string' ? initialClasses.split(/\s+/).filter(Boolean) : []);
+  const appliedClasses = new Set<string>(
+    typeof initialClasses === 'string' ? initialClasses.split(/\s+/).filter(Boolean) : [],
+  );
   const remove = host.onCommand('style.apply', (value) => {
-    if (!isRecord(value) || typeof value.css !== 'string' || typeof value.bodyClasses !== 'string') {
+    if (
+      !isRecord(value) ||
+      typeof value.css !== 'string' ||
+      typeof value.bodyClasses !== 'string'
+    ) {
       throw new TypeError('Invalid reader style payload');
     }
     const styleId = 'nekori-custom-style';
@@ -29,7 +35,13 @@ export function registerStyleCommand(host: ReaderHost): { dispose(): void } {
     }
     if (value.background !== undefined) background.apply(value.background);
   });
-  return { dispose() { remove(); background.dispose(); document.getElementById('nekori-custom-style')?.remove(); } };
+  return {
+    dispose() {
+      remove();
+      background.dispose();
+      document.getElementById('nekori-custom-style')?.remove();
+    },
+  };
 }
 
 function androidColor(color: number): string {
@@ -38,7 +50,9 @@ function androidColor(color: number): string {
   const red = (value >>> 16) & 0xff;
   const green = (value >>> 8) & 0xff;
   const blue = value & 0xff;
-  return alpha === 255 ? `rgb(${red} ${green} ${blue})` : `rgb(${red} ${green} ${blue} / ${alpha / 255})`;
+  return alpha === 255
+    ? `rgb(${red} ${green} ${blue})`
+    : `rgb(${red} ${green} ${blue} / ${alpha / 255})`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

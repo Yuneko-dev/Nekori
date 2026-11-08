@@ -28,7 +28,9 @@ window.makeReaderAcceptanceHarness = (root, config) => {
   const messages: unknown[] = [];
   const transport: NativeReaderTransport = {
     onmessage: null,
-    postMessage(message) { messages.push(JSON.parse(message) as unknown); },
+    postMessage(message) {
+      messages.push(JSON.parse(message) as unknown);
+    },
   };
   const host = createRuntimeHost({ root, config, transport });
   const ready = host.start();
@@ -44,9 +46,19 @@ window.makeReaderAcceptanceHarness = (root, config) => {
     tracking,
     messages,
     ready,
-    deliver(message) { transport.onmessage?.({ data: message }); },
-    installAnchors() { return installScopedAnchors(root, () => layout); },
-    dispose() { stopGestures(); widgets.dispose(); tracking?.dispose(); layout?.dispose(); host.dispose(); },
+    deliver(message) {
+      transport.onmessage?.({ data: message });
+    },
+    installAnchors() {
+      return installScopedAnchors(root, () => layout);
+    },
+    dispose() {
+      stopGestures();
+      widgets.dispose();
+      tracking?.dispose();
+      layout?.dispose();
+      host.dispose();
+    },
   };
 };
 

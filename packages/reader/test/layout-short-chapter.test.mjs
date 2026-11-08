@@ -9,12 +9,22 @@ function shortChapterFixture({ height, paged = false }) {
   const view = {
     innerHeight: 100,
     ResizeObserver: class {
-      constructor(callback) { resize = callback; }
+      constructor(callback) {
+        resize = callback;
+      }
       observe() {}
-      disconnect() { disconnected += 1; }
+      disconnect() {
+        disconnected += 1;
+      }
     },
-    setTimeout(callback, delay) { timeout = callback; assert.equal(delay, 500); return 7; },
-    clearTimeout() { timeout = null; },
+    setTimeout(callback, delay) {
+      timeout = callback;
+      assert.equal(delay, 500);
+      return 7;
+    },
+    clearTimeout() {
+      timeout = null;
+    },
   };
   const document = {
     defaultView: view,
@@ -26,8 +36,17 @@ function shortChapterFixture({ height, paged = false }) {
     classList: { contains: (name) => paged && name === 'is-paged' },
   };
   const emitted = [];
-  const cleanup = observeShortChapter({ host: { root, emit: (name, payload) => emitted.push({ name, payload }) }, enabled: true });
-  return { emitted, cleanup, flushResize: () => resize?.(), flushTimeout: () => timeout?.(), disconnected };
+  const cleanup = observeShortChapter({
+    host: { root, emit: (name, payload) => emitted.push({ name, payload }) },
+    enabled: true,
+  });
+  return {
+    emitted,
+    cleanup,
+    flushResize: () => resize?.(),
+    flushTimeout: () => timeout?.(),
+    disconnected,
+  };
 }
 
 test('initial short chapter emits markShort only once across resize and timeout checks', () => {

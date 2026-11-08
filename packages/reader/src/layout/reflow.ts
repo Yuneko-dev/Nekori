@@ -26,15 +26,29 @@ export interface ReflowOptions {
 
 export function performReflow(options: ReflowOptions): void {
   const {
-    root, config, pageMap, currentUnit, perUnit, viewport, extent, lastProgress, restore,
-    measure, scrollToUnit, setPageMap, setTotalLeaves, clearRestore, clearLastProgress,
-    resetPositionKey, emitPosition,
+    root,
+    config,
+    pageMap,
+    currentUnit,
+    perUnit,
+    viewport,
+    extent,
+    lastProgress,
+    restore,
+    measure,
+    scrollToUnit,
+    setPageMap,
+    setTotalLeaves,
+    clearRestore,
+    clearLastProgress,
+    resetPositionKey,
+    emitPosition,
   } = options;
   if (!config.enabled) return;
   const currentChapter = chapterForLeaf(pageMap, currentUnit * perUnit);
-  const snapshot: RestorePoint | null = restore ?? (currentChapter
-    ? { chapterId: currentChapter.chapterId, progress: lastProgress ?? 0 }
-    : null);
+  const snapshot: RestorePoint | null =
+    restore ??
+    (currentChapter ? { chapterId: currentChapter.chapterId, progress: lastProgress ?? 0 } : null);
   if (config.vertical) combineShortNumbers(root);
   const beforeBlanks = measure();
   rebuildBlankLeaves(root, beforeBlanks, config.spread === 'double');
@@ -49,16 +63,19 @@ export function performReflow(options: ReflowOptions): void {
   }
   setTotalLeaves(Math.max(1, Math.round(extent() / leafSize)));
   if (measured.length === 0) {
-    measured = [{ chapterId: config.chapterId, startLeaf: 0, leafCount: contentLeaves, element: root }];
+    measured = [
+      { chapterId: config.chapterId, startLeaf: 0, leafCount: contentLeaves, element: root },
+    ];
   }
   setPageMap(measured);
   if (snapshot) {
     const chapter = measured.find((entry) => entry.chapterId === snapshot.chapterId);
     if (chapter) {
       const count = unitCount(chapter.leafCount, config.spread);
-      const local = snapshot.unitIndex === undefined
-        ? unitFromProgress(snapshot.progress, count)
-        : Math.min(Math.max(snapshot.unitIndex, 0), count - 1);
+      const local =
+        snapshot.unitIndex === undefined
+          ? unitFromProgress(snapshot.progress, count)
+          : Math.min(Math.max(snapshot.unitIndex, 0), count - 1);
       scrollToUnit(Math.floor(chapter.startLeaf / perUnit) + local);
     }
   }

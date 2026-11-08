@@ -43,10 +43,7 @@ export interface Spec extends TurboModule {
 
   loadPluginStorage(pluginId: string): Promise<string>;
 
-  applyPluginStorageMutation(
-    pluginId: string,
-    mutationJson: string,
-  ): Promise<void>;
+  applyPluginStorageMutation(pluginId: string, mutationJson: string): Promise<void>;
 
   readonly onCommand: CodegenTypes.EventEmitter<JsCommand>;
 }

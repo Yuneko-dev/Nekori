@@ -11,9 +11,10 @@ export function observeImageLoading(root: HTMLElement): () => void {
   };
   root.querySelectorAll('img').forEach((image) => markLoaded(image));
   const observer = new window.MutationObserver((records) => {
-    for (const record of records) for (const node of record.addedNodes) {
-      if (node instanceof window.Element) setup(node);
-    }
+    for (const record of records)
+      for (const node of record.addedNodes) {
+        if (node instanceof window.Element) setup(node);
+      }
   });
   observer.observe(root, { childList: true, subtree: true });
   return () => observer.disconnect();

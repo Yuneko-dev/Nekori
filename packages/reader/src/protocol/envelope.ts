@@ -42,8 +42,12 @@ export interface ReaderCancelEnvelope extends BaseEnvelope {
   requestId: string;
 }
 
-export type ReaderEnvelope = ReaderLifecycleEnvelope | ReaderCommandEnvelope | ReaderResultEnvelope |
-  ReaderEventEnvelope | ReaderCancelEnvelope;
+export type ReaderEnvelope =
+  | ReaderLifecycleEnvelope
+  | ReaderCommandEnvelope
+  | ReaderResultEnvelope
+  | ReaderEventEnvelope
+  | ReaderCancelEnvelope;
 
 export class ReaderProtocolError extends Error {
   constructor(message: string) {
@@ -56,7 +60,9 @@ export function parseEnvelope(value: unknown, expectedDocumentId: string): Reade
   const message = typeof value === 'string' ? parseJson(value) : value;
   if (!isRecord(message)) throw new ReaderProtocolError('Envelope must be an object');
   if (message.protocolVersion !== READER_PROTOCOL_VERSION) {
-    throw new ReaderProtocolError(`Unsupported protocol version: ${String(message.protocolVersion)}`);
+    throw new ReaderProtocolError(
+      `Unsupported protocol version: ${String(message.protocolVersion)}`,
+    );
   }
   if (message.documentId !== expectedDocumentId) {
     throw new ReaderProtocolError('Envelope document id does not match the active document');

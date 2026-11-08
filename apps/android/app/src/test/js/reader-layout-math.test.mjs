@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  chapterForLeaf, leafRange, logicalOffset, physicalOffset, progressForUnit, unitCount,
-  unitFromOffset, unitFromProgress,
-} from '../../../../packages/reader/src/layout/math.ts';
-import { createLayoutCommands } from '../../../../packages/reader/src/layout/commands.ts';
+  chapterForLeaf,
+  leafRange,
+  logicalOffset,
+  physicalOffset,
+  progressForUnit,
+  unitCount,
+  unitFromOffset,
+  unitFromProgress,
+} from '../../../../../../packages/reader/src/layout/math.ts';
+import { createLayoutCommands } from '../../../../../../packages/reader/src/layout/commands.ts';
 
 test('maps leaves into single and double visual units', () => {
   assert.equal(unitCount(5, 'single'), 5);
@@ -42,16 +48,39 @@ test('finds the chapter containing a leaf and clamps gaps to the nearest chapter
 
 test('layout commands move and seek through the measured chapter map', () => {
   const calls = [];
-  const config = { enabled: true, spread: 'single', direction: 'ltr', vertical: false,
-    infinite: false, threshold: 0.8, chapterId: 'a' };
+  const config = {
+    enabled: true,
+    spread: 'single',
+    direction: 'ltr',
+    vertical: false,
+    infinite: false,
+    threshold: 0.8,
+    chapterId: 'a',
+  };
   const commands = createLayoutCommands({
-    root: {}, getConfig: () => config,
+    root: {},
+    getConfig: () => config,
     getPageMap: () => [{ chapterId: 'a', startLeaf: 0, leafCount: 5, element: {} }],
-    getTotalLeaves: () => 5, getCurrentUnit: () => 1, perUnit: () => 1, viewport: () => 100,
-    scrollToUnit: (...args) => calls.push(args), requestNext() {}, scheduleReflow() {}, emitPosition() {},
-    onProgress() {}, transitions: { silent: false, restore: null, silentSourceUnit: null, lastChapterProgress: null },
+    getTotalLeaves: () => 5,
+    getCurrentUnit: () => 1,
+    perUnit: () => 1,
+    viewport: () => 100,
+    scrollToUnit: (...args) => calls.push(args),
+    requestNext() {},
+    scheduleReflow() {},
+    emitPosition() {},
+    onProgress() {},
+    transitions: {
+      silent: false,
+      restore: null,
+      silentSourceUnit: null,
+      lastChapterProgress: null,
+    },
   });
   assert.equal(commands.moveBy(1, 'instant'), true);
   assert.equal(commands.seekUnit(4, 'smooth'), true);
-  assert.deepEqual(calls, [[2, 'instant'], [4, 'smooth']]);
+  assert.deepEqual(calls, [
+    [2, 'instant'],
+    [4, 'smooth'],
+  ]);
 });

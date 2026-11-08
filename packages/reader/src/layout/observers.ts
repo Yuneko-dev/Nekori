@@ -12,10 +12,14 @@ export function observeLayout(root: HTMLElement, scheduleReflow: () => void): La
   const resizeObserver = view.ResizeObserver ? new view.ResizeObserver(scheduleReflow) : null;
   const mutationObserver = view.MutationObserver
     ? new view.MutationObserver((mutations) => {
-        const external = mutations.some((mutation) => mutation.type === 'characterData' ||
-          [...mutation.addedNodes, ...mutation.removedNodes].some((node) =>
-            node.nodeType !== 1 || !(node as Element).classList.contains('nekori-layout-blank-leaf'),
-          ),
+        const external = mutations.some(
+          (mutation) =>
+            mutation.type === 'characterData' ||
+            [...mutation.addedNodes, ...mutation.removedNodes].some(
+              (node) =>
+                node.nodeType !== 1 ||
+                !(node as Element).classList.contains('nekori-layout-blank-leaf'),
+            ),
         );
         if (external) scheduleReflow();
       })

@@ -3,7 +3,10 @@ import type { LayoutController } from '../layout/types.ts';
 import type { PlayerDelegate } from '../media/types.ts';
 
 export type Unsubscribe = () => void;
-export type ReaderCommandHandler = (payload: unknown, signal: AbortSignal) => unknown | Promise<unknown>;
+export type ReaderCommandHandler = (
+  payload: unknown,
+  signal: AbortSignal,
+) => unknown | Promise<unknown>;
 
 export interface ReaderEventMap {
   'layout.positionChanged': {
@@ -26,7 +29,12 @@ export interface ReaderEventMap {
   'gesture.ready': Record<string, never>;
   'reader.error': { message: string };
   'media.requestProtectedPlayback': Record<string, never>;
-  'reader.saveVideoProgress': { chapterId: string; path: string; progress: number; ended?: boolean };
+  'reader.saveVideoProgress': {
+    chapterId: string;
+    path: string;
+    progress: number;
+    ended?: boolean;
+  };
   'reader.refetch': Record<string, never>;
   'navigation.next': Record<string, never>;
   'edit.changed': Record<string, never>;
@@ -62,19 +70,59 @@ export type ReaderEventName = keyof ReaderEventMap;
 export type ReaderRequestName = 'media.requestProtectedPlayback';
 
 export type ReaderCommandName =
-  | 'document.configure' | 'document.patchState' | 'chapter.append' | 'chapter.remove' | 'chapter.reveal' | 'chapter.resetTracking'
-  | 'edit.enter' | 'edit.exit' | 'edit.discard'
-  | 'chapter.setLoadingNext' | 'chapter.setNoMore' | 'scroll.restoreVertical' | 'scroll.byViewport'
-  | 'scroll.seekVertical' | 'scroll.autoStart' | 'scroll.autoStop' | 'scroll.autoStatus' | 'layout.configure'
-  | 'layout.move' | 'layout.seekUnit' | 'layout.seekPercent' | 'layout.reflow' | 'layout.prepareTurn'
-  | 'layout.finishTurn' | 'tts.highlight' | 'tts.clearHighlight' | 'tts.extractText'
-  | 'tts.firstVisibleParagraph' | 'tts.taggedParagraph' | 'selection.read' | 'selection.readAnchor'
-  | 'selection.clear' | 'selection.blur' | 'style.apply' | 'ui.configure' | 'ui.setTtsEnabled'
-  | 'ui.setBionic' | 'ui.refresh' | 'ui.configureNextChapter' | 'scrollTracking.configure' | 'anchors.install'
-  | 'summary.focus' | 'summary.render' | 'summary.remove' | 'feedback.show' | 'feedback.clear' | 'snippet.run';
+  | 'document.configure'
+  | 'document.patchState'
+  | 'chapter.append'
+  | 'chapter.remove'
+  | 'chapter.reveal'
+  | 'chapter.resetTracking'
+  | 'edit.enter'
+  | 'edit.exit'
+  | 'edit.discard'
+  | 'chapter.setLoadingNext'
+  | 'chapter.setNoMore'
+  | 'scroll.restoreVertical'
+  | 'scroll.byViewport'
+  | 'scroll.seekVertical'
+  | 'scroll.autoStart'
+  | 'scroll.autoStop'
+  | 'scroll.autoStatus'
+  | 'layout.configure'
+  | 'layout.move'
+  | 'layout.seekUnit'
+  | 'layout.seekPercent'
+  | 'layout.reflow'
+  | 'layout.prepareTurn'
+  | 'layout.finishTurn'
+  | 'tts.highlight'
+  | 'tts.clearHighlight'
+  | 'tts.extractText'
+  | 'tts.firstVisibleParagraph'
+  | 'tts.taggedParagraph'
+  | 'selection.read'
+  | 'selection.readAnchor'
+  | 'selection.clear'
+  | 'selection.blur'
+  | 'style.apply'
+  | 'ui.configure'
+  | 'ui.setTtsEnabled'
+  | 'ui.setBionic'
+  | 'ui.refresh'
+  | 'ui.configureNextChapter'
+  | 'scrollTracking.configure'
+  | 'anchors.install'
+  | 'summary.focus'
+  | 'summary.render'
+  | 'summary.remove'
+  | 'feedback.show'
+  | 'feedback.clear'
+  | 'snippet.run';
 
 export interface ReaderEventBus {
-  subscribe<K extends keyof ReaderEventMap>(name: K, listener: (payload: ReaderEventMap[K]) => void): Unsubscribe;
+  subscribe<K extends keyof ReaderEventMap>(
+    name: K,
+    listener: (payload: ReaderEventMap[K]) => void,
+  ): Unsubscribe;
   subscribe(name: string, listener: (payload: unknown) => void): Unsubscribe;
 }
 

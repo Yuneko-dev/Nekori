@@ -38,11 +38,7 @@ export interface CheckboxGroupSetting {
   options: CheckboxOption[];
 }
 
-export type PluginSetting =
-  | TextSetting
-  | SwitchSetting
-  | SelectSetting
-  | CheckboxGroupSetting;
+export type PluginSetting = TextSetting | SwitchSetting | SelectSetting | CheckboxGroupSetting;
 
 export interface PluginSettings {
   [key: string]: PluginSetting;
@@ -140,10 +136,7 @@ export interface Plugin extends Omit<PluginItem, 'lang'> {
   imageRequestInit?: ImageRequestInit;
   filters?: Filters;
   pluginSettings?: PluginSettings;
-  popularNovels: (
-    pageNo: number,
-    options?: PopularNovelsOptions<Filters>,
-  ) => Promise<NovelItem[]>;
+  popularNovels: (pageNo: number, options?: PopularNovelsOptions<Filters>) => Promise<NovelItem[]>;
   parseNovel: (novelPath: string) => Promise<SourceNovel>;
   parsePage?: (novelPath: string, page: string) => Promise<SourcePage>;
   parseChapter: (chapterPath: string) => Promise<string | ChapterContent>;

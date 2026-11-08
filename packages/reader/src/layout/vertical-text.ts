@@ -8,7 +8,8 @@ export function combineShortNumbers(root: HTMLElement): void {
     const node = walker.currentNode as Text;
     const parent = node.parentElement;
     if (!parent || !/[0-9]{2}/.test(node.data)) continue;
-    if (parent.closest('.tcy,script,style,textarea,code,pre,rt,rp,svg,math,[contenteditable]')) continue;
+    if (parent.closest('.tcy,script,style,textarea,code,pre,rt,rp,svg,math,[contenteditable]'))
+      continue;
     if (document.defaultView?.getComputedStyle(parent).textCombineUpright === 'all') continue;
     nodes.push(node);
   }

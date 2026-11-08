@@ -1,11 +1,7 @@
-import type { HlsEngine, HlsFragment } from "./hls-types.ts";
-import type { DownloadSink } from "./download-sink.ts";
+import type { HlsEngine, HlsFragment } from './hls-types.ts';
+import type { DownloadSink } from './download-sink.ts';
 
-export function watchHlsActivity(
-  view: Window,
-  hls: HlsEngine,
-  sink: DownloadSink,
-): () => void {
+export function watchHlsActivity(view: Window, hls: HlsEngine, sink: DownloadSink): () => void {
   let loadingFragment: HlsFragment | undefined;
   let loadedBytes = 0;
   const timer = view.setInterval(() => {

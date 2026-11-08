@@ -70,21 +70,41 @@ export function createRuntimeSession(
     const item = pending.get(id);
     if (!item) return;
     pending.delete(id);
-    if (item.signal && item.abortListener) item.signal.removeEventListener('abort', item.abortListener);
+    if (item.signal && item.abortListener)
+      item.signal.removeEventListener('abort', item.abortListener);
     item.reject(error);
   };
 
-  const sendResult = (id: string, value: unknown, error?: { code: string; message: string }): void => {
+  const sendResult = (
+    id: string,
+    value: unknown,
+    error?: { code: string; message: string },
+  ): void => {
     const result: ReaderResultEnvelope = error
-      ? { protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'result', requestId: id, error }
-      : { protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'result', requestId: id, payload: value };
+      ? {
+          protocolVersion: READER_PROTOCOL_VERSION,
+          documentId: config.documentId,
+          kind: 'result',
+          requestId: id,
+          error,
+        }
+      : {
+          protocolVersion: READER_PROTOCOL_VERSION,
+          documentId: config.documentId,
+          kind: 'result',
+          requestId: id,
+          payload: value,
+        };
     send(result);
   };
 
   const dispatchCommand = async (envelope: ReaderCommandEnvelope): Promise<void> => {
     const handler = commands.get(envelope.method);
     if (!handler) {
-      sendResult(envelope.requestId, undefined, { code: 'unsupported_command', message: `Unsupported command: ${envelope.method}` });
+      sendResult(envelope.requestId, undefined, {
+        code: 'unsupported_command',
+        message: `Unsupported command: ${envelope.method}`,
+      });
       return;
     }
     const controller = new AbortController();
@@ -93,7 +113,8 @@ export function createRuntimeSession(
       const result = await handler(envelope.payload, controller.signal);
       if (!controller.signal.aborted) sendResult(envelope.requestId, result);
     } catch (error) {
-      if (!controller.signal.aborted) sendResult(envelope.requestId, undefined, toErrorPayload(error));
+      if (!controller.signal.aborted)
+        sendResult(envelope.requestId, undefined, toErrorPayload(error));
     } finally {
       activeCommands.delete(envelope.requestId);
     }
@@ -104,7 +125,8 @@ export function createRuntimeSession(
     try {
       envelope = parseEnvelope(transportData(data), config.documentId);
     } catch (error) {
-      lastError = error instanceof Error ? error : new ReaderProtocolError('Invalid native message');
+      lastError =
+        error instanceof Error ? error : new ReaderProtocolError('Invalid native message');
       return;
     }
     if (envelope.kind === 'boot') return;
@@ -123,7 +145,8 @@ export function createRuntimeSession(
     const item = pending.get(envelope.requestId);
     if (!item) return;
     pending.delete(envelope.requestId);
-    if (item.signal && item.abortListener) item.signal.removeEventListener('abort', item.abortListener);
+    if (item.signal && item.abortListener)
+      item.signal.removeEventListener('abort', item.abortListener);
     if (envelope.error) {
       const error = new Error(envelope.error.message);
       error.name = envelope.error.code;
@@ -144,13 +167,21 @@ export function createRuntimeSession(
   transport.onmessage = (event) => receive(event.data);
 
   return {
-    get pendingRequestCount() { return pending.size; },
-    get lastProtocolError() { return lastError; },
+    get pendingRequestCount() {
+      return pending.size;
+    },
+    get lastProtocolError() {
+      return lastError;
+    },
     boot() {
       if (disposed) throw new Error('Reader document has been disposed');
       if (bootSent) return;
       bootSent = true;
-      send({ protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'boot' });
+      send({
+        protocolVersion: READER_PROTOCOL_VERSION,
+        documentId: config.documentId,
+        kind: 'boot',
+      });
     },
     async start(initializers = []) {
       if (disposed) throw new Error('Reader document has been disposed');
@@ -160,7 +191,11 @@ export function createRuntimeSession(
       await Promise.all(initializers.map((initialize) => initialize()));
       if (disposed) throw abortError();
       if (!disposed) {
-        send({ protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'ready' });
+        send({
+          protocolVersion: READER_PROTOCOL_VERSION,
+          documentId: config.documentId,
+          kind: 'ready',
+        });
         readySent = true;
         flushQueuedEvents();
       }
@@ -175,7 +210,8 @@ export function createRuntimeSession(
         method: name,
         payload,
       };
-      if (!readySent && !(bootSent && name === 'reader.error')) queuedEvents.push(JSON.stringify(envelope));
+      if (!readySent && !(bootSent && name === 'reader.error'))
+        queuedEvents.push(JSON.stringify(envelope));
       else send(envelope);
     },
     request(name, payload, signal) {
@@ -189,12 +225,24 @@ export function createRuntimeSession(
           item.abortListener = () => {
             if (!pending.has(requestId)) return;
             rejectPending(requestId, abortError());
-            send({ protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'cancel', requestId });
+            send({
+              protocolVersion: READER_PROTOCOL_VERSION,
+              documentId: config.documentId,
+              kind: 'cancel',
+              requestId,
+            });
           };
           signal.addEventListener('abort', item.abortListener, { once: true });
         }
         pending.set(requestId, item);
-        send({ protocolVersion: READER_PROTOCOL_VERSION, documentId: config.documentId, kind: 'command', requestId, method: name, payload });
+        send({
+          protocolVersion: READER_PROTOCOL_VERSION,
+          documentId: config.documentId,
+          kind: 'command',
+          requestId,
+          method: name,
+          payload,
+        });
       });
     },
     onEvent(name, listener) {
@@ -210,13 +258,16 @@ export function createRuntimeSession(
       if (!isReaderCommandName(name)) throw new TypeError(`Unsupported reader command: ${name}`);
       if (commands.has(name)) throw new Error(`Reader command already registered: ${name}`);
       commands.set(name, handler);
-      return () => { if (commands.get(name) === handler) commands.delete(name); };
+      return () => {
+        if (commands.get(name) === handler) commands.delete(name);
+      };
     },
     dispose() {
       if (disposed) return;
       disposed = true;
       transport.onmessage = null;
-      for (const id of pending.keys()) rejectPending(id, new Error('Reader document has been disposed'));
+      for (const id of pending.keys())
+        rejectPending(id, new Error('Reader document has been disposed'));
       for (const controller of activeCommands.values()) controller.abort();
       activeCommands.clear();
       listeners.clear();
@@ -232,7 +283,8 @@ function transportData(data: unknown): unknown {
 }
 
 function toErrorPayload(error: unknown): { code: string; message: string } {
-  if (error instanceof Error) return { code: error.name || 'command_failed', message: error.message };
+  if (error instanceof Error)
+    return { code: error.name || 'command_failed', message: error.message };
   return { code: 'command_failed', message: String(error) };
 }
 

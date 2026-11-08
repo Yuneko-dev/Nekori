@@ -1,4 +1,9 @@
-import { createLayout, createScrollTracking, observeShortChapter, type ScrollTrackingController } from '../layout/index.ts';
+import {
+  createLayout,
+  createScrollTracking,
+  observeShortChapter,
+  type ScrollTrackingController,
+} from '../layout/index.ts';
 import { createPlayer } from '../media/index.ts';
 import { createWidgets } from '../widgets/index.ts';
 import { executeSourceScript } from '../widgets/snippets.ts';
@@ -27,15 +32,29 @@ export function createReader({ root, host, config }: CreateReaderOptions): Reade
   const global = view as Window & { nekori?: ReaderApi };
 
   const api: ReaderApi = {
-    get config() { return host.config; },
-    get context() { return host.context; },
+    get config() {
+      return host.config;
+    },
+    get context() {
+      return host.context;
+    },
     events: host.events,
     ready: Promise.resolve(),
-    get layout() { return layout; },
-    get player() { return player; },
-    fetch(input, init) { return host.fetch(input, init); },
-    refetch() { host.emit('reader.refetch', {}); },
-    error(message) { host.emit('reader.error', { message }); },
+    get layout() {
+      return layout;
+    },
+    get player() {
+      return player;
+    },
+    fetch(input, init) {
+      return host.fetch(input, init);
+    },
+    refetch() {
+      host.emit('reader.refetch', {});
+    },
+    error(message) {
+      host.emit('reader.error', { message });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -57,25 +76,41 @@ export function createReader({ root, host, config }: CreateReaderOptions): Reade
       if (config.mode !== 'download') initializeInitialContent(readerRoot, host.config);
       if (config.mode !== 'download') {
         layout = createLayout({ root: readerRoot, host });
-        layout.configure(config.layout ?? {
-          enabled: false,
-          spread: 'single',
-          direction: 'ltr',
-          vertical: false,
-          infinite: config.runtime.infinite,
-          threshold: 0.8,
-          chapterId: config.chapter.id,
-        });
+        layout.configure(
+          config.layout ?? {
+            enabled: false,
+            spread: 'single',
+            direction: 'ltr',
+            vertical: false,
+            infinite: config.runtime.infinite,
+            threshold: 0.8,
+            chapterId: config.chapter.id,
+          },
+        );
         registerLayoutCommands(host, layout, readerRoot);
-        registerScrollTracking(host, readerRoot, config, () => layout?.enabled === true, (controller, dispose) => {
-          trackingController = controller;
-          disposeTracking = dispose;
-        });
-        const markShort = config.markShortChapterAsRead === true && config.mode === 'reader' &&
-          config.layout?.enabled !== true && !config.runtime.infinite && !config.player;
+        registerScrollTracking(
+          host,
+          readerRoot,
+          config,
+          () => layout?.enabled === true,
+          (controller, dispose) => {
+            trackingController = controller;
+            disposeTracking = dispose;
+          },
+        );
+        const markShort =
+          config.markShortChapterAsRead === true &&
+          config.mode === 'reader' &&
+          config.layout?.enabled !== true &&
+          !config.runtime.infinite &&
+          !config.player;
         if (markShort) disposeShortChapterObserver = observeShortChapter({ host, enabled: true });
-        host.onCommand('chapter.append', (payload) => appendChapter(host, readerRoot, payload, layout!, trackingController, refreshWidgets));
-        host.onCommand('chapter.remove', (payload) => removeChapter(readerRoot, payload, layout!, trackingController, refreshWidgets));
+        host.onCommand('chapter.append', (payload) =>
+          appendChapter(host, readerRoot, payload, layout!, trackingController, refreshWidgets),
+        );
+        host.onCommand('chapter.remove', (payload) =>
+          removeChapter(readerRoot, payload, layout!, trackingController, refreshWidgets),
+        );
       }
       if (config.player) {
         player = createPlayer(host, config.player);
@@ -87,33 +122,37 @@ export function createReader({ root, host, config }: CreateReaderOptions): Reade
       }
     },
   ]);
-  void ready.then(() => {
-    if (disposed) return;
-    if (config.pluginJavaScript) executeSourceScript(config.pluginJavaScript, root.ownerDocument);
-    if (config.player?.video.direct === true && player) {
-      void startDirectPlayer(player, config.player).catch((error: unknown) => {
-        if (disposed) return;
-        const message = error instanceof Error ? error.message : String(error);
-        if (config.player?.mode === 'download') {
-          host.emit('media.download.error', { code: 'direct_playback_failed', message });
-        } else {
-          api.error(message);
-        }
-      });
-    }
-  }).catch((error: unknown) => {
-    if (disposed) return;
-    const message = error instanceof Error ? error.message : String(error);
-    if (config.player?.mode === 'download') host.emit('media.download.error', { code: 'runtime_initialization_failed', message });
-    else api.error(message);
-  });
+  void ready
+    .then(() => {
+      if (disposed) return;
+      if (config.pluginJavaScript) executeSourceScript(config.pluginJavaScript, root.ownerDocument);
+      if (config.player?.video.direct === true && player) {
+        void startDirectPlayer(player, config.player).catch((error: unknown) => {
+          if (disposed) return;
+          const message = error instanceof Error ? error.message : String(error);
+          if (config.player?.mode === 'download') {
+            host.emit('media.download.error', { code: 'direct_playback_failed', message });
+          } else {
+            api.error(message);
+          }
+        });
+      }
+    })
+    .catch((error: unknown) => {
+      if (disposed) return;
+      const message = error instanceof Error ? error.message : String(error);
+      if (config.player?.mode === 'download')
+        host.emit('media.download.error', { code: 'runtime_initialization_failed', message });
+      else api.error(message);
+    });
   Object.defineProperty(api, 'ready', { enumerable: true, value: ready });
   return api;
 }
 
 function waitForReaderRoot(root: HTMLElement, host: ReaderHost): Promise<HTMLElement> {
   const document = root.ownerDocument;
-  const findRoot = (): HTMLElement | null => document.querySelector<HTMLElement>('[data-nekori-reader-root], #nekori-reader');
+  const findRoot = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-nekori-reader-root], #nekori-reader');
   const existing = findRoot();
   if (existing) return Promise.resolve(existing);
   if (document.readyState !== 'loading') return Promise.resolve(document.body ?? root);
@@ -136,12 +175,17 @@ function registerLayoutCommands(host: ReaderHost, layout: ReaderLayout, root: HT
     if (delta !== -1 && delta !== 1) throw new TypeError('layout.move delta must be -1 or 1');
     return layout.moveBy(delta);
   });
-  host.onCommand('layout.seekUnit', (payload) => layout.seekUnit(numberField(payload, 'unitIndex')));
-  host.onCommand('layout.seekPercent', (payload) => layout.seekPercent(numberField(payload, 'percent')));
+  host.onCommand('layout.seekUnit', (payload) =>
+    layout.seekUnit(numberField(payload, 'unitIndex')),
+  );
+  host.onCommand('layout.seekPercent', (payload) =>
+    layout.seekPercent(numberField(payload, 'percent')),
+  );
   host.onCommand('layout.reflow', () => layout.reflow());
   host.onCommand('layout.prepareTurn', (payload) => {
     const delta = numberField(payload, 'delta');
-    if (delta !== -1 && delta !== 1) throw new TypeError('layout.prepareTurn delta must be -1 or 1');
+    if (delta !== -1 && delta !== 1)
+      throw new TypeError('layout.prepareTurn delta must be -1 or 1');
     if (!layout.enabled) return false;
     layout.prepareSilentTurn(false);
     const moved = layout.moveBy(delta, 'instant');
@@ -154,16 +198,23 @@ function registerLayoutCommands(host: ReaderHost, layout: ReaderLayout, root: HT
   });
   host.onCommand('chapter.reveal', (payload) => {
     const chapterId = stringField(payload, 'chapterId');
-    const chapter = Array.from(root.querySelectorAll(CHAPTER_TAG_NAME))
-      .find((element) => element.getAttribute(CHAPTER_ID_ATTR) === chapterId);
+    const chapter = Array.from(root.querySelectorAll(CHAPTER_TAG_NAME)).find(
+      (element) => element.getAttribute(CHAPTER_ID_ATTR) === chapterId,
+    );
     return chapter ? layout.revealElement(chapter) : false;
   });
   host.onCommand('layout.configure', (payload) => {
-    if (!isRecord(payload) || typeof payload.enabled !== 'boolean' ||
-        (payload.spread !== 'single' && payload.spread !== 'double') ||
-        (payload.direction !== 'ltr' && payload.direction !== 'rtl') || typeof payload.vertical !== 'boolean' ||
-        typeof payload.infinite !== 'boolean' || typeof payload.threshold !== 'number' ||
-        typeof payload.chapterId !== 'string') throw new TypeError('Invalid layout.configure payload');
+    if (
+      !isRecord(payload) ||
+      typeof payload.enabled !== 'boolean' ||
+      (payload.spread !== 'single' && payload.spread !== 'double') ||
+      (payload.direction !== 'ltr' && payload.direction !== 'rtl') ||
+      typeof payload.vertical !== 'boolean' ||
+      typeof payload.infinite !== 'boolean' ||
+      typeof payload.threshold !== 'number' ||
+      typeof payload.chapterId !== 'string'
+    )
+      throw new TypeError('Invalid layout.configure payload');
     layout.configure(payload as unknown as NonNullable<ReaderConfig['layout']>);
   });
 }
@@ -181,23 +232,32 @@ function registerScrollTracking(
   attach(tracking, () => tracking.dispose());
   host.onCommand('chapter.resetTracking', () => tracking.resetChapterTracking());
   host.onCommand('chapter.setLoadingNext', (payload) => {
-    if (!isRecord(payload) || typeof payload.loading !== 'boolean') throw new TypeError('Expected loading boolean');
+    if (!isRecord(payload) || typeof payload.loading !== 'boolean')
+      throw new TypeError('Expected loading boolean');
     tracking.setLoadingNext(payload.loading);
   });
   host.onCommand('chapter.setNoMore', (payload) => {
-    if (!isRecord(payload) || typeof payload.value !== 'boolean') throw new TypeError('Expected value boolean');
+    if (!isRecord(payload) || typeof payload.value !== 'boolean')
+      throw new TypeError('Expected value boolean');
     tracking.setNoMoreChapters(payload.value);
   });
   host.onCommand('scrollTracking.configure', (payload) => {
-    if (!isRecord(payload) || typeof payload.infiniteScrollEnabled !== 'boolean' ||
-        typeof payload.loadThreshold !== 'number' || typeof payload.doneThreshold !== 'number') {
+    if (
+      !isRecord(payload) ||
+      typeof payload.infiniteScrollEnabled !== 'boolean' ||
+      typeof payload.loadThreshold !== 'number' ||
+      typeof payload.doneThreshold !== 'number'
+    ) {
       throw new TypeError('Expected scroll tracking configuration');
     }
     tracking.configure(payload as unknown as NonNullable<ReaderConfig['scrollTracking']>);
   });
 }
 
-async function startDirectPlayer(player: ReaderPlayer, config: NonNullable<ReaderConfig['player']>): Promise<void> {
+async function startDirectPlayer(
+  player: ReaderPlayer,
+  config: NonNullable<ReaderConfig['player']>,
+): Promise<void> {
   const { video } = config;
   const url = video.url;
   if (!url) throw new TypeError('Direct video config is missing its URL');
@@ -220,11 +280,13 @@ function numberField(payload: unknown, name: string): number {
 }
 
 function booleanField(payload: unknown, name: string): boolean {
-  if (!isRecord(payload) || typeof payload[name] !== 'boolean') throw new TypeError(`${name} must be a boolean`);
+  if (!isRecord(payload) || typeof payload[name] !== 'boolean')
+    throw new TypeError(`${name} must be a boolean`);
   return payload[name];
 }
 
 function stringField(payload: unknown, name: string): string {
-  if (!isRecord(payload) || typeof payload[name] !== 'string') throw new TypeError(`${name} must be a string`);
+  if (!isRecord(payload) || typeof payload[name] !== 'string')
+    throw new TypeError(`${name} must be a string`);
   return payload[name];
 }

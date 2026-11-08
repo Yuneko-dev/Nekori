@@ -13,9 +13,7 @@ export type RemoveSessionCookiesOptions = {
   iosCookieStore?: IOSCookieStore;
 };
 
-const removeSessionCookies = (
-  options: RemoveSessionCookiesOptions = {},
-): Promise<boolean> => {
+const removeSessionCookies = (options: RemoveSessionCookiesOptions = {}): Promise<boolean> => {
   switch (options.iosCookieStore ?? 'both') {
     case 'foundation':
       return CookieManagerNative.removeSessionCookies(true, false);
@@ -24,22 +22,17 @@ const removeSessionCookies = (
     case 'both':
       return CookieManagerNative.removeSessionCookies(true, true);
     default:
-      return Promise.reject(
-        new Error('iosCookieStore must be "foundation", "webKit", or "both"'),
-      );
+      return Promise.reject(new Error('iosCookieStore must be "foundation", "webKit", or "both"'));
   }
 };
 
 const CookieManager = {
   getAll: (useWebKit = false) => CookieManagerNative.getAll(useWebKit),
-  getAllAsArray: (useWebKit = false) =>
-    CookieManagerNative.getAllAsArray(useWebKit),
+  getAllAsArray: (useWebKit = false) => CookieManagerNative.getAllAsArray(useWebKit),
   clearAll: (useWebKit = false) => CookieManagerNative.clearAll(useWebKit),
   clearAllStores: () => CookieManagerNative.clearAllStores(),
-  get: (url: string, useWebKit = false) =>
-    CookieManagerNative.getCookies(url, useWebKit),
-  getAsArray: (url: string, useWebKit = false) =>
-    CookieManagerNative.getAsArray(url, useWebKit),
+  get: (url: string, useWebKit = false) => CookieManagerNative.getCookies(url, useWebKit),
+  getAsArray: (url: string, useWebKit = false) => CookieManagerNative.getAsArray(url, useWebKit),
   getCookieHeader: (url: string, useWebKit = false) =>
     CookieManagerNative.getCookieHeader(url, useWebKit),
   set: (url: string, cookie: Cookie, useWebKit = false) =>

@@ -9,9 +9,9 @@ module.exports = {
       'module-resolver',
       {
         alias: {
-          'crypto': 'react-native-quick-crypto',
-          'stream': 'readable-stream',
-          'buffer': 'react-native-nitro-buffer',
+          crypto: 'react-native-quick-crypto',
+          stream: 'readable-stream',
+          buffer: 'react-native-nitro-buffer',
         },
       },
     ],

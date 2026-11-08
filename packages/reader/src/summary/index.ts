@@ -13,7 +13,10 @@ interface SummaryLabels {
   close: string;
 }
 
-export function registerSummaryCommands(host: ReaderHost, layout: ReaderLayout | null): Unsubscribe[] {
+export function registerSummaryCommands(
+  host: ReaderHost,
+  layout: ReaderLayout | null,
+): Unsubscribe[] {
   return [
     host.onCommand('summary.focus', (value) => {
       const chapterId = readChapterId(value);
@@ -24,19 +27,30 @@ export function registerSummaryCommands(host: ReaderHost, layout: ReaderLayout |
       return true;
     }),
     host.onCommand('summary.render', (value) => renderSummary(host, value)),
-    host.onCommand('summary.remove', (value) => existingSummary(host.root, readChapterId(value))?.remove()),
+    host.onCommand('summary.remove', (value) =>
+      existingSummary(host.root, readChapterId(value))?.remove(),
+    ),
   ];
 }
 
 function renderSummary(host: ReaderHost, value: unknown): void {
-  if (!isRecord(value) || typeof value.chapterId !== 'string' ||
-      (value.state !== 'loading' && value.state !== 'ready' && value.state !== 'failed' && value.state !== 'cancelled') ||
-      typeof value.text !== 'string' || !isLabels(value.labels)) {
+  if (
+    !isRecord(value) ||
+    typeof value.chapterId !== 'string' ||
+    (value.state !== 'loading' &&
+      value.state !== 'ready' &&
+      value.state !== 'failed' &&
+      value.state !== 'cancelled') ||
+    typeof value.text !== 'string' ||
+    !isLabels(value.labels)
+  ) {
     throw new TypeError('Invalid chapter summary payload');
   }
   const chapter = findChapter(host.root, value.chapterId);
   if (!chapter) return;
-  const card = existingSummary(host.root, value.chapterId) ?? createSummary(host.root.ownerDocument, chapter, value.chapterId);
+  const card =
+    existingSummary(host.root, value.chapterId) ??
+    createSummary(host.root.ownerDocument, chapter, value.chapterId);
   const shadow = card.shadowRoot;
   if (!shadow) throw new Error('Summary shadow root is unavailable');
   shadow.querySelector<HTMLElement>('.title')!.textContent = value.labels.title;
@@ -46,8 +60,14 @@ function renderSummary(host: ReaderHost, value: unknown): void {
   if (value.state === 'ready') renderParagraphs(body, value.text);
   else body.textContent = value.state === 'loading' ? value.labels.loading : value.text;
   actions.replaceChildren();
-  actions.append(createAction(host, value.chapterId, value.state === 'loading' ? value.labels.cancel : value.labels.regenerate,
-    value.state === 'loading' ? 'cancel' : 'regenerate'));
+  actions.append(
+    createAction(
+      host,
+      value.chapterId,
+      value.state === 'loading' ? value.labels.cancel : value.labels.regenerate,
+      value.state === 'loading' ? 'cancel' : 'regenerate',
+    ),
+  );
   actions.append(createAction(host, value.chapterId, value.labels.close, 'close'));
   if (value.state === 'failed' && value.text) host.emit('reader.error', { message: value.text });
 }
@@ -75,7 +95,12 @@ function createSummary(document: Document, chapter: HTMLElement, chapterId: stri
   return host;
 }
 
-function createAction(host: ReaderHost, chapterId: string, label: string, action: 'cancel' | 'close' | 'regenerate'): HTMLButtonElement {
+function createAction(
+  host: ReaderHost,
+  chapterId: string,
+  label: string,
+  action: 'cancel' | 'close' | 'regenerate',
+): HTMLButtonElement {
   const button = host.root.ownerDocument.createElement('button');
   button.type = 'button';
   button.textContent = label;
@@ -102,13 +127,20 @@ function existingSummary(root: ParentNode, chapterId: string): HTMLElement | nul
 }
 
 function readChapterId(value: unknown): string {
-  if (!isRecord(value) || typeof value.chapterId !== 'string') throw new TypeError('Expected chapterId string');
+  if (!isRecord(value) || typeof value.chapterId !== 'string')
+    throw new TypeError('Expected chapterId string');
   return value.chapterId;
 }
 
 function isLabels(value: unknown): value is SummaryLabels {
-  return isRecord(value) && typeof value.title === 'string' && typeof value.loading === 'string' &&
-    typeof value.cancel === 'string' && typeof value.regenerate === 'string' && typeof value.close === 'string';
+  return (
+    isRecord(value) &&
+    typeof value.title === 'string' &&
+    typeof value.loading === 'string' &&
+    typeof value.cancel === 'string' &&
+    typeof value.regenerate === 'string' &&
+    typeof value.close === 'string'
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

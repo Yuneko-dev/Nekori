@@ -2,14 +2,26 @@ const WORD = /(\p{L}|\p{Nd})*\p{L}(\p{L}|\p{Nd})*/gu;
 const THRESHOLDS = [0, 4, 12, 17, 24, 29, 35, 42, 48];
 const MARKER = 'data-nekori-bionic';
 const EXCLUDED = [
-  'script', 'style', 'code', 'pre', 'textarea', 'button', '[contenteditable="true"]',
-  '#nekori-image-modal', '#nekori-tts-controller', '#nekori-next-chapter',
-  'nekori-chapter-summary', `b[${MARKER}]`,
+  'script',
+  'style',
+  'code',
+  'pre',
+  'textarea',
+  'button',
+  '[contenteditable="true"]',
+  '#nekori-image-modal',
+  '#nekori-tts-controller',
+  '#nekori-next-chapter',
+  'nekori-chapter-summary',
+  `b[${MARKER}]`,
 ].join(',');
 
 export function fixationLength(word: string): number {
   const thresholdIndex = THRESHOLDS.findIndex((threshold) => word.length <= threshold);
-  return Math.max(thresholdIndex === -1 ? word.length - THRESHOLDS.length : word.length - thresholdIndex, 0);
+  return Math.max(
+    thresholdIndex === -1 ? word.length - THRESHOLDS.length : word.length - thresholdIndex,
+    0,
+  );
 }
 
 export interface BionicReading {
@@ -18,7 +30,11 @@ export interface BionicReading {
   dispose(): void;
 }
 
-export function createBionicReading(root: HTMLElement, initiallyEnabled: boolean, editing: () => boolean): BionicReading {
+export function createBionicReading(
+  root: HTMLElement,
+  initiallyEnabled: boolean,
+  editing: () => boolean,
+): BionicReading {
   const document = root.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error('Bionic reading requires an active document window');
@@ -41,7 +57,8 @@ export function createBionicReading(root: HTMLElement, initiallyEnabled: boolean
     const nodes: Text[] = [];
     while (walker.nextNode()) {
       const textNode = walker.currentNode as Text;
-      if (textNode.nodeValue?.trim() && !textNode.parentElement?.closest(EXCLUDED)) nodes.push(textNode);
+      if (textNode.nodeValue?.trim() && !textNode.parentElement?.closest(EXCLUDED))
+        nodes.push(textNode);
     }
     nodes.forEach((textNode) => transformText(textNode, textNode.nodeValue ?? '', document));
   };
@@ -87,7 +104,11 @@ export function createBionicReading(root: HTMLElement, initiallyEnabled: boolean
   return {
     setEnabled,
     setEditing,
-    dispose() { observer?.disconnect(); observer = null; remove(); },
+    dispose() {
+      observer?.disconnect();
+      observer = null;
+      remove();
+    },
   };
 }
 

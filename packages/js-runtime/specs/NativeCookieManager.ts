@@ -36,10 +36,7 @@ export interface Spec extends TurboModule {
   clearAll(useWebKit?: boolean): Promise<boolean>;
   clearAllStores(): Promise<boolean>;
   flush(): Promise<void>;
-  removeSessionCookies(
-    iosClearFoundation: boolean,
-    iosClearWebKit: boolean,
-  ): Promise<boolean>;
+  removeSessionCookies(iosClearFoundation: boolean, iosClearWebKit: boolean): Promise<boolean>;
   getAll(useWebKit?: boolean): Promise<Cookies>;
   getAllAsArray(useWebKit?: boolean): Promise<ReadonlyArray<Cookie>>;
   clearByName(url: string, name: string, useWebKit?: boolean): Promise<boolean>;

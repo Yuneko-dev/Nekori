@@ -56,15 +56,12 @@ export type FilterValueWithType<T extends FilterTypes> = {
   value: ValueOfFilter<T>;
 };
 
-export type FilterToValues<
-  FilterObject extends Record<string, { type: FilterTypes }> | undefined,
-> = FilterObject extends undefined
-  ? undefined
-  : {
-      [K in keyof FilterObject]: FilterValueWithType<
-        FilterType<NonNullable<FilterObject>[K]>
-      >;
-    };
+export type FilterToValues<FilterObject extends Record<string, { type: FilterTypes }> | undefined> =
+  FilterObject extends undefined
+    ? undefined
+    : {
+        [K in keyof FilterObject]: FilterValueWithType<FilterType<NonNullable<FilterObject>[K]>>;
+      };
 
 export type AnyFilterValue = ValueOfFilter<FilterTypes>;
 
@@ -77,14 +74,11 @@ const valueCheck: FilterValueCheckMap = {
   [FilterTypes.Picker]: (v): v is string => typeof v === 'string',
   [FilterTypes.Switch]: (v): v is boolean => typeof v === 'boolean',
   [FilterTypes.CheckboxGroup]: (v): v is string[] => Array.isArray(v),
-  [FilterTypes.ExcludableCheckboxGroup]: (
-    v,
-  ): v is { include?: string[]; exclude?: string[] } =>
+  [FilterTypes.ExcludableCheckboxGroup]: (v): v is { include?: string[]; exclude?: string[] } =>
     !!v && typeof v === 'object' && !Array.isArray(v),
 };
 
 export const isFilterValue = <T extends FilterTypes>(
   q: FilterToValues<Filters>[string],
   type: T,
-): q is FilterValueWithType<T> =>
-  q.type === type && valueCheck[type](q.value as ValueOfFilter<T>);
+): q is FilterValueWithType<T> => q.type === type && valueCheck[type](q.value as ValueOfFilter<T>);

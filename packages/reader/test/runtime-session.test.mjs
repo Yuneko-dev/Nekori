@@ -25,52 +25,78 @@ test('boot waits for initialization before ready is sent', async () => {
   const transport = new TestTransport();
   const session = createRuntimeSession(config, transport);
   let finishInitialization;
-  const initialization = new Promise((resolve) => { finishInitialization = resolve; });
+  const initialization = new Promise((resolve) => {
+    finishInitialization = resolve;
+  });
 
   const started = session.start([() => initialization]);
-  assert.deepEqual(transport.sent.map(({ kind }) => kind), ['boot']);
+  assert.deepEqual(
+    transport.sent.map(({ kind }) => kind),
+    ['boot'],
+  );
   finishInitialization();
   await started;
 
-  assert.deepEqual(transport.sent.map(({ kind }) => kind), ['boot', 'ready']);
+  assert.deepEqual(
+    transport.sent.map(({ kind }) => kind),
+    ['boot', 'ready'],
+  );
 });
 
 test('queues startup events until after ready and flushes them in FIFO order', async () => {
   const transport = new TestTransport();
   const session = createRuntimeSession(config, transport);
   session.emit('gesture.ready', {});
-  const started = session.start([() => {
-    session.emit('layout.positionChanged', {
-      chapterId: 'chapter-1', unitIndex: 0, unitCount: 4, firstPage: 1, lastPage: 1, totalPages: 4,
-    });
-    session.emit('scroll.progressPreview', { progress: 0.25 });
-  }]);
-
-  assert.deepEqual(transport.sent.map(({ kind }) => kind), ['boot']);
-  await started;
-  assert.deepEqual(transport.sent.map(({ kind, method }) => [kind, method]), [
-    ['boot', undefined],
-    ['ready', undefined],
-    ['event', 'gesture.ready'],
-    ['event', 'layout.positionChanged'],
-    ['event', 'scroll.progressPreview'],
+  const started = session.start([
+    () => {
+      session.emit('layout.positionChanged', {
+        chapterId: 'chapter-1',
+        unitIndex: 0,
+        unitCount: 4,
+        firstPage: 1,
+        lastPage: 1,
+        totalPages: 4,
+      });
+      session.emit('scroll.progressPreview', { progress: 0.25 });
+    },
   ]);
+
+  assert.deepEqual(
+    transport.sent.map(({ kind }) => kind),
+    ['boot'],
+  );
+  await started;
+  assert.deepEqual(
+    transport.sent.map(({ kind, method }) => [kind, method]),
+    [
+      ['boot', undefined],
+      ['ready', undefined],
+      ['event', 'gesture.ready'],
+      ['event', 'layout.positionChanged'],
+      ['event', 'scroll.progressPreview'],
+    ],
+  );
 });
 
 test('sends reader errors immediately after boot when initialization fails', async () => {
   const transport = new TestTransport();
   const session = createRuntimeSession(config, transport);
-  const started = session.start([() => {
-    session.emit('gesture.ready', {});
-    throw new Error('controller setup failed');
-  }]);
+  const started = session.start([
+    () => {
+      session.emit('gesture.ready', {});
+      throw new Error('controller setup failed');
+    },
+  ]);
 
   await assert.rejects(started, /controller setup failed/);
   session.emit('reader.error', { message: 'Reader setup failed.' });
-  assert.deepEqual(transport.sent.map(({ kind, method }) => [kind, method]), [
-    ['boot', undefined],
-    ['event', 'reader.error'],
-  ]);
+  assert.deepEqual(
+    transport.sent.map(({ kind, method }) => [kind, method]),
+    [
+      ['boot', undefined],
+      ['event', 'reader.error'],
+    ],
+  );
   session.dispose();
 });
 
@@ -81,7 +107,10 @@ test('disposal drops events queued before native ready', async () => {
   session.emit('gesture.ready', {});
   session.dispose();
 
-  assert.deepEqual(transport.sent.map(({ kind }) => kind), ['boot']);
+  assert.deepEqual(
+    transport.sent.map(({ kind }) => kind),
+    ['boot'],
+  );
   assert.throws(() => session.emit('gesture.ready', {}), /disposed/i);
 });
 
@@ -108,10 +137,16 @@ test('dispatches only registered native commands and returns a result', async ()
   });
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.deepEqual(transport.sent.slice(-2).map(({ kind, requestId }) => [kind, requestId]).sort(), [
-    ['result', 'r-1'],
-    ['result', 'r-2'],
-  ].sort());
+  assert.deepEqual(
+    transport.sent
+      .slice(-2)
+      .map(({ kind, requestId }) => [kind, requestId])
+      .sort(),
+    [
+      ['result', 'r-1'],
+      ['result', 'r-2'],
+    ].sort(),
+  );
   const supported = transport.sent.find(({ requestId }) => requestId === 'r-1');
   const unsupported = transport.sent.find(({ requestId }) => requestId === 'r-2');
   assert.deepEqual(supported.payload, { delta: 12 });
@@ -122,7 +157,11 @@ test('cancelling a pending request rejects it and sends a cancel envelope', asyn
   const transport = new TestTransport();
   const session = createRuntimeSession(config, transport);
   const controller = new AbortController();
-  const request = session.request('media.requestProtectedPlayback', { url: 'https://example.test' }, controller.signal);
+  const request = session.request(
+    'media.requestProtectedPlayback',
+    { url: 'https://example.test' },
+    controller.signal,
+  );
   const requestId = transport.sent.at(-1).requestId;
   controller.abort();
 

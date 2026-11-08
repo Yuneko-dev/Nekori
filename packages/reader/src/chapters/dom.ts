@@ -45,8 +45,13 @@ export function appendChapter(root: HTMLElement, nodes: ChapterNodes): void {
 }
 
 /** Inserts before existing chapters and compensates for document scroll anchoring. */
-export function prependChapter(root: HTMLElement, nodes: ChapterNodes, options: PrependOptions = {}): void {
-  const scrollContainer = options.scrollContainer ?? root.ownerDocument.defaultView?.document.scrollingElement;
+export function prependChapter(
+  root: HTMLElement,
+  nodes: ChapterNodes,
+  options: PrependOptions = {},
+): void {
+  const scrollContainer =
+    options.scrollContainer ?? root.ownerDocument.defaultView?.document.scrollingElement;
   const anchor = options.anchor ?? root.firstElementChild;
   const before = anchor?.getBoundingClientRect();
   const scrollTop = scrollContainer?.scrollTop ?? 0;
@@ -61,8 +66,9 @@ export function prependChapter(root: HTMLElement, nodes: ChapterNodes, options: 
 }
 
 export function removeChapter(root: HTMLElement, chapterId: string): boolean {
-  const nodes = Array.from(root.querySelectorAll(`${CHAPTER_TAG_NAME}, .${CHAPTER_DIVIDER_CLASS}`))
-    .filter((node) => node.getAttribute(CHAPTER_ID_ATTR) === chapterId);
+  const nodes = Array.from(
+    root.querySelectorAll(`${CHAPTER_TAG_NAME}, .${CHAPTER_DIVIDER_CLASS}`),
+  ).filter((node) => node.getAttribute(CHAPTER_ID_ATTR) === chapterId);
   if (nodes.length === 0) return false;
   nodes.forEach((node) => node.remove());
   return true;

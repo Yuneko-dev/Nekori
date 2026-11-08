@@ -3,7 +3,9 @@ import test from 'node:test';
 import { createScrollTracking } from '../src/layout/index.ts';
 
 class Observer {
-  constructor(callback) { this.callback = callback; }
+  constructor(callback) {
+    this.callback = callback;
+  }
   observe() {}
   disconnect() {}
 }
@@ -19,13 +21,30 @@ function trackingFixture() {
     ResizeObserver: Observer,
     MutationObserver: Observer,
     Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
-    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
-    addEventListener(name, callback) { listeners.set(name, callback); },
-    removeEventListener(name) { listeners.delete(name); },
+    CustomEvent: class {
+      constructor(type, options) {
+        this.type = type;
+        this.detail = options.detail;
+      }
+    },
+    addEventListener(name, callback) {
+      listeners.set(name, callback);
+    },
+    removeEventListener(name) {
+      listeners.delete(name);
+    },
     dispatchEvent() {},
-    requestAnimationFrame(callback) { const id = nextFrame++; frames.set(id, callback); return id; },
-    cancelAnimationFrame(id) { frames.delete(id); },
-    setTimeout() { return 1; },
+    requestAnimationFrame(callback) {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    },
+    cancelAnimationFrame(id) {
+      frames.delete(id);
+    },
+    setTimeout() {
+      return 1;
+    },
     clearTimeout() {},
   };
   const documentElement = { scrollHeight: 580, clientHeight: 100, scrollTop: 0 };
@@ -35,7 +54,9 @@ function trackingFixture() {
     documentElement,
     body,
     scrollingElement: documentElement,
-    getElementById() { return null; },
+    getElementById() {
+      return null;
+    },
   };
   const divider = (id, top) => ({
     getAttribute: () => id,
@@ -48,7 +69,10 @@ function trackingFixture() {
     addEventListener() {},
   };
   const emitted = [];
-  const controller = createScrollTracking({ root, host: { emit: (name, payload) => emitted.push({ name, payload }) } });
+  const controller = createScrollTracking({
+    root,
+    host: { emit: (name, payload) => emitted.push({ name, payload }) },
+  });
   const flushFrames = () => {
     while (frames.size) {
       const [id, callback] = frames.entries().next().value;
@@ -67,6 +91,11 @@ test('clearing the load latch re-samples an unchanged short final chapter', () =
   controller.setLoadingNext(false);
   flushFrames();
   assert.equal(emitted.filter(({ name }) => name === 'navigation.loadNext').length, 2);
-  assert.equal(emitted.some(({ name, payload }) => name === 'chapter.visible' && payload.chapterId === 'short-last'), true);
+  assert.equal(
+    emitted.some(
+      ({ name, payload }) => name === 'chapter.visible' && payload.chapterId === 'short-last',
+    ),
+    true,
+  );
   controller.dispose();
 });

@@ -60,19 +60,11 @@ type GcmDecipherContext = {
   setAuthTag(tag: Uint8Array): unknown;
 };
 
-function makeStreamCipher(
-  mode: 'ctr' | 'cfb',
-  key: Uint8Array,
-  iv: Uint8Array,
-): CipherWithOutput {
+function makeStreamCipher(mode: 'ctr' | 'cfb', key: Uint8Array, iv: Uint8Array): CipherWithOutput {
   validateKey(key);
   validateExactLength(iv, AES_BLOCK_SIZE, mode === 'ctr' ? 'nonce' : 'iv');
   let encrypted = false;
-  const process = (
-    data: Uint8Array,
-    encrypting: boolean,
-    output?: Uint8Array,
-  ): Uint8Array => {
+  const process = (data: Uint8Array, encrypting: boolean, output?: Uint8Array): Uint8Array => {
     abytes(data);
     if (output !== undefined) {
       ensureAlignedOutput(output);
@@ -87,8 +79,7 @@ function makeStreamCipher(
   };
   return {
     encrypt(data, output) {
-      if (encrypted)
-        throw new Error('cannot encrypt() twice with same key + nonce');
+      if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
       encrypted = true;
       return process(data, true, output);
     },
@@ -105,14 +96,12 @@ function makeBlockCipher(
   opts: BlockOpts,
 ): CipherWithOutput {
   validateKey(key);
-  if (mode === 'cbc')
-    validateExactLength(iv as Uint8Array, AES_BLOCK_SIZE, 'iv');
+  if (mode === 'cbc') validateExactLength(iv as Uint8Array, AES_BLOCK_SIZE, 'iv');
   const autoPadding = !opts.disablePadding;
   let encrypted = false;
   return {
     encrypt(data, output) {
-      if (encrypted)
-        throw new Error('cannot encrypt() twice with same key + nonce');
+      if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
       encrypted = true;
       abytes(data);
       if (!autoPadding && data.length % AES_BLOCK_SIZE !== 0) {
@@ -180,32 +169,22 @@ export const cfb: CfbFactory = Object.assign(
   (key: Uint8Array, iv: Uint8Array) => makeStreamCipher('cfb', key, iv),
   { blockSize: 16 as const, nonceLength: 16 as const },
 );
-type CbcFactory = ((
-  key: Uint8Array,
-  iv: Uint8Array,
-  opts?: BlockOpts,
-) => CipherWithOutput) & {
+type CbcFactory = ((key: Uint8Array, iv: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: 16;
   nonceLength: 16;
 };
 export const cbc: CbcFactory = Object.assign(
-  (key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}) =>
-    makeBlockCipher('cbc', key, iv, opts),
+  (key: Uint8Array, iv: Uint8Array, opts: BlockOpts = {}) => makeBlockCipher('cbc', key, iv, opts),
   { blockSize: 16 as const, nonceLength: 16 as const },
 );
 type EcbFactory = ((key: Uint8Array, opts?: BlockOpts) => CipherWithOutput) & {
   blockSize: 16;
 };
 export const ecb: EcbFactory = Object.assign(
-  (key: Uint8Array, opts: BlockOpts = {}) =>
-    makeBlockCipher('ecb', key, null, opts),
+  (key: Uint8Array, opts: BlockOpts = {}) => makeBlockCipher('ecb', key, null, opts),
   { blockSize: 16 as const },
 );
-type GcmFactory = ((
-  key: Uint8Array,
-  nonce: Uint8Array,
-  aad?: Uint8Array,
-) => Cipher) & {
+type GcmFactory = ((key: Uint8Array, nonce: Uint8Array, aad?: Uint8Array) => Cipher) & {
   blockSize: 16;
   nonceLength: 12;
   tagLength: 16;
@@ -222,8 +201,7 @@ export const gcm: GcmFactory = Object.assign(
     let encrypted = false;
     return {
       encrypt(plaintext: Uint8Array): Uint8Array {
-        if (encrypted)
-          throw new Error('cannot encrypt() twice with same key + nonce');
+        if (encrypted) throw new Error('cannot encrypt() twice with same key + nonce');
         encrypted = true;
         abytes(plaintext, 'data');
         const cipher = createCipheriv(
@@ -240,9 +218,7 @@ export const gcm: GcmFactory = Object.assign(
       decrypt(ciphertext: Uint8Array): Uint8Array {
         abytes(ciphertext, 'data');
         if (ciphertext.length < GCM_TAG_LENGTH) {
-          throw new Error(
-            `"ciphertext" expected length >= tagLength=${GCM_TAG_LENGTH}`,
-          );
+          throw new Error(`"ciphertext" expected length >= tagLength=${GCM_TAG_LENGTH}`);
         }
         const body = ciphertext.subarray(0, ciphertext.length - GCM_TAG_LENGTH);
         const tag = ciphertext.subarray(ciphertext.length - GCM_TAG_LENGTH);

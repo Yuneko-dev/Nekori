@@ -10,7 +10,7 @@ pluginManagement {
     }
     val reactNativeGradlePlugin = File(
         providers.exec {
-            workingDir(rootDir.resolve("packages/js-runtime"))
+            workingDir(rootDir.resolve("../../packages/js-runtime"))
             commandLine(nodeExecutable, "--print", "require.resolve('@react-native/gradle-plugin/package.json')")
         }.standardOutput.asText.get().trim(),
     ).parentFile.absolutePath
@@ -30,15 +30,15 @@ plugins {
 
 extensions.configure<com.facebook.react.ReactSettingsExtension> {
     // Defaults assume the standard `android/` layout where package.json is one level above the
-    // Gradle root. Here the Gradle root *is* the repo root and package.json lives in packages/js-runtime/.
+    // Gradle root. Here the Gradle root is apps/android/ and package.json lives in packages/js-runtime/.
     autolinkLibrariesFromCommand(
-        workingDirectory = rootDir.resolve("packages/js-runtime"),
+        workingDirectory = rootDir.resolve("../../packages/js-runtime"),
         lockFiles = settings.layout.rootDirectory.files(
-            "bun.lock",
-            "packages/js-runtime/package.json",
+            "../../bun.lock",
+            "../../packages/js-runtime/package.json",
             // The CLI config cannot infer this repo's layout, so react-native.config.js states it.
             // It has to invalidate the cached autolinking output like the lockfiles do.
-            "packages/js-runtime/react-native.config.js",
+            "../../packages/js-runtime/react-native.config.js",
         ),
     )
 }
@@ -88,4 +88,4 @@ include(":source-local")
 include(":telemetry")
 include(":tts:tiktok")
 
-project(":js-runtime").projectDir = file("packages/js-runtime")
+project(":js-runtime").projectDir = file("../../packages/js-runtime")

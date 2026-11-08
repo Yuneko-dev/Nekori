@@ -9,9 +9,15 @@ export function createImageModal(root: HTMLElement, closeLabel: string): ImageMo
   const window = document.defaultView;
   if (!window) throw new Error('Image modal requires an active document window');
   const image = van.tags.img({ id: 'nekori-image-modal-image' });
-  const container = van.tags.div({
-    id: 'nekori-image-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': closeLabel,
-  }, image);
+  const container = van.tags.div(
+    {
+      id: 'nekori-image-modal',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': closeLabel,
+    },
+    image,
+  );
   (document.getElementById('reader-ui') ?? document.body).append(container);
 
   let previousViewport: string | null = null;
@@ -37,7 +43,10 @@ export function createImageModal(root: HTMLElement, closeLabel: string): ImageMo
     const src = source.currentSrc || source.src;
     if (!src) return;
     previousViewport = viewportMeta().getAttribute('content');
-    viewportMeta().setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=10');
+    viewportMeta().setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, maximum-scale=10',
+    );
     image.src = src;
     image.alt = source.alt;
     container.classList.add('show');
@@ -62,7 +71,9 @@ export function createImageModal(root: HTMLElement, closeLabel: string): ImageMo
   window.addEventListener('keydown', onKeyDown);
   return {
     close,
-    setCloseLabel(label) { container.setAttribute('aria-label', label); },
+    setCloseLabel(label) {
+      container.setAttribute('aria-label', label);
+    },
     dispose() {
       close();
       container.removeEventListener('click', onClick);
@@ -73,4 +84,3 @@ export function createImageModal(root: HTMLElement, closeLabel: string): ImageMo
   };
 }
 import van from 'vanjs-core';
-

@@ -10,14 +10,20 @@ const INTERNAL_ELEMENT_IDS = new Set(['nekori-title-novel']);
 const normalizers = new WeakMap<ReadonlyArray<TtsNormalizationRule>, TtsTextNormalizer>();
 const trimText: TtsTextNormalizer = (text) => text.trim();
 
-export function createTtsTextNormalizer(rules?: ReadonlyArray<TtsNormalizationRule>): TtsTextNormalizer {
+export function createTtsTextNormalizer(
+  rules?: ReadonlyArray<TtsNormalizationRule>,
+): TtsTextNormalizer {
   if (!rules) return trimText;
   const cached = normalizers.get(rules);
   if (cached) return cached;
-  const replacements = rules.map(({ pattern, replacement }) => [new RegExp(pattern, 'gu'), replacement] as const);
-  const normalize: TtsTextNormalizer = (text) => replacements.reduce(
-    (value, [pattern, replacement]) => value.replace(pattern, replacement), text,
+  const replacements = rules.map(
+    ({ pattern, replacement }) => [new RegExp(pattern, 'gu'), replacement] as const,
   );
+  const normalize: TtsTextNormalizer = (text) =>
+    replacements.reduce(
+      (value, [pattern, replacement]) => value.replace(pattern, replacement),
+      text,
+    );
   normalizers.set(rules, normalize);
   return normalize;
 }
@@ -37,7 +43,9 @@ export function extractParagraphText(
   rules?: ReadonlyArray<TtsNormalizationRule>,
 ): string {
   const normalize = createTtsTextNormalizer(rules);
-  return readableParagraphs(root, chapterId, rules).map((element) => normalize(element.innerText)).join('\n');
+  return readableParagraphs(root, chapterId, rules)
+    .map((element) => normalize(element.innerText))
+    .join('\n');
 }
 
 export function firstVisibleParagraph(
@@ -71,11 +79,17 @@ export function taggedParagraph(
   return -1;
 }
 
-export function readableBlocks(root: ParentNode, normalize: TtsTextNormalizer = trimText): HTMLElement[] {
+export function readableBlocks(
+  root: ParentNode,
+  normalize: TtsTextNormalizer = trimText,
+): HTMLElement[] {
   const blocks: HTMLElement[] = [];
   const visit = (element: Element): void => {
-    if (isReadableBlock(element) && normalize((element as HTMLElement).innerText).length > 0 &&
-        !element.closest('#nekori-image-modal,#nekori-tts-controller,#nekori-next-chapter')) {
+    if (
+      isReadableBlock(element) &&
+      normalize((element as HTMLElement).innerText).length > 0 &&
+      !element.closest('#nekori-image-modal,#nekori-tts-controller,#nekori-next-chapter')
+    ) {
       blocks.push(element as HTMLElement);
     }
     Array.from(element.children).forEach(visit);
@@ -94,7 +108,11 @@ export function readableBlockAtPoint(
   const normalize = createTtsTextNormalizer(rules);
   const candidates = new Set(readableBlocks(root, normalize));
   for (const hit of root.ownerDocument.elementsFromPoint(x, y).reverse()) {
-    for (let element: HTMLElement | null = hit as HTMLElement; element; element = element.parentElement) {
+    for (
+      let element: HTMLElement | null = hit as HTMLElement;
+      element;
+      element = element.parentElement
+    ) {
       if (candidates.has(element)) return element;
       if (element === root) break;
     }
@@ -104,12 +122,20 @@ export function readableBlockAtPoint(
 
 function findChapter(root: ParentNode, chapterId: string | null): HTMLElement | null {
   if (chapterId === null) return root.querySelector<HTMLElement>(CHAPTER_TAG_NAME);
-  return Array.from(root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME))
-    .find((element) => element.getAttribute(CHAPTER_ID_ATTR) === chapterId) ?? null;
+  return (
+    Array.from(root.querySelectorAll<HTMLElement>(CHAPTER_TAG_NAME)).find(
+      (element) => element.getAttribute(CHAPTER_ID_ATTR) === chapterId,
+    ) ?? null
+  );
 }
 
 function isReadableBlock(element: Element): boolean {
-  if (INTERNAL_ELEMENT_IDS.has(element.id) || SKIPPED_NODE_NAMES.has(element.nodeName) ||
-      INLINE_NODE_NAMES.has(element.nodeName) || !element.hasChildNodes()) return false;
+  if (
+    INTERNAL_ELEMENT_IDS.has(element.id) ||
+    SKIPPED_NODE_NAMES.has(element.nodeName) ||
+    INLINE_NODE_NAMES.has(element.nodeName) ||
+    !element.hasChildNodes()
+  )
+    return false;
   return Array.from(element.childNodes).every((child) => INLINE_NODE_NAMES.has(child.nodeName));
 }

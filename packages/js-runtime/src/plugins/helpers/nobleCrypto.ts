@@ -33,10 +33,7 @@ export type CipherFactoryMeta = {
   varSizeNonce?: true;
 };
 
-export function abytes(
-  value: unknown,
-  name = 'data',
-): asserts value is Uint8Array {
+export function abytes(value: unknown, name = 'data'): asserts value is Uint8Array {
   if (!(value instanceof Uint8Array)) {
     throw new TypeError(`"${name}" expected Uint8Array`);
   }
@@ -47,16 +44,10 @@ export function validateKey(key: Uint8Array): 128 | 192 | 256 {
   if (key.length === 16) return 128;
   if (key.length === 24) return 192;
   if (key.length === 32) return 256;
-  throw new Error(
-    `"aes key" expected Uint8Array of length 16/24/32, got length=${key.length}`,
-  );
+  throw new Error(`"aes key" expected Uint8Array of length 16/24/32, got length=${key.length}`);
 }
 
-export function validateExactLength(
-  value: Uint8Array,
-  length: number,
-  name: string,
-): void {
+export function validateExactLength(value: Uint8Array, length: number, name: string): void {
   abytes(value, name);
   if (value.length !== length) {
     throw new Error(
@@ -91,8 +82,7 @@ export function algorithmFor(key: Uint8Array, mode: BasicMode | 'gcm'): string {
 
 export function ensureAlignedOutput(output: Uint8Array): void {
   abytes(output, 'output');
-  if (output.byteOffset % 4 !== 0)
-    throw new Error('invalid output, must be aligned');
+  if (output.byteOffset % 4 !== 0) throw new Error('invalid output, must be aligned');
 }
 
 export function writeOutput(
@@ -130,12 +120,12 @@ export function runBasic(
       ? createCipheriv(algorithm, keyBuffer, null as unknown as Buffer)
       : createDecipheriv(algorithm, keyBuffer, null as unknown as Buffer)
     : encrypting
-    ? createCipheriv(algorithm, keyBuffer, asBuffer(iv as Uint8Array))
-    : createDecipheriv(
-        algorithm,
-        keyBuffer,
-        asBuffer(iv as Uint8Array),
-      )) as unknown as BasicCipherContext;
+      ? createCipheriv(algorithm, keyBuffer, asBuffer(iv as Uint8Array))
+      : createDecipheriv(
+          algorithm,
+          keyBuffer,
+          asBuffer(iv as Uint8Array),
+        )) as unknown as BasicCipherContext;
 
   if (mode === 'cbc' || mode === 'ecb') ctx.setAutoPadding(autoPadding);
 

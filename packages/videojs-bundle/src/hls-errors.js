@@ -1,5 +1,5 @@
-import { MediaError } from "@videojs/media";
-import Hls from "hls.js";
+import { MediaError } from '@videojs/media';
+import Hls from 'hls.js';
 
 const hlsErrorTypeToCode = {
   [Hls.ErrorTypes.NETWORK_ERROR]: MediaError.MEDIA_ERR_NETWORK,
@@ -62,12 +62,12 @@ export function HlsJsErrorsMixin(BaseClass) {
         const error = new MediaError(data.error?.message, code, true, data.details);
         error.data = data;
         this.#error = error;
-        this.dispatchEvent(new ErrorEvent("error", { error, message: error.message }));
+        this.dispatchEvent(new ErrorEvent('error', { error, message: error.message }));
       };
 
       engine.on(Hls.Events.ERROR, onError);
       this.#disconnect.signal.addEventListener(
-        "abort",
+        'abort',
         () => {
           engine.off(Hls.Events.ERROR, onError);
           this.#error = null;

@@ -5,10 +5,7 @@ declare const global: {
   process?: {
     browser?: boolean;
     env?: Record<string, string | undefined>;
-    nextTick?: (
-      callback: (...args: unknown[]) => void,
-      ...args: unknown[]
-    ) => void;
+    nextTick?: (callback: (...args: unknown[]) => void, ...args: unknown[]) => void;
     version?: string;
   };
 };

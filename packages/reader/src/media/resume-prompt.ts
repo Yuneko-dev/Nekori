@@ -1,4 +1,4 @@
-import { formatClock } from "./progress.ts";
+import { formatClock } from './progress.ts';
 
 export class ResumePrompt {
   private awaiting = false;
@@ -25,7 +25,7 @@ export class ResumePrompt {
       video.currentTime = seconds;
       return;
     }
-    const time = overlay.querySelector<HTMLElement>(".nekori-overlay__time");
+    const time = overlay.querySelector<HTMLElement>('.nekori-overlay__time');
     if (time) time.textContent = formatClock(seconds);
     overlay.hidden = false;
     this.awaiting = true;
@@ -38,14 +38,22 @@ export class ResumePrompt {
     };
     this.answer = () => {
       overlay.hidden = true;
-      overlay.querySelector('[data-action="continue"]')?.removeEventListener("click", continueAnswer);
-      overlay.querySelector('[data-action="restart"]')?.removeEventListener("click", restartAnswer);
+      overlay
+        .querySelector('[data-action="continue"]')
+        ?.removeEventListener('click', continueAnswer);
+      overlay.querySelector('[data-action="restart"]')?.removeEventListener('click', restartAnswer);
     };
     const continueAnswer = () => answer(true);
     const restartAnswer = () => answer(false);
-    overlay.querySelector('[data-action="continue"]')?.addEventListener("click", continueAnswer, { once: true });
-    overlay.querySelector('[data-action="restart"]')?.addEventListener("click", restartAnswer, { once: true });
+    overlay
+      .querySelector('[data-action="continue"]')
+      ?.addEventListener('click', continueAnswer, { once: true });
+    overlay
+      .querySelector('[data-action="restart"]')
+      ?.addEventListener('click', restartAnswer, { once: true });
   }
 }
 
-function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

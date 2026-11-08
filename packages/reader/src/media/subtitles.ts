@@ -1,4 +1,4 @@
-import type { ReaderMediaHost, SubtitleTrack } from "./types.ts";
+import type { ReaderMediaHost, SubtitleTrack } from './types.ts';
 
 export interface PreparedSubtitle {
   readonly label: string;
@@ -9,9 +9,9 @@ export interface PreparedSubtitle {
 
 export function toWebVtt(text: string): string {
   const body = text.trimStart();
-  return body.startsWith("WEBVTT")
+  return body.startsWith('WEBVTT')
     ? body
-    : `WEBVTT\n\n${body.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2")}`;
+    : `WEBVTT\n\n${body.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, '$1.$2')}`;
 }
 
 export class SubtitleManager {
@@ -23,24 +23,23 @@ export class SubtitleManager {
   private readonly abortController = new AbortController();
   private disposed = false;
 
-  constructor(
-    host: ReaderMediaHost,
-    document: Document,
-    log: (message: string) => void,
-  ) {
+  constructor(host: ReaderMediaHost, document: Document, log: (message: string) => void) {
     this.host = host;
     this.document = document;
     this.log = log;
   }
 
-  async add(tracks: SubtitleTrack | readonly SubtitleTrack[], media?: HTMLMediaElement | null): Promise<void> {
+  async add(
+    tracks: SubtitleTrack | readonly SubtitleTrack[],
+    media?: HTMLMediaElement | null,
+  ): Promise<void> {
     if (this.disposed) return;
     for (const track of Array.isArray(tracks) ? tracks : [tracks]) {
-      const label = track.label || "Subtitles";
+      const label = track.label || 'Subtitles';
       try {
         let text = track.content;
         if (!text) {
-          if (!track.url) throw new Error("Subtitle URL is missing");
+          if (!track.url) throw new Error('Subtitle URL is missing');
           const response = await this.host.fetch(track.url, {
             headers: { Referer: this.document.baseURI },
             signal: this.abortController.signal,
@@ -49,8 +48,8 @@ export class SubtitleManager {
           text = await response.text();
         }
         if (this.disposed) return;
-        const src = URL.createObjectURL(new Blob([toWebVtt(text)], { type: "text/vtt" }));
-        const prepared = { label, lang: track.lang || "", src, default: Boolean(track.default) };
+        const src = URL.createObjectURL(new Blob([toWebVtt(text)], { type: 'text/vtt' }));
+        const prepared = { label, lang: track.lang || '', src, default: Boolean(track.default) };
         this.prepared.push(prepared);
         this.objectUrls.add(src);
         if (media) this.append(media, prepared);
@@ -74,13 +73,13 @@ export class SubtitleManager {
   }
 
   private append(media: HTMLMediaElement, subtitle: PreparedSubtitle): void {
-    const element = this.document.createElement("track");
-    element.kind = "subtitles";
+    const element = this.document.createElement('track');
+    element.kind = 'subtitles';
     element.label = subtitle.label;
     element.srclang = subtitle.lang;
     element.src = subtitle.src;
     media.append(element);
-    if (subtitle.default && element.track) element.track.mode = "showing";
+    if (subtitle.default && element.track) element.track.mode = 'showing';
   }
 }
 

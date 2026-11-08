@@ -1,6 +1,11 @@
-import { combineResumeProgress, readFractions, writeFraction, type StringStorage } from "./progress.ts";
-import { updateNextUp } from "./player-timing.ts";
-import type { ReaderMediaHost, VideoDirective } from "./types.ts";
+import {
+  combineResumeProgress,
+  readFractions,
+  writeFraction,
+  type StringStorage,
+} from './progress.ts';
+import { updateNextUp } from './player-timing.ts';
+import type { ReaderMediaHost, VideoDirective } from './types.ts';
 
 export class PlaybackProgress {
   private readonly host: ReaderMediaHost;
@@ -29,16 +34,25 @@ export class PlaybackProgress {
     this.log = options.log;
   }
 
-  attach(video: HTMLMediaElement, popup: HTMLElement | null, fail: (message: string) => void): void {
+  attach(
+    video: HTMLMediaElement,
+    popup: HTMLElement | null,
+    fail: (message: string) => void,
+  ): void {
     const path = this.directive.path;
     const disable = Boolean(this.directive.disableProgress);
     const save = (progress: number, fraction = 0, ended = false) => {
       if (this.storage && path) writeFraction(this.storage, path, fraction);
-      this.host.emit("reader.saveVideoProgress", { chapterId: this.host.chapter.id, path, progress, ended });
+      this.host.emit('reader.saveVideoProgress', {
+        chapterId: this.host.chapter.id,
+        path,
+        progress,
+        ended,
+      });
     };
     if (disable) save(0);
-    this.listen(video, "loadedmetadata", () => {
-      this.log("Video loadedmetadata");
+    this.listen(video, 'loadedmetadata', () => {
+      this.log('Video loadedmetadata');
       if (!Number.isFinite(video.duration)) {
         save(0);
         return;
@@ -46,13 +60,17 @@ export class PlaybackProgress {
       if (this.hasSeekedInitial || disable || !(video.duration > 0)) return;
       const progress = this.directive.progress;
       if (progress > 0 && progress < 100) {
-        const restored = combineResumeProgress(progress, path, this.storage ? readFractions(this.storage) : {});
+        const restored = combineResumeProgress(
+          progress,
+          path,
+          this.storage ? readFractions(this.storage) : {},
+        );
         this.onResume(video, (restored / 100) * video.duration);
       }
       this.hasSeekedInitial = true;
     });
-    this.listen(video, "timeupdate", () => updateNextUp(video, popup, this.onDismissed()));
-    this.listen(video, "timeupdate", () => {
+    this.listen(video, 'timeupdate', () => updateNextUp(video, popup, this.onDismissed()));
+    this.listen(video, 'timeupdate', () => {
       if (disable || !Number.isFinite(video.duration) || !(video.duration > 0)) return;
       const currentTime = video.currentTime;
       if (Math.abs(currentTime - this.lastSaveTime) < 3) return;
@@ -61,23 +79,34 @@ export class PlaybackProgress {
       const progress = Math.floor(exact);
       save(progress, exact - progress);
     });
-    this.listen(video, "ended", () => {
-      this.log("Video ended");
+    this.listen(video, 'ended', () => {
+      this.log('Video ended');
       const completed = !disable && Number.isFinite(video.duration) && video.duration > 0;
       save(completed ? 100 : 0, 0, completed);
-      if (this.host.nextChapter ?? this.directive.nextChapter) this.host.emit("navigation.next", {});
+      if (this.host.nextChapter ?? this.directive.nextChapter)
+        this.host.emit('navigation.next', {});
     });
-    this.listen(video, "error", () => {
-      const mediaError = video.error as (MediaError & { message?: string }) | null;
-      fail(`Video playback failed: ${mediaError?.message || "unknown error"}`);
-    }, { once: true });
+    this.listen(
+      video,
+      'error',
+      () => {
+        const mediaError = video.error as (MediaError & { message?: string }) | null;
+        fail(`Video playback failed: ${mediaError?.message || 'unknown error'}`);
+      },
+      { once: true },
+    );
   }
 
   dispose(): void {
     for (const remove of this.removeListeners.splice(0)) remove();
   }
 
-  private listen(target: EventTarget, type: string, listener: EventListener, options?: AddEventListenerOptions): void {
+  private listen(
+    target: EventTarget,
+    type: string,
+    listener: EventListener,
+    options?: AddEventListenerOptions,
+  ): void {
     target.addEventListener(type, listener, options);
     this.removeListeners.push(() => target.removeEventListener(type, listener, options));
   }

@@ -42,25 +42,34 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
   let silentScrollTarget: number | null = null;
 
   const perUnit = (): 1 | 2 => (config.spread === 'double' ? 2 : 1);
-  const viewport = (): number => Math.max(config.vertical ? root.clientHeight : root.clientWidth, 1);
+  const viewport = (): number =>
+    Math.max(config.vertical ? root.clientHeight : root.clientWidth, 1);
   const extent = (): number => (config.vertical ? root.scrollHeight : root.scrollWidth);
-  const readOffset = (): number => config.vertical
-    ? root.scrollTop || 0
-    : logicalOffset(root.scrollLeft || 0, config.direction);
+  const readOffset = (): number =>
+    config.vertical ? root.scrollTop || 0 : logicalOffset(root.scrollLeft || 0, config.direction);
   const writeOffset = (offset: number, behavior: ScrollBehavior = 'auto'): void => {
     if (config.vertical) root.scrollTo({ top: offset, behavior });
     else root.scrollTo({ left: physicalOffset(offset, config.direction), behavior });
   };
-  const currentUnit = (): number => unitFromOffset(readOffset(), viewport(), unitCount(totalLeaves, config.spread));
+  const currentUnit = (): number =>
+    unitFromOffset(readOffset(), viewport(), unitCount(totalLeaves, config.spread));
   const scrollToUnit = (unit: number, behavior: ScrollBehavior = 'auto'): void => {
     const max = unitCount(totalLeaves, config.spread) - 1;
     writeOffset(Math.min(Math.max(unit, 0), max) * viewport(), behavior);
   };
   const measure = (): MeasuredChapter[] => {
-    const map = measureChapterMap(root, readOffset(), viewport() / perUnit(), config.vertical, config.direction);
+    const map = measureChapterMap(
+      root,
+      readOffset(),
+      viewport() / perUnit(),
+      config.vertical,
+      config.direction,
+    );
     map.forEach((chapter) => {
       observers.observe(chapter.element);
-      chapter.element.querySelectorAll('nekori-chapter-summary').forEach((element) => observers.observe(element));
+      chapter.element
+        .querySelectorAll('nekori-chapter-summary')
+        .forEach((element) => observers.observe(element));
     });
     return map;
   };
@@ -70,8 +79,11 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
       host.emit('navigation.loadNext', { atBoundary });
       return;
     }
-    if (root.dataset.nekoriLoadingNext === 'true' ||
-        (root.dataset.nekoriNoMoreChapters === 'true' && !atBoundary)) return;
+    if (
+      root.dataset.nekoriLoadingNext === 'true' ||
+      (root.dataset.nekoriNoMoreChapters === 'true' && !atBoundary)
+    )
+      return;
     root.dataset.nekoriLoadingNext = 'true';
     try {
       host.emit('navigation.loadNext', { atBoundary });
@@ -88,7 +100,9 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
     perUnit,
     isSilent: () => transitions.silent,
     requestNext,
-    onProgress: (progress) => { transitions.lastChapterProgress = progress; },
+    onProgress: (progress) => {
+      transitions.lastChapterProgress = progress;
+    },
   });
   const emitPosition = publisher.emitPosition;
   const resetPositionKey = publisher.resetPositionKey;
@@ -104,10 +118,11 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
     clampPageBounds();
     if (!framePending) {
       framePending = true;
-      animationFrame = view.requestAnimationFrame(() => {
-        framePending = false;
-        emitPosition(false);
-      }) ?? null;
+      animationFrame =
+        view.requestAnimationFrame(() => {
+          framePending = false;
+          emitPosition(false);
+        }) ?? null;
     }
     if (settleTimer !== null && view) view.clearTimeout(settleTimer);
     settleTimer = null;
@@ -128,12 +143,29 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
   function doReflow(): void {
     reflowPending = false;
     performReflow({
-      root, config, pageMap, currentUnit: currentUnit(), perUnit: perUnit(), viewport: viewport(), extent,
-      lastProgress: transitions.lastChapterProgress, restore: transitions.restore, measure, scrollToUnit,
-      setPageMap: (value) => { pageMap = value; },
-      setTotalLeaves: (value) => { totalLeaves = value; },
-      clearRestore: () => { transitions.restore = null; },
-      clearLastProgress: () => { transitions.lastChapterProgress = null; },
+      root,
+      config,
+      pageMap,
+      currentUnit: currentUnit(),
+      perUnit: perUnit(),
+      viewport: viewport(),
+      extent,
+      lastProgress: transitions.lastChapterProgress,
+      restore: transitions.restore,
+      measure,
+      scrollToUnit,
+      setPageMap: (value) => {
+        pageMap = value;
+      },
+      setTotalLeaves: (value) => {
+        totalLeaves = value;
+      },
+      clearRestore: () => {
+        transitions.restore = null;
+      },
+      clearLastProgress: () => {
+        transitions.lastChapterProgress = null;
+      },
       resetPositionKey,
       emitPosition,
     });
@@ -162,13 +194,19 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
     requestNext,
     scheduleReflow,
     emitPosition,
-    onProgress: (progress) => { transitions.lastChapterProgress = progress; },
+    onProgress: (progress) => {
+      transitions.lastChapterProgress = progress;
+    },
     transitions,
   });
 
   const controller: LayoutController = {
-    get enabled() { return config.enabled; },
-    get position() { return publisher.position; },
+    get enabled() {
+      return config.enabled;
+    },
+    get position() {
+      return publisher.position;
+    },
     configure(value) {
       config = {
         enabled: Boolean(value.enabled),
@@ -177,7 +215,9 @@ export function createLayout({ root, host }: LayoutOptions): LayoutController {
         direction: value.direction === 'rtl' ? 'rtl' : 'ltr',
         infinite: Boolean(value.infinite),
         chapterId: value.chapterId,
-        threshold: Number.isFinite(value.threshold) ? Math.min(Math.max(value.threshold, 0), 1) : 0.8,
+        threshold: Number.isFinite(value.threshold)
+          ? Math.min(Math.max(value.threshold, 0), 1)
+          : 0.8,
       };
       root.classList.toggle('is-paged', config.enabled);
       root.dataset.readerSpread = config.spread;

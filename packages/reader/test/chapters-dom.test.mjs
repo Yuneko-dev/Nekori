@@ -31,13 +31,22 @@ class FakeElement {
     };
     this.style = { cssText: '', whiteSpace: '', wordBreak: '', overflowWrap: '' };
   }
-  get firstElementChild() { return this.children.find((node) => node.nodeType !== 3) ?? null; }
-  setAttribute(name, value) { this.attributes.set(name, value); }
-  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  get firstElementChild() {
+    return this.children.find((node) => node.nodeType !== 3) ?? null;
+  }
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  }
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
   append(...nodes) {
     for (const node of nodes) {
       const inserted = node.tagName === '#fragment' ? node.children : [node];
-      for (const child of inserted) { child.parentNode = this; this.children.push(child); }
+      for (const child of inserted) {
+        child.parentNode = this;
+        this.children.push(child);
+      }
       if (node.tagName === '#fragment') node.children = [];
     }
   }
@@ -48,10 +57,16 @@ class FakeElement {
     this.children.splice(position, 0, node);
     for (const sibling of this.children.slice(position + 1)) sibling.rectTop += node.height;
   }
-  getBoundingClientRect() { return { top: this.rectTop, left: this.rectLeft }; }
-  querySelectorAll() { return []; }
+  getBoundingClientRect() {
+    return { top: this.rectTop, left: this.rectLeft };
+  }
+  querySelectorAll() {
+    return [];
+  }
   replaceChildren(...nodes) {
-    this.children = nodes.flatMap((node) => node.tagName === '#fragment' ? node.children : [node]);
+    this.children = nodes.flatMap((node) =>
+      node.tagName === '#fragment' ? node.children : [node],
+    );
     for (const node of this.children) node.parentNode = this;
   }
   remove() {
@@ -70,8 +85,11 @@ const fakeDocument = {
 
 test('chapter metadata keeps new Nekori hooks and source path verbatim', () => {
   const chapter = createChapterElements(fakeDocument, {
-    id: '9007199254740993', name: 'A title', number: 2.5,
-    path: '//opaque/path/#fragment', url: 'https://source.test/chapter',
+    id: '9007199254740993',
+    name: 'A title',
+    number: 2.5,
+    path: '//opaque/path/#fragment',
+    url: 'https://source.test/chapter',
   });
   assert.equal(chapter.element.tagName, CHAPTER_TAG_NAME);
   assert.equal(chapter.element.classList.contains('nekori-chapter'), true);
@@ -88,7 +106,11 @@ test('prepending preserves the first visible element position', () => {
   const prependNode = new FakeElement('nekori-chapter');
   prependNode.height = 80;
   root.scrollTop = 130;
-  prependChapter(root, { element: prependNode, divider: new FakeElement('div') }, { scrollContainer: root, anchor: visible });
+  prependChapter(
+    root,
+    { element: prependNode, divider: new FakeElement('div') },
+    { scrollContainer: root, anchor: visible },
+  );
   assert.equal(root.children[1], prependNode);
   assert.equal(root.scrollTop, 210);
 });
@@ -97,13 +119,22 @@ test('plain text replacement creates text nodes rather than parsing markup', () 
   const chapter = new FakeElement('nekori-chapter');
   replaceChapterText(fakeDocument, chapter, '<script>alert(1)</script>\ncontinued\n\nnext');
   const paragraphs = chapter.children[0].children;
-  assert.deepEqual(paragraphs.map((paragraph) => paragraph.children[0].textContent), ['<script>alert(1)</script>\ncontinued', 'next']);
-  assert.deepEqual(paragraphs.map((paragraph) => paragraph.children[0].nodeType), [3, 3]);
+  assert.deepEqual(
+    paragraphs.map((paragraph) => paragraph.children[0].textContent),
+    ['<script>alert(1)</script>\ncontinued', 'next'],
+  );
+  assert.deepEqual(
+    paragraphs.map((paragraph) => paragraph.children[0].nodeType),
+    [3, 3],
+  );
 });
 
 test('processed content routes plain text to paragraphs and HTML to the markup path', () => {
   const chapter = new FakeElement('nekori-chapter');
-  applyProcessedContent(fakeDocument, chapter, { kind: 'plainText', text: '<b>literal</b>\n\nsecond' });
+  applyProcessedContent(fakeDocument, chapter, {
+    kind: 'plainText',
+    text: '<b>literal</b>\n\nsecond',
+  });
   assert.equal(chapter.children[0].children[0].children[0].textContent, '<b>literal</b>');
 
   applyProcessedContent(fakeDocument, chapter, { kind: 'html', html: '<p><b>rich</b></p>' });

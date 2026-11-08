@@ -6,7 +6,7 @@ import {
 } from '../plugins/helpers/storage';
 
 export function registerPluginStorageHandlers(): void {
-  registerHandler('plugin.storageGet', args => {
+  registerHandler('plugin.storageGet', (args) => {
     const { id, key, storageKey } = args as {
       id: string;
       key?: string;
@@ -15,7 +15,7 @@ export function registerPluginStorageHandlers(): void {
     return getPluginStorageValue(key ?? id, storageKey);
   });
 
-  registerHandler('plugin.storageSet', async args => {
+  registerHandler('plugin.storageSet', async (args) => {
     const { id, key, storageKey, value } = args as {
       id: string;
       key?: string;
@@ -26,18 +26,14 @@ export function registerPluginStorageHandlers(): void {
     return null;
   });
 
-  registerHandler('plugin.webStorageSet', async args => {
+  registerHandler('plugin.webStorageSet', async (args) => {
     const { id, key, localStorage, sessionStorage } = args as {
       id: string;
       key?: string;
       localStorage: Record<string, string>;
       sessionStorage: Record<string, string>;
     };
-    await setPluginWebStorage(
-      key ?? id,
-      localStorage ?? {},
-      sessionStorage ?? {},
-    );
+    await setPluginWebStorage(key ?? id, localStorage ?? {}, sessionStorage ?? {});
     return null;
   });
 }

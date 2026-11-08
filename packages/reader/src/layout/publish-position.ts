@@ -22,17 +22,34 @@ export interface PositionPublisher {
 }
 
 export function createPositionPublisher(options: PositionPublisherOptions): PositionPublisher {
-  const { host, getConfig, getPageMap, getCurrentUnit, perUnit, isSilent, requestNext, onProgress } = options;
+  const {
+    host,
+    getConfig,
+    getPageMap,
+    getCurrentUnit,
+    perUnit,
+    isSilent,
+    requestNext,
+    onProgress,
+  } = options;
   let lastChapterId: string | null = null;
   let lastPositionKey: string | null = null;
   let lastPosition: LayoutPosition | null = null;
   let lastChapterProgress: number | null = null;
 
   return {
-    get position() { return lastPosition; },
-    get lastProgress() { return lastChapterProgress; },
-    setLastProgress(progress) { lastChapterProgress = progress; },
-    resetPositionKey() { lastPositionKey = null; },
+    get position() {
+      return lastPosition;
+    },
+    get lastProgress() {
+      return lastChapterProgress;
+    },
+    setLastProgress(progress) {
+      lastChapterProgress = progress;
+    },
+    resetPositionKey() {
+      lastPositionKey = null;
+    },
     emitPosition(persist) {
       const config = getConfig();
       const pageMap = getPageMap();
@@ -41,7 +58,10 @@ export function createPositionPublisher(options: PositionPublisherOptions): Posi
       const globalLeaf = globalUnit * perUnit();
       const chapter = chapterForLeaf(pageMap, globalLeaf);
       if (!chapter) return;
-      const localLeaf = Math.min(Math.max(globalLeaf - chapter.startLeaf, 0), chapter.leafCount - 1);
+      const localLeaf = Math.min(
+        Math.max(globalLeaf - chapter.startLeaf, 0),
+        chapter.leafCount - 1,
+      );
       const unitIndex = Math.floor(localLeaf / perUnit());
       const count = unitCount(chapter.leafCount, config.spread);
       const progress = progressForUnit(unitIndex, count);
@@ -59,12 +79,15 @@ export function createPositionPublisher(options: PositionPublisherOptions): Posi
       lastPosition = position;
       if (positionKey !== lastPositionKey) {
         lastPositionKey = positionKey;
-        if (chapter.chapterId !== lastChapterId) host.emit('chapter.visible', { chapterId: chapter.chapterId, progress });
+        if (chapter.chapterId !== lastChapterId)
+          host.emit('chapter.visible', { chapterId: chapter.chapterId, progress });
         host.emit('layout.positionChanged', position);
         host.emit('scroll.progressPreview', { progress });
       }
-      if (persist) host.emit('scroll.progressPersist', { progress, atEnd: unitIndex === count - 1 });
-      if (config.infinite && chapter === pageMap.at(-1) && progress >= config.threshold) requestNext(false);
+      if (persist)
+        host.emit('scroll.progressPersist', { progress, atEnd: unitIndex === count - 1 });
+      if (config.infinite && chapter === pageMap.at(-1) && progress >= config.threshold)
+        requestNext(false);
       lastChapterId = chapter.chapterId;
       lastChapterProgress = progress;
       onProgress(progress);

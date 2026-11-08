@@ -45,11 +45,11 @@ jobs:
 
       - name: Check Kotlin style
         if: matrix.check == 'style'
-        run: ./gradlew spotlessCheck --continue
+        run: apps/android/gradlew spotlessCheck --continue
 
       - name: Run unit tests and verify SQLDelight migrations
         if: matrix.check == 'tests'
-        run: ./gradlew testDebugUnitTest verifySqlDelightMigration --continue
+        run: apps/android/gradlew testDebugUnitTest verifySqlDelightMigration --continue
 
       - name: Upload test reports
         if: failure() && matrix.check == 'tests'

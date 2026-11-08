@@ -162,7 +162,7 @@ plugins {
 
 // The npm root is packages/js-runtime/, not the Gradle root, so every path the plugin would normally infer has to be stated.
 react {
-    val jsRuntime = rootProject.layout.projectDirectory.dir("packages/js-runtime")
+    val jsRuntime = rootProject.layout.projectDirectory.dir("../../packages/js-runtime")
 
     root.set(jsRuntime)
     reactNativeDir.set(jsRuntime.dir("node_modules/react-native"))
@@ -575,7 +575,7 @@ androidComponents {
         val resSource = variant.sources.res ?: return@onVariants
 
         val variantName = variant.name.replaceFirstChar { it.uppercase() }
-        val readerPackageDir = rootProject.layout.projectDirectory.dir("packages/reader")
+        val readerPackageDir = rootProject.layout.projectDirectory.dir("../../packages/reader")
         val readerMetafileFile = layout.buildDirectory.file(
             "generated/reader-runtime/${variant.name}/reader-metafile.json",
         )
@@ -585,7 +585,7 @@ androidComponents {
             sourceDirectory.set(readerPackageDir.dir("src"))
             packageFiles.from(
                 readerPackageDir.file("package.json"),
-                rootProject.layout.projectDirectory.file("bun.lock"),
+                rootProject.layout.projectDirectory.file("../../bun.lock"),
                 readerPackageDir.file("tsconfig.json"),
                 readerPackageDir.file("tsconfig.types.json"),
                 readerPackageDir.file("build.mjs"),

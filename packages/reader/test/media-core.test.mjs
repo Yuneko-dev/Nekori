@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DIRECT_PLAYERS, buildDashSource, buildHlsSource } from '../src/media/direct.ts';
-import { VIDEO_FRACTION_KEY, combineResumeProgress, readFractions, writeFraction } from '../src/media/progress.ts';
+import {
+  VIDEO_FRACTION_KEY,
+  combineResumeProgress,
+  readFractions,
+  writeFraction,
+} from '../src/media/progress.ts';
 import { toWebVtt } from '../src/media/subtitles.ts';
 import { DownloadSink, writeResponseToSink } from '../src/media/download-sink.ts';
 import { awaitPlayerElements } from '../src/media/player-elements.ts';
@@ -19,7 +24,10 @@ test('direct dispatch covers only the four chapter directive types', () => {
 
 test('playback forces fragment capture off even when plugin config asks for it', () => {
   // Upstream HLS vendor option, paired with the bundled fragment-capture patch.
-  const source = buildHlsSource('https://media.test/a.m3u8', { debug: true, tsundokuCaptureFragments: true });
+  const source = buildHlsSource('https://media.test/a.m3u8', {
+    debug: true,
+    tsundokuCaptureFragments: true,
+  });
   assert.equal(source.type, 'application/vnd.apple.mpegurl');
   assert.equal(source.engine.hlsJs.tsundokuCaptureFragments, false);
   assert.equal(source.engine.hlsJs.startFragPrefetch, undefined);
@@ -32,7 +40,10 @@ test('dash settings and protection data pass through without a default robustnes
     settings,
     protectionData,
   });
-  assert.equal(JSON.stringify(buildDashSource(settings, protectionData)).includes('robustness'), false);
+  assert.equal(
+    JSON.stringify(buildDashSource(settings, protectionData)).includes('robustness'),
+    false,
+  );
 });
 
 test('stored fractional resume progress restores precision without exceeding one percent', () => {
@@ -78,13 +89,21 @@ test('playback emits opaque chapter progress and next navigation with fractional
     onDismissed: () => false,
     log: () => undefined,
   });
-  progress.attach(video, null, (message) => { throw new Error(message); });
+  progress.attach(video, null, (message) => {
+    throw new Error(message);
+  });
   video.dispatchEvent(new Event('timeupdate'));
   assert.equal(values.get(VIDEO_FRACTION_KEY), '{"/opaque//path#part":0.23}');
   video.dispatchEvent(new Event('ended'));
   assert.deepEqual(events, [
-    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 51, ended: false }],
-    ['reader.saveVideoProgress', { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 100, ended: true }],
+    [
+      'reader.saveVideoProgress',
+      { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 51, ended: false },
+    ],
+    [
+      'reader.saveVideoProgress',
+      { chapterId: 'chapter-id', path: '/opaque//path#part', progress: 100, ended: true },
+    ],
     ['navigation.next', {}],
   ]);
   assert.equal(values.get(VIDEO_FRACTION_KEY), '{}');
@@ -96,8 +115,11 @@ test('timeupdate at one hundred is distinct from actual media completion', () =>
   const video = Object.assign(new EventTarget(), { currentTime: 10, duration: 10 });
   const progress = new PlaybackProgress({
     host: { chapter: { id: '1' }, emit: (name, payload) => events.push([name, payload]) },
-    directive: { path: '/opaque//video', progress: 0 }, storage: null,
-    onResume() {}, onDismissed: () => false, log() {},
+    directive: { path: '/opaque//video', progress: 0 },
+    storage: null,
+    onResume() {},
+    onDismissed: () => false,
+    log() {},
   });
   progress.attach(video, null, assert.fail);
   video.dispatchEvent(new Event('timeupdate'));
@@ -109,74 +131,109 @@ test('timeupdate at one hundred is distinct from actual media completion', () =>
 });
 
 test('subtitle conversion adds WebVTT header and normalizes SubRip decimal commas', () => {
-  assert.equal(toWebVtt('\uFEFF1\n00:00:01,250 --> 00:00:02,500\nhello'),
-    'WEBVTT\n\n1\n00:00:01.250 --> 00:00:02.500\nhello');
-  assert.equal(toWebVtt('  WEBVTT\n\n00:00:01.000 --> 00:00:02.000'),
-    'WEBVTT\n\n00:00:01.000 --> 00:00:02.000');
+  assert.equal(
+    toWebVtt('\uFEFF1\n00:00:01,250 --> 00:00:02,500\nhello'),
+    'WEBVTT\n\n1\n00:00:01.250 --> 00:00:02.500\nhello',
+  );
+  assert.equal(
+    toWebVtt('  WEBVTT\n\n00:00:01.000 --> 00:00:02.000'),
+    'WEBVTT\n\n00:00:01.000 --> 00:00:02.000',
+  );
 });
 
 test('download progress advances only after each streamed chunk is acknowledged', async () => {
   const sequence = [];
-  const sink = new DownloadSink({
-    fetchNative: async (input, init) => {
-      const route = new URL(String(input));
-      if (init?.method === 'PUT') sequence.push('ack-chunk');
-      else if (init?.method === 'POST' && !route.search) sequence.push('commit');
-      else if (route.searchParams.has('container')) sequence.push('ready');
-      else sequence.push(route);
-      return new Response(null, { status: 200 });
+  const sink = new DownloadSink(
+    {
+      fetchNative: async (input, init) => {
+        const route = new URL(String(input));
+        if (init?.method === 'PUT') sequence.push('ack-chunk');
+        else if (init?.method === 'POST' && !route.search) sequence.push('commit');
+        else if (route.searchParams.has('container')) sequence.push('ready');
+        else sequence.push(route);
+        return new Response(null, { status: 200 });
+      },
+      emit: (name, payload) => {
+        if (name === 'media.download.progress') sequence.push(`progress-${payload.current}`);
+      },
     },
-    emit: (name, payload) => {
-      if (name === 'media.download.progress') sequence.push(`progress-${payload.current}`);
-    },
-  }, 'https://127.0.0.1:4321/download');
+    'https://127.0.0.1:4321/download',
+  );
   await sink.ready('mp4');
-  const response = new Response(new ReadableStream({
-    start(controller) {
-      controller.enqueue(new Uint8Array([1, 2]));
-      controller.enqueue(new Uint8Array([3, 4]));
-      controller.close();
-    },
-  }), { headers: { 'content-length': '4' } });
+  const response = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]));
+        controller.enqueue(new Uint8Array([3, 4]));
+        controller.close();
+      },
+    }),
+    { headers: { 'content-length': '4' } },
+  );
   await writeResponseToSink(response, sink, 4);
   assert.deepEqual(sequence, [
-    'ready', 'ack-chunk', 'progress-50', 'ack-chunk', 'progress-100', 'commit',
+    'ready',
+    'ack-chunk',
+    'progress-50',
+    'ack-chunk',
+    'progress-100',
+    'commit',
   ]);
 });
 
 test('late CDN custom elements wait for registration and missing ones time out', async () => {
   let release;
   const registry = {
-    get: (tag) => tag === 'video' ? class Video {} : undefined,
-    whenDefined: () => new Promise((resolve) => { release = resolve; }),
+    get: (tag) => (tag === 'video' ? class Video {} : undefined),
+    whenDefined: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
   };
   const pending = awaitPlayerElements(registry, ['video', 'media-i18n'], 100);
   release();
   await pending;
-  await assert.rejects(awaitPlayerElements({
-    get: () => undefined,
-    whenDefined: () => new Promise(() => {}),
-  }, ['dash-video'], 1), /dash-video is unavailable/);
+  await assert.rejects(
+    awaitPlayerElements(
+      {
+        get: () => undefined,
+        whenDefined: () => new Promise(() => {}),
+      },
+      ['dash-video'],
+      1,
+    ),
+    /dash-video is unavailable/,
+  );
 });
 
 test('player failures select one mode channel and preserve the iframe download code', async () => {
   const playback = [];
-  await reportPlayerFailure({
-    mode: 'playback',
-    emit: (name, payload) => playback.push([name, payload]),
-    fetchNative: async () => new Response(null, { status: 200 }),
-  }, 'Video failed');
+  await reportPlayerFailure(
+    {
+      mode: 'playback',
+      emit: (name, payload) => playback.push([name, payload]),
+      fetchNative: async () => new Response(null, { status: 200 }),
+    },
+    'Video failed',
+  );
   assert.deepEqual(playback, [['reader.error', { message: 'Video failed' }]]);
 
   const download = [];
-  await reportPlayerFailure({
-    mode: 'download',
-    downloadEndpoint: 'https://127.0.0.1:4321/download',
-    emit: (name, payload) => download.push([name, payload]),
-    fetchNative: async () => new Response(null, { status: 200 }),
-  }, 'Iframe video downloads are not supported', 'iframe');
+  await reportPlayerFailure(
+    {
+      mode: 'download',
+      downloadEndpoint: 'https://127.0.0.1:4321/download',
+      emit: (name, payload) => download.push([name, payload]),
+      fetchNative: async () => new Response(null, { status: 200 }),
+    },
+    'Iframe video downloads are not supported',
+    'iframe',
+  );
   assert.deepEqual(download, [
-    ['media.download.error', { code: 'iframe', message: 'Iframe video downloads are not supported' }],
+    [
+      'media.download.error',
+      { code: 'iframe', message: 'Iframe video downloads are not supported' },
+    ],
   ]);
 });
 
@@ -184,17 +241,27 @@ test('cancellation while waiting on the next chunk never commits a partial downl
   const calls = [];
   const controller = new AbortController();
   let cancelled = false;
-  const sink = new DownloadSink({
-    fetchNative: async (_input, init) => {
-      calls.push(init?.method);
-      return new Response(null, { status: 200 });
+  const sink = new DownloadSink(
+    {
+      fetchNative: async (_input, init) => {
+        calls.push(init?.method);
+        return new Response(null, { status: 200 });
+      },
+      emit: () => undefined,
     },
-    emit: () => undefined,
-  }, 'https://127.0.0.1:4321/download', controller.signal);
-  const response = new Response(new ReadableStream({
-    start(stream) { stream.enqueue(new Uint8Array([1, 2])); },
-    cancel() { cancelled = true; },
-  }));
+    'https://127.0.0.1:4321/download',
+    controller.signal,
+  );
+  const response = new Response(
+    new ReadableStream({
+      start(stream) {
+        stream.enqueue(new Uint8Array([1, 2]));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    }),
+  );
   const writing = writeResponseToSink(response, sink, 4, controller.signal);
   await new Promise((resolve) => setTimeout(resolve, 0));
   controller.abort();
@@ -203,7 +270,10 @@ test('cancellation while waiting on the next chunk never commits a partial downl
   assert.equal(calls.includes('POST'), false);
 });
 
-for (const [label, disableProgress, duration] of [['disabled', true, 10], ['live', false, Infinity]]) {
+for (const [label, disableProgress, duration] of [
+  ['disabled', true, 10],
+  ['live', false, Infinity],
+]) {
   test(`${label} video keeps native and fractional progress at zero`, () => {
     const events = [];
     const values = new Map([[VIDEO_FRACTION_KEY, '{"/video":0.5}']]);
@@ -211,14 +281,23 @@ for (const [label, disableProgress, duration] of [['disabled', true, 10], ['live
     const progress = new PlaybackProgress({
       host: { chapter: { id: '1' }, emit: (name, payload) => events.push([name, payload]) },
       directive: { path: '/video', progress: 50, disableProgress },
-      storage: { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) },
+      storage: {
+        getItem: (key) => values.get(key),
+        setItem: (key, value) => values.set(key, value),
+      },
       onResume: () => assert.fail('Must not resume disabled/live video'),
-      onDismissed: () => false, log: () => {},
+      onDismissed: () => false,
+      log: () => {},
     });
     progress.attach(video, null, assert.fail);
-    for (const name of ['loadedmetadata', 'timeupdate', 'ended']) video.dispatchEvent(new Event(name));
+    for (const name of ['loadedmetadata', 'timeupdate', 'ended'])
+      video.dispatchEvent(new Event(name));
     assert.ok(events.length > 0);
-    assert.ok(events.every(([name, payload]) => name === 'reader.saveVideoProgress' && payload.progress === 0));
+    assert.ok(
+      events.every(
+        ([name, payload]) => name === 'reader.saveVideoProgress' && payload.progress === 0,
+      ),
+    );
     assert.equal(values.get(VIDEO_FRACTION_KEY), '{}');
     progress.dispose();
   });

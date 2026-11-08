@@ -1,6 +1,12 @@
 export { createReader } from './runtime/create-reader.ts';
 export type { CreateReaderOptions } from './runtime/create-reader.ts';
-export type { DashConfig, PlayerConfig, SubtitleTrack, VideoDirective, VideoType } from './media/types.ts';
+export type {
+  DashConfig,
+  PlayerConfig,
+  SubtitleTrack,
+  VideoDirective,
+  VideoType,
+} from './media/types.ts';
 export type { LayoutConfig, ScrollTrackingConfig } from './layout/types.ts';
 export { createRuntimeHost } from './runtime/host.ts';
 export type { CreateRuntimeHostOptions } from './runtime/host.ts';
@@ -13,7 +19,11 @@ export type {
   ReaderNovel,
   ReaderRuntimeState,
 } from './protocol/reader-config.ts';
-export { parseReaderConfig, readReaderConfig, ReaderConfigError } from './protocol/reader-config.ts';
+export {
+  parseReaderConfig,
+  readReaderConfig,
+  ReaderConfigError,
+} from './protocol/reader-config.ts';
 
 export type {
   ReaderApi,
@@ -39,7 +49,11 @@ export type {
   ReaderMessageKind,
   ReaderResultEnvelope,
 } from './protocol/envelope.ts';
-export { parseEnvelope, ReaderProtocolError, READER_PROTOCOL_VERSION } from './protocol/envelope.ts';
+export {
+  parseEnvelope,
+  ReaderProtocolError,
+  READER_PROTOCOL_VERSION,
+} from './protocol/envelope.ts';
 import type { ReaderApi } from './protocol/reader-api.ts';
 
 declare global {
@@ -48,4 +62,3 @@ declare global {
     nekori?: ReaderApi;
   }
 }
-

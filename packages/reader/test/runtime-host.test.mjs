@@ -24,14 +24,24 @@ const config = {
   strings: {},
   autoSaveInterval: 5000,
   runtime: {
-    editing: false, infinite: false, textSelectionBlocked: false, forcedLowercase: false,
-    menuVisible: false, immersive: false, ttsState: 'stopped', loadingChapter: false,
-    loadingNext: false, noMoreChapters: false,
+    editing: false,
+    infinite: false,
+    textSelectionBlocked: false,
+    forcedLowercase: false,
+    menuVisible: false,
+    immersive: false,
+    ttsState: 'stopped',
+    loadingChapter: false,
+    loadingNext: false,
+    noMoreChapters: false,
   },
   chapters: [],
 };
 
-function makeHost(transport, { fetch = globalThis.fetch, proxyEndpoint = 'https://reader.test/proxy' } = {}) {
+function makeHost(
+  transport,
+  { fetch = globalThis.fetch, proxyEndpoint = 'https://reader.test/proxy' } = {},
+) {
   const view = { fetch, Request: globalThis.Request, Headers: globalThis.Headers };
   const root = { ownerDocument: { defaultView: view } };
   const hostConfig = { ...config, proxyEndpoint };
@@ -42,12 +52,15 @@ test('proxied fetch forwards headers and preserves native Response streaming', a
   const transport = new TestTransport();
   let observedUrl;
   let observedInit;
-  const response = new Response(new ReadableStream({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode('chapter'));
-      controller.close();
-    },
-  }), { status: 206, headers: { 'content-type': 'text/plain', 'x-source': 'ok' } });
+  const response = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('chapter'));
+        controller.close();
+      },
+    }),
+    { status: 206, headers: { 'content-type': 'text/plain', 'x-source': 'ok' } },
+  );
   const host = makeHost(transport, {
     fetch: async (input, init) => {
       observedUrl = String(input);
@@ -59,11 +72,18 @@ test('proxied fetch forwards headers and preserves native Response streaming', a
   const body = new Blob(['request-body']);
   const responsePromise = host.fetch('https://source.test/chapter?x=1', {
     method: 'POST',
-    headers: { Referer: 'https://source.test/', 'X-Plugin': 'reader', 'Content-Type': 'application/octet-stream' },
+    headers: {
+      Referer: 'https://source.test/',
+      'X-Plugin': 'reader',
+      'Content-Type': 'application/octet-stream',
+    },
     body,
     signal: controller.signal,
   });
-  assert.equal(observedUrl, `https://reader.test/proxy?url=${encodeURIComponent('https://source.test/chapter?x=1')}`);
+  assert.equal(
+    observedUrl,
+    `https://reader.test/proxy?url=${encodeURIComponent('https://source.test/chapter?x=1')}`,
+  );
   assert.equal(observedInit.method, 'POST');
   assert.equal(observedInit.body, body);
   assert.equal(observedInit.signal, controller.signal);
@@ -97,7 +117,10 @@ test('Request input keeps method and body while forwarding only namespaced heade
   await host.fetch(input);
 
   assert.ok(observedRequest instanceof Request);
-  assert.equal(observedRequest.url, `https://reader.test/proxy?url=${encodeURIComponent(input.url)}`);
+  assert.equal(
+    observedRequest.url,
+    `https://reader.test/proxy?url=${encodeURIComponent(input.url)}`,
+  );
   assert.equal(observedRequest.method, 'POST');
   assert.deepEqual(Array.from(observedRequest.headers.entries()), [
     ['x-ln-forward-header-authorization', 'source-token'],
@@ -130,7 +153,13 @@ test('aborting a proxied fetch forwards the same signal and rejects with AbortEr
   const host = makeHost(transport, {
     fetch: (_input, init) => {
       receivedSignal = init.signal;
-      return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }));
+      return new Promise((_resolve, reject) =>
+        init.signal.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true },
+        ),
+      );
     },
   });
   const controller = new AbortController();
@@ -148,12 +177,18 @@ test('disabled proxy reports actionable reader error and rejects', async () => {
   const host = makeHost(transport, { proxyEndpoint: '' });
   await host.start();
   await assert.rejects(host.fetch('https://source.test/chapter'), /local proxy is disabled/i);
-  assert.deepEqual(transport.sent.map(({ kind, method }) => [kind, method]), [
-    ['boot', undefined],
-    ['ready', undefined],
-    ['event', 'reader.error'],
-  ]);
-  assert.equal(transport.sent[2].payload.message, 'This plugin cannot use window.nekori.fetch because the local proxy is disabled. Go to Settings > Advanced > Novel WebView, enable Allow local proxy API, then reopen the reader.');
+  assert.deepEqual(
+    transport.sent.map(({ kind, method }) => [kind, method]),
+    [
+      ['boot', undefined],
+      ['ready', undefined],
+      ['event', 'reader.error'],
+    ],
+  );
+  assert.equal(
+    transport.sent[2].payload.message,
+    'This plugin cannot use window.nekori.fetch because the local proxy is disabled. Go to Settings > Advanced > Novel WebView, enable Allow local proxy API, then reopen the reader.',
+  );
   host.dispose();
 });
 
@@ -177,7 +212,13 @@ test('document configure and patch update the public context and emit local stat
         { id: 'chapter-2', name: 'Next', path: '//raw/#path', progress: 0 },
         { id: 'chapter-3', name: 'Following', path: '/three', progress: 0 },
       ],
-      runtime: { ...config.runtime, editing: true, infinite: true, menuVisible: true, ttsState: 'paused' },
+      runtime: {
+        ...config.runtime,
+        editing: true,
+        infinite: true,
+        menuVisible: true,
+        ttsState: 'paused',
+      },
     },
   });
   await new Promise((resolve) => setImmediate(resolve));

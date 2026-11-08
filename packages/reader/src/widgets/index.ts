@@ -29,7 +29,12 @@ export interface WidgetsController {
   dispose(): void;
 }
 
-export function createWidgets({ root, host, config, layout }: CreateWidgetsOptions): WidgetsController {
+export function createWidgets({
+  root,
+  host,
+  config,
+  layout,
+}: CreateWidgetsOptions): WidgetsController {
   const closeLabel = config.ui?.labels.imageClose ?? config.strings.imageClose ?? 'Close image';
   const imageModal = createImageModal(root, closeLabel);
   const stopImages = observeImageLoading(root);
@@ -63,8 +68,14 @@ export function createWidgets({ root, host, config, layout }: CreateWidgetsOptio
   ];
 
   const configureUi = (value: unknown): void => {
-    if (!isRecord(value) || typeof value.bionicEnabled !== 'boolean' || typeof value.ttsEnabled !== 'boolean' ||
-        !isRecord(value.labels) || typeof value.labels.tts !== 'string' || typeof value.labels.imageClose !== 'string') {
+    if (
+      !isRecord(value) ||
+      typeof value.bionicEnabled !== 'boolean' ||
+      typeof value.ttsEnabled !== 'boolean' ||
+      !isRecord(value.labels) ||
+      typeof value.labels.tts !== 'string' ||
+      typeof value.labels.imageClose !== 'string'
+    ) {
       throw new TypeError('Invalid reader UI configuration');
     }
     bionicEnabled = value.bionicEnabled;
@@ -100,7 +111,8 @@ export function createWidgets({ root, host, config, layout }: CreateWidgetsOptio
 }
 
 function readEnabled(value: unknown): boolean {
-  if (!isRecord(value) || typeof value.enabled !== 'boolean') throw new TypeError('Expected enabled boolean');
+  if (!isRecord(value) || typeof value.enabled !== 'boolean')
+    throw new TypeError('Expected enabled boolean');
   return value.enabled;
 }
 

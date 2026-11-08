@@ -3,62 +3,62 @@
    reach in - which is the whole reason the card lives in a shadow root. */
 
 :host {
-    display: block;
-    margin: 0 0 1.5em;
+  display: block;
+  margin: 0 0 1.5em;
 }
 
 .card {
-    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-    border-radius: 16px;
-    padding: 16px;
-    font-size: 0.95em;
-    line-height: 1.6;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 0.95em;
+  line-height: 1.6;
 }
 
 .head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    font-weight: 600;
-    opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .title {
-    flex: 1;
+  flex: 1;
 }
 
 .body p {
-    margin: 0 0 0.9em;
+  margin: 0 0 0.9em;
 }
 
 .body p:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .body.status {
-    opacity: 0.7;
-    font-style: italic;
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 button {
-    font: inherit;
-    font-size: 0.9em;
-    color: inherit;
-    background: transparent;
-    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-    border-radius: 999px;
-    padding: 6px 16px;
-    cursor: pointer;
+  font: inherit;
+  font-size: 0.9em;
+  color: inherit;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
 }
 
 button:active {
-    background: color-mix(in srgb, currentColor 12%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }

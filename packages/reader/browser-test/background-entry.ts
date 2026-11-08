@@ -7,7 +7,9 @@ void (async () => {
   const messages: unknown[] = [];
   const transport = {
     onmessage: null as ((event: { data: unknown }) => void) | null,
-    postMessage(message: string) { messages.push(JSON.parse(message)); },
+    postMessage(message: string) {
+      messages.push(JSON.parse(message));
+    },
   };
   const root = document.querySelector<HTMLElement>('#nekori-reader')!;
   const host = createRuntimeHost({ root, config, transport });
@@ -16,16 +18,20 @@ void (async () => {
   let requestId = 0;
   Object.assign(window, {
     applyReaderStyle(payload: unknown) {
-      transport.onmessage?.({ data: JSON.stringify({
-        protocolVersion: READER_PROTOCOL_VERSION,
-        documentId: config.documentId,
-        kind: 'command',
-        requestId: String(++requestId),
-        method: 'style.apply',
-        payload,
-      }) });
+      transport.onmessage?.({
+        data: JSON.stringify({
+          protocolVersion: READER_PROTOCOL_VERSION,
+          documentId: config.documentId,
+          kind: 'command',
+          requestId: String(++requestId),
+          method: 'style.apply',
+          payload,
+        }),
+      });
     },
     readerMessages: messages,
-    disposeReader() { api.dispose(); },
+    disposeReader() {
+      api.dispose();
+    },
   });
 })();

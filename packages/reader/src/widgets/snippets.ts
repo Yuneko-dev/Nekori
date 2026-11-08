@@ -1,6 +1,9 @@
 import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
 
-interface Snippet { name?: string; code: string }
+interface Snippet {
+  name?: string;
+  code: string;
+}
 
 /** Execute source-owned customJS bytes as a document script, separate from native commands. */
 export function executeSourceScript(code: string, document: Document): void {
@@ -22,11 +25,17 @@ function readSnippets(value: unknown): Snippet[] {
   }
   if (isRecord(value) && Array.isArray(value.snippets)) {
     return value.snippets.map((snippet) => {
-      if (!isRecord(snippet) || typeof snippet.code !== 'string' ||
-          (snippet.name !== undefined && typeof snippet.name !== 'string')) {
+      if (
+        !isRecord(snippet) ||
+        typeof snippet.code !== 'string' ||
+        (snippet.name !== undefined && typeof snippet.name !== 'string')
+      ) {
         throw new TypeError('Invalid user snippet');
       }
-      return { code: snippet.code, ...(typeof snippet.name === 'string' ? { name: snippet.name } : {}) };
+      return {
+        code: snippet.code,
+        ...(typeof snippet.name === 'string' ? { name: snippet.name } : {}),
+      };
     });
   }
   throw new TypeError('Expected snippet code or snippet list');
@@ -42,7 +51,12 @@ function executeSnippet(document: Document, snippet: Snippet): void {
 }
 
 function safeSourceName(value: string): string {
-  return value.replace(/[\r\n]/g, '').replace(/[^\w.-]/g, '-').slice(0, 80) || 'snippet';
+  return (
+    value
+      .replace(/[\r\n]/g, '')
+      .replace(/[^\w.-]/g, '-')
+      .slice(0, 80) || 'snippet'
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,13 +1,13 @@
 class DisabledAirPlayButtonElement extends HTMLElement {
-  static tagName = "media-airplay-button";
+  static tagName = 'media-airplay-button';
 }
 
 class DisabledCastButtonElement extends HTMLElement {
-  static tagName = "media-cast-button";
+  static tagName = 'media-cast-button';
 }
 
 class DisabledPiPButtonElement extends HTMLElement {
-  static tagName = "media-pip-button";
+  static tagName = 'media-pip-button';
 }
 
 export {

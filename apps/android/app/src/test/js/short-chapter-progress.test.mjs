@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { observeShortChapter } from '../../../../packages/reader/src/layout/short-chapter.ts';
+import { observeShortChapter } from '../../../../../../packages/reader/src/layout/short-chapter.ts';
 
 function shortChapterFixture({ height, paged = false }) {
   let resize;
@@ -9,12 +9,22 @@ function shortChapterFixture({ height, paged = false }) {
   const view = {
     innerHeight: 800,
     ResizeObserver: class {
-      constructor(callback) { resize = callback; }
+      constructor(callback) {
+        resize = callback;
+      }
       observe() {}
-      disconnect() { disconnected += 1; }
+      disconnect() {
+        disconnected += 1;
+      }
     },
-    setTimeout(callback, delay) { timeout = callback; assert.equal(delay, 500); return 7; },
-    clearTimeout() { timeout = null; },
+    setTimeout(callback, delay) {
+      timeout = callback;
+      assert.equal(delay, 500);
+      return 7;
+    },
+    clearTimeout() {
+      timeout = null;
+    },
   };
   const document = {
     defaultView: view,
@@ -31,7 +41,8 @@ function shortChapterFixture({ height, paged = false }) {
     enabled: true,
   });
   return {
-    emitted, cleanup,
+    emitted,
+    cleanup,
     flushResize: () => resize?.(),
     flushTimeout: () => timeout?.(),
     disconnected: () => disconnected,

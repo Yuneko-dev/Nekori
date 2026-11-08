@@ -1,4 +1,3 @@
-
 import { load } from 'cheerio';
 
 globalThis.__realCheerio = {

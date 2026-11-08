@@ -27,24 +27,37 @@ test('packed package installs and typechecks from a TypeScript consumer', async 
     const vanjsDirRoot = resolveWorkspaceModule('vanjs-core').root;
     let vanjsPackage;
     try {
-      vanjsPackage = runNpm([
-        'pack', '--json', '--pack-destination', packDirectory, vanjsDir,
-      ]);
+      vanjsPackage = runNpm(['pack', '--json', '--pack-destination', packDirectory, vanjsDir]);
     } catch {
-      vanjsPackage = runNpm([
-        'pack', '--json', '--pack-destination', packDirectory, vanjsDirRoot,
-      ]);
+      vanjsPackage = runNpm(['pack', '--json', '--pack-destination', packDirectory, vanjsDirRoot]);
     }
     const readerTarball = path.join(packDirectory, JSON.parse(readerPackage.stdout)[0].filename);
     const vanjsTarball = path.join(packDirectory, JSON.parse(vanjsPackage.stdout)[0].filename);
-    await writeFile(path.join(consumerDirectory, 'package.json'), JSON.stringify({
-      name: 'reader-runtime-consumer-check', version: '1.0.0', private: true, type: 'module',
-    }));
-    runNpm([
-      'install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund',
-      '--package-lock=false', readerTarball, vanjsTarball,
-    ], consumerDirectory);
-    await writeFile(path.join(consumerDirectory, 'consumer.ts'), `
+    await writeFile(
+      path.join(consumerDirectory, 'package.json'),
+      JSON.stringify({
+        name: 'reader-runtime-consumer-check',
+        version: '1.0.0',
+        private: true,
+        type: 'module',
+      }),
+    );
+    runNpm(
+      [
+        'install',
+        '--offline',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund',
+        '--package-lock=false',
+        readerTarball,
+        vanjsTarball,
+      ],
+      consumerDirectory,
+    );
+    await writeFile(
+      path.join(consumerDirectory, 'consumer.ts'),
+      `
 import {
   createReader,
   createRuntimeHost,
@@ -80,14 +93,23 @@ void event;
 void request;
 void parsed;
 void browserApi;
-`);
-    await writeFile(path.join(consumerDirectory, 'tsconfig.json'), JSON.stringify({
-      compilerOptions: {
-        strict: true, noEmit: true, target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler',
-        lib: ['ES2022', 'DOM', 'DOM.Iterable'], skipLibCheck: true,
-      },
-      files: ['consumer.ts'],
-    }));
+`,
+    );
+    await writeFile(
+      path.join(consumerDirectory, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          noEmit: true,
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+          skipLibCheck: true,
+        },
+        files: ['consumer.ts'],
+      }),
+    );
     const typescriptLocal = resolveWorkspaceModule('typescript/bin/tsc').local;
     const typescriptRoot = resolveWorkspaceModule('typescript/bin/tsc').root;
     let tscPath = typescriptLocal;
@@ -97,17 +119,26 @@ void browserApi;
     } catch {
       tscPath = typescriptRoot;
     }
-    const typecheck = spawnSync(process.execPath, [
-      tscPath, '-p', 'tsconfig.json',
-    ], { cwd: consumerDirectory, encoding: 'utf8' });
+    const typecheck = spawnSync(process.execPath, [tscPath, '-p', 'tsconfig.json'], {
+      cwd: consumerDirectory,
+      encoding: 'utf8',
+    });
     assert.equal(typecheck.status, 0, `${typecheck.stdout}\n${typecheck.stderr}`);
 
-    const runtime = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const runtime = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `
       import * as reader from '@nekori/reader';
       for (const name of ['createReader', 'createRuntimeHost', 'parseReaderConfig', 'READER_PROTOCOL_VERSION']) {
         if (!(name in reader)) throw new Error('Missing packed export: ' + name);
       }
-    `], { cwd: consumerDirectory, encoding: 'utf8' });
+    `,
+      ],
+      { cwd: consumerDirectory, encoding: 'utf8' },
+    );
     assert.equal(runtime.status, 0, `${runtime.stdout}\n${runtime.stderr}`);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });

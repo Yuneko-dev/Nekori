@@ -8,13 +8,11 @@ const handlers = new Map<string, EncodedHandler>();
 const inFlight = new Set<string>();
 
 export function registerHandler(method: string, handler: Handler): void {
-  handlers.set(method, async args =>
-    JSON.stringify((await handler(args)) ?? null),
-  );
+  handlers.set(method, async (args) => JSON.stringify((await handler(args)) ?? null));
 }
 
 export function registerTextHandler(method: string, handler: Handler): void {
-  handlers.set(method, async args => {
+  handlers.set(method, async (args) => {
     const result = await handler(args);
     if (typeof result !== 'string') {
       throw new TypeError(`Handler "${method}" did not return text`);
@@ -54,7 +52,7 @@ async function dispatch(api: Spec, command: JsCommand): Promise<void> {
       api.reject(
         id,
         error instanceof Error ? error.message : String(error),
-        error instanceof Error ? error.stack ?? '' : '',
+        error instanceof Error ? (error.stack ?? '') : '',
       );
     }
   } finally {

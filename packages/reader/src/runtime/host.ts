@@ -1,4 +1,9 @@
-import { parseReaderConfig, type ReaderConfig, type ReaderContext, type ReaderRuntimeState } from '../protocol/reader-config.ts';
+import {
+  parseReaderConfig,
+  type ReaderConfig,
+  type ReaderContext,
+  type ReaderRuntimeState,
+} from '../protocol/reader-config.ts';
 import type {
   ReaderCommandName,
   ReaderCommandHandler,
@@ -15,7 +20,11 @@ export interface CreateRuntimeHostOptions {
   transport: NativeReaderTransport;
 }
 
-export function createRuntimeHost({ root, config, transport }: CreateRuntimeHostOptions): ReaderHost {
+export function createRuntimeHost({
+  root,
+  config,
+  transport,
+}: CreateRuntimeHostOptions): ReaderHost {
   const session = createRuntimeSession(config, transport);
   let currentConfig = config;
   const view = root.ownerDocument.defaultView;
@@ -23,26 +32,59 @@ export function createRuntimeHost({ root, config, transport }: CreateRuntimeHost
   const nativeFetch = view.fetch.bind(view);
   const browserRequest = view.Request;
   const browserHeaders = view.Headers;
-  const proxyUnavailableError = 'This plugin cannot use window.nekori.fetch because the local proxy is disabled. Go to Settings > Advanced > Novel WebView, enable Allow local proxy API, then reopen the reader.';
+  const proxyUnavailableError =
+    'This plugin cannot use window.nekori.fetch because the local proxy is disabled. Go to Settings > Advanced > Novel WebView, enable Allow local proxy API, then reopen the reader.';
   const localListeners = new Map<string, Set<(payload: unknown) => void>>();
   const cleanups = new Set<Unsubscribe>();
   const context: ReaderContext = {
-    get documentId() { return currentConfig.documentId; },
-    get mode() { return currentConfig.mode; },
-    get novel() { return currentConfig.novel; },
-    get chapter() { return currentConfig.chapter; },
-    get nextChapter() { return currentConfig.nextChapter; },
-    get chapters() { return currentConfig.chapters; },
-    get runtime() { return currentConfig.runtime; },
-    get strings() { return currentConfig.strings; },
-    get ui() { return currentConfig.ui; },
-    get style() { return currentConfig.style; },
-    get layout() { return currentConfig.layout; },
-    get player() { return currentConfig.player; },
-    get sourceBaseUrl() { return currentConfig.context?.sourceBaseUrl; },
-    get novelId() { return currentConfig.context?.novelId ?? currentConfig.novel.id; },
-    get chapterId() { return currentConfig.context?.chapterId ?? currentConfig.chapter.id; },
-    get sourceId() { return currentConfig.context?.sourceId; },
+    get documentId() {
+      return currentConfig.documentId;
+    },
+    get mode() {
+      return currentConfig.mode;
+    },
+    get novel() {
+      return currentConfig.novel;
+    },
+    get chapter() {
+      return currentConfig.chapter;
+    },
+    get nextChapter() {
+      return currentConfig.nextChapter;
+    },
+    get chapters() {
+      return currentConfig.chapters;
+    },
+    get runtime() {
+      return currentConfig.runtime;
+    },
+    get strings() {
+      return currentConfig.strings;
+    },
+    get ui() {
+      return currentConfig.ui;
+    },
+    get style() {
+      return currentConfig.style;
+    },
+    get layout() {
+      return currentConfig.layout;
+    },
+    get player() {
+      return currentConfig.player;
+    },
+    get sourceBaseUrl() {
+      return currentConfig.context?.sourceBaseUrl;
+    },
+    get novelId() {
+      return currentConfig.context?.novelId ?? currentConfig.novel.id;
+    },
+    get chapterId() {
+      return currentConfig.context?.chapterId ?? currentConfig.chapter.id;
+    },
+    get sourceId() {
+      return currentConfig.context?.sourceId;
+    },
   };
 
   const events: ReaderEventBus = {
@@ -66,28 +108,46 @@ export function createRuntimeHost({ root, config, transport }: CreateRuntimeHost
 
   session.registerCommand('document.configure', (payload) => {
     const nextConfig = parseReaderConfig(payload);
-    if (nextConfig.documentId !== currentConfig.documentId) throw new TypeError('Cannot replace the active document identity');
+    if (nextConfig.documentId !== currentConfig.documentId)
+      throw new TypeError('Cannot replace the active document identity');
     currentConfig = nextConfig;
     notifyStateChanged('document.configure');
     return context;
   });
   session.registerCommand('document.patchState', (payload) => {
     currentConfig = applyRuntimePatch(currentConfig, payload);
-    notifyStateChanged(isRecord(payload) && typeof payload.event === 'string' ? payload.event : 'document.patchState');
+    notifyStateChanged(
+      isRecord(payload) && typeof payload.event === 'string'
+        ? payload.event
+        : 'document.patchState',
+    );
     return currentConfig.runtime;
   });
 
   return {
     get root() {
-      return root.ownerDocument.querySelector<HTMLElement>('[data-nekori-reader-root], #nekori-reader') ??
-        root.ownerDocument.body ?? root;
+      return (
+        root.ownerDocument.querySelector<HTMLElement>(
+          '[data-nekori-reader-root], #nekori-reader',
+        ) ??
+        root.ownerDocument.body ??
+        root
+      );
     },
-    get config() { return currentConfig; },
+    get config() {
+      return currentConfig;
+    },
     context,
     events,
-    get strings() { return currentConfig.strings; },
-    get chapter() { return currentConfig.chapter; },
-    get nextChapter() { return currentConfig.nextChapter; },
+    get strings() {
+      return currentConfig.strings;
+    },
+    get chapter() {
+      return currentConfig.chapter;
+    },
+    get nextChapter() {
+      return currentConfig.nextChapter;
+    },
     emit(name: string, payload?: unknown) {
       session.emit(name, payload);
     },
@@ -118,7 +178,8 @@ export function createRuntimeHost({ root, config, transport }: CreateRuntimeHost
       if (inputRequest) {
         const sourceRequest = new browserRequest(inputRequest, init);
         const proxiedRequest = new browserRequest(proxyUrl, sourceRequest);
-        for (const name of Array.from(proxiedRequest.headers.keys())) proxiedRequest.headers.delete(name);
+        for (const name of Array.from(proxiedRequest.headers.keys()))
+          proxiedRequest.headers.delete(name);
         forwardedHeaders.forEach((value, name) => proxiedRequest.headers.set(name, value));
         return nativeFetch(proxiedRequest);
       }
@@ -143,12 +204,16 @@ export function createRuntimeHost({ root, config, transport }: CreateRuntimeHost
 }
 
 function applyRuntimePatch(config: ReaderConfig, value: unknown): ReaderConfig {
-  if (!isRecord(value) || !isRecord(value.patch)) throw new TypeError('Invalid document.patchState payload');
+  if (!isRecord(value) || !isRecord(value.patch))
+    throw new TypeError('Invalid document.patchState payload');
   const patch = value.patch;
   const runtime: ReaderRuntimeState = {
     editing: booleanOr(patch.editing ?? patch.isEditMode, config.runtime.editing),
     infinite: booleanOr(patch.infinite ?? patch.isInfiniteScroll, config.runtime.infinite),
-    textSelectionBlocked: booleanOr(patch.textSelectionBlocked, config.runtime.textSelectionBlocked),
+    textSelectionBlocked: booleanOr(
+      patch.textSelectionBlocked,
+      config.runtime.textSelectionBlocked,
+    ),
     forcedLowercase: booleanOr(patch.forcedLowercase, config.runtime.forcedLowercase),
     menuVisible: booleanOr(patch.menuVisible, config.runtime.menuVisible),
     immersive: booleanOr(patch.immersive, config.runtime.immersive),
@@ -164,8 +229,13 @@ function booleanOr(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-function ttsStateOr(value: unknown, fallback: ReaderRuntimeState['ttsState']): ReaderRuntimeState['ttsState'] {
-  return value === 'playing' || value === 'paused' || value === 'stopped' || value === 'starting' ? value : fallback;
+function ttsStateOr(
+  value: unknown,
+  fallback: ReaderRuntimeState['ttsState'],
+): ReaderRuntimeState['ttsState'] {
+  return value === 'playing' || value === 'paused' || value === 'stopped' || value === 'starting'
+    ? value
+    : fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

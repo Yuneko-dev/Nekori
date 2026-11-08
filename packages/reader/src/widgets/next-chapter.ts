@@ -1,6 +1,11 @@
 import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
 
-interface Labels { hasNext: boolean; finishedText: string; nextText: string; noNextText: string }
+interface Labels {
+  hasNext: boolean;
+  finishedText: string;
+  nextText: string;
+  noNextText: string;
+}
 
 export function registerNextChapterCommand(host: ReaderHost): Unsubscribe {
   let labels: Labels | null = null;
@@ -26,9 +31,20 @@ export function registerNextChapterCommand(host: ReaderHost): Unsubscribe {
     (document.getElementById('reader-ui') ?? document.body).append(container);
   };
   return host.onCommand('ui.configureNextChapter', (value) => {
-    if (!isRecord(value) || typeof value.hasNext !== 'boolean' || typeof value.finishedText !== 'string' || typeof value.nextText !== 'string' ||
-        typeof value.noNextText !== 'string') throw new TypeError('Invalid next chapter labels');
-    labels = { hasNext: value.hasNext, finishedText: value.finishedText, nextText: value.nextText, noNextText: value.noNextText };
+    if (
+      !isRecord(value) ||
+      typeof value.hasNext !== 'boolean' ||
+      typeof value.finishedText !== 'string' ||
+      typeof value.nextText !== 'string' ||
+      typeof value.noNextText !== 'string'
+    )
+      throw new TypeError('Invalid next chapter labels');
+    labels = {
+      hasNext: value.hasNext,
+      finishedText: value.finishedText,
+      nextText: value.nextText,
+      noNextText: value.noNextText,
+    };
     render();
   });
 }

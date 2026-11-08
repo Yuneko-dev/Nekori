@@ -12,7 +12,10 @@ const candidates = [
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
 ].filter(Boolean);
 const executable = candidates.find(existsSync);
-if (!executable) throw new Error('Reader browser tests require Chromium. Run npx playwright install chromium or set CHROMIUM_PATH.');
+if (!executable)
+  throw new Error(
+    'Reader browser tests require Chromium. Run npx playwright install chromium or set CHROMIUM_PATH.',
+  );
 const tests = readdirSync(path.join(packageDir, 'test'))
   .filter((file) => file.endsWith('.browser.test.mjs'))
   .map((file) => path.join(packageDir, 'test', file));

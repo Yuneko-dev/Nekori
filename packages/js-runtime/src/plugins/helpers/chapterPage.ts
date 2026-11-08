@@ -16,23 +16,17 @@ export const normalizePluginChapters = (
     throw new Error(`[${pluginId}] ${source} returned an invalid chapter list`);
   }
 
-  const {
-    defaultPage = 'Default',
-    pageOverride,
-    validateNumeric = false,
-  } = options ?? {};
+  const { defaultPage = 'Default', pageOverride, validateNumeric = false } = options ?? {};
   if (pageOverride !== undefined && !POSITIVE_INTEGER_PAGE.test(pageOverride)) {
     throw new Error(
-      `[${pluginId}] ${source} was called with invalid page ${JSON.stringify(
-        pageOverride,
-      )}`,
+      `[${pluginId}] ${source} was called with invalid page ${JSON.stringify(pageOverride)}`,
     );
   }
 
   return chapters.map((chapter, index) => {
     const scanlator = Array.isArray(chapter.scanlator)
       ? chapter.scanlator
-          .map(value => value.trim())
+          .map((value) => value.trim())
           .filter(Boolean)
           .join(', ') || undefined
       : chapter.scanlator?.trim() || undefined;
@@ -40,9 +34,7 @@ export const normalizePluginChapters = (
       const sourcePage = pageOverride ?? chapter.page;
       const page =
         sourcePage == null ||
-        (!validateNumeric &&
-          typeof sourcePage === 'string' &&
-          !sourcePage.trim())
+        (!validateNumeric && typeof sourcePage === 'string' && !sourcePage.trim())
           ? defaultPage
           : sourcePage;
       if (typeof page !== 'string') {
@@ -78,9 +70,7 @@ export const normalizePluginNovel = (
 ): SourceNovel => {
   const { totalPages } = novel;
   const validTotalPages = paged
-    ? typeof totalPages === 'number' &&
-      Number.isInteger(totalPages) &&
-      totalPages >= 1
+    ? typeof totalPages === 'number' && Number.isInteger(totalPages) && totalPages >= 1
     : totalPages === undefined || totalPages === 0 || totalPages === 1;
 
   if (!validTotalPages) {

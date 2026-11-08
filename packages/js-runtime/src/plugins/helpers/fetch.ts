@@ -40,10 +40,7 @@ const makeInit = (init?: FetchInit) => {
   return init;
 };
 
-export const fetchApi = async (
-  url: string,
-  init?: FetchInit,
-): Promise<Response> => {
+export const fetchApi = async (url: string, init?: FetchInit): Promise<Response> => {
   init = makeInit(init);
   return await fetch(url, init);
 };
@@ -138,9 +135,7 @@ export const fetchProto = async (
         throw new Error('Compressed gRPC-web frames are not supported');
       }
       const responseType = root.lookupType(config.responseType);
-      const decoded = responseType.decode(
-        bytes.subarray(offset, offset + length),
-      );
+      const decoded = responseType.decode(bytes.subarray(offset, offset + length));
       return responseType.toObject(decoded, {
         longs: String,
         enums: String,

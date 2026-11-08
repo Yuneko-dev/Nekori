@@ -1,4 +1,6 @@
-export interface HlsInitSegment { data?: ArrayBuffer | Uint8Array; }
+export interface HlsInitSegment {
+  data?: ArrayBuffer | Uint8Array;
+}
 export interface HlsFragment {
   readonly level?: number;
   readonly sn?: number | string;
@@ -40,7 +42,7 @@ export interface HlsEngine {
   destroy(): void;
 }
 export interface HlsConstructor {
-  new(config: Record<string, unknown>): HlsEngine;
+  new (config: Record<string, unknown>): HlsEngine;
   isSupported(): boolean;
   readonly Events: Record<string, string> & {
     readonly FRAG_PARSING_INIT_SEGMENT: string;

@@ -1,9 +1,17 @@
 import type { ReaderHost, ReaderLayout, Unsubscribe } from '../protocol/reader-api.ts';
-import { extractParagraphText, firstVisibleParagraph, readableParagraphs, taggedParagraph } from './paragraphs.ts';
+import {
+  extractParagraphText,
+  firstVisibleParagraph,
+  readableParagraphs,
+  taggedParagraph,
+} from './paragraphs.ts';
 
 const HIGHLIGHT_CLASS = 'nekori-tts-highlight';
 
-export function registerTtsDomCommands(host: ReaderHost, layout: ReaderLayout | null): Unsubscribe[] {
+export function registerTtsDomCommands(
+  host: ReaderHost,
+  layout: ReaderLayout | null,
+): Unsubscribe[] {
   return [
     host.onCommand('tts.extractText', (payload) => {
       const chapterId = optionalChapterId(payload);
@@ -32,7 +40,8 @@ export function clearHighlight(root: HTMLElement): void {
 }
 
 function applyHighlight(host: ReaderHost, layout: ReaderLayout | null, value: unknown): void {
-  if (!isRecord(value) || typeof value.paragraphIndex !== 'number') throw new TypeError('Invalid TTS highlight payload');
+  if (!isRecord(value) || typeof value.paragraphIndex !== 'number')
+    throw new TypeError('Invalid TTS highlight payload');
   const chapterId = typeof value.chapterId === 'string' ? value.chapterId : null;
   const paragraph = readableParagraphs(host.root, chapterId, host.config.ttsNormalizationRules)[
     Math.max(0, Math.trunc(value.paragraphIndex))
@@ -43,8 +52,8 @@ function applyHighlight(host: ReaderHost, layout: ReaderLayout | null, value: un
   const color = safeColor(value.textColor);
   if (background) paragraph.style.setProperty('--nekori-tts-highlight-background', background);
   if (color) paragraph.style.setProperty('--nekori-tts-highlight-color', color);
-  paragraph.dataset.nekoriTtsHighlightStyle = value.style === 'underline' || value.style === 'outline'
-    ? value.style : 'background';
+  paragraph.dataset.nekoriTtsHighlightStyle =
+    value.style === 'underline' || value.style === 'outline' ? value.style : 'background';
   paragraph.classList.add(HIGHLIGHT_CLASS);
   if (value.keepInView === true) {
     if (layout?.enabled) layout.revealElement(paragraph);

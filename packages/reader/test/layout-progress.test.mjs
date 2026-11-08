@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { computeVerticalProgress, shouldLoadNextChapter, boundariesFromOffsets } from '../src/layout/progress.ts';
+import {
+  computeVerticalProgress,
+  shouldLoadNextChapter,
+  boundariesFromOffsets,
+} from '../src/layout/progress.ts';
 
 test('snapped completion keeps geometric end separate from the reading threshold', () => {
   const near = computeVerticalProgress(9990, 10100, 100, [], false, 0.95);

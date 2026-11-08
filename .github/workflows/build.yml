@@ -18,7 +18,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   kotlin-checks:
     uses: ./.github/workflows/kotlin-checks.yml
@@ -86,17 +85,17 @@ jobs:
 
       - name: Build release APK(s) from clean native/codegen state
         run: |
-          ./gradlew clean
-          ./gradlew assembleRelease
+          apps/android/gradlew clean
+          apps/android/gradlew assembleRelease
 
       - name: Build nightly APK(s) (unsigned)
-        run: ./gradlew assembleNightly -Penable-updater
+        run: apps/android/gradlew assembleNightly -Penable-updater
 
       - name: Sign APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Yuneko-dev/Nekori'
         uses: r0adkll/sign-android-release@f30bdd30588842ac76044ecdbd4b6d0e3e813478
         with:
-          releaseDirectory: app/build/outputs/apk/nightly
+          releaseDirectory: apps/android/app/build/outputs/apk/nightly
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -109,19 +108,17 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/nightly/app-universal-nightly-signed.apk nekori-r${{ env.COMMIT_COUNT }}.apk
-          mv app/build/outputs/apk/nightly/app-arm64-v8a-nightly-signed.apk nekori-arm64-v8a-r${{ env.COMMIT_COUNT }}.apk
-          mv app/build/outputs/apk/nightly/app-armeabi-v7a-nightly-signed.apk nekori-armeabi-v7a-r${{ env.COMMIT_COUNT }}.apk
-          mv app/build/outputs/apk/nightly/app-x86_64-nightly-signed.apk nekori-x86_64-r${{ env.COMMIT_COUNT }}.apk
-
+          mv apps/android/app/build/outputs/apk/nightly/app-universal-nightly-signed.apk nekori-r${{ env.COMMIT_COUNT }}.apk
+          mv apps/android/app/build/outputs/apk/nightly/app-arm64-v8a-nightly-signed.apk nekori-arm64-v8a-r${{ env.COMMIT_COUNT }}.apk
+          mv apps/android/app/build/outputs/apk/nightly/app-armeabi-v7a-nightly-signed.apk nekori-armeabi-v7a-r${{ env.COMMIT_COUNT }}.apk
+          mv apps/android/app/build/outputs/apk/nightly/app-x86_64-nightly-signed.apk nekori-x86_64-r${{ env.COMMIT_COUNT }}.apk
 
       - name: Upload signed APKs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Yuneko-dev/Nekori'
         uses: actions/upload-artifact@v5
         with:
           name: signed-apks-${{ github.sha }}
-          path: app/build/outputs/apk/release/*.apk
-
+          path: apps/android/app/build/outputs/apk/release/*.apk
 
       - name: Create release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Yuneko-dev/Nekori'

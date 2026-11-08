@@ -18,11 +18,17 @@ interface FeedbackPayload extends Record<string, unknown> {
   presentation: Presentation;
 }
 
-export function createInlineFeedback(root: HTMLElement, host: ReaderHost, layout: ReaderLayout | null): InlineFeedback {
+export function createInlineFeedback(
+  root: HTMLElement,
+  host: ReaderHost,
+  layout: ReaderLayout | null,
+): InlineFeedback {
   const document = root.ownerDocument;
   let current: HTMLElement | null = null;
 
-  const reflow = (): void => { layout?.reflow(true); };
+  const reflow = (): void => {
+    layout?.reflow(true);
+  };
   const clear = (): void => {
     if (!current) return;
     current.remove();
@@ -34,9 +40,8 @@ export function createInlineFeedback(root: HTMLElement, host: ReaderHost, layout
     if (!isRecord(value)) throw new TypeError('Invalid reader feedback payload');
     clear();
     const payload = normalizePayload(value);
-    const chapter = payload.presentation === 'boundary'
-      ? resolveBoundary(root, host, payload.chapterId)
-      : null;
+    const chapter =
+      payload.presentation === 'boundary' ? resolveBoundary(root, host, payload.chapterId) : null;
     const feedbackHost = createFeedbackHost(document, payload, host, reflow, () => {
       if (current === feedbackHost) {
         feedbackHost.remove();
@@ -70,7 +75,12 @@ function createFeedbackHost(
     maxInlineSize: '100%',
     breakInside: 'avoid',
     pageBreakInside: 'avoid',
-  })) feedbackHost.style.setProperty(name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`), value, 'important');
+  }))
+    feedbackHost.style.setProperty(
+      name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`),
+      value,
+      'important',
+    );
   const shadow = feedbackHost.attachShadow({ mode: 'open' });
   const style = van.tags.style(feedbackCss);
   const card = van.tags.section({
@@ -103,20 +113,31 @@ function createFeedbackHost(
     actions.append(makeButton(document, dismissLabel ?? 'Dismiss', 'dismiss', dismiss));
   }
   if (typeof payload.retryLabel === 'string') {
-    actions.append(makeButton(document, payload.retryLabel, 'retry', () => {
-      dismiss();
-      host.emit('feedback.retry', {});
-    }));
+    actions.append(
+      makeButton(document, payload.retryLabel, 'retry', () => {
+        dismiss();
+        host.emit('feedback.retry', {});
+      }),
+    );
   }
   if (trace !== null && typeof payload.copyLabel === 'string') {
-    actions.append(makeButton(document, payload.copyLabel, 'copy', () => host.emit('clipboard.copy', { text: trace })));
+    actions.append(
+      makeButton(document, payload.copyLabel, 'copy', () =>
+        host.emit('clipboard.copy', { text: trace }),
+      ),
+    );
   }
   if (actions.childElementCount > 0) card.append(actions);
   shadow.append(style, card);
   return feedbackHost;
 }
 
-function makeButton(document: Document, label: string, action: string, onClick: () => void): HTMLButtonElement {
+function makeButton(
+  document: Document,
+  label: string,
+  action: string,
+  onClick: () => void,
+): HTMLButtonElement {
   const button = van.tags.button({ type: 'button', class: `action action-${action}` }, label);
   button.addEventListener('click', onClick);
   return button;
@@ -124,7 +145,10 @@ function makeButton(document: Document, label: string, action: string, onClick: 
 
 function resolveBoundary(root: HTMLElement, host: ReaderHost, requestedId: unknown): HTMLElement {
   const chapters = getChapters(root);
-  const requested = typeof requestedId === 'string' ? chapters.find((chapter) => chapter.dataset.nekoriChapterId === requestedId) : undefined;
+  const requested =
+    typeof requestedId === 'string'
+      ? chapters.find((chapter) => chapter.dataset.nekoriChapterId === requestedId)
+      : undefined;
   if (requested) return requested;
   const current = chapters.find((chapter) => chapter.dataset.nekoriChapterId === host.chapter.id);
   return current ?? chapters.at(-1) ?? root;

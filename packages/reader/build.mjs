@@ -1,41 +1,41 @@
-import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { statSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
-import { spawnSync } from "node:child_process";
+import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
+import { spawnSync } from 'node:child_process';
 
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
-const distDir = path.join(packageDir, "dist");
-const sourceDir = path.join(packageDir, "src");
-const androidAssetsDir = readOption("--android-assets");
-const metafilePath = readOption("--metafile");
-const repositoryDir = path.resolve(packageDir, "../..");
+const distDir = path.join(packageDir, 'dist');
+const sourceDir = path.join(packageDir, 'src');
+const androidAssetsDir = readOption('--android-assets');
+const metafilePath = readOption('--metafile');
+const repositoryDir = path.resolve(packageDir, '../..');
 const inlineCss = {
-  name: "inline-css",
+  name: 'inline-css',
   setup(builder) {
     builder.onResolve({ filter: /\.css\?inline$/ }, (args) => ({
-      path: path.resolve(args.resolveDir, args.path.replace(/\?inline$/, "")),
-      namespace: "inline-css",
+      path: path.resolve(args.resolveDir, args.path.replace(/\?inline$/, '')),
+      namespace: 'inline-css',
     }));
-    builder.onLoad({ filter: /.*/, namespace: "inline-css" }, async (args) => ({
-      contents: await readFile(args.path, "utf8"),
-      loader: "text",
+    builder.onLoad({ filter: /.*/, namespace: 'inline-css' }, async (args) => ({
+      contents: await readFile(args.path, 'utf8'),
+      loader: 'text',
     }));
   },
 };
 
 for (const required of [
-  "entries/reader.ts",
-  "entries/download.ts",
-  "entries/skeleton.ts",
-  "index.ts",
-  "styles/reader.css",
-  "styles/skeleton.css",
+  'entries/reader.ts',
+  'entries/download.ts',
+  'entries/skeleton.ts',
+  'index.ts',
+  'styles/reader.css',
+  'styles/skeleton.css',
 ]) {
   const input = path.join(sourceDir, required);
   try {
-    if ((await stat(input)).size === 0) throw new Error("is empty");
+    if ((await stat(input)).size === 0) throw new Error('is empty');
   } catch (error) {
     throw new Error(`Reader build input ${input} is missing or empty`, {
       cause: error,
@@ -45,25 +45,25 @@ for (const required of [
 
 assertInsideRepository(distDir);
 await rm(distDir, { recursive: true, force: true });
-const assetsDir = path.join(distDir, "assets");
+const assetsDir = path.join(distDir, 'assets');
 await mkdir(assetsDir, { recursive: true });
 const metafileInputs = {};
 
 for (const [entry, outfile] of [
-  ["reader", "reader.js"],
-  ["download", "download.js"],
-  ["skeleton", "skeleton.js"],
+  ['reader', 'reader.js'],
+  ['download', 'download.js'],
+  ['skeleton', 'skeleton.js'],
 ]) {
   const result = await build({
     absWorkingDir: packageDir,
-    entryPoints: [path.join(sourceDir, "entries", `${entry}.ts`)],
+    entryPoints: [path.join(sourceDir, 'entries', `${entry}.ts`)],
     outfile: path.join(assetsDir, outfile),
     bundle: true,
-    format: "iife",
-    platform: "browser",
-    target: "chrome138",
+    format: 'iife',
+    platform: 'browser',
+    target: 'chrome138',
     minify: true,
-    legalComments: "none",
+    legalComments: 'none',
     metafile: true,
     plugins: [inlineCss],
   });
@@ -72,35 +72,41 @@ for (const [entry, outfile] of [
 
 await build({
   absWorkingDir: packageDir,
-  entryPoints: [path.join(sourceDir, "index.ts")],
-  outfile: path.join(distDir, "index.js"),
+  entryPoints: [path.join(sourceDir, 'index.ts')],
+  outfile: path.join(distDir, 'index.js'),
   bundle: true,
-  format: "esm",
-  platform: "browser",
-  target: "chrome138",
+  format: 'esm',
+  platform: 'browser',
+  target: 'chrome138',
   sourcemap: false,
-  legalComments: "none",
+  legalComments: 'none',
   plugins: [inlineCss],
 });
 
 runTypeScriptDeclarations();
-await writeFile(path.join(distDir, "index.d.ts"), "export * from './types/index.js';\n");
-await mkdir(path.join(distDir, "styles"), { recursive: true });
+await writeFile(path.join(distDir, 'index.d.ts'), "export * from './types/index.js';\n");
+await mkdir(path.join(distDir, 'styles'), { recursive: true });
 await build({
   absWorkingDir: packageDir,
-  entryPoints: [path.join(sourceDir, "styles", "reader.css")],
-  outfile: path.join(distDir, "styles", "reader.css"),
+  entryPoints: [path.join(sourceDir, 'styles', 'reader.css')],
+  outfile: path.join(distDir, 'styles', 'reader.css'),
   bundle: true,
-  platform: "browser",
-  target: "chrome138",
+  platform: 'browser',
+  target: 'chrome138',
   minify: true,
 });
 
-await cp(path.join(sourceDir, "styles", "skeleton.css"), path.join(distDir, "styles", "skeleton.css"));
+await cp(
+  path.join(sourceDir, 'styles', 'skeleton.css'),
+  path.join(distDir, 'styles', 'skeleton.css'),
+);
 // Dev clients use the same offline media engines as the Android reader.
-await mkdir(path.join(distDir, "vendor"), { recursive: true });
-for (const vendor of ["hls.min.js", "videojs.min.js"]) {
-  await cp(path.join(repositoryDir, "app/src/main/assets/novel-reader", vendor), path.join(distDir, "vendor", vendor));
+await mkdir(path.join(distDir, 'vendor'), { recursive: true });
+for (const vendor of ['hls.min.js', 'videojs.min.js']) {
+  await cp(
+    path.join(repositoryDir, 'apps/android/app/src/main/assets/novel-reader', vendor),
+    path.join(distDir, 'vendor', vendor),
+  );
 }
 
 if (metafilePath) {
@@ -111,22 +117,22 @@ if (metafilePath) {
 
 if (androidAssetsDir) {
   const output = path.resolve(packageDir, androidAssetsDir);
-  const novelReaderDir = path.join(output, "novel-reader");
+  const novelReaderDir = path.join(output, 'novel-reader');
   assertInsideRepository(novelReaderDir);
   await rm(novelReaderDir, { recursive: true, force: true });
   await mkdir(novelReaderDir, { recursive: true });
   await Promise.all([
-    cp(path.join(assetsDir, "reader.js"), path.join(novelReaderDir, "reader.js")),
-    cp(path.join(assetsDir, "download.js"), path.join(novelReaderDir, "download.js")),
-    cp(path.join(assetsDir, "skeleton.js"), path.join(novelReaderDir, "skeleton.js")),
-    cp(path.join(distDir, "styles", "skeleton.css"), path.join(novelReaderDir, "skeleton.css")),
-    cp(path.join(distDir, "styles", "reader.css"), path.join(novelReaderDir, "reader.css")),
+    cp(path.join(assetsDir, 'reader.js'), path.join(novelReaderDir, 'reader.js')),
+    cp(path.join(assetsDir, 'download.js'), path.join(novelReaderDir, 'download.js')),
+    cp(path.join(assetsDir, 'skeleton.js'), path.join(novelReaderDir, 'skeleton.js')),
+    cp(path.join(distDir, 'styles', 'skeleton.css'), path.join(novelReaderDir, 'skeleton.css')),
+    cp(path.join(distDir, 'styles', 'reader.css'), path.join(novelReaderDir, 'reader.css')),
   ]);
 }
 
 function assertInsideRepository(output) {
   const relative = path.relative(repositoryDir, path.resolve(output));
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error(`Build output must stay below the repository: ${output}`);
   }
 }
@@ -135,14 +141,14 @@ function readOption(name) {
   const index = process.argv.indexOf(name);
   if (index === -1) return null;
   const value = process.argv[index + 1];
-  if (!value || value.startsWith("--")) throw new Error(`${name} requires a path`);
+  if (!value || value.startsWith('--')) throw new Error(`${name} requires a path`);
   return value;
 }
 
 function runTypeScriptDeclarations() {
   const tscCandidates = [
-    path.join(packageDir, "node_modules/typescript/bin/tsc"),
-    path.join(repositoryDir, "node_modules/typescript/bin/tsc"),
+    path.join(packageDir, 'node_modules/typescript/bin/tsc'),
+    path.join(repositoryDir, 'node_modules/typescript/bin/tsc'),
   ];
   const tscPath = tscCandidates.find((candidate) => {
     try {
@@ -151,10 +157,10 @@ function runTypeScriptDeclarations() {
       return false;
     }
   });
-  if (!tscPath) throw new Error("Could not find TypeScript compiler");
-  const result = spawnSync(process.execPath, [tscPath, "-p", "tsconfig.types.json"], {
+  if (!tscPath) throw new Error('Could not find TypeScript compiler');
+  const result = spawnSync(process.execPath, [tscPath, '-p', 'tsconfig.types.json'], {
     cwd: packageDir,
-    stdio: "inherit",
+    stdio: 'inherit',
   });
-  if (result.status !== 0) throw new Error("Could not emit reader TypeScript declarations");
+  if (result.status !== 0) throw new Error('Could not emit reader TypeScript declarations');
 }

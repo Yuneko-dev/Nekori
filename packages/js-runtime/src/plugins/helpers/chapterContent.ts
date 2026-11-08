@@ -3,16 +3,11 @@ import { load } from 'cheerio';
 import type { ChapterContent } from '../types';
 
 /** Normalize legacy LNReader strings upward into the official Nekori chapter contract. */
-export function normalizeChapterContent(
-  value: unknown,
-  isNekoriPlugin?: boolean,
-): ChapterContent {
+export function normalizeChapterContent(value: unknown, isNekoriPlugin?: boolean): ChapterContent {
   if (typeof value === 'string' && isNekoriPlugin !== true) {
     const $ = load(value);
     const type =
-      $('meta[name="lnreader-chapter-type"]').attr('content') === 'video'
-        ? 'video'
-        : 'novel';
+      $('meta[name="lnreader-chapter-type"]').attr('content') === 'video' ? 'video' : 'novel';
     return {
       state: 'ready',
       type,
@@ -30,14 +25,10 @@ export function normalizeChapterContent(
     !['novel', 'mixed', 'image', 'video'].includes(chapter.type) ||
     typeof chapter.html !== 'string' ||
     (chapter.noCache !== undefined && typeof chapter.noCache !== 'boolean') ||
-    (chapter.noPrefetch !== undefined &&
-      typeof chapter.noPrefetch !== 'boolean') ||
-    (chapter.checkpointMessage !== undefined &&
-      typeof chapter.checkpointMessage !== 'string')
+    (chapter.noPrefetch !== undefined && typeof chapter.noPrefetch !== 'boolean') ||
+    (chapter.checkpointMessage !== undefined && typeof chapter.checkpointMessage !== 'string')
   ) {
     throw new Error('Invalid chapter response');
   }
-  return chapter.state === 'checkpoint'
-    ? { ...chapter, noCache: true, noPrefetch: true }
-    : chapter;
+  return chapter.state === 'checkpoint' ? { ...chapter, noCache: true, noPrefetch: true } : chapter;
 }

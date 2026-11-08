@@ -22,7 +22,7 @@
     "format:check": "bun fmt --check"
   },
   "devDependencies": {
-    "turbo": "2.9.6"
+    "turbo": "2.11.10"
   },
   "patchedDependencies": {
     "@react-native/gradle-plugin@0.87.0": "packages/js-runtime/patches/@react-native__gradle-plugin@0.87.0.patch",

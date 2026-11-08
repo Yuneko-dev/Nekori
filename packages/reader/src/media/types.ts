@@ -1,5 +1,5 @@
-export type VideoType = "m3u8" | "mpd" | "video-file" | "iframe";
-export type VideoMode = "playback" | "download";
+export type VideoType = 'm3u8' | 'mpd' | 'video-file' | 'iframe';
+export type VideoMode = 'playback' | 'download';
 
 export interface SubtitleTrack {
   readonly label?: string;

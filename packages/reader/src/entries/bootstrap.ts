@@ -20,8 +20,10 @@ export function startReaderDocument(
     if (documentId && transport) reportStartupFailure(transport, documentId);
     throw error;
   }
-  const root = documentRoot.querySelector<HTMLElement>('[data-nekori-reader-root], #nekori-reader') ??
-    documentRoot.body ?? documentRoot.documentElement;
+  const root =
+    documentRoot.querySelector<HTMLElement>('[data-nekori-reader-root], #nekori-reader') ??
+    documentRoot.body ??
+    documentRoot.documentElement;
   if (!transport) throw new Error('Native reader transport is unavailable');
   const host = createRuntimeHost({ root, config, transport });
   if (config.mode !== 'download' && installGestures) host.onDispose(installGestures(host));
@@ -35,7 +37,12 @@ interface ReaderWindow extends Window {
 
 function recoverDocumentId(documentRoot: Document): string | null {
   const element = documentRoot.querySelector('#nekori-reader-config');
-  if (!element || element.tagName !== 'SCRIPT' || element.getAttribute('type') !== 'application/json' || !element.textContent) {
+  if (
+    !element ||
+    element.tagName !== 'SCRIPT' ||
+    element.getAttribute('type') !== 'application/json' ||
+    !element.textContent
+  ) {
     return null;
   }
   try {
@@ -51,10 +58,15 @@ function recoverDocumentId(documentRoot: Document): string | null {
 function reportStartupFailure(transport: NativeReaderTransport, documentId: string): void {
   const base = { protocolVersion: READER_PROTOCOL_VERSION, documentId };
   transport.postMessage(JSON.stringify({ ...base, kind: 'boot' }));
-  transport.postMessage(JSON.stringify({
-    ...base,
-    kind: 'event',
-    method: 'reader.error',
-    payload: { message: 'The reader could not start because its configuration is invalid. Close and reopen the reader.' },
-  }));
+  transport.postMessage(
+    JSON.stringify({
+      ...base,
+      kind: 'event',
+      method: 'reader.error',
+      payload: {
+        message:
+          'The reader could not start because its configuration is invalid. Close and reopen the reader.',
+      },
+    }),
+  );
 }

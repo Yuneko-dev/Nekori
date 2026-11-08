@@ -55,7 +55,10 @@ export function physicalOffset(offset: number, direction: Direction): number {
   return direction === 'rtl' ? -offset : offset;
 }
 
-export function chapterForLeaf<T extends ChapterLeafRange>(chapters: readonly T[], leaf: number): T | null {
+export function chapterForLeaf<T extends ChapterLeafRange>(
+  chapters: readonly T[],
+  leaf: number,
+): T | null {
   if (chapters.length === 0) return null;
   let match = chapters[0] ?? null;
   for (const chapter of chapters) {

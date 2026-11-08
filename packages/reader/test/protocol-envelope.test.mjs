@@ -5,13 +5,16 @@ import { parseEnvelope } from '../src/protocol/envelope.ts';
 const documentId = 'document-1';
 
 test('accepts a versioned event for the active document', () => {
-  const envelope = parseEnvelope({
-    protocolVersion: 1,
+  const envelope = parseEnvelope(
+    {
+      protocolVersion: 1,
+      documentId,
+      kind: 'event',
+      method: 'selection.changed',
+      payload: { name: 'selection.change' },
+    },
     documentId,
-    kind: 'event',
-    method: 'selection.changed',
-    payload: { name: 'selection.change' },
-  }, documentId);
+  );
 
   assert.equal(envelope.kind, 'event');
   assert.equal(envelope.documentId, documentId);
@@ -19,11 +22,15 @@ test('accepts a versioned event for the active document', () => {
 
 test('rejects messages from a stale document', () => {
   assert.throws(
-    () => parseEnvelope({
-      protocolVersion: 1,
-      documentId: 'old-document',
-      kind: 'event',
-    }, documentId),
+    () =>
+      parseEnvelope(
+        {
+          protocolVersion: 1,
+          documentId: 'old-document',
+          kind: 'event',
+        },
+        documentId,
+      ),
     /document/i,
   );
 });

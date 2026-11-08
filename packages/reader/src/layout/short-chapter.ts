@@ -29,9 +29,12 @@ export function observeShortChapter({ host, enabled }: ObserveShortChapterOption
     timeout = null;
     return true;
   };
-  const observer = view.ResizeObserver && document.body
-    ? new view.ResizeObserver(() => { if (!called && !disposed) check(); })
-    : null;
+  const observer =
+    view.ResizeObserver && document.body
+      ? new view.ResizeObserver(() => {
+          if (!called && !disposed) check();
+        })
+      : null;
   observer?.observe(document.body!);
   timeout = view.setTimeout(() => {
     if (!called && !disposed) check();
