@@ -33,7 +33,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: latest
+          bun-version: canary
 
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -45,11 +45,13 @@ jobs:
 
       - name: Check Kotlin style
         if: matrix.check == 'style'
-        run: apps/android/gradlew spotlessCheck --continue
+        working-directory: apps/android
+        run: ./gradlew spotlessCheck --continue
 
       - name: Run unit tests and verify SQLDelight migrations
         if: matrix.check == 'tests'
-        run: apps/android/gradlew testDebugUnitTest verifySqlDelightMigration --continue
+        working-directory: apps/android
+        run: ./gradlew testDebugUnitTest verifySqlDelightMigration --continue
 
       - name: Upload test reports
         if: failure() && matrix.check == 'tests'
