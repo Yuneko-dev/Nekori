@@ -40,6 +40,12 @@
         "vitest/valid-title": "off",
         "vitest/require-mock-type-parameters": "off"
       }
+    },
+    {
+      "files": ["**/*.browser.test.mjs", "app/tools/generate-shipped-js-licenses.mjs"],
+      "rules": {
+        "max-lines": "off"
+      }
     }
   ],
   "ignorePatterns": [
@@ -52,6 +58,8 @@
     "www/**",
     "test-results/**",
     ".expo/**",
-    "**/next-env.d.ts"
+    "**/next-env.d.ts",
+    "app/src/main/assets/**",
+    "**/*.min.js"
   ]
 }

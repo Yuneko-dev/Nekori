@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { measureChapterBoundaries } from '../../../tools/reader-runtime/src/layout/boundary-measurement.ts';
-import { createScrollTracking } from '../../../tools/reader-runtime/src/layout/scroll-tracking.ts';
+import { measureChapterBoundaries } from '../../../../packages/reader/src/layout/boundary-measurement.ts';
+import { createScrollTracking } from '../../../../packages/reader/src/layout/scroll-tracking.ts';
 
 function trackingFixture() {
   let nextFrame = 1;

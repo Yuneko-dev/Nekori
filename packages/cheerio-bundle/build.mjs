@@ -5,7 +5,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outFile = path.resolve(
   __dirname,
-  '../../src/main/assets/js/vendor/cheerio.bundle.js',
+  '../../app/src/main/assets/js/vendor/cheerio.bundle.js',
 );
 
 // QuickJS has no Node globals. Provide minimal shims via banner + define.

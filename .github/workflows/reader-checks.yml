@@ -3,7 +3,8 @@ name: Check Reader Runtime
 on:
   pull_request:
     paths:
-      - 'app/tools/reader-runtime/**'
+      - 'packages/reader/**'
+      - 'packages/videojs-bundle/**'
       - 'app/tools/devtools-lite/**'
       - 'app/tools/generate-shipped-js-licenses.mjs'
       - 'app/build.gradle.kts'

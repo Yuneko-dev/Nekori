@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import { pipFeature, remotePlaybackFeature } from "./src/no-remote-feature.js";
 
 const toolDir = path.dirname(fileURLToPath(import.meta.url));
-const assetDir = path.resolve(toolDir, "../../src/main/assets/novel-reader");
+const assetDir = path.resolve(toolDir, "../../app/src/main/assets/novel-reader");
 const sourceDir = path.join(toolDir, "src");
-const repositoryDir = path.resolve(toolDir, "../../..");
+const repositoryDir = path.resolve(toolDir, "../..");
 const checkOnly = process.argv.includes("--check");
 // ponytail: hoisted-aware package resolve. Upgrade if: Bun emits per-package node_modules again.
 function resolvePackageFile(relativePath) {

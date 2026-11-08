@@ -8,42 +8,6 @@
         "turbo": "2.9.6",
       },
     },
-    "app/tools/cheerio-bundle": {
-      "name": "cheerio-bundle",
-      "version": "1.0.0",
-      "dependencies": {
-        "cheerio": "^1.0.0",
-        "esbuild": "^0.28.0",
-      },
-    },
-    "app/tools/reader-runtime": {
-      "name": "@nekori/reader",
-      "version": "0.1.0",
-      "dependencies": {
-        "vanjs-core": "1.6.1",
-      },
-      "devDependencies": {
-        "@playwright/test": "1.56.1",
-        "@typescript-eslint/eslint-plugin": "8.58.0",
-        "@typescript-eslint/parser": "8.58.0",
-        "esbuild": "0.25.9",
-        "eslint": "8.57.1",
-        "tsundoku-videojs-bundle": "workspace:*",
-        "typescript": "5.9.3",
-      },
-    },
-    "app/tools/videojs-bundle": {
-      "name": "tsundoku-videojs-bundle",
-      "dependencies": {
-        "@videojs/dash-video": "10.0.1",
-        "@videojs/hlsjs-video": "10.0.1",
-        "@videojs/html": "10.0.1",
-        "hls.js": "1.7.3",
-      },
-      "devDependencies": {
-        "esbuild": "0.25.9",
-      },
-    },
     "js-runtime": {
       "name": "nekori-js-runtime",
       "version": "0.0.0",
@@ -88,6 +52,42 @@
         "lint-staged": "^17.6.0",
         "prettier": "2.8.8",
         "typescript": "^6.0.3",
+      },
+    },
+    "packages/cheerio-bundle": {
+      "name": "cheerio-bundle",
+      "version": "1.0.0",
+      "dependencies": {
+        "cheerio": "^1.0.0",
+        "esbuild": "^0.28.0",
+      },
+    },
+    "packages/reader": {
+      "name": "@nekori/reader",
+      "version": "0.1.0",
+      "dependencies": {
+        "vanjs-core": "1.6.1",
+      },
+      "devDependencies": {
+        "@playwright/test": "1.56.1",
+        "@typescript-eslint/eslint-plugin": "8.58.0",
+        "@typescript-eslint/parser": "8.58.0",
+        "esbuild": "0.25.9",
+        "eslint": "8.57.1",
+        "tsundoku-videojs-bundle": "workspace:*",
+        "typescript": "5.9.3",
+      },
+    },
+    "packages/videojs-bundle": {
+      "name": "tsundoku-videojs-bundle",
+      "dependencies": {
+        "@videojs/dash-video": "10.0.1",
+        "@videojs/hlsjs-video": "10.0.1",
+        "@videojs/html": "10.0.1",
+        "hls.js": "1.7.3",
+      },
+      "devDependencies": {
+        "esbuild": "0.25.9",
       },
     },
   },
@@ -245,7 +245,7 @@
 
     "@lit/reactive-element": ["@lit/reactive-element@2.1.2", "", { "dependencies": { "@lit-labs/ssr-dom-shim": "^1.5.0" } }, "sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A=="],
 
-    "@nekori/reader": ["@nekori/reader@workspace:app/tools/reader-runtime"],
+    "@nekori/reader": ["@nekori/reader@workspace:packages/reader"],
 
     "@nicolo-ribaudo/eslint-scope-5-internals": ["@nicolo-ribaudo/eslint-scope-5-internals@5.1.1-v1", "", { "dependencies": { "eslint-scope": "5.1.1" } }, "sha512-54/JRvkLIzzDWshCWfuhadfrfZVPiElY8Fcgmg1HroEly/EDSszzhBAsarCux+D/kOslTRquNzuyGSmUSTTHGg=="],
 
@@ -519,7 +519,7 @@
 
     "cheerio": ["cheerio@1.2.0", "", { "dependencies": { "cheerio-select": "^2.1.0", "dom-serializer": "^2.0.0", "domhandler": "^5.0.3", "domutils": "^3.2.2", "encoding-sniffer": "^0.2.1", "htmlparser2": "^10.1.0", "parse5": "^7.3.0", "parse5-htmlparser2-tree-adapter": "^7.1.0", "parse5-parser-stream": "^7.1.2", "undici": "^7.19.0", "whatwg-mimetype": "^4.0.0" } }, "sha512-WDrybc/gKFpTYQutKIK6UvfcuxijIZfMfXaYm8NMsPQxSYvf+13fXUJ4rztGGbJcBQ/GF55gvrZ0Bc0bj/mqvg=="],
 
-    "cheerio-bundle": ["cheerio-bundle@workspace:app/tools/cheerio-bundle"],
+    "cheerio-bundle": ["cheerio-bundle@workspace:packages/cheerio-bundle"],
 
     "cheerio-select": ["cheerio-select@2.1.0", "", { "dependencies": { "boolbase": "^1.0.0", "css-select": "^5.1.0", "css-what": "^6.1.0", "domelementtype": "^2.3.0", "domhandler": "^5.0.3", "domutils": "^3.0.1" } }, "sha512-9v9kG0LvzrlcungtnJtpGNxY+fzECQKhK4EGJX2vByejiMX84MFNQw4UxPJl3bFbTMw+Dfs37XaIkCwTZfLh4g=="],
 
@@ -1355,7 +1355,7 @@
 
     "ts-api-utils": ["ts-api-utils@2.5.0", "", { "peerDependencies": { "typescript": ">=4.8.4" } }, "sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA=="],
 
-    "tsundoku-videojs-bundle": ["tsundoku-videojs-bundle@workspace:app/tools/videojs-bundle"],
+    "tsundoku-videojs-bundle": ["tsundoku-videojs-bundle@workspace:packages/videojs-bundle"],
 
     "turbo": ["turbo@2.9.6", "", { "optionalDependencies": { "@turbo/darwin-64": "2.9.6", "@turbo/darwin-arm64": "2.9.6", "@turbo/linux-64": "2.9.6", "@turbo/linux-arm64": "2.9.6", "@turbo/windows-64": "2.9.6", "@turbo/windows-arm64": "2.9.6" }, "bin": { "turbo": "bin/turbo" } }, "sha512-+v2QJey7ZUeUiuigkU+uFfklvNUyPI2VO2vBpMYJA+a1hKFLFiKtUYlRHdb3P9CrAvMzi0upbjI4WT+zKtqkBg=="],
 

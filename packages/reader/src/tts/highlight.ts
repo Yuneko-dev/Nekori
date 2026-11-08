@@ -1,5 +1,4 @@
-import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
-import type { ReaderLayout } from '../protocol/reader-api.ts';
+import type { ReaderHost, ReaderLayout, Unsubscribe } from '../protocol/reader-api.ts';
 import { extractParagraphText, firstVisibleParagraph, readableParagraphs, taggedParagraph } from './paragraphs.ts';
 
 const HIGHLIGHT_CLASS = 'nekori-tts-highlight';

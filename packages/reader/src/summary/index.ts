@@ -1,5 +1,4 @@
-import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
-import type { ReaderLayout } from '../protocol/reader-api.ts';
+import type { ReaderHost, ReaderLayout, Unsubscribe } from '../protocol/reader-api.ts';
 import { findChapter } from '../interactions/selection.ts';
 import summaryCss from '../styles/summary.css?inline';
 

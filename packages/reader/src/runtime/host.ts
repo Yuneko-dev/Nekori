@@ -7,8 +7,7 @@ import type {
   ReaderRequestName,
   Unsubscribe,
 } from '../protocol/reader-api.ts';
-import type { NativeReaderTransport } from './session.ts';
-import { createRuntimeSession } from './session.ts';
+import { createRuntimeSession, type NativeReaderTransport } from './session.ts';
 
 export interface CreateRuntimeHostOptions {
   root: HTMLElement;

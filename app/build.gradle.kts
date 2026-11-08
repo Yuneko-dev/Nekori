@@ -575,7 +575,7 @@ androidComponents {
         val resSource = variant.sources.res ?: return@onVariants
 
         val variantName = variant.name.replaceFirstChar { it.uppercase() }
-        val readerPackageDir = rootProject.layout.projectDirectory.dir("app/tools/reader-runtime")
+        val readerPackageDir = rootProject.layout.projectDirectory.dir("packages/reader")
         val readerMetafileFile = layout.buildDirectory.file(
             "generated/reader-runtime/${variant.name}/reader-metafile.json",
         )

@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const packageDir = fileURLToPath(new URL('.', import.meta.url));
-const tests = ['test/', '../../src/test/js/'].flatMap((directory) =>
+const tests = ['test/', '../../app/src/test/js/'].flatMap((directory) =>
   readdirSync(new URL(directory, import.meta.url))
     .filter((file) => file.endsWith('.test.mjs') && !file.endsWith('.browser.test.mjs'))
     .map((file) => fileURLToPath(new URL(directory + file, import.meta.url))),

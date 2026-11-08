@@ -10,7 +10,7 @@ const distDir = path.join(packageDir, "dist");
 const sourceDir = path.join(packageDir, "src");
 const androidAssetsDir = readOption("--android-assets");
 const metafilePath = readOption("--metafile");
-const repositoryDir = path.resolve(packageDir, "../../..");
+const repositoryDir = path.resolve(packageDir, "../..");
 const inlineCss = {
   name: "inline-css",
   setup(builder) {

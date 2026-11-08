@@ -30,7 +30,7 @@ Gradle still builds the runtime assets required by the APK.
 
 The browser bundle targets Chromium 138, matching Nekori's minimum supported Android System
 WebView. The separate headless download bundle is built from `src/entries/download.ts`; the
-upstream-compatible Video.js bundle remains independently built from `app/tools/videojs-bundle`.
+upstream-compatible Video.js bundle remains independently built from `packages/videojs-bundle`.
 
 ## Embedding the runtime
 

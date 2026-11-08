@@ -1,10 +1,13 @@
-import { isRecord, parseEnvelope, ReaderProtocolError, READER_PROTOCOL_VERSION } from '../protocol/envelope.ts';
-import type {
-  ReaderCancelEnvelope,
-  ReaderCommandEnvelope,
-  ReaderEnvelope,
-  ReaderEventEnvelope,
-  ReaderResultEnvelope,
+import {
+  isRecord,
+  parseEnvelope,
+  ReaderProtocolError,
+  READER_PROTOCOL_VERSION,
+  type ReaderCancelEnvelope,
+  type ReaderCommandEnvelope,
+  type ReaderEnvelope,
+  type ReaderEventEnvelope,
+  type ReaderResultEnvelope,
 } from '../protocol/envelope.ts';
 import type { ReaderConfig } from '../protocol/reader-config.ts';
 import type { ReaderCommandHandler } from '../protocol/reader-api.ts';

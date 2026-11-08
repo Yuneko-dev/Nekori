@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createLayout } from '../../../tools/reader-runtime/src/layout/index.ts';
+import { createLayout } from '../../../../packages/reader/src/layout/index.ts';
 
 class Observer {
   observe() {}
@@ -85,7 +85,7 @@ test('reports chapter-local position through the production layout controller', 
 });
 
 test('clamps paged scrolling to the first and last complete visual units', () => {
-  const { layout, root } = createHarness();
+  const { root } = createHarness();
   root.scrollLeft = 999;
   root.dispatchEvent(new Event('scroll'));
   assert.equal(root.scrollLeft, 200);
@@ -134,7 +134,7 @@ test('boundary turn can request an incompatible next chapter after the no-more l
 });
 
 test('book direction is removed when pagination is disabled', () => {
-  const { layout, root, configure } = createHarness({ direction: 'rtl' });
+  const { root, configure } = createHarness({ direction: 'rtl' });
   assert.equal(root.dir, 'rtl');
   configure(false);
   assert.equal(root.dir, undefined);

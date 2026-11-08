@@ -159,10 +159,10 @@ export function getPluginStorageValue(
   runtimeKey: string,
   key: string,
 ): unknown {
-  const module = storageModule(runtimeKey) as {
+  const facade = storageModule(runtimeKey) as {
     storage: { get(storageKey: string): unknown };
   };
-  return module.storage.get(key);
+  return facade.storage.get(key);
 }
 
 export async function setPluginStorageValue(
@@ -170,10 +170,10 @@ export async function setPluginStorageValue(
   key: string,
   value: unknown,
 ): Promise<void> {
-  const module = storageModule(runtimeKey) as {
+  const facade = storageModule(runtimeKey) as {
     storage: { set(storageKey: string, storedValue: unknown): void };
   };
-  module.storage.set(key, value);
+  facade.storage.set(key, value);
   await flushPluginStorage(runtimeKey);
 }
 

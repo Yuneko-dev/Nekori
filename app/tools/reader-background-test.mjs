@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-const runtimeDir = path.resolve('app/tools/reader-runtime');
+const runtimeDir = path.resolve('packages/reader');
 const { build } = await import(pathToFileURL(path.join(runtimeDir, 'node_modules/esbuild/lib/main.js')).href);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href

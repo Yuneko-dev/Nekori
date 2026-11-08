@@ -146,13 +146,13 @@ function makeRequire(runtimeKey: string): (name: string) => unknown {
     if (name === '@libs/storage') {
       return storageModule(runtimeKey);
     }
-    const module = nekoriPackages[name] ?? packages[name];
-    if (module === undefined) {
+    const loaded = nekoriPackages[name] ?? packages[name];
+    if (loaded === undefined) {
       console.warn(
         `Plugin "${runtimeKey}" tried to require unknown module "${name}"`,
       );
     }
-    return module;
+    return loaded;
   };
 }
 

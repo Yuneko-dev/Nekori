@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packageDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const repositoryDir = path.resolve(packageDir, '../../..');
+const repositoryDir = path.resolve(packageDir, '../..');
 
 function resolveWorkspaceModule(relativePath) {
   const local = path.join(packageDir, 'node_modules', relativePath);

@@ -17,17 +17,14 @@ import './polyfills/textEncoding';
 import { AppRegistry } from 'react-native/Libraries/ReactNative/AppRegistry';
 
 import { registerHandler, startBridge } from './bridge/nativeHost';
+import { registerPluginStorageHandlers } from './handlers/plugin-storage';
+import { registerSpikeHandlers } from './handlers/spike-handlers';
 import { normalizeChapterContent } from './plugins/helpers/chapterContent';
 import {
   normalizePluginChapters,
   normalizePluginNovel,
 } from './plugins/helpers/chapterPage';
-import {
-  flushPluginStorage,
-  getPluginStorageValue,
-  setPluginStorageValue,
-  setPluginWebStorage,
-} from './plugins/helpers/storage';
+import { flushPluginStorage } from './plugins/helpers/storage';
 import {
   evaluatePlugin,
   getPlugin,
@@ -44,49 +41,7 @@ declare const global: {
 };
 
 // M0 spike handlers. Task 8 replaces these with the real plugin surface.
-registerHandler('sum', args => {
-  const { a, b } = args as { a: number; b: number };
-  return { result: a + b };
-});
-
-registerHandler('boom', args => {
-  const { message } = args as { message: string };
-  throw new Error(message);
-});
-
-// Never settles. Exists so the Kotlin side can be tested for cancellation and pending-map cleanup —
-// a call that is abandoned must not leak its continuation.
-registerHandler('never', () => new Promise<never>(() => {}));
-
-registerHandler('secureRandom.sample', args => {
-  const { size } = args as { size: number };
-  const backing = new Uint8Array(size + 8);
-  const first = new Uint8Array(backing.buffer, 4, size);
-  const returned = global.crypto.getRandomValues(first);
-  const second = new Uint8Array(size);
-  global.crypto.getRandomValues(second);
-  let floatError = '';
-  let quotaError = '';
-  try {
-    global.crypto.getRandomValues(new Float32Array(1) as never);
-  } catch (error) {
-    floatError = error instanceof Error ? error.name : String(error);
-  }
-  try {
-    global.crypto.getRandomValues(new Uint8Array(65_537));
-  } catch (error) {
-    quotaError = error instanceof Error ? error.name : String(error);
-  }
-  return {
-    size,
-    sameObject: returned === first,
-    prefixUntouched: backing.slice(0, 4).every(value => value === 0),
-    suffixUntouched: backing.slice(size + 4).every(value => value === 0),
-    different: first.some((value, index) => value !== second[index]),
-    floatError,
-    quotaError,
-  };
-});
+registerSpikeHandlers();
 
 // Returns everything the host needs to identify a plugin, because the loaded code is the only
 // authority on that. A repository index entry is a catalogue listing: it can be stale, or describe
@@ -141,40 +96,7 @@ registerHandler('plugin.unload', async args => {
   return null;
 });
 
-registerHandler('plugin.storageGet', args => {
-  const { id, key, storageKey } = args as {
-    id: string;
-    key?: string;
-    storageKey: string;
-  };
-  return getPluginStorageValue(key ?? id, storageKey);
-});
-
-registerHandler('plugin.storageSet', async args => {
-  const { id, key, storageKey, value } = args as {
-    id: string;
-    key?: string;
-    storageKey: string;
-    value: unknown;
-  };
-  await setPluginStorageValue(key ?? id, storageKey, value);
-  return null;
-});
-
-registerHandler('plugin.webStorageSet', async args => {
-  const { id, key, localStorage, sessionStorage } = args as {
-    id: string;
-    key?: string;
-    localStorage: Record<string, string>;
-    sessionStorage: Record<string, string>;
-  };
-  await setPluginWebStorage(
-    key ?? id,
-    localStorage ?? {},
-    sessionStorage ?? {},
-  );
-  return null;
-});
+registerPluginStorageHandlers();
 
 registerHandler('plugin.popularNovels', async args => {
   const {
@@ -341,5 +263,3 @@ AppRegistry.registerHeadlessTask('TsundokuJsRuntime', () => async () => {
 });
 
 console.log('[nekori] js runtime evaluated');
-
-export {};

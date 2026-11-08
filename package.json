@@ -5,9 +5,9 @@
   "workspaces": {
     "packages": [
       "js-runtime",
-      "app/tools/reader-runtime",
-      "app/tools/cheerio-bundle",
-      "app/tools/videojs-bundle"
+      "packages/reader",
+      "packages/cheerio-bundle",
+      "packages/videojs-bundle"
     ],
     "selfContained": [
       "js-runtime"

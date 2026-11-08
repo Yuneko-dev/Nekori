@@ -238,7 +238,6 @@ browserTest(test, 'paged layout keeps existing text-node edits navigable in chap
 
 browserTest(test, 'vertical multilingual pagination uses real CSS, one-column turns, and chapter-local reflow', async () => {
   const entry = await bundle('test/acceptance/reader-browser-entry.ts');
-  const css = await readerCss();
   const browser = await chromium.launch({ executablePath: chromiumPath });
   try {
     const page = await browser.newPage({ viewport: { width: 384, height: 832 } });

@@ -36,7 +36,7 @@ Before you start, please note that the ability to use following technologies is 
 - `.github/workflows/reader-checks.yml` runs `bun run --filter @nekori/reader check`:
   TypeScript checking, ESLint (including whitespace style checks), build and Node tests.
   Chromium acceptance tests are excluded from `bun test` and Ubuntu CI; `bun run browser`
-  remains an explicit local command. See the [reader README](app/tools/reader-runtime/README.md).
+  remains an explicit local command. See the [reader README](packages/reader/README.md).
 
 The JS and reader workflows run on relevant PR changes, pushes to `main`, `v*` tags and
 manual dispatch. Checks report failures without automatically rewriting source files.

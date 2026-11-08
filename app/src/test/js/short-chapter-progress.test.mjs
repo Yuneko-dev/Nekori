@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { observeShortChapter } from '../../../tools/reader-runtime/src/layout/short-chapter.ts';
+import { observeShortChapter } from '../../../../packages/reader/src/layout/short-chapter.ts';
 
 function shortChapterFixture({ height, paged = false }) {
   let resize;

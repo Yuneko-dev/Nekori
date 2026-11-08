@@ -13,10 +13,10 @@ const playwrightEntry = playwrightPath && !/\.(?:mjs|js)$/i.test(playwrightPath)
 const { chromium } = await import(playwrightEntry
   ? pathToFileURL(playwrightEntry).href : "playwright");
 const fixtures = await mkdtemp(path.join(tmpdir(), "nekori-player-"));
-const assets = new URL("../../src/main/assets/novel-reader/", import.meta.url);
-const runtime = new URL("../reader-runtime/dist/index.js", import.meta.url);
-const downloadEntry = new URL("../reader-runtime/dist/assets/download.js", import.meta.url);
-const runtimeModules = new URL("../reader-runtime/node_modules/", import.meta.url);
+const assets = new URL("../../app/src/main/assets/novel-reader/", import.meta.url);
+const runtime = new URL("../reader/dist/index.js", import.meta.url);
+const downloadEntry = new URL("../reader/dist/assets/download.js", import.meta.url);
+const runtimeModules = new URL("../reader/node_modules/", import.meta.url);
 const sink = { container: "", chunks: [], complete: false };
 const run = (command, args) => {
   const result = spawnSync(command, args, { encoding: "utf8", cwd: fixtures });
@@ -120,7 +120,7 @@ const server = createServer(async (request, response) => {
     }
     if (name === "player.css") {
       response.setHeader("Content-Type", "text/css");
-      response.end(await readFile(new URL("../reader-runtime/src/styles/player.css", import.meta.url))); return;
+      response.end(await readFile(new URL("../reader/src/styles/player.css", import.meta.url))); return;
     }
     if (name === "proxy") {
       const sourceUrl = new URL(url.searchParams.get("url") || "", `http://127.0.0.1:${server.address().port}`);

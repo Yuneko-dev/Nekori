@@ -10,7 +10,7 @@ bumping the cheerio version.
 ## Rebuild
 
 ```sh
-cd app/tools/cheerio-bundle
+cd packages/cheerio-bundle
 bun install --frozen-lockfile
 bun run build
 ```

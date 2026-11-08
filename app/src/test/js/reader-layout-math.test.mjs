@@ -3,8 +3,8 @@ import test from 'node:test';
 import {
   chapterForLeaf, leafRange, logicalOffset, physicalOffset, progressForUnit, unitCount,
   unitFromOffset, unitFromProgress,
-} from '../../../tools/reader-runtime/src/layout/math.ts';
-import { createLayoutCommands } from '../../../tools/reader-runtime/src/layout/commands.ts';
+} from '../../../../packages/reader/src/layout/math.ts';
+import { createLayoutCommands } from '../../../../packages/reader/src/layout/commands.ts';
 
 test('maps leaves into single and double visual units', () => {
   assert.equal(unitCount(5, 'single'), 5);

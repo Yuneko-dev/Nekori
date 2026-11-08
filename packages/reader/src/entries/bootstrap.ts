@@ -1,8 +1,7 @@
 import { createRuntimeHost } from '../runtime/host.ts';
 import { createReader } from '../runtime/create-reader.ts';
 import { isRecord, READER_PROTOCOL_VERSION } from '../protocol/envelope.ts';
-import { readReaderConfig } from '../protocol/reader-config.ts';
-import type { ReaderConfig } from '../protocol/reader-config.ts';
+import { readReaderConfig, type ReaderConfig } from '../protocol/reader-config.ts';
 import type { NativeReaderTransport } from '../runtime/session.ts';
 import type { ReaderHost, Unsubscribe } from '../protocol/reader-api.ts';
 
