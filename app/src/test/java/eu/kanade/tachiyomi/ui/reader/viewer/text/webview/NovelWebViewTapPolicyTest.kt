@@ -31,9 +31,16 @@ class NovelWebViewTapPolicyTest {
 
     @Test
     fun `only the reader surface may become a chapter swipe`() {
-        assertTrue(ReaderGestureTarget.SURFACE.allowsChapterSwipe())
-        assertFalse(ReaderGestureTarget.IMAGE.allowsChapterSwipe())
-        assertFalse(ReaderGestureTarget.BLOCKED.allowsChapterSwipe())
+        assertTrue(ReaderGestureTarget.SURFACE.allowsChapterSwipe(isPaged = false))
+        assertFalse(ReaderGestureTarget.IMAGE.allowsChapterSwipe(isPaged = false))
+        assertFalse(ReaderGestureTarget.BLOCKED.allowsChapterSwipe(isPaged = false))
+    }
+
+    @Test
+    fun `paged swipes can start on inline images while modal and interactive targets remain blocked`() {
+        assertTrue(ReaderGestureTarget.SURFACE.allowsChapterSwipe(isPaged = true))
+        assertTrue(ReaderGestureTarget.IMAGE.allowsChapterSwipe(isPaged = true))
+        assertFalse(ReaderGestureTarget.BLOCKED.allowsChapterSwipe(isPaged = true))
     }
 
     @Test
