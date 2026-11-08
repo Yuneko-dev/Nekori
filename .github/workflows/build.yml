@@ -71,12 +71,12 @@ jobs:
       # resolves it by shelling out to `node` during settings evaluation. Without these steps
       # the build dies before Gradle configures a single project.
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: packages/js-runtime/.nvmrc
 
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload signed APKs
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Yuneko-dev/Nekori'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: signed-apks-${{ github.sha }}
           path: apps/android/app/build/outputs/apk/release/*.apk

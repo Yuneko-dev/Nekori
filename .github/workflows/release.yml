@@ -49,12 +49,12 @@ jobs:
       # resolves it by shelling out to `node` during settings evaluation. Without these steps
       # the build dies before Gradle configures a single project.
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: packages/js-runtime/.nvmrc
 

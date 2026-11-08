@@ -31,12 +31,12 @@ jobs:
 
       # settings.gradle.kts resolves the React Native Gradle plugin from node_modules.
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: packages/js-runtime/.nvmrc
 
@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload test reports
         if: failure() && matrix.check == 'tests'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: kotlin-test-reports-${{ github.sha }}
           path: |
