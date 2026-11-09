@@ -1,0 +1,20 @@
+{
+  "name": "tsundoku-videojs-bundle",
+  "private": true,
+  "packageManager": "bun@1.4.4",
+  "type": "module",
+  "scripts": {
+    "build": "bun build.mjs",
+    "check": "bun build.mjs --check",
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@videojs/dash-video": "10.0.1",
+    "@videojs/hlsjs-video": "10.0.1",
+    "@videojs/html": "10.0.1",
+    "hls.js": "1.7.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9"
+  }
+}

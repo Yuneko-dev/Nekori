@@ -30,37 +30,32 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # settings.gradle.kts resolves the React Native Gradle plugin from node_modules.
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          package_json_file: js-runtime/package.json
+          bun-version: canary
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version-file: js-runtime/.nvmrc
-          cache: pnpm
-          cache-dependency-path: js-runtime/pnpm-lock.yaml
+          node-version-file: packages/js-runtime/.nvmrc
 
-      - name: Install JS runtime dependencies
-        working-directory: js-runtime
-        run: pnpm install --frozen-lockfile
-
-      - name: Install reader runtime dependencies
-        if: matrix.check == 'tests'
-        run: npm ci --prefix app/tools/reader-runtime
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
 
       - name: Check Kotlin style
         if: matrix.check == 'style'
+        working-directory: apps/android
         run: ./gradlew spotlessCheck --continue
 
       - name: Run unit tests and verify SQLDelight migrations
         if: matrix.check == 'tests'
+        working-directory: apps/android
         run: ./gradlew testDebugUnitTest verifySqlDelightMigration --continue
 
       - name: Upload test reports
         if: failure() && matrix.check == 'tests'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: kotlin-test-reports-${{ github.sha }}
           path: |

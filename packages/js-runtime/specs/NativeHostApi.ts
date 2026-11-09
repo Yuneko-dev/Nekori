@@ -1,0 +1,51 @@
+import { type CodegenTypes, type TurboModule } from 'react-native';
+// Deep import, not the `react-native` barrel. `index.js` requires every component through getters,
+// and Metro packages whatever is required regardless of whether the getter ever runs — one barrel
+// import for one value pulls ScrollView, FlatList, Animated and the rest into a bundle that renders
+// nothing. Codegen is unaffected: it matches the identifier `TurboModuleRegistry`, not the module it
+// came from (@react-native/codegen/lib/parsers/utils.js:101).
+import * as TurboModuleRegistry from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
+
+/** One unit of work for JavaScript. `args` is JSON, so the payload crosses as a single string. */
+export type JsCommand = {
+  id: string;
+  method: string;
+  args: string;
+};
+
+/**
+ * The whole native <-> JS contract, in one typed place.
+ *
+ * Kotlin -> JS is `onCommand`, a codegen-generated event emitter rather than a global device event:
+ * the channel belongs to this module instead of sharing `DeviceEventEmitter` with everything else in
+ * the process, and codegen keeps both ends of the payload type in sync.
+ *
+ * JS -> Kotlin is `resolve`/`reject`, keyed by the command id, plus `ready` — which exists because
+ * "the React Native instance started" is not the same as "JavaScript has subscribed". Without the
+ * handshake a command emitted in that window is delivered to nobody and the Kotlin caller suspends
+ * forever.
+ */
+export interface Spec extends TurboModule {
+  /** Called once, after the JS side has subscribed to [onCommand]. */
+  ready(): void;
+
+  /** Completes the pending Kotlin coroutine with the handler's encoded payload. */
+  resolve(id: string, payload: string): void;
+
+  /** Fails the pending Kotlin coroutine for `id`, preserving the JavaScript stack for diagnostics. */
+  reject(id: string, message: string, stack: string): void;
+
+  /** Cryptographically secure bytes for the Web Crypto getRandomValues polyfill. */
+  getRandomBase64(byteLength: number): string;
+
+  /** Current value of Settings > Advanced > Default user agent string. */
+  getUserAgent(): string;
+
+  loadPluginStorage(pluginId: string): Promise<string>;
+
+  applyPluginStorageMutation(pluginId: string, mutationJson: string): Promise<void>;
+
+  readonly onCommand: CodegenTypes.EventEmitter<JsCommand>;
+}
+
+export default TurboModuleRegistry.getEnforcing<Spec>('NativeHostApi');

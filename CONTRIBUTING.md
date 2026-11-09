@@ -31,12 +31,12 @@ Before you start, please note that the ability to use following technologies is 
   `./gradlew testDebugUnitTest verifySqlDelightMigration --continue` before APK builds.
   Failed tests upload reports from all modules. The workflow can also be run manually.
 - `.github/workflows/js-runtime-checks.yml` runs JS runtime type checking, ESLint, Prettier
-  and chapter-content tests independently. Locally, run `pnpm run check` and
-  `pnpm run test:chapter` from `js-runtime/`.
-- `.github/workflows/reader-checks.yml` runs `npm run check` from `app/tools/reader-runtime/`:
+  and chapter-content tests independently. Locally, run `bun run check` and
+  `bun run test:chapter` from `packages/js-runtime/`.
+- `.github/workflows/reader-checks.yml` runs `bun run --filter @nekori/reader check`:
   TypeScript checking, ESLint (including whitespace style checks), build and Node tests.
-  Chromium acceptance tests are excluded from `npm test` and Ubuntu CI; `npm run browser`
-  remains an explicit local command. See the [reader README](app/tools/reader-runtime/README.md).
+  Chromium acceptance tests are excluded from `bun test` and Ubuntu CI; `bun run browser`
+  remains an explicit local command. See the [reader README](packages/reader/README.md).
 
 The JS and reader workflows run on relevant PR changes, pushes to `main`, `v*` tags and
 manual dispatch. Checks report failures without automatically rewriting source files.
@@ -79,7 +79,7 @@ The app’s redirect URI is derived from the client ID as
 `com.googleusercontent.apps.<clientIdWithoutSuffix>:/oauth2redirect`.
 
 This feature was ported from [Komikku](https://github.com/komikku-app/komikku);
-see [`app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md`](app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md).
+see [`apps/android/app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md`](apps/android/app/src/main/java/eu/kanade/tachiyomi/data/sync/ATTRIBUTION.md).
 
 # Forks
 
@@ -90,8 +90,8 @@ When creating a fork, remember to:
 - To avoid confusion with the main app:
     - Change the app name
     - Change the app icon
-    - Change or disable the [app update checker](https://github.com/Yuneko-dev/Nekori/blob/main/app/src/main/java/eu/kanade/tachiyomi/data/updater/AppUpdateChecker.kt)
+    - Change or disable the [app update checker](https://github.com/Yuneko-dev/Nekori/blob/main/apps/android/app/src/main/java/eu/kanade/tachiyomi/data/updater/AppUpdateChecker.kt)
 - To avoid installation conflicts:
     - Change the `applicationId` in [`build.gradle.kts`](https://github.com/Yuneko-dev/Nekori/blob/main/app/build.gradle.kts)
 - To avoid having your data polluting the main app's analytics and crash report services:
-    - If you want to use Firebase analytics, replace [`google-services.json`](https://github.com/Yuneko-dev/Nekori/blob/main/app/src/standard/google-services.json) with your own
+    - If you want to use Firebase analytics, replace [`google-services.json`](https://github.com/Yuneko-dev/Nekori/blob/main/apps/android/app/src/standard/google-services.json) with your own

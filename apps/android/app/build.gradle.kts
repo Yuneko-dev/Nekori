@@ -1,0 +1,638 @@
+import mihon.gradle.Config
+import mihon.gradle.getBuildTime
+import mihon.gradle.getLatestCommitCount
+import mihon.gradle.getLatestCommitSha
+import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.LocalState
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
+import java.io.FileInputStream
+import java.util.Properties
+import javax.inject.Inject
+import kotlin.io.encoding.Base64
+
+abstract class GenerateShippedJsLicenses @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    init {
+        doNotTrackState("The generator reads the current JavaScript package trees.")
+    }
+
+    @get:InputFile
+    abstract val metroSourcemap: RegularFileProperty
+
+    @get:InputFile
+    abstract val readerMetafile: RegularFileProperty
+
+    @get:InputFile
+    abstract val generatorScript: RegularFileProperty
+
+    @get:InputFile
+    abstract val licenseTemplate: RegularFileProperty
+
+    @get:InputDirectory
+    abstract val devToolsAssets: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                generatorScript.get().asFile.absolutePath,
+                "--metro-sourcemap",
+                metroSourcemap.get().asFile.absolutePath,
+                "--reader-metafile",
+                readerMetafile.get().asFile.absolutePath,
+                "--license-template",
+                licenseTemplate.get().asFile.absolutePath,
+                "--devtools-assets",
+                devToolsAssets.get().asFile.absolutePath,
+                "--output",
+                outputDir.file("raw/aboutlibraries_js.json").get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+abstract class BuildReaderRuntimeAssets @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val packageFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:OutputFile
+    abstract val metafile: RegularFileProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @get:Internal
+    abstract val buildScript: RegularFileProperty
+
+    @TaskAction
+    fun build() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                buildScript.get().asFile.absolutePath,
+                "--android-assets",
+                outputDir.get().asFile.absolutePath,
+                "--metafile",
+                metafile.get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+abstract class PrepareDevToolsAssets @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputFile
+    abstract val lockFile: RegularFileProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val scripts: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:LocalState
+    abstract val cacheDir: DirectoryProperty
+
+    @get:Internal
+    abstract val workingDirectory: DirectoryProperty
+
+    @TaskAction
+    fun prepare() {
+        execOperations.exec {
+            workingDir = workingDirectory.get().asFile
+            commandLine(
+                "node",
+                "app/tools/devtools-lite/prepare-assets.mjs",
+                lockFile.get().asFile.absolutePath,
+                outputDir.get().asFile.absolutePath,
+                cacheDir.get().asFile.absolutePath,
+            )
+        }
+    }
+}
+
+plugins {
+    alias(mihonx.plugins.android.application)
+    alias(mihonx.plugins.compose)
+    alias(mihonx.plugins.spotless)
+
+    alias(libs.plugins.aboutLibraries)
+    alias(libs.plugins.androidx.baselineProfile)
+    alias(libs.plugins.kotlin.serialization)
+
+    // Only the application module gets JS bundling, autolinking and resource handling — applying
+    // this plugin to a library module registers codegen and nothing else (ReactPlugin.kt:63-105).
+    id("com.facebook.react")
+}
+
+// The npm root is packages/js-runtime/, not the Gradle root, so every path the plugin would normally infer has to be stated.
+react {
+    val jsRuntime = rootProject.layout.projectDirectory.dir("../../packages/js-runtime")
+
+    root.set(jsRuntime)
+    reactNativeDir.set(jsRuntime.dir("node_modules/react-native"))
+    codegenDir.set(jsRuntime.dir("node_modules/@react-native/codegen"))
+    cliFile.set(jsRuntime.file("node_modules/react-native/cli.js"))
+    entryFile.set(jsRuntime.file("src/index.ts"))
+
+    // Bundle for debug builds too. The default leaves debug variants expecting a Metro dev server;
+    // this app has no React UI to hot-reload, so shipping the bundle keeps the device standalone.
+    debuggableVariants.set(emptyList<String>())
+
+    autolinkLibrariesWithApp()
+}
+
+if (Config.includeTelemetry) {
+    pluginManager.apply {
+        apply(libs.plugins.google.services.get().pluginId)
+        apply(libs.plugins.firebase.crashlytics.get().pluginId)
+    }
+}
+
+val supportedAbis = providers.gradleProperty("reactNativeArchitectures").get().split(",")
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties().apply {
+    if (localPropertiesFile.exists()) {
+        FileInputStream(localPropertiesFile).use(::load)
+    }
+}
+
+fun escapeBuildConfigString(value: String): String =
+    value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+
+fun googleDriveSecret(propertyKey: String, envKey: String): String {
+    val fromLocal = localProperties.getProperty(propertyKey).orEmpty().trim()
+    if (fromLocal.isNotEmpty()) return fromLocal
+    return System.getenv(envKey).orEmpty().trim()
+}
+
+val googleDriveClientId = googleDriveSecret("google.drive.client.id", "GOOGLE_DRIVE_CLIENT_ID")
+val googleDriveClientSecret = googleDriveSecret("google.drive.client.secret", "GOOGLE_DRIVE_CLIENT_SECRET")
+// Google Android OAuth custom-scheme redirect: com.googleusercontent.apps.<clientId>:/oauth2redirect
+val googleDriveClientIdPrefix = googleDriveClientId.removeSuffix(".apps.googleusercontent.com")
+val googleDriveRedirectScheme = if (googleDriveClientIdPrefix.isNotEmpty()) {
+    "com.googleusercontent.apps.$googleDriveClientIdPrefix"
+} else {
+    "app.yuneko.nekori.google.oauth"
+}
+val googleDriveRedirectUri = "$googleDriveRedirectScheme:/oauth2redirect"
+
+android {
+    namespace = "eu.kanade.tachiyomi"
+
+    defaultConfig {
+        applicationId = "app.yuneko.nekori"
+
+        versionCode = 14
+        versionName = "0.1.3"
+
+        buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
+        buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")
+        buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
+        buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
+        buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
+        // Supplied via local.properties (gitignored) or GOOGLE_DRIVE_CLIENT_* env vars.
+        buildConfigField("String", "GOOGLE_DRIVE_CLIENT_ID", "\"${escapeBuildConfigString(googleDriveClientId)}\"")
+        buildConfigField(
+            "String",
+            "GOOGLE_DRIVE_CLIENT_SECRET",
+            "\"${escapeBuildConfigString(googleDriveClientSecret)}\"",
+        )
+        buildConfigField(
+            "String",
+            "GOOGLE_DRIVE_REDIRECT_URI",
+            "\"${escapeBuildConfigString(googleDriveRedirectUri)}\"",
+        )
+        manifestPlaceholders["GOOGLE_DRIVE_REDIRECT_SCHEME"] = googleDriveRedirectScheme
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    if (System.getenv("NEKORI_GITHUB_RELEASE").toBoolean() &&
+        System.getenv("GITHUB_REPOSITORY_OWNER") == "Yuneko-dev"
+    ) {
+        val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("nekori.keystore")
+
+        val storeFileBytes = System.getenv("storeFileBase64").filter {
+            !it.isWhitespace() && it != '"'
+        }.let(Base64::decode)
+        tempStoreFile.outputStream().use { it.write(storeFileBytes) }
+
+        signingConfigs {
+            named("debug") {
+                storeFile = tempStoreFile
+                storePassword = System.getenv("storePassword")
+                keyAlias = System.getenv("keyAlias")
+                keyPassword = System.getenv("keyPassword")
+            }
+        }
+    } else if (keystorePropertiesFile.exists()) {
+        val keystoreProperties = FileInputStream(keystorePropertiesFile).use { Properties().apply { load(it) } }
+
+        signingConfigs {
+            named("debug") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        val debug = getByName("debug") {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-${getLatestCommitCount()}"
+            isPseudoLocalesEnabled = true
+        }
+        val release = getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            signingConfig = debug.signingConfig
+
+            isProfileable = true
+
+            proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
+
+            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
+        }
+
+        val commonMatchingFallbacks = listOf(release.name)
+
+        create("nightly") {
+            initWith(release)
+
+            applicationIdSuffix = ".nightly"
+
+            versionNameSuffix = debug.versionNameSuffix
+            signingConfig = debug.signingConfig
+
+            matchingFallbacks.addAll(commonMatchingFallbacks)
+
+            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
+        }
+        create("benchmark") {
+            initWith(release)
+
+            versionNameSuffix = "-benchmark"
+            applicationIdSuffix = ".benchmark"
+
+            matchingFallbacks.addAll(commonMatchingFallbacks)
+        }
+    }
+
+    sourceSets {
+        getByName("benchmark").res.directories.add("src/debug/res")
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            isUniversalApk = true
+            reset()
+            include(*supportedAbis.toTypedArray())
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // ABI splits do not filter transitive native libraries out of the universal APK.
+            excludes += "**/x86/**"
+
+            // Fresco's native image codecs. They arrive transitively through react-android because
+            // `CoreReactPackage` registers `ImageLoaderModule` for rendering `<Image>`, and this
+            // process renders no React UI at all — no ReactRootView, no Fabric surface. Dropping
+            // the libraries rather than excluding the Gradle dependency keeps `fbcore` on the
+            // classpath, which React Native itself needs for `FLog`.
+            excludes += listOf(
+                "libimagepipeline",
+                "libnative-filters",
+                "libnative-imagetranscoder",
+            )
+                .map { "**/$it.so" }
+
+            keepDebugSymbols += listOf(
+                "libandroidx.graphics.path",
+                "libarchive-jni",
+                "libconscrypt_jni",
+                "libsqlite3x",
+            )
+                .map { "**/$it.so" }
+        }
+        resources {
+            excludes += setOf(
+                "kotlin-tooling-metadata.json",
+                "LICENSE.txt",
+                "META-INF/**/*.properties",
+                "META-INF/**/LICENSE.txt",
+                "META-INF/*.properties",
+                "META-INF/*.version",
+                "META-INF/DEPENDENCIES",
+                "META-INF/INDEX.LIST",
+                "META-INF/LICENSE",
+                "META-INF/NOTICE",
+                "META-INF/README.md",
+            )
+        }
+    }
+
+    dependenciesInfo {
+        includeInApk = Config.includeDependencyInfo
+        includeInBundle = Config.includeDependencyInfo
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+}
+
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
+            "-opt-in=androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+            "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
+            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+            "-opt-in=coil3.annotation.ExperimentalCoilApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=kotlinx.coroutines.FlowPreview",
+            "-opt-in=kotlinx.coroutines.InternalCoroutinesApi",
+            "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
+        )
+    }
+}
+
+baselineProfile {
+    baselineProfileOutputDir = "baselineProfiles"
+    mergeIntoMain = true
+}
+
+dependencies {
+    baselineProfile(projects.baselineProfile)
+
+    implementation(projects.i18n)
+    implementation(projects.i18nNovel)
+    implementation(projects.core.archive)
+    implementation(projects.core.common)
+    implementation(projects.core.viewmodel)
+    implementation(projects.coreMetadata)
+    implementation(projects.sourceApi)
+    implementation(projects.sourceLocal)
+    implementation(projects.data)
+    implementation(projects.domain)
+    implementation(projects.jsRuntime)
+    implementation(projects.presentationCore)
+    implementation(projects.presentationWidget)
+    implementation(projects.telemetry)
+    implementation(projects.tts.tiktok)
+
+    // Compose
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.materialIcons)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.animationGraphics)
+    debugImplementation(libs.androidx.compose.uiTooling)
+    implementation(libs.androidx.compose.uiToolingPreview)
+    implementation(libs.androidx.compose.uiUtil)
+
+    implementation(libs.androidx.interpolator)
+
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
+
+    implementation(libs.androidx.sqlite.bundled)
+
+    implementation(libs.kotlin.reflect)
+
+    implementation(libs.bundles.kotlinx.coroutines)
+
+    implementation(libs.sqldelight.async)
+
+    implementation(libs.kotlinx.datetime)
+
+    // AndroidX libraries
+    implementation(libs.androidx.annotation)
+    implementation(libs.androidx.appCompat)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.coreSplashScreen)
+    implementation(libs.androidx.profileInstaller)
+
+    implementation(libs.bundles.androidx.lifecycle)
+
+    // Job scheduling
+    implementation(libs.androidx.work)
+
+    // RxJava
+    implementation(libs.rxJava)
+
+    // Networking
+    implementation(libs.bundles.okhttp)
+    implementation(libs.nanohttpd)
+    implementation(libs.okio)
+    implementation(libs.conscrypt) // TLS 1.3 support for Android < 10
+
+    // Data serialization (JSON, protobuf, xml)
+    implementation(libs.bundles.serialization)
+
+    // HTML parser
+    implementation(libs.jsoup)
+    implementation(libs.re2j) // Bounded-time chapter search, including cancellation on Android.
+
+    // Disk
+    implementation(libs.diskLruCache)
+    implementation(libs.unifile)
+
+    // Preferences
+    implementation(libs.androidx.preference)
+
+    // Dependency injection
+    implementation(libs.injekt)
+
+    // Image loading
+    implementation(libs.bundles.coil)
+
+    // UI libraries
+    implementation(libs.material)
+    implementation(libs.composeRichEditor)
+    implementation(libs.aboutLibraries.compose)
+    implementation(libs.bundles.voyager)
+    implementation(libs.composeMaterialMotion)
+    implementation(libs.swipe)
+    implementation(libs.composeWebview)
+    implementation(libs.composeGrid)
+    implementation(libs.reorderable)
+    implementation(libs.bundles.markdown)
+    implementation(libs.materialKolor)
+
+    // Google Drive sync
+    implementation(libs.google.api.services.drive)
+
+    // Logging
+    implementation(libs.logcat)
+
+    // String similarity
+    implementation(libs.stringSimilarity)
+
+    // Tests
+    testImplementation(libs.bundles.test)
+    testImplementation(libs.sqldelight.sqliteDriver)
+    testRuntimeOnly(libs.junit.platform.launcher)
+
+    // Android Instrumentation Tests (for auto-discovery extension testing)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+
+    // For detecting memory leaks; see https://square.github.io/leakcanary/
+    debugImplementation(libs.leakCanary.core)
+    implementation(libs.leakCanary.plumber)
+
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // media for tts notification
+    implementation(libs.androidx.media)
+}
+
+val prepareDevToolsAssets = tasks.register<PrepareDevToolsAssets>("prepareDevToolsAssets") {
+    val toolsDir = rootProject.layout.projectDirectory.dir("app/tools/devtools-lite")
+    lockFile.set(
+        rootProject.layout.projectDirectory.file(
+            providers.gradleProperty("devToolsLockFile").getOrElse("app/tools/devtools-lite/dist.lock.json"),
+        ),
+    )
+    scripts.from(toolsDir.file("prepare-assets.mjs"), toolsDir.file("import-assets.mjs"))
+    outputDir.set(layout.buildDirectory.dir("generated/assets/devtools"))
+    cacheDir.set(rootProject.layout.projectDirectory.dir(".gradle/devtools-dist"))
+    workingDirectory.set(rootProject.layout.projectDirectory)
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(prepareDevToolsAssets) { it.outputDir }
+        // Override RN's global pickFirsts so they cannot re-include x86 in universal APKs.
+        variant.packaging.jniLibs.pickFirsts.set(
+            supportedAbis.flatMap { abi ->
+                listOf("c++_shared", "fbjni", "reactnative", "jsi", "hermesvm", "hermestooling")
+                    .map { "**/$abi/lib$it.so" }
+            },
+        )
+
+        val resSource = variant.sources.res ?: return@onVariants
+
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val readerPackageDir = rootProject.layout.projectDirectory.dir("../../packages/reader")
+        val readerMetafileFile = layout.buildDirectory.file(
+            "generated/reader-runtime/${variant.name}/reader-metafile.json",
+        )
+        val buildReaderRuntimeTask = tasks.register<BuildReaderRuntimeAssets>(
+            "build${variantName}ReaderRuntime",
+        ) {
+            sourceDirectory.set(readerPackageDir.dir("src"))
+            packageFiles.from(
+                readerPackageDir.file("package.json"),
+                rootProject.layout.projectDirectory.file("../../bun.lock"),
+                readerPackageDir.file("tsconfig.json"),
+                readerPackageDir.file("tsconfig.types.json"),
+                readerPackageDir.file("build.mjs"),
+            )
+            outputDir.set(layout.buildDirectory.dir("generated/assets/reader-runtime/${variant.name}"))
+            metafile.set(readerMetafileFile)
+            workingDirectory.set(readerPackageDir)
+            buildScript.set(readerPackageDir.file("build.mjs"))
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(buildReaderRuntimeTask) { it.outputDir }
+
+        val generatedLicensesDir = layout.buildDirectory.dir("generated/shipped-js-licenses/${variant.name}")
+        val generateShippedJsLicensesTask = tasks.register<GenerateShippedJsLicenses>(
+            "generate${variantName}ShippedJsLicenses",
+        ) {
+            dependsOn(
+                "createBundle${variantName}JsAndAssets",
+                "prepareLibraryDefinitions$variantName",
+                buildReaderRuntimeTask,
+                prepareDevToolsAssets,
+            )
+            metroSourcemap.set(
+                layout.buildDirectory.file("generated/sourcemaps/react/${variant.name}/index.android.bundle.map"),
+            )
+            readerMetafile.set(readerMetafileFile)
+            devToolsAssets.set(prepareDevToolsAssets.flatMap { it.outputDir.dir("devtools-lite") })
+            generatorScript.set(rootProject.layout.projectDirectory.file("app/tools/generate-shipped-js-licenses.mjs"))
+            licenseTemplate.set(
+                layout.buildDirectory.file("generated/aboutLibraries/${variant.name}/res/raw/aboutlibraries.json"),
+            )
+            outputDir.set(generatedLicensesDir)
+            workingDirectory.set(rootProject.layout.projectDirectory)
+        }
+        resSource.addGeneratedSourceDirectory(generateShippedJsLicensesTask) { it.outputDir }
+
+        val replaceShortcutsPlaceholderTask = tasks.register<ReplaceShortcutsPlaceholderTask>(
+            "replace${variantName}ShortcutPlaceholder",
+        ) {
+            applicationId.set(variant.applicationId)
+            shortcutsFile.set(projectDir.resolve("src/main/shortcuts.xml"))
+        }
+        resSource.addGeneratedSourceDirectory(replaceShortcutsPlaceholderTask) { it.outputDir }
+    }
+
+    onVariants(selector().withFlavor("default" to "standard")) {
+        // Only excluding in standard flavor because this breaks
+        // Layout Inspector's Compose tree
+        it.packaging.resources.excludes.add("META-INF/*.version")
+    }
+}

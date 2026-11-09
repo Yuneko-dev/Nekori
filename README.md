@@ -111,7 +111,7 @@ not a rewrite.
 The full list lives in [NEKORI_CHANGELOG.md](./NEKORI_CHANGELOG.md). [CHANGELOG.md](./CHANGELOG.md) is Tsundoku's own
 release record and is kept identical to upstream so it merges cleanly.
 
-The WebView frontend is maintained in [app/tools/reader-runtime](./app/tools/reader-runtime/README.md).
+The WebView frontend is maintained in [packages/reader](./packages/reader/README.md).
 Its TypeScript modules and VanJS widgets build into Android assets and a reusable `@nekori/reader`
 package with declarations. The public `window.nekori` API replaces the old frontend globals while
 LNReader source-data contracts and saved CSS/JS snippet bytes remain supported. Legacy offline chapter
