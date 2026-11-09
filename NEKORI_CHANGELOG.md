@@ -30,6 +30,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add scrolling to the next unread chapter in the displayed list, with an Appearance setting to place chapter-list scroll actions in the overflow menu; toolbar icons are the default.
 
 ### Fixed
+- Allow paged-reader swipes to start on inline images while keeping image zoom dialogs and interactive controls separate from page navigation.
 - Restore the saved custom reader background when reopening the reader (#17)
 - Reuse matching categories when restoring backups, preserve their local settings, and avoid duplicate categories or novel-category links.
 - Keep chapters opened from search results unread until actual completion, including scrolling, TTS and video playback, without forcing completion for ordinary TTS sessions.

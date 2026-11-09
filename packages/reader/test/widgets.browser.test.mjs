@@ -36,7 +36,7 @@ browserTest(
     try {
       const page = await browser.newPage();
       await page.setContent(
-        '<main id="reader"><nekori-chapter data-nekori-chapter-id="1"><p>Text</p></nekori-chapter></main><iframe></iframe>',
+        '<main id="reader"><nekori-chapter data-nekori-chapter-id="1"><p>Text</p><img id="inline" src="cover.png"><a href="/image"><img id="linked"></a></nekori-chapter></main><iframe></iframe>',
       );
       await page.addScriptTag({ content: await bundleWidgets() });
       const actual = await page.evaluate(() => {
@@ -54,11 +54,17 @@ browserTest(
         document
           .querySelector('iframe')
           .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true }));
+        const inline = document.querySelector('#inline');
+        inline.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true }));
+        document.querySelector('#linked').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true }));
+        inline.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+        document.querySelector('#nekori-image-modal-image').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true }));
+        inline.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: false }));
         return harness.events
           .filter(([name]) => name === 'gesture.claim')
           .map(([, payload]) => payload.owner);
       });
-      assert.deepEqual(actual, ['blocked', 'surface', 'blocked']);
+      assert.deepEqual(actual, ['blocked', 'surface', 'blocked', 'image', 'blocked', 'blocked', 'blocked']);
       await page.close();
     } finally {
       await browser.close();
