@@ -1,4 +1,5 @@
-import type { Direction, Spread } from './math.ts';
+export type Spread = 'single' | 'double';
+export type Direction = 'ltr' | 'rtl';
 
 export interface LayoutConfig {
   readonly enabled: boolean;

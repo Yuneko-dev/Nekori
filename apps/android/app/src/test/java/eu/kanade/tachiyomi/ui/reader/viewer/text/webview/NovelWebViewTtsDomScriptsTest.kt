@@ -23,6 +23,7 @@ class NovelWebViewTtsDomScriptsTest {
         assertEquals("tts.highlight", highlight.method)
         assertEquals(JsonPrimitive("42"), highlight.payload["chapterId"])
         assertEquals(JsonPrimitive(3), highlight.payload["paragraphIndex"])
+        assertEquals(JsonPrimitive("paragraph-3"), highlight.payload["paragraphId"])
         assertEquals(JsonPrimitive(true), highlight.payload["keepInView"])
         assertEquals("tts.extractText", NovelWebViewTtsDomScripts.extractText(null).method)
         assertEquals(JsonNull, NovelWebViewTtsDomScripts.extractText(null).payload["chapterId"])

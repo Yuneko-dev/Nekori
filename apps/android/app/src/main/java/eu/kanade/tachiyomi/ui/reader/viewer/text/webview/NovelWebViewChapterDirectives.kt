@@ -40,8 +40,8 @@ internal data class NovelWebViewChapterDirectives(
 
         fun fromContent(content: ChapterContent): NovelWebViewChapterDirectives {
             val document = Jsoup.parse(content.html)
-            val noCache = content.noCache || content.isCheckpoint
-            val noPrefetch = content.noPrefetch || content.isCheckpoint
+            val noCache = content.effectiveNoCache
+            val noPrefetch = content.effectiveNoPrefetch
             val isVideo = content.type == "video"
             val localVideo = document.videoMeta("video-local")
                 .takeIf(String::isNotBlank)

@@ -35,3 +35,7 @@ _Avoid_: MangaDetails (legacy JSON)
 **Stub source**:
 A placeholder Source with no live data.
 _Avoid_: Installed source
+
+**Checkpoint**:
+A Chapter content state that forces no-cache and no-prefetch.
+_Avoid_: Offline marker (meta marker)

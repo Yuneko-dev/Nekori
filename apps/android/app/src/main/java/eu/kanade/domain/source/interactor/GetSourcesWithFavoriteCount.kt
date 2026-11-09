@@ -14,16 +14,21 @@ class GetSourcesWithFavoriteCount(
     private val preferences: SourcePreferences,
 ) {
 
-    fun subscribe(): Flow<List<Pair<Source, Long>>> {
+    fun subscribe(novelOnly: Boolean = false): Flow<List<Pair<Source, Long>>> {
         return combine(
             preferences.migrationSortingDirection.changes(),
             preferences.migrationSortingMode.changes(),
             repository.getSourcesWithFavoriteCount(),
         ) { direction, mode, list ->
             list
-                .filter { (source, _) -> !source.isLocal() && (!source.isNovelSource || source.isTypeUnknown) }
+                .filter { (source, _) -> isFavoriteCountMatch(source, novelOnly) }
                 .sortedWith(sortFn(direction, mode))
         }
+    }
+
+    companion object {
+        fun isFavoriteCountMatch(source: Source, novelOnly: Boolean): Boolean =
+            !source.isLocal() && if (novelOnly) source.isNovelSource || source.isTypeUnknown else !source.isNovelSource || source.isTypeUnknown
     }
 
     private fun sortFn(

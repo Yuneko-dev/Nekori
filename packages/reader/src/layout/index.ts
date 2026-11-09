@@ -10,5 +10,4 @@ export type {
   LayoutPosition,
   ScrollTrackingConfig,
 } from './types.ts';
-export * from './math.ts';
-export * from './progress.ts';
+export type { Direction, Spread } from './types.ts';

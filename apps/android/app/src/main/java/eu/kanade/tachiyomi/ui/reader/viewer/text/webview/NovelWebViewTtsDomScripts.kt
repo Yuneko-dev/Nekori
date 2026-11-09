@@ -28,6 +28,7 @@ internal object NovelWebViewTtsDomScripts {
         buildJsonObject {
             putChapterId(chapterId)
             put("paragraphIndex", paragraphIndex.coerceAtLeast(0))
+            put("paragraphId", "paragraph-${paragraphIndex.coerceAtLeast(0)}")
             put("backgroundColor", backgroundColor)
             put("textColor", textColor)
             put("style", style)

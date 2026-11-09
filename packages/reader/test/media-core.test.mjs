@@ -4,9 +4,9 @@ import { DIRECT_PLAYERS, buildDashSource, buildHlsSource } from '../src/media/di
 import { VIDEO_FRACTION_KEY, combineResumeProgress, readFractions, writeFraction } from '../src/media/progress.ts';
 import { toWebVtt } from '../src/media/subtitles.ts';
 import { DownloadSink, writeResponseToSink } from '../src/media/download-sink.ts';
-import { awaitPlayerElements } from '../src/media/player-elements.ts';
+import { awaitPlayerElements } from '../src/media/progress.ts';
 import { reportPlayerFailure } from '../src/media/errors.ts';
-import { PlaybackProgress } from '../src/media/playback-progress.ts';
+import { PlaybackProgress } from '../src/media/progress.ts';
 
 test('direct dispatch covers only the four chapter directive types', () => {
   assert.deepEqual(DIRECT_PLAYERS, {

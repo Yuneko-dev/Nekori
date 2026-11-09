@@ -907,8 +907,13 @@ class JsSource(
             val result = withTimeout(PLUGIN_CALL_TIMEOUT_MS) {
                 hermesRuntime.call("plugin.parseChapter", payload)
             }
-            val content = json.decodeFromString<ChapterContent>(result)
-            if (!content.noCache && !content.isCheckpoint) {
+            val decoded = json.parseToJsonElement(result)
+            val content = if (decoded is JsonPrimitive && decoded.isString) {
+                ChapterContent.fromLegacy(decoded.content)
+            } else {
+                json.decodeFromString<ChapterContent>(result)
+            }
+            if (!content.effectiveNoCache) {
                 chapterTextCache[path] = content to now
             }
             trimRawCache(chapterTextCache)

@@ -19,7 +19,7 @@ class GetEnabledSources(
     private val sourceManager: SourceManager,
 ) {
 
-    fun subscribe(): Flow<List<Source>> {
+    fun subscribe(novelOnly: Boolean = false): Flow<List<Source>> {
         val pinStateFlow = combine(
             preferences.pinnedSources.changes(),
             preferences.groupPinnedSources.changes(),
@@ -37,7 +37,7 @@ class GetEnabledSources(
             sources
                 .filter { it.lang in enabledLanguages || it.isLocal() }
                 .filterNot { it.id.toString() in disabledSources }
-                .filterNot { sourceManager.get(it.id)?.isNovelSource() == true }
+                .filter { if (novelOnly) sourceManager.get(it.id)?.isNovelSource() == true || it.isLocal() else sourceManager.get(it.id)?.isNovelSource() != true }
                 .filter { it.isLocal() || sourceManager.get(it.id) is CatalogueSource }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
                 .flatMap {

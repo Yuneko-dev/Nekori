@@ -97,7 +97,6 @@ internal class NovelWebViewStyler(
             ""
         }
         val (fontFaceDeclaration, effectiveFontFamily) = resolveFontFace(fontFamily, useOriginalFonts)
-        val textSelect = if (preferences.novelTextSelectable.get()) "text" else "none"
         val minFragmentLines = if (preferences.novelAllowLonelyLines.get()) 1 else 2
         val fontSizeCss = fontSize.toString() + "px"
         val marginTopCss = marginTop.toString() + "px"
@@ -106,38 +105,37 @@ internal class NovelWebViewStyler(
         val marginLeftCss = marginLeft.toString() + "px"
         val paragraphIndentCss = paragraphIndent.toString() + "em"
         val paragraphSpacingCss = paragraphSpacing.toString() + "em"
-        val css = """
-            $fontFaceDeclaration
-            :root {
-                --reader-font-size: $fontSizeCss;
-                --reader-font-family: $effectiveFontFamily;
-                --reader-line-height: $lineHeight;
-                --reader-margin-top: $marginTopCss;
-                --reader-margin-right: $marginRightCss;
-                --reader-margin-bottom: $marginBottomCss;
-                --reader-min-fragment-lines: $minFragmentLines;
-                --reader-margin-left: $marginLeftCss;
-                --reader-text-color: $textColorHex;
-                --reader-background-color: $bgColorHex;
-                --reader-text-align: $textAlign;
-                --reader-user-select: $textSelect;
-                --reader-paragraph-indent: $paragraphIndentCss;
-                --reader-paragraph-spacing: $paragraphSpacingCss;
-            }
-            $pluginCustomCss
-            $customCss
-            $enabledSnippetsCss
-        """.trimIndent().replace("\n", " ")
+        val css = NovelWebViewThemeStyles.buildCss(
+            ThemeStylesInput(
+                fontSizeCss = fontSizeCss,
+                fontFamily = effectiveFontFamily,
+                lineHeight = lineHeight,
+                marginTopCss = marginTopCss,
+                marginRightCss = marginRightCss,
+                marginBottomCss = marginBottomCss,
+                marginLeftCss = marginLeftCss,
+                minFragmentLines = minFragmentLines,
+                textColorHex = textColorHex,
+                backgroundColorHex = bgColorHex,
+                textAlign = textAlign,
+                textSelectable = preferences.novelTextSelectable.get(),
+                paragraphIndentCss = paragraphIndentCss,
+                paragraphSpacingCss = paragraphSpacingCss,
+                fontFaceDeclaration = fontFaceDeclaration,
+                pluginCustomCss = pluginCustomCss,
+                customCss = customCss,
+                snippetCss = enabledSnippetsCss,
+            ),
+        )
         return CustomStylePayload(
             css = css,
-            bodyClasses = buildList {
-                if (hideChapterTitle) add("nekori-reader-hide-title")
-                if (preferences.novelInfiniteScroll.get() && preferences.novelHideChapterSeparator.get()) {
-                    add("nekori-reader-hide-chapter-separator")
-                }
-                if (!preferences.novelSourceCssPriority.get()) add("nekori-reader-force-style")
-                if (useOriginalFonts) add("nekori-reader-original-font")
-            }.joinToString(" "),
+            bodyClasses = NovelWebViewThemeStyles.bodyClasses(
+                hideChapterTitle,
+                preferences.novelInfiniteScroll.get(),
+                preferences.novelHideChapterSeparator.get(),
+                preferences.novelSourceCssPriority.get(),
+                useOriginalFonts,
+            ),
             backgroundColor = finalBgColor,
             backgroundConfig = background.configJson(),
         )

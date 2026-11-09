@@ -160,6 +160,6 @@ export type ChapterContent =
       type: ChapterContentType;
       html: string;
       checkpointMessage?: string;
-      noCache: true;
-      noPrefetch: true;
+      noCache?: boolean;
+      noPrefetch?: boolean;
     };

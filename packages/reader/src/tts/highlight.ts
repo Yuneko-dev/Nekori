@@ -2,7 +2,7 @@ import type { ReaderHost, ReaderLayout, Unsubscribe } from '../protocol/reader-a
 import {
   extractParagraphText,
   firstVisibleParagraph,
-  readableParagraphs,
+  paragraphById,
   taggedParagraph,
 } from './paragraphs.ts';
 
@@ -40,24 +40,28 @@ export function clearHighlight(root: HTMLElement): void {
 }
 
 function applyHighlight(host: ReaderHost, layout: ReaderLayout | null, value: unknown): void {
-  if (!isRecord(value) || typeof value.paragraphIndex !== 'number')
-    throw new TypeError('Invalid TTS highlight payload');
+  if (!isRecord(value)) throw new TypeError('Invalid TTS highlight payload');
   const chapterId = typeof value.chapterId === 'string' ? value.chapterId : null;
-  const paragraph = readableParagraphs(host.root, chapterId, host.config.ttsNormalizationRules)[
-    Math.max(0, Math.trunc(value.paragraphIndex))
-  ];
+  const paragraphId = typeof value.paragraphId === 'string' ? value.paragraphId : null;
+  if (!paragraphId && typeof value.paragraphIndex !== 'number')
+    throw new TypeError('Invalid TTS highlight payload');
+  const resolved = paragraphId
+    ? paragraphById(host.root, chapterId, paragraphId, host.config.ttsNormalizationRules)
+    : typeof value.paragraphIndex === 'number'
+      ? paragraphById(host.root, chapterId, `paragraph-${Math.max(0, Math.trunc(value.paragraphIndex))}`, host.config.ttsNormalizationRules)
+      : null;
   clearHighlight(host.root);
-  if (!paragraph) return;
+  if (!resolved) return;
   const background = safeColor(value.backgroundColor);
   const color = safeColor(value.textColor);
-  if (background) paragraph.style.setProperty('--nekori-tts-highlight-background', background);
-  if (color) paragraph.style.setProperty('--nekori-tts-highlight-color', color);
-  paragraph.dataset.nekoriTtsHighlightStyle =
+  if (background) resolved.style.setProperty('--nekori-tts-highlight-background', background);
+  if (color) resolved.style.setProperty('--nekori-tts-highlight-color', color);
+  resolved.dataset.nekoriTtsHighlightStyle =
     value.style === 'underline' || value.style === 'outline' ? value.style : 'background';
-  paragraph.classList.add(HIGHLIGHT_CLASS);
+  resolved.classList.add(HIGHLIGHT_CLASS);
   if (value.keepInView === true) {
-    if (layout?.enabled) layout.revealElement(paragraph);
-    else paragraph.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (layout?.enabled) layout.revealElement(resolved);
+    else resolved.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 

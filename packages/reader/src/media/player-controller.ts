@@ -1,19 +1,10 @@
 import { buildDashSource, buildHlsSource } from './direct.ts';
-import { PlayerDebugOverlay } from './debug-overlay.ts';
+import { PlayerDomFactory } from './player-dom.ts';
+import { PlaybackProgress, PlayerDebugOverlay, ResumePrompt, type StringStorage } from './progress.ts';
 import { VideoDownloader } from './download.ts';
 import { reportPlayerFailure } from './errors.ts';
-import { PlaybackProgress } from './playback-progress.ts';
-import { PlayerDomFactory } from './player-dom.ts';
-import { ResumePrompt } from './resume-prompt.ts';
-import type { StringStorage } from './progress.ts';
 import { SubtitleManager } from './subtitles.ts';
-import type { PlayerConfig, PlayerDelegate, ReaderMediaHost } from './types.ts';
-import {
-  errorMessage,
-  type VideoEngine,
-  type VideoJsElement,
-  type WindowWithHls,
-} from './player-types.ts';
+import { errorMessage, type PlayerConfig, type PlayerDelegate, type ReaderMediaHost, type VideoEngine, type VideoJsElement, type WindowWithHls } from './types.ts';
 
 export class PlayerController implements PlayerDelegate {
   private readonly host: ReaderMediaHost;

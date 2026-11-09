@@ -7,6 +7,7 @@ export type TtsTextNormalizer = (text: string) => string;
 const INLINE_NODE_NAMES = new Set(['#text', 'B', 'I', 'SPAN', 'EM', 'BR', 'STRONG', 'A']);
 const SKIPPED_NODE_NAMES = new Set(['STYLE', 'SCRIPT', 'NOSCRIPT', 'TEMPLATE', 'IFRAME']);
 const INTERNAL_ELEMENT_IDS = new Set(['nekori-title-novel']);
+export const PARAGRAPH_ID_ATTR = 'data-nekori-paragraph-id';
 const normalizers = new WeakMap<ReadonlyArray<TtsNormalizationRule>, TtsTextNormalizer>();
 const trimText: TtsTextNormalizer = (text) => text.trim();
 
@@ -34,7 +35,22 @@ export function readableParagraphs(
   rules?: ReadonlyArray<TtsNormalizationRule>,
 ): HTMLElement[] {
   const chapter = findChapter(root, chapterId);
-  return chapter ? readableBlocks(chapter, createTtsTextNormalizer(rules)) : [];
+  if (!chapter) return [];
+  const blocks = readableBlocks(chapter, createTtsTextNormalizer(rules));
+  blocks.forEach((element, index) => {
+    if (!element.hasAttribute(PARAGRAPH_ID_ATTR)) element.setAttribute(PARAGRAPH_ID_ATTR, `paragraph-${index}`);
+  });
+  return blocks;
+}
+
+export function paragraphById(
+  root: ParentNode,
+  chapterId: string | null,
+  paragraphId: string | null | undefined,
+  rules?: ReadonlyArray<TtsNormalizationRule>,
+): HTMLElement | null {
+  if (!paragraphId) return null;
+  return readableParagraphs(root, chapterId, rules).find((el) => el.getAttribute(PARAGRAPH_ID_ATTR) === paragraphId) ?? null;
 }
 
 export function extractParagraphText(

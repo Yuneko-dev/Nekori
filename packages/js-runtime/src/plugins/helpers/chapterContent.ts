@@ -1,34 +1,38 @@
-import { load } from 'cheerio';
-
 import type { ChapterContent } from '../types';
 
-/** Normalize legacy LNReader strings upward into the official Nekori chapter contract. */
-export function normalizeChapterContent(value: unknown, isNekoriPlugin?: boolean): ChapterContent {
-  if (typeof value === 'string' && isNekoriPlugin !== true) {
-    const $ = load(value);
-    const type =
-      $('meta[name="lnreader-chapter-type"]').attr('content') === 'video' ? 'video' : 'novel';
-    return {
-      state: 'ready',
-      type,
-      html: value,
-      noCache: $('meta#no-cache-marker').length > 0,
-      noPrefetch: $('meta#no-prefetch-marker').length > 0,
-    };
+/**
+ * Pass Plugin chapter results through. Legacy strings stay raw so the deep
+ * Kotlin ChapterContent module owns marker parsing in one place.
+ */
+export function normalizeChapterContent(
+  value: unknown,
+  isNekoriPlugin?: boolean,
+): ChapterContent | string {
+  if (typeof value === 'string') {
+    if (isNekoriPlugin === true) throw new Error('Invalid chapter response');
+    return value;
   }
   if (isNekoriPlugin === false || !value || typeof value !== 'object')
     throw new Error('Invalid chapter response');
-  const chapter = value as ChapterContent & { checkpointMessage?: string };
+  const record = value as Record<string, unknown>;
   if (
-    (chapter.state !== 'ready' && chapter.state !== 'checkpoint') ||
-    typeof chapter.type !== 'string' ||
-    !['novel', 'mixed', 'image', 'video'].includes(chapter.type) ||
-    typeof chapter.html !== 'string' ||
-    (chapter.noCache !== undefined && typeof chapter.noCache !== 'boolean') ||
-    (chapter.noPrefetch !== undefined && typeof chapter.noPrefetch !== 'boolean') ||
-    (chapter.checkpointMessage !== undefined && typeof chapter.checkpointMessage !== 'string')
+    (record.state !== 'ready' && record.state !== 'checkpoint') ||
+    typeof record.type !== 'string' ||
+    !['novel', 'mixed', 'image', 'video'].includes(record.type) ||
+    typeof record.html !== 'string' ||
+    (record.noCache !== undefined && typeof record.noCache !== 'boolean') ||
+    (record.noPrefetch !== undefined && typeof record.noPrefetch !== 'boolean') ||
+    (record.checkpointMessage !== undefined && typeof record.checkpointMessage !== 'string')
   ) {
     throw new Error('Invalid chapter response');
   }
-  return chapter.state === 'checkpoint' ? { ...chapter, noCache: true, noPrefetch: true } : chapter;
+  const state = record.state as 'ready' | 'checkpoint';
+  const type = record.type as ChapterContent['type'];
+  const content: ChapterContent = { state, type, html: record.html };
+  if (typeof record.noCache === 'boolean') content.noCache = record.noCache;
+  if (typeof record.noPrefetch === 'boolean') content.noPrefetch = record.noPrefetch;
+  if (typeof record.checkpointMessage === 'string') {
+    (content as { checkpointMessage?: string }).checkpointMessage = record.checkpointMessage;
+  }
+  return content;
 }

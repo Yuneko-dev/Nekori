@@ -31,3 +31,11 @@ _Avoid_: Frontend globals
 **TTS engine**:
 A speech engine that reads Chapters aloud.
 _Avoid_: Player
+
+**Paragraph**:
+A stable text unit inside a Chapter for speech and highlight.
+_Avoid_: Page, Block
+
+**Media playback**:
+Video, HLS, or DASH display inside a Chapter.
+_Avoid_: Player, TTS engine
