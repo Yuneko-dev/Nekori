@@ -405,6 +405,10 @@ class TtsController(
         tts?.isSpeaking == true
     }
     fun isPaused(): Boolean = ttsPaused
+
+    fun resetPlaybackChapterIndex() {
+        ttsPlaybackChapterIndex = 0
+    }
     fun isStarting(): Boolean =
         pendingStartRequest != null ||
             (!ttsInitialized && (tts != null || tikTokTts != null)) ||

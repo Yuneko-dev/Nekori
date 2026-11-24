@@ -9,4 +9,10 @@
     <plurals name="chapter_search_failed_chapters">
         <item quantity="other">Không đọc được %d chương</item>
     </plurals>
+    <plurals name="translate_chapters_confirm">
+        <item quantity="other">Dịch %d chương?</item>
+    </plurals>
+    <plurals name="translation_queued">
+        <item quantity="other">Đã xếp %d chương vào hàng đợi dịch</item>
+    </plurals>
 </resources>

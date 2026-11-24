@@ -145,6 +145,86 @@ class NovelImageCacheLimitsTest {
     }
 
     @Test
+    fun `latest scheduled chapter receives released prefetch slots ahead of older chapters`() = runBlocking {
+        val owner = SupervisorJob()
+        val scope = CoroutineScope(owner + Dispatchers.IO)
+        val cache = NovelWebViewImageCache(directory, scope)
+        val firstWaveStarted = CountDownLatch(3)
+        val releaseOneSlot = CountDownLatch(1)
+        val releaseRest = CountDownLatch(1)
+        val winnerStarted = CountDownLatch(1)
+        val orderAfterWave = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val source = loader { path ->
+            when {
+                path == "ch0-1.jpg" -> {
+                    firstWaveStarted.countDown()
+                    check(releaseOneSlot.await(10, TimeUnit.SECONDS))
+                }
+                path.startsWith("ch0-") -> {
+                    firstWaveStarted.countDown()
+                    check(releaseRest.await(10, TimeUnit.SECONDS))
+                }
+                else -> {
+                    orderAfterWave += path
+                    winnerStarted.countDown()
+                    check(releaseRest.await(10, TimeUnit.SECONDS))
+                }
+            }
+            path.byteInputStream()
+        }
+        try {
+            val ch0 = (1..3).joinToString("") { "<img src=\"tsundoku-novel-image://ch0-$it.jpg\">" }
+            cache.schedulePrefetch(ch0, 0L, source)
+            assertTrue(firstWaveStarted.await(10, TimeUnit.SECONDS))
+            cache.schedulePrefetch("<img src=\"tsundoku-novel-image://ch1-queued.jpg\">", 1L, source)
+            cache.schedulePrefetch(
+                "<img src=\"tsundoku-novel-image://ch2-first.jpg\"><img src=\"tsundoku-novel-image://ch2-second.jpg\">",
+                2L,
+                source,
+            )
+            withTimeout(10_000) {
+                while (cache.queuedPrefetchCount() < 3) kotlinx.coroutines.delay(10)
+            }
+            releaseOneSlot.countDown()
+            assertTrue(winnerStarted.await(10, TimeUnit.SECONDS))
+            assertEquals(listOf("ch2-first.jpg"), orderAfterWave.toList())
+            releaseRest.countDown()
+            withTimeout(10_000) { owner.children.toList().joinAll() }
+        } finally {
+            releaseOneSlot.countDown()
+            releaseRest.countDown()
+            scope.cancel()
+            withTimeout(10_000) { owner.children.toList().joinAll() }
+            cache.clear()
+        }
+    }
+
+    @Test
+    fun `startup sweep deletes expired novel-image files without touching fresh or unrelated files`() = runBlocking {
+        val expired = File(directory, "novel-image-old-session-1.jpg").apply {
+            writeText("OLD")
+            setLastModified(System.currentTimeMillis() - NovelImageCacheFiles.STALE_FILE_AGE_MS - 5_000L)
+        }
+        val freshOther = File(directory, "novel-image-recent-session-1.jpg").apply { writeText("RECENT") }
+        val unrelatedOld = File(directory, "other-old.tmp").apply {
+            writeText("KEEP")
+            setLastModified(System.currentTimeMillis() - NovelImageCacheFiles.STALE_FILE_AGE_MS - 5_000L)
+        }
+        val owner = SupervisorJob()
+        val scope = CoroutineScope(owner + Dispatchers.IO)
+        val cache = NovelWebViewImageCache(directory, scope)
+        try {
+            withTimeout(10_000) { owner.children.toList().joinAll() }
+            assertTrue(!expired.exists(), "Expired stale cache file must be swept")
+            assertTrue(freshOther.exists(), "Recent cache file from another active view must be kept")
+            assertTrue(unrelatedOld.exists(), "Unrelated file must never be swept")
+        } finally {
+            scope.cancel()
+            cache.clear()
+        }
+    }
+
+    @Test
     fun `a missing foreground stream releases its claim for a later prefetch`() = runBlocking {
         val owner = SupervisorJob()
         val scope = CoroutineScope(owner + Dispatchers.IO)

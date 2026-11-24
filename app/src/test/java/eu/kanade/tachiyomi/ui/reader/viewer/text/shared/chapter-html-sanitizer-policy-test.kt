@@ -101,10 +101,48 @@ class ChapterHtmlSanitizerPolicyTest {
     }
 
     @Test
-    fun `sanitizeForRender always removes base`() {
-        val html = "<base href=\"https://example.com/\"><img src=\"/a.jpg\">"
-        assertFalse(webView(html, keepJs = false).contains("<base"))
-        assertFalse(webView(html, keepJs = true).contains("<base"))
+    fun `sanitizeForRender always removes base after resolving relative media and links`() {
+        val html = "<base href=\"https://example.com/books/42/chapter-1.html\">" +
+            "<img src=\"img/a.jpg\" data-src=\"img/lazy.jpg\" srcset=\"img/1x.jpg 1x,img/2x,hd.jpg 2x\">" +
+            "<a href=\"?page=2\">Next</a><a href=\"#note\">Note</a>"
+        for (keepJs in listOf(false, true)) {
+            val out = webView(html, keepJs = keepJs)
+            assertFalse(out.contains("<base"))
+            val doc = org.jsoup.Jsoup.parseBodyFragment(out)
+            val img = doc.selectFirst("img")!!
+            assertEquals("https://example.com/books/42/img/a.jpg", img.attr("src"))
+            assertEquals("https://example.com/books/42/img/lazy.jpg", img.attr("data-src"))
+            assertEquals(
+                "https://example.com/books/42/img/1x.jpg 1x, https://example.com/books/42/img/2x,hd.jpg 2x",
+                img.attr("srcset"),
+            )
+            assertEquals("https://example.com/books/42/chapter-1.html?page=2", doc.select("a")[0].attr("href"))
+            assertEquals("#note", doc.select("a")[1].attr("href"))
+        }
+    }
+
+    @Test
+    fun `sanitizeForRender drops meta http-equiv refresh even when js is on`() {
+        val html = "<meta http-equiv=\"refresh\" content=\"0;url=https://evil.invalid\"><p>Safe</p>"
+        assertFalse(webView(html, keepJs = true).contains("http-equiv", ignoreCase = true))
+        assertFalse(webView(html, keepJs = false).contains("http-equiv", ignoreCase = true))
+    }
+
+    @Test
+    fun `cleanWithSafelist preserves structure and offline novel image protocol`() {
+        val cleaned = ChapterHtmlBaseAndSafelist.cleanWithSafelist(
+            "<p class=\"lead\">Hello</p><img src=\"tsundoku-novel-image://cover.jpg\" data-src=\"/lazy.jpg\">" +
+                "<img src=\"javascript:alert(1)\" data-evil=\"java&#x09;script:alert(1)\"><script>alert(1)</script>",
+            keepCss = true,
+            blockMedia = false,
+        )
+        val doc = org.jsoup.Jsoup.parseBodyFragment(cleaned)
+        assertEquals("Hello", doc.selectFirst("p.lead")?.text())
+        assertEquals("tsundoku-novel-image://cover.jpg", doc.selectFirst("img")?.attr("src"))
+        assertEquals("/lazy.jpg", doc.selectFirst("img")?.attr("data-src"))
+        assertTrue(doc.select("img")[1].attr("data-evil").isEmpty())
+        assertFalse(cleaned.contains("javascript:", ignoreCase = true))
+        assertTrue(doc.select("script").isEmpty())
     }
 
     @Test

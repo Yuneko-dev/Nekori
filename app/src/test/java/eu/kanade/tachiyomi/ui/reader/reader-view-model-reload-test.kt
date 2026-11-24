@@ -96,4 +96,47 @@ class ReaderViewModelReloadTest {
             }
         }
     }
+
+    @Test
+    fun `reload is refused while a manual chapter switch is in flight`() = runTest {
+        ReaderViewModelTestFixture(testScheduler).use { fixture ->
+            fixture.installChapter()
+            runCurrent()
+            val manual = fixture.model.beginChapterNavigation(ReaderNavigationSource.USER)
+            assertTrue(manual != null)
+            try {
+                assertFalse(fixture.model.reloadChapter())
+            } finally {
+                fixture.model.finishChapterNavigation(manual!!)
+            }
+            assertTrue(fixture.model.reloadChapter())
+        }
+    }
+
+    @Test
+    fun `viewer exception during reload does not escape or strand manual navigation`() = runTest {
+        ReaderViewModelTestFixture(testScheduler).use { fixture ->
+            val attempted = CompletableDeferred<Unit>()
+            fixture.installChapter()
+            runCurrent()
+            coEvery { fixture.source.getPageList(any()) } returns listOf(Page(0, "/one").apply { text = "fresh" })
+            every { fixture.viewer.setChapters(any()) } answers {
+                attempted.complete(Unit)
+                throw IllegalStateException("viewer boom")
+            }
+
+            assertTrue(fixture.model.reloadChapter())
+            val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10)
+            while (!attempted.isCompleted) {
+                check(System.nanoTime() < deadline) { "Reload never reached viewer.setChapters" }
+                runCurrent()
+                withContext(kotlinx.coroutines.Dispatchers.Default) { Thread.yield() }
+            }
+            val automatic = withContext(kotlinx.coroutines.Dispatchers.Default) {
+                kotlinx.coroutines.withTimeout(10_000) { fixture.model.beginAutomaticChapterNavigation() }
+            }
+            assertTrue(automatic.id > 0)
+            fixture.model.finishChapterNavigation(automatic)
+        }
+    }
 }

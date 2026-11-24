@@ -2,9 +2,14 @@
 
 package eu.kanade.tachiyomi.ui.reader.viewer.text.shared
 
+import eu.kanade.tachiyomi.ui.reader.viewer.text.webview.NovelWebViewChapterMeta.CHAPTER_TAG_NAME
+import logcat.LogPriority
+import logcat.logcat
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Comment
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.TextNode
+import org.jsoup.parser.Parser
 
 internal object ChapterHtmlSanitizer {
     private const val MAX_SANITIZE_PASSES = 4
@@ -31,10 +36,29 @@ internal object ChapterHtmlSanitizer {
         var html = first.html
         repeat(MAX_SANITIZE_PASSES) {
             val pass = sanitizePass(html, target, stripJs, stripCss, blockMedia)
-            if (!pass.changed && pass.html == html) return html
+            if (!pass.changed && pass.html == html && settlesAsDocumentBody(html, target, stripCss, blockMedia)) {
+                return html
+            }
             html = pass.html
         }
-        return HtmlUtils.escapeHtml(Jsoup.parseBodyFragment(html).text())
+        // Still mutating on reparse: keep the structure through a plain HTML safelist rather than flattening.
+        logcat(LogPriority.WARN) { "Chapter HTML did not settle after $MAX_SANITIZE_PASSES sanitize passes" }
+        return ChapterHtmlBaseAndSafelist.cleanWithSafelist(html, keepCss = !stripCss, blockMedia = blockMedia)
+    }
+
+    // The first chapter of a page goes through a whole-document parse (its body) before the WebView
+    // parses it, so that serialization must be clean too.
+    private fun settlesAsDocumentBody(
+        html: String,
+        target: RenderTarget,
+        stripCss: Boolean,
+        blockMedia: Boolean,
+    ): Boolean {
+        val doc = Jsoup.parse(html)
+        doc.outputSettings().prettyPrint(false)
+        val body = doc.body().html()
+        if (body == html) return true
+        return !sanitizePass(body, target, stripJs = true, stripCss = stripCss, blockMedia = blockMedia).changed
     }
 
     private class SanitizeResult(val html: String, val changed: Boolean)
@@ -46,9 +70,12 @@ internal object ChapterHtmlSanitizer {
         stripCss: Boolean,
         blockMedia: Boolean,
     ): SanitizeResult {
-        val doc = Jsoup.parseBodyFragment(content)
+        // Parsed inside the chapter custom element, where the WebView inserts the content, so a pass
+        // that settles here settles there too.
+        val doc = Document.createShell("")
         doc.outputSettings().prettyPrint(false)
-        val body = doc.body()
+        val body = doc.body().appendElement(CHAPTER_TAG_NAME)
+        body.appendChildren(Parser.parseFragment(content, body, ""))
         var changed = false
 
         fun removeAll(query: String) {
@@ -59,11 +86,12 @@ internal object ChapterHtmlSanitizer {
             }
         }
 
-        removeAll("noscript, base")
+        if (ChapterHtmlBaseAndSafelist.resolveAgainstBase(body)) changed = true
+        removeAll("noscript, base, meta[http-equiv]")
         if (stripJs) {
             // Embedded documents run their own script; SVG animations can set href to javascript: at runtime.
             removeAll(
-                "script, meta[http-equiv], iframe, frame, frameset, object, embed, " +
+                "script, iframe, frame, frameset, object, embed, " +
                     "animate, set, animatemotion, animatetransform",
             )
         }

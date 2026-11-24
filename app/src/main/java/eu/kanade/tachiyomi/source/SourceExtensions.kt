@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.source
 import eu.kanade.domain.source.service.SourcePreferences
 import tachiyomi.domain.source.model.JS_SOURCE_MARKER
 import tachiyomi.domain.source.model.StubSource
+import tachiyomi.source.local.LocalNovelSource
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -22,7 +23,7 @@ fun Source.getNameForMangaInfo(): String {
     }
 }
 
-fun Source.isLocalOrStub(): Boolean = isLocal() || this is StubSource
+fun Source.isLocalOrStub(): Boolean = isLocal() || id == LocalNovelSource.ID || this is StubSource
 
 // Local sources have no language toggle of their own (local reports "other"), so they are never
 // filtered out.

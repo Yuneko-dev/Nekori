@@ -130,3 +130,49 @@ browserTest(test, 'downloaded video replay control dispatches a native action an
     await browser.close();
   }
 });
+
+browserTest(test, 'scoped anchors prefer id over earlier named anchors, ignore editable links, and leave missing targets unprevented', async () => {
+  const browser = await chromium.launch({ executablePath: chromiumPath });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <main id="reader">
+        <nekori-chapter data-nekori-chapter-id="1">
+          <a id="jump" href="#fn1">Jump</a>
+          <a id="missing" href="#none">Missing</a>
+          <a id="editable" href="#fn1" contenteditable="true">Edit</a>
+          <a name="fn1" id="wrong-id-none">Named first</a>
+          <p id="fn1">Real id target</p>
+        </nekori-chapter>
+      </main>
+    `);
+    await page.addScriptTag({ content: await bundleWidgets() });
+    const actual = await page.evaluate(() => {
+      const harness = window.makeReaderWidgets(document.querySelector('#reader'));
+      harness.commands.get('anchors.install')({});
+      let scrolledTo = null;
+      for (const el of document.querySelectorAll('a[name], p[id]')) {
+        el.scrollIntoView = function () { scrolledTo = this.tagName + ':' + this.textContent; };
+      }
+      const click = (selector) => {
+        const evt = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+        document.querySelector(selector).dispatchEvent(evt);
+        return evt.defaultPrevented;
+      };
+      const editablePrevented = click('#editable');
+      const afterEditable = scrolledTo;
+      const missingPrevented = click('#missing');
+      const jumpPrevented = click('#jump');
+      return { editablePrevented, afterEditable, missingPrevented, jumpPrevented, scrolledTo };
+    });
+    assert.deepEqual(actual, {
+      editablePrevented: false,
+      afterEditable: null,
+      missingPrevented: false,
+      jumpPrevented: true,
+      scrolledTo: 'P:Real id target',
+    });
+  } finally {
+    await browser.close();
+  }
+});

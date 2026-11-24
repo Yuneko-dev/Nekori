@@ -4,6 +4,7 @@ import android.webkit.WebResourceResponse
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -11,8 +12,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import logcat.logcat
 import mihon.core.archive.NOVEL_IMAGE_SCHEME
@@ -30,9 +29,23 @@ internal class NovelWebViewImageCache(
 
     private val lock = Any()
     private val files = NovelImageCacheFiles(cacheDir, lock)
-    private val prefetchPermits = Semaphore(3)
     private val prefetchJobs = ConcurrentHashMap<String, Job>()
     private val foregroundLocks = ConcurrentHashMap<String, ReentrantLock>()
+
+    // Prefetch slots go to the most recently scheduled chapter first (preserving image order within
+    // a chapter), so chapters already scrolled past don't hold up the one being read.
+    private val chapterPriority = ConcurrentHashMap<Long, Long>()
+    private var nextPriority = 0L
+    private var nextWaiterOrder = 0L
+    private val slotWaiters = mutableListOf<SlotWaiter>()
+    private var runningPrefetches = 0
+
+    private class SlotWaiter(
+        val chapterId: Long,
+        val order: Long,
+        val gate: CompletableDeferred<Unit>,
+    )
+
     private class AssetSource(val loader: PageLoader, val chapter: ReaderChapter?) {
         suspend fun useStream(path: String, block: (InputStream) -> Unit) {
             if (chapter == null) {
@@ -43,6 +56,12 @@ internal class NovelWebViewImageCache(
         }
     }
     private val chapterLoaderMap = ConcurrentHashMap<Long, AssetSource>()
+
+    init {
+        if (scope.isActive) {
+            scope.launch(Dispatchers.IO) { files.sweepStaleFiles() }
+        }
+    }
 
     fun intercept(
         url: String,
@@ -99,6 +118,9 @@ internal class NovelWebViewImageCache(
     fun schedulePrefetch(content: String, chapterId: Long?, loader: PageLoader?, chapter: ReaderChapter? = null) {
         if (chapterId == null || loader == null || !scope.isActive) return
         val source = AssetSource(loader, chapter)
+        synchronized(lock) {
+            chapterPriority[chapterId] = ++nextPriority
+        }
         chapterLoaderMap[chapterId] = source
         IMAGE_URL_PATTERN.findAll(content)
             .map { it.groupValues[1] }
@@ -113,25 +135,31 @@ internal class NovelWebViewImageCache(
                     }
                 val imagePath = runCatching { URLDecoder.decode(encodedImagePath, "UTF-8") }.getOrNull()
                     ?: return@forEach
-                prefetch(chapterId, imagePath, source)
+                val order = synchronized(lock) { ++nextWaiterOrder }
+                prefetch(chapterId, imagePath, source, order)
             }
     }
+
+    internal fun queuedPrefetchCount(): Int = synchronized(lock) { slotWaiters.size }
 
     fun clear() = synchronized(lock) {
         prefetchJobs.values.forEach { it.cancel() }
         prefetchJobs.clear()
+        slotWaiters.forEach { it.gate.cancel() }
+        slotWaiters.clear()
+        chapterPriority.clear()
         files.clear()
         chapterLoaderMap.clear()
     }
 
-    private fun prefetch(chapterId: Long, imagePath: String, source: AssetSource) {
+    private fun prefetch(chapterId: Long, imagePath: String, source: AssetSource, order: Long) {
         val cacheKey = buildCacheKey(chapterId, imagePath)
         val owner = Any()
         lateinit var job: Job
         job = scope.launch(start = CoroutineStart.LAZY, context = Dispatchers.IO) {
             try {
-                prefetchPermits.withPermit {
-                    if (!isActive) return@withPermit
+                withPrefetchSlot(chapterId, order) {
+                    if (!isActive || files.contains(cacheKey)) return@withPrefetchSlot
                     source.useStream(imagePath) { input ->
                         files.write(cacheKey, owner, imagePath, input) { isActive }
                     }
@@ -158,6 +186,46 @@ internal class NovelWebViewImageCache(
             }
         }
         job.start()
+    }
+
+    private suspend fun <T> withPrefetchSlot(chapterId: Long, order: Long, block: suspend () -> T): T {
+        val waiter = synchronized(lock) {
+            if (runningPrefetches < MAX_CONCURRENT_PREFETCHES) {
+                runningPrefetches++
+                null
+            } else {
+                SlotWaiter(chapterId, order, CompletableDeferred()).also(slotWaiters::add)
+            }
+        }
+        if (waiter != null) {
+            try {
+                waiter.gate.await()
+            } catch (e: Throwable) {
+                synchronized(lock) {
+                    if (!slotWaiters.remove(waiter) && waiter.gate.isCompleted && !waiter.gate.isCancelled) {
+                        releasePrefetchSlotLocked()
+                    }
+                }
+                throw e
+            }
+        }
+        return try {
+            block()
+        } finally {
+            synchronized(lock) { releasePrefetchSlotLocked() }
+        }
+    }
+
+    private fun releasePrefetchSlotLocked() {
+        while (slotWaiters.isNotEmpty()) {
+            val bestIdx = slotWaiters.indices.maxWith(
+                compareBy<Int> { chapterPriority[slotWaiters[it].chapterId] ?: 0L }
+                    .thenByDescending { slotWaiters[it].order },
+            )
+            val next = slotWaiters.removeAt(bestIdx)
+            if (next.gate.complete(Unit)) return
+        }
+        runningPrefetches--
     }
 
     private fun buildCacheKey(chapterId: Long?, imagePath: String): String =
@@ -190,6 +258,7 @@ internal class NovelWebViewImageCache(
         }
 
     companion object {
+        private const val MAX_CONCURRENT_PREFETCHES = 3
         const val URL_SCHEME_NOVEL_IMAGE = NOVEL_IMAGE_SCHEME
         private val IMAGE_URL_PATTERN = Regex("${Regex.escape(URL_SCHEME_NOVEL_IMAGE)}([^\"'<>\\s]+)")
     }

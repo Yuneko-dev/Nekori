@@ -101,4 +101,43 @@ class ChapterSearchScreenTest {
         assertFalse(model.state.value.isSearching)
         coVerify(exactly = 0) { source.fetchPageText(any()) }
     }
+
+    @Test
+    fun `range bounds accept comma decimals, filter chapters in order, and reject invalid bounds`() = runBlocking {
+        coEvery { getChapters.await(10L, applyScanlatorFilter = true) } returns listOf(
+            Chapter.create().copy(id = 21L, mangaId = 10L, chapterNumber = 1.0, sourceOrder = 3, url = "/c1"),
+            Chapter.create().copy(id = 22L, mangaId = 10L, chapterNumber = 2.5, sourceOrder = 2, url = "/c2"),
+            Chapter.create().copy(id = 23L, mangaId = 10L, chapterNumber = 4.0, sourceOrder = 1, url = "/c3"),
+        )
+        coEvery { source.fetchPageText(any()) } answers {
+            "match in ${firstArg<eu.kanade.tachiyomi.source.model.Page>().url}"
+        }
+        val rangedModel = ChapterSearchScreen.Model(
+            mangaId = 10L,
+            chapterIds = listOf(21L, 22L, 23L),
+            getManga = getManga,
+            getChaptersByMangaId = getChapters,
+            sourceManager = sources,
+            downloadManager = mockk(),
+            contentReader = mockk(),
+        ).also { model = it }
+
+        withTimeout(5_000) { rangedModel.state.first { it.chapters != null } }
+        rangedModel.updateRange("1,5", "3")
+        rangedModel.updateQuery("match")
+        rangedModel.search()
+        withTimeout(5_000) { rangedModel.state.first { !it.isSearching && it.submittedQuery == "match" } }
+        org.junit.jupiter.api.Assertions.assertEquals(
+            listOf(22L),
+            rangedModel.state.value.results.map {
+                it.chapter.id
+            },
+        )
+        org.junit.jupiter.api.Assertions.assertEquals(1, rangedModel.state.value.searchTotal)
+
+        rangedModel.updateRange("abc", "3")
+        rangedModel.search()
+        assertFalse(rangedModel.state.value.isSearching)
+        assertTrue(rangedModel.state.value.results.isEmpty())
+    }
 }

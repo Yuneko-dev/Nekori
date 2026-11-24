@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.source.rateLimitHost
+import eu.kanade.tachiyomi.ui.category.failureMessage
 import eu.kanade.tachiyomi.ui.reader.quote.QuoteManager
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
@@ -69,10 +70,12 @@ import logcat.LogPriority
 import mihon.core.viewmodel.StateViewModel
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.mapAsCheckboxState
+import tachiyomi.core.common.preference.toCommonCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -590,13 +593,7 @@ class MangaViewModel(
 
                 // Now check if user previously set categories, when available
                 // Filter categories based on content type (manga vs novel)
-                val isNovel = state.manga.isNovel
-                val contentType = if (isNovel) Category.CONTENT_TYPE_NOVEL else Category.CONTENT_TYPE_MANGA
-                val allCategories = getCategories()
-                // Show content-type specific + universal (CONTENT_TYPE_ALL) categories
-                val categories = allCategories.filter {
-                    it.contentType == contentType || it.contentType == Category.CONTENT_TYPE_ALL
-                }
+                val categories = getCategoriesFor(setOf(state.manga.categoryContentType))
                 val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
                 val defaultCategory = categories.find { it.id == defaultCategoryId }
                 when {
@@ -626,15 +623,8 @@ class MangaViewModel(
 
     fun showChangeCategoryDialog() {
         val manga = successState?.manga ?: return
-        val source = successState?.source ?: return
         viewModelScope.launch {
-            // Filter categories based on content type (manga vs novel)
-            val isNovel = manga.isNovel
-            val contentType = if (isNovel) Category.CONTENT_TYPE_NOVEL else Category.CONTENT_TYPE_MANGA
-            val allCategories = getCategories()
-            val categories = allCategories.filter {
-                it.contentType == contentType || it.contentType == Category.CONTENT_TYPE_ALL
-            }
+            val categories = getCategoriesFor(setOf(manga.categoryContentType))
             val selection = getMangaCategoryIds(manga)
             updateSuccessState { successState ->
                 successState.copy(
@@ -645,6 +635,71 @@ class MangaViewModel(
                 )
             }
         }
+    }
+
+    private var duplicatesCategoryWrite: Job? = null
+    private var duplicatesCategoryLoad: Job? = null
+
+    fun showChangeDuplicatesCategoryDialog(mangas: List<Manga>) {
+        val duplicatesDialog = successState?.dialog as? Dialog.DuplicateManga ?: return
+        val returnTo = duplicatesDialog.copy(selectedIds = mangas.mapTo(HashSet()) { it.id })
+        val pendingWrite = duplicatesCategoryWrite
+        // Only the latest selection may open the dialog
+        duplicatesCategoryLoad?.cancel()
+        duplicatesCategoryLoad = viewModelScope.launchIO {
+            // Read the categories only after the previous change landed
+            pendingWrite?.join()
+            val categories: List<Category>
+            val perManga: Map<Long, List<Category>>
+            try {
+                categories = getCategoriesFor(mangas.mapTo(HashSet()) { it.categoryContentType })
+                if (categories.isEmpty() && getCategories().isNotEmpty()) {
+                    withUIContext { context.toast(TDMR.strings.duplicate_no_shared_category) }
+                    return@launchIO
+                }
+                perManga = getCategories.awaitForMangas(mangas.map { it.id })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                withUIContext { context.toast(TDMR.strings.duplicate_categories_load_failed) }
+                return@launchIO
+            }
+            val initialSelection = categories.toCommonCheckboxState(
+                { it.id },
+                mangas.map { manga -> perManga[manga.id].orEmpty().mapTo(HashSet()) { it.id } },
+            )
+            withUIContext {
+                updateSuccessState {
+                    if (it.dialog !== duplicatesDialog) return@updateSuccessState it
+                    it.copy(dialog = Dialog.ChangeDuplicatesCategory(mangas, initialSelection, returnTo))
+                }
+            }
+        }
+    }
+
+    fun setDuplicatesCategories(
+        dialog: Dialog.ChangeDuplicatesCategory,
+        addCategories: List<Long>,
+        removeCategories: List<Long>,
+    ) {
+        // The category dialog already put the duplicates dialog back; drop its selection
+        // now that the change is applied so it doesn't read as still pending.
+        updateSuccessState {
+            if (it.dialog != dialog.returnTo) return@updateSuccessState it
+            it.copy(dialog = dialog.returnTo.copy(selectedIds = emptySet()))
+        }
+        val previousWrite = duplicatesCategoryWrite
+        duplicatesCategoryWrite = viewModelScope.launchNonCancellable {
+            // Changes apply in the order they were made, so a quick second change can't land first.
+            previousWrite?.join()
+            val result = setMangaCategories.update(dialog.mangas.map { it.id }, addCategories, removeCategories)
+            result.failureMessage()?.let { withUIContext { context.toast(it) } }
+        }
+    }
+
+    fun restoreDialog(dialog: Dialog) {
+        updateSuccessState { it.copy(dialog = dialog) }
     }
 
     fun showSetFetchIntervalDialog() {
@@ -766,6 +821,17 @@ class MangaViewModel(
     suspend fun getCategories(): List<Category> {
         return getCategories.await().filterNot { it.isSystemCategory }
     }
+
+    // Categories of the given content types plus the universal ones; a mix only fits the universal ones
+    private suspend fun getCategoriesFor(contentTypes: Set<Int>): List<Category> {
+        val contentType = contentTypes.singleOrNull()
+        return getCategories().filter {
+            it.contentType == Category.CONTENT_TYPE_ALL || it.contentType == contentType
+        }
+    }
+
+    private val Manga.categoryContentType: Int
+        get() = if (isNovel) Category.CONTENT_TYPE_NOVEL else Category.CONTENT_TYPE_MANGA
 
     /**
      * Gets the category id's the manga is in, if the manga is not in a category, returns the default id.
@@ -943,8 +1009,8 @@ class MangaViewModel(
         manga: Manga,
         translatedChapterIds: Set<Long> = emptySet(),
     ): List<ChapterList.Item> {
+        val isMangaLocal = manga.isLocal() || manga.isLocalNovel()
         return map { chapter ->
-            val isMangaLocal = manga.isLocal()
             val activeDownload = if (isMangaLocal) {
                 null
             } else {
@@ -1519,6 +1585,11 @@ class MangaViewModel(
             val manga: Manga,
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
+        data class ChangeDuplicatesCategory(
+            val mangas: List<Manga>,
+            val initialSelection: List<CheckboxState<Category>>,
+            val returnTo: DuplicateManga,
+        ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
         data class RemoveChaptersFromDb(val chapters: List<Chapter>) : Dialog
         data object RemoveManga : Dialog
@@ -1527,6 +1598,7 @@ class MangaViewModel(
             val duplicates: List<MangaWithChapterCount>,
             // False for an entry already in the library, where toggling favorite would remove it.
             val canAddAnyway: Boolean,
+            val selectedIds: Set<Long> = emptySet(),
         ) : Dialog
         data class SimilarNovels(
             val similarNovels: List<MangaWithChapterCount>,
@@ -1538,6 +1610,11 @@ class MangaViewModel(
         data object ClearCustomInfo : Dialog
         data class TranslateMangaDetails(val manga: Manga) : Dialog
         data class ExportEpub(val manga: Manga, val chapters: List<Chapter>) : Dialog
+        data class ConfirmTranslateChapters(
+            val manga: Manga,
+            val chapters: List<Chapter>,
+            val forceRetranslate: Boolean,
+        ) : Dialog
 
         /** [result] is null while counting is in progress. */
         data class WordCount(
@@ -1811,19 +1888,17 @@ class MangaViewModel(
     }
 
     /**
-     * Queue all downloaded chapters for translation.
+     * Ask to translate every downloaded chapter.
      * @param forceRetranslate if true, retranslate even already-translated chapters.
      */
     fun translateDownloadedChapters(forceRetranslate: Boolean = false) {
-        if (!translationPreferences.translationEnabled().get()) return
         val state = successState ?: return
         val manga = state.manga
 
         viewModelScope.launchIO {
-            // Get all downloaded chapters
-            val downloadedChapters = state.chapters.filter { item ->
-                item.downloadState == Download.State.DOWNLOADED
-            }.map { it.chapter }
+            if (!checkTranslationEnabled()) return@launchIO
+
+            val downloadedChapters = state.chapters.filter { it.isDownloaded }.map { it.chapter }
 
             if (downloadedChapters.isEmpty()) {
                 withUIContext {
@@ -1834,40 +1909,19 @@ class MangaViewModel(
                 return@launchIO
             }
 
-            // Filter out already-translated chapters unless forcing
-            val chaptersToTranslate = if (forceRetranslate) {
-                downloadedChapters
-            } else {
-                val translatedIds = translatedChapterIdsFor(manga, downloadedChapters)
-                downloadedChapters.filter { it.id !in translatedIds }
-            }
-
+            val chaptersToTranslate = untranslatedChapters(manga, downloadedChapters, forceRetranslate)
             if (chaptersToTranslate.isEmpty()) {
-                withUIContext {
-                    snackbarHostState.showSnackbar(
-                        context.stringResource(TDMR.strings.translation_all_downloaded_already_translated),
-                    )
+                val message = if (allQueued(downloadedChapters, forceRetranslate)) {
+                    TDMR.strings.translation_nothing_queued
+                } else {
+                    TDMR.strings.translation_all_downloaded_already_translated
                 }
+                withUIContext { snackbarHostState.showSnackbar(context.stringResource(message)) }
                 return@launchIO
             }
 
-            // Queue chapters for translation
-            translationService.enqueueAll(
-                manga,
-                chaptersToTranslate,
-                TranslationService.PRIORITY_NORMAL,
-                forceRetranslate,
-            )
-
-            if (!translationPreferences.translationEnabled().get()) return@launchIO
-
-            // Start background worker with notification
-            TranslationJob.start(context)
-
-            withUIContext {
-                snackbarHostState.showSnackbar(
-                    context.stringResource(TDMR.strings.translation_queued, chaptersToTranslate.size),
-                )
+            updateSuccessState {
+                it.copy(dialog = Dialog.ConfirmTranslateChapters(manga, chaptersToTranslate, forceRetranslate))
             }
         }
     }
@@ -1876,41 +1930,75 @@ class MangaViewModel(
      * Queue selected chapters for translation.
      */
     fun translateSelectedChapters(chapters: List<Chapter>, forceRetranslate: Boolean = false) {
-        if (!translationPreferences.translationEnabled().get()) return
         val state = successState ?: return
         val manga = state.manga
 
         viewModelScope.launchIO {
-            val chaptersToTranslate = if (forceRetranslate) {
-                chapters
-            } else {
-                val translatedIds = translatedChapterIdsFor(manga, chapters)
-                chapters.filter { it.id !in translatedIds }
-            }
+            if (!checkTranslationEnabled()) return@launchIO
 
+            val chaptersToTranslate = untranslatedChapters(manga, chapters, forceRetranslate)
             if (chaptersToTranslate.isEmpty()) {
-                withUIContext {
-                    snackbarHostState.showSnackbar(
-                        context.stringResource(TDMR.strings.translation_selected_already_translated),
-                    )
+                val message = if (allQueued(chapters, forceRetranslate)) {
+                    TDMR.strings.translation_nothing_queued
+                } else {
+                    TDMR.strings.translation_selected_already_translated
                 }
+                withUIContext { snackbarHostState.showSnackbar(context.stringResource(message)) }
                 return@launchIO
             }
 
-            translationService.enqueueAll(
-                manga,
-                chaptersToTranslate,
-                TranslationService.PRIORITY_NORMAL,
-                forceRetranslate,
-            )
-            if (!translationPreferences.translationEnabled().get()) return@launchIO
-            TranslationJob.start(context)
+            queueTranslations(manga, chaptersToTranslate, forceRetranslate)
+        }
+    }
 
-            withUIContext {
-                snackbarHostState.showSnackbar(
-                    context.stringResource(TDMR.strings.translation_queued, chaptersToTranslate.size),
-                )
-            }
+    fun confirmTranslateChapters(dialog: Dialog.ConfirmTranslateChapters) {
+        dismissDialog()
+        viewModelScope.launchIO {
+            queueTranslations(dialog.manga, dialog.chapters, dialog.forceRetranslate)
+        }
+    }
+
+    private suspend fun checkTranslationEnabled(): Boolean {
+        if (translationPreferences.translationEnabled().get()) return true
+        withUIContext {
+            snackbarHostState.showSnackbar(context.stringResource(TDMR.strings.translation_disabled))
+        }
+        return false
+    }
+
+    private suspend fun untranslatedChapters(
+        manga: Manga,
+        chapters: List<Chapter>,
+        forceRetranslate: Boolean,
+    ): List<Chapter> {
+        val notQueued = chapters.filter { !translationService.isQueued(it.id, forceRetranslate) }
+        if (forceRetranslate) return notQueued
+        val translatedIds = translatedChapterIdsFor(manga, notQueued)
+        return notQueued.filter { it.id !in translatedIds }
+    }
+
+    // Chapters left out only because they are queued or translating are not "already translated".
+    private fun allQueued(chapters: List<Chapter>, forceRetranslate: Boolean): Boolean =
+        chapters.isNotEmpty() && chapters.all { translationService.isQueued(it.id, forceRetranslate) }
+
+    private suspend fun queueTranslations(manga: Manga, chapters: List<Chapter>, forceRetranslate: Boolean) {
+        // The confirm dialog can stay open while translation is turned off.
+        if (!checkTranslationEnabled()) return
+        val queued = translationService.enqueueAll(
+            manga,
+            chapters,
+            TranslationService.PRIORITY_NORMAL,
+            forceRetranslate,
+        )
+        TranslationJob.start(context)
+        withUIContext {
+            snackbarHostState.showSnackbar(
+                if (queued > 0) {
+                    context.pluralStringResource(TDMR.plurals.translation_queued, queued, queued)
+                } else {
+                    context.stringResource(TDMR.strings.translation_nothing_queued)
+                },
+            )
         }
     }
 
@@ -2054,14 +2142,13 @@ class MangaViewModel(
              * @return an observable of the list of chapters filtered and sorted.
              */
             private fun List<ChapterList.Item>.applyFilters(manga: Manga): Sequence<ChapterList.Item> {
-                val isLocalManga = manga.isLocal()
                 val unreadFilter = manga.unreadFilter
                 val downloadedFilter = manga.downloadedFilter
                 val bookmarkedFilter = manga.bookmarkedFilter
                 return asSequence()
                     .filter { (chapter) -> applyFilter(unreadFilter) { !chapter.read } }
                     .filter { (chapter) -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
-                    .filter { applyFilter(downloadedFilter) { it.isDownloaded || isLocalManga } }
+                    .filter { applyFilter(downloadedFilter) { it.isDownloaded } }
                     .sortedWith { (chapter1), (chapter2) -> getChapterSort(manga).invoke(chapter1, chapter2) }
             }
         }

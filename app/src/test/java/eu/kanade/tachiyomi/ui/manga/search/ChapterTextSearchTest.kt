@@ -155,4 +155,34 @@ class ChapterTextSearchTest {
             )
         }
     }
+
+    @Test
+    fun `findLiteralMatches matches across span boundaries, retains shared text, and honors cancellation`() {
+        val text = "x".repeat(16_381) + "needle" + "y".repeat(100) + "NEEDLE"
+        val insensitive = ChapterTextSearch.findLiteralMatches(text, "needle", ignoreCase = true)
+        assertEquals(2, insensitive.count)
+        assertSame(text, insensitive.snippets[0].chapterText)
+        assertEquals(16_381, insensitive.snippets[0].start)
+        assertEquals(
+            "needle",
+            insensitive.snippets[0].text.substring(
+                insensitive.snippets[0].matchStart,
+                insensitive.snippets[0].matchEnd,
+            ),
+        )
+        assertEquals(
+            "NEEDLE",
+            insensitive.snippets[1].text.substring(
+                insensitive.snippets[1].matchStart,
+                insensitive.snippets[1].matchEnd,
+            ),
+        )
+
+        val sensitive = ChapterTextSearch.findLiteralMatches(text, "needle", ignoreCase = false)
+        assertEquals(1, sensitive.count)
+
+        assertThrows<CancellationException> {
+            ChapterTextSearch.findLiteralMatches("a".repeat(40_000), "b", ignoreCase = true, isActive = { false })
+        }
+    }
 }

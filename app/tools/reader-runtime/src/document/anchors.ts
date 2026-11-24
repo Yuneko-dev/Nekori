@@ -2,8 +2,12 @@ import { CHAPTER_TAG_NAME } from '../chapters/metadata.ts';
 import type { LayoutController } from '../layout/types.ts';
 
 export function findChapterAnchor(chapter: Element, name: string): Element | null {
-  for (const element of chapter.querySelectorAll<HTMLElement>('[id],a[name]')) {
-    if (element.id === name || element.getAttribute('name') === name) return element;
+  // An id target wins over a same-named <a name>, wherever each sits, as browsers resolve fragments.
+  for (const element of chapter.querySelectorAll<HTMLElement>('[id]')) {
+    if (element.id === name) return element;
+  }
+  for (const element of chapter.querySelectorAll<HTMLElement>('a[name]')) {
+    if (element.getAttribute('name') === name) return element;
   }
   return null;
 }
@@ -23,7 +27,7 @@ export function installScopedAnchors(
     const target = event.target;
     const targetElement = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
     const link = targetElement?.closest<HTMLAnchorElement>('a[href^="#"]');
-    if (!link || !root.contains(link)) return;
+    if (!link || link.isContentEditable || !root.contains(link)) return;
 
     const layout = getLayout();
     const paged = layout?.enabled ?? false;
@@ -38,9 +42,9 @@ export function installScopedAnchors(
     } catch {
       // A malformed encoded fragment still gets a chance to match its literal spelling.
     }
-    event.preventDefault();
     const destination = fragment ? findChapterAnchor(chapter, fragment) : chapter;
     if (!destination) return;
+    event.preventDefault();
     if (paged && layout) layout.revealElement(destination);
     else destination.scrollIntoView({ behavior: 'auto', block: 'start' });
   };

@@ -20,6 +20,8 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Add chapter-number range filtering and parallel chapter scanning to entry chapter search, while retaining RE2/J regex safety and full match expansion.
+- Allow selecting duplicate entries and updating their categories directly from the possible-duplicates dialog.
 - Add an optional classic TTS notification with paragraph progress, leaving media controls available to music players.
 - Add an optional Find and Replace pass on translated chapter text, controlled from the reader and Translation settings [#15](https://github.com/Yuneko-dev/Nekori/issues/15).
 - Add an option to hide infinite-scroll chapter separators, preserving normal paragraph spacing and outer reading margins.
@@ -30,6 +32,12 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add scrolling to the next unread chapter in the displayed list, with an Appearance setting to place chapter-list scroll actions in the overflow menu; toolbar icons are the default.
 
 ### Fixed
+- Follow the system 12/24-hour preference for the novel status bar clock.
+- Treat local novel chapters as already on device during translation, hide inapplicable download/delete actions on local novels, and confirm bulk downloaded-chapter translations with accurate queued counts.
+- Apply multi-entry category updates atomically and report save failures instead of updating the library cache on failed writes.
+- Reload the active chapter cleanly when toggling media blocking (preserving playing or paused TTS), keep in-flight chapter loads intact when TTS stops, open tapped external chapter links in the browser, and prioritize `id` targets over named anchors across all reading layouts while ignoring anchor jumps in edit mode.
+- Resolve relative links, lazy sources and `srcset` candidates against `<base>` before removing it, strip `meta[http-equiv]` redirects even with scripts enabled, and preserve HTML structure via a safelist fallback when chapter markup fails to settle.
+- Prioritize reader image prefetches for the latest scheduled chapter, sweep expired stale cache files on startup, and serialize chapter reloads atomically across navigation changes.
 - Allow paged-reader swipes to start on inline images while keeping image zoom dialogs and interactive controls separate from page navigation.
 - Restore the saved custom reader background when reopening the reader (#17)
 - Reuse matching categories when restoring backups, preserve their local settings, and avoid duplicate categories or novel-category links.

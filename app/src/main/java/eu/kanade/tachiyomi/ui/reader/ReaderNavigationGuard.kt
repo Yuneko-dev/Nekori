@@ -43,6 +43,10 @@ class ReaderNavigationGuard {
     fun isCurrent(request: ReaderNavigationRequest): Boolean = currentId == request.id
 
     @Synchronized
+    fun isManualInFlightExcluding(excluded: ReaderNavigationRequest?): Boolean =
+        manualInFlightId != null && manualInFlightId != excluded?.id
+
+    @Synchronized
     fun finish(request: ReaderNavigationRequest) {
         if (currentId == request.id) {
             currentId = null

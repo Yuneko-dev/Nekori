@@ -9,7 +9,7 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 internal class NovelImageCacheFiles(private val directory: File, private val lock: Any) {
-    private val prefix = "novel-image-${UUID.randomUUID()}-"
+    private val prefix = "$SHARED_FILE_PREFIX${UUID.randomUUID()}-"
     private val cached = mutableMapOf<String, File>()
     private val owners = mutableMapOf<String, Any>()
 
@@ -34,12 +34,20 @@ internal class NovelImageCacheFiles(private val directory: File, private val loc
 
     fun write(key: String, owner: Any, path: String, input: InputStream, isActive: () -> Boolean) {
         val temp = synchronized(lock) {
-            if (owners[key] !== owner) return
+            if (owners[key] !== owner || !isActive()) return
             check(directory.isDirectory || directory.mkdirs()) { "Cannot create reader asset cache" }
             File.createTempFile(prefix, ".tmp", directory)
         }
         try {
-            temp.outputStream().use { output -> input.copyTo(output) }
+            temp.outputStream().use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    if (!isActive()) return
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                }
+            }
             synchronized(lock) {
                 if (owners[key] !== owner || !isActive()) return
                 val suffix = path.substringBefore('?').substringAfterLast('/').substringAfterLast('.', "bin")
@@ -55,9 +63,26 @@ internal class NovelImageCacheFiles(private val directory: File, private val loc
         }
     }
 
+    fun sweepStaleFiles(nowMs: Long = System.currentTimeMillis()) {
+        val cutoff = nowMs - STALE_FILE_AGE_MS
+        directory.listFiles()?.forEach { file ->
+            if (file.name.startsWith(SHARED_FILE_PREFIX) &&
+                !file.name.startsWith(prefix) &&
+                file.lastModified() < cutoff
+            ) {
+                runCatching { file.delete() }
+            }
+        }
+    }
+
     fun clear() = synchronized(lock) {
         owners.clear()
         cached.values.forEach { it.delete() }
         cached.clear()
+    }
+
+    companion object {
+        internal const val SHARED_FILE_PREFIX = "novel-image-"
+        internal const val STALE_FILE_AGE_MS = 60 * 60 * 1000L
     }
 }

@@ -1227,20 +1227,11 @@ class DuplicateDetectionViewModel(
     suspend fun moveSelectedToCategories(addCategories: List<Long>, removeCategories: List<Long>): Boolean {
         val selectedIds = state.value.selection.toList()
         return withContext(Dispatchers.IO) {
-            val addOk = if (addCategories.isNotEmpty()) {
-                setMangaCategories.add(selectedIds, addCategories, skipRefresh = true)
-            } else {
-                true
-            }
-            val removeOk = if (removeCategories.isNotEmpty()) {
-                setMangaCategories.remove(selectedIds, removeCategories, skipRefresh = true)
-            } else {
-                true
-            }
-            setMangaCategories.refreshLibrary()
+            val saved = setMangaCategories.update(selectedIds, addCategories, removeCategories) ==
+                SetMangaCategories.UpdateResult.Saved
             mutableState.update { it.copy(selection = emptySet()) }
             loadDuplicates()
-            addOk && removeOk
+            saved
         }
     }
 

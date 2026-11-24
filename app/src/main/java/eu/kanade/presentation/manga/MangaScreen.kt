@@ -79,6 +79,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.shouldExpandFAB
 import tachiyomi.source.local.isLocal
+import tachiyomi.source.local.isLocalNovel
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Instant
@@ -137,7 +138,7 @@ fun MangaScreen(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
-    onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    onMultiDeleteClicked: ((List<Chapter>) -> Unit)?,
     onMultiRemoveFromDbClicked: (List<Chapter>) -> Unit,
     onMultiDeleteTranslationClicked: (List<Chapter>) -> Unit,
     onTranslateSelectedClicked: ((List<Chapter>) -> Unit)? = null,
@@ -325,7 +326,7 @@ private fun MangaScreenSmallImpl(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
-    onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    onMultiDeleteClicked: ((List<Chapter>) -> Unit)?,
     onMultiRemoveFromDbClicked: (List<Chapter>) -> Unit,
     onMultiDeleteTranslationClicked: (List<Chapter>) -> Unit,
     onTranslateSelectedClicked: ((List<Chapter>) -> Unit)? = null,
@@ -645,7 +646,7 @@ fun MangaScreenLargeImpl(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
-    onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    onMultiDeleteClicked: ((List<Chapter>) -> Unit)?,
     onMultiRemoveFromDbClicked: (List<Chapter>) -> Unit,
     onMultiDeleteTranslationClicked: (List<Chapter>) -> Unit,
     onTranslateSelectedClicked: ((List<Chapter>) -> Unit)? = null,
@@ -915,7 +916,7 @@ private fun SharedMangaBottomActionMenu(
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
-    onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    onMultiDeleteClicked: ((List<Chapter>) -> Unit)?,
     onMultiRemoveFromDbClicked: (List<Chapter>) -> Unit,
     onDeleteRangeClicked: (() -> Unit)?,
     onMultiDeleteTranslationClicked: ((List<Chapter>) -> Unit)? = null,
@@ -947,10 +948,12 @@ private fun SharedMangaBottomActionMenu(
         }.takeIf {
             onDownloadChapter != null && selected.fastAny { it.downloadState != Download.State.DOWNLOADED }
         },
-        onDeleteClicked = {
-            onMultiDeleteClicked(selected.fastMap { it.chapter })
-        }.takeIf {
-            selected.fastAny { it.downloadState == Download.State.DOWNLOADED }
+        onDeleteClicked = onMultiDeleteClicked?.let { onDelete ->
+            {
+                onDelete(selected.fastMap { it.chapter })
+            }.takeIf {
+                selected.fastAny { it.downloadState == Download.State.DOWNLOADED }
+            }
         },
         onRemoveFromDbClicked = {
             onMultiRemoveFromDbClicked(selected.fastMap { it.chapter })
@@ -1050,7 +1053,7 @@ private fun LazyListScope.sharedChapterItems(
                     bookmark = item.chapter.bookmark,
                     hasTranslation = item.hasTranslation,
                     selected = item.selected,
-                    downloadIndicatorEnabled = !isAnyChapterSelected && !manga.isLocal(),
+                    downloadIndicatorEnabled = !isAnyChapterSelected && !manga.isLocal() && !manga.isLocalNovel(),
                     downloadStateProvider = { item.downloadState },
                     downloadProgressProvider = { item.downloadProgress },
                     chapterSwipeStartAction = chapterSwipeStartAction,

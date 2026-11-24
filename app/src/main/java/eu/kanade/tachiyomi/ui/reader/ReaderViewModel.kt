@@ -59,11 +59,14 @@ import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.source.getMangaUrlOrNull
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -708,9 +711,12 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     private fun loadNewChapter(chapter: ReaderChapter) {
         val loader = loader ?: return
+        val staleReload = if (chapter !== state.value.viewerChapters?.currChapter) cancelPendingReload() else null
         val navigationRequest = navigationGuard.begin(ReaderNavigationSource.AUTOMATIC) ?: return
 
         viewModelScope.launchIO {
+            // Its cleanup must not land on top of this load.
+            staleReload?.join()
             logcat { "Loading ${chapter.chapter.url}" }
 
             try {
@@ -740,10 +746,12 @@ class ReaderViewModel @JvmOverloads constructor(
         flushHistoryBeforeCommit: Boolean = false,
     ): Boolean {
         val loader = loader ?: return false
+        val staleReload = cancelPendingReload()
 
         logcat { "Loading adjacent ${chapter.chapter.url}" }
 
         return try {
+            staleReload?.join()
             withIOContext {
                 loadChapter(
                     loader = loader,
@@ -840,6 +848,9 @@ class ReaderViewModel @JvmOverloads constructor(
      * Used when switching between already-appended chapters during novel infinite-scroll.
      */
     private fun setActiveChapterWithoutReload(chapter: ReaderChapter) {
+        if (chapter !== state.value.viewerChapters?.currChapter) {
+            cancelPendingReload()
+        }
         val navigationRequest = navigationGuard.begin(ReaderNavigationSource.AUTOMATIC) ?: return
         viewModelScope.launchIO {
             try {
@@ -892,65 +903,106 @@ class ReaderViewModel @JvmOverloads constructor(
         }
     }
 
+    private val reloadStateLock = Any()
     private var reloadJob: Job? = null
+    private var activeReloadRequest: ReaderNavigationRequest? = null
+
+    private fun cancelPendingReload(): Job? = synchronized(reloadStateLock) {
+        val job = reloadJob
+        activeReloadRequest?.let {
+            navigationGuard.finish(it)
+            activeReloadRequest = null
+        }
+        job?.cancel()
+        job
+    }
 
     /**
      * Reloads the current chapter. If fromSource is true, it will fetch from the source,
      * otherwise it will reload the local/downloaded version. Returns whether a reload was accepted.
      */
+    @OptIn(DelicateCoroutinesApi::class)
     fun reloadChapter(fromSource: Boolean = false): Boolean {
         val currChapter = state.value.viewerChapters?.currChapter ?: return false
         val loader = loader
         val sample = preview
         if (loader == null && sample == null) return false
-        val navigationRequest = navigationGuard.begin(ReaderNavigationSource.USER) ?: return false
 
-        // The viewer no-ops setChapters for an already-loaded chapter id, so the reload would fetch
-        // fresh pages and then render nothing. Callers are on the main thread, same as the viewer.
-        (state.value.viewer as? NovelWebViewViewer)?.invalidateLoadedChapters()
+        synchronized(reloadStateLock) {
+            // A reload landing after a Next/Previous/Drawer switch would put back the chapter being left.
+            if (navigationGuard.isManualInFlightExcluding(activeReloadRequest)) return false
+            val navigationRequest = navigationGuard.begin(ReaderNavigationSource.USER) ?: return false
+            val previousJob = reloadJob
+            activeReloadRequest = navigationRequest
 
-        val previousJob = reloadJob
-        reloadJob = viewModelScope.launchIO {
-            try {
-                previousJob?.cancelAndJoin()
-                if (!navigationGuard.isCurrent(navigationRequest)) return@launchIO
-                // Reset chapter state to force reload
-                currChapter.state = ReaderChapter.State.Wait
+            // The viewer no-ops setChapters for an already-loaded chapter id, so the reload would fetch
+            // fresh pages and then render nothing. Callers are on the main thread, same as the viewer.
+            (state.value.viewer as? NovelWebViewViewer)?.invalidateLoadedChapters()
 
-                val committed = if (sample != null) {
-                    sample.load()
-                    navigationGuard.isCurrent(navigationRequest)
-                } else {
-                    loadChapter(
-                        loader = loader!!,
-                        chapter = currChapter,
-                        forceFromSource = fromSource,
-                        navigationRequest = navigationRequest,
-                    )
-                }
+            // Started atomically so even a reload cancelled before it runs still cancels and waits for earlier ones.
+            reloadJob = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.ATOMIC) {
+                try {
+                    previousJob?.cancel()
+                    withContext(NonCancellable) { previousJob?.join() }
+                    ensureActive()
+                    if (!navigationGuard.isCurrent(navigationRequest) ||
+                        currChapter !== state.value.viewerChapters?.currChapter
+                    ) {
+                        return@launch
+                    }
+                    // Reset chapter state to force reload
+                    currChapter.state = ReaderChapter.State.Wait
 
-                // Notify the viewer to refresh
-                if (committed) {
-                    withUIContext {
-                        if (navigationGuard.isCurrent(navigationRequest)) {
-                            state.value.viewerChapters?.let { state.value.viewer?.setChapters(it) }
+                    val committed = if (sample != null) {
+                        sample.load()
+                        navigationGuard.isCurrent(navigationRequest)
+                    } else {
+                        loadChapter(
+                            loader = loader!!,
+                            chapter = currChapter,
+                            forceFromSource = fromSource,
+                            navigationRequest = navigationRequest,
+                        )
+                    }
+
+                    // Notify the viewer to refresh
+                    if (committed) {
+                        deliverReloadToViewer(navigationRequest)
+                    }
+                } catch (e: Throwable) {
+                    if (e is CancellationException) {
+                        val chapterState = currChapter.state
+                        if (chapterState == ReaderChapter.State.Loading ||
+                            (chapterState is ReaderChapter.State.Error && chapterState.error is CancellationException)
+                        ) {
+                            currChapter.state = ReaderChapter.State.Wait
                         }
+                        throw e
                     }
-                }
-            } catch (e: Throwable) {
-                if (e is CancellationException) throw e
-                logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
-                // Mutating the same ReaderChapter does not change ViewerChapters equality.
-                withUIContext {
-                    if (navigationGuard.isCurrent(navigationRequest)) {
-                        state.value.viewerChapters?.let { state.value.viewer?.setChapters(it) }
+                    logcat(LogPriority.ERROR, e) { "Failed to reload chapter" }
+                    // Mutating the same ReaderChapter does not change ViewerChapters equality.
+                    deliverReloadToViewer(navigationRequest)
+                } finally {
+                    synchronized(reloadStateLock) {
+                        if (activeReloadRequest === navigationRequest) activeReloadRequest = null
                     }
+                    navigationGuard.finish(navigationRequest)
                 }
-            } finally {
-                navigationGuard.finish(navigationRequest)
             }
         }
         return true
+    }
+
+    private suspend fun deliverReloadToViewer(navigationRequest: ReaderNavigationRequest) {
+        withUIContext {
+            if (!navigationGuard.isCurrent(navigationRequest)) return@withUIContext
+            try {
+                state.value.viewerChapters?.let { state.value.viewer?.setChapters(it) }
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                logcat(LogPriority.ERROR, e) { "Failed to show reloaded chapter" }
+            }
+        }
     }
 
     /**

@@ -26,6 +26,29 @@ class NovelDocumentTransitionTest {
         verify(exactly = 1) { viewer["finishRealChapterLoad"]() }
     }
 
+    @Test
+    fun `stopTts keeps an in-flight real chapter load ready to finish setup`() {
+        val viewer = mockk<NovelWebViewViewer>(relaxed = true)
+        every { viewer.stopTts() } answers { callOriginal() }
+        every { viewer["handleReaderReady"]() } answers { callOriginal() }
+        every { viewer["finishRealChapterLoad"]() } returns Unit
+        val controllerField = NovelWebViewViewer::class.java.getDeclaredField("ttsController").apply {
+            isAccessible =
+                true
+        }
+        controllerField.set(
+            viewer,
+            mockk<eu.kanade.tachiyomi.ui.reader.viewer.text.shared.TtsController>(relaxed = true),
+        )
+        val state = NovelWebViewViewer::class.java.getDeclaredField("docState").apply { isAccessible = true }
+        state.set(viewer, state.type.enumConstants.first { (it as Enum<*>).name == "LOADING_REAL" })
+
+        viewer.stopTts()
+        invoke(viewer, "handleReaderReady")
+
+        verify(exactly = 1) { viewer["finishRealChapterLoad"]() }
+    }
+
     private fun invoke(viewer: NovelWebViewViewer, name: String, vararg values: Any) {
         val method = NovelWebViewViewer::class.java.declaredMethods.single { it.name == name }
         method.isAccessible = true

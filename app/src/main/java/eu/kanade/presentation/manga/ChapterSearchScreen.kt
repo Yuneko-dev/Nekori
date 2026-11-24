@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ExpandLess
@@ -24,6 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
@@ -33,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -62,6 +67,7 @@ fun ChapterSearchScreenContent(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onOptionsChange: (ChapterSearchOptions) -> Unit,
+    onRangeChange: (from: String, to: String) -> Unit,
     onResultClick: (Chapter, ChapterSearchSnippet?) -> Unit,
 ) {
     Scaffold(
@@ -77,7 +83,7 @@ fun ChapterSearchScreenContent(
                         navigateUp = navigateUp,
                         scrollBehavior = scrollBehavior,
                     )
-                    val total = state.chapters?.size ?: 0
+                    val total = state.searchTotal
                     if (state.isSearching && total > 0) {
                         LinearProgressIndicator(
                             progress = { state.searchedCount / total.toFloat() },
@@ -88,6 +94,7 @@ fun ChapterSearchScreenContent(
                     }
                 }
                 SearchOptionsRow(options = state.options, onOptionsChange = onOptionsChange)
+                RangeRow(state = state, onRangeChange = onRangeChange, onSearch = onSearch)
                 if (state.options.isRegex) {
                     Text(
                         text = stringResource(TDMR.strings.chapter_search_regex_hint),
@@ -119,7 +126,7 @@ fun ChapterSearchScreenContent(
             )
             else -> SearchResults(
                 state = state,
-                totalChapters = chapters.size,
+                totalChapters = state.searchTotal,
                 contentPadding = contentPadding,
                 onResultClick = onResultClick,
             )
@@ -157,13 +164,55 @@ private fun SearchOptionsRow(
 }
 
 @Composable
+private fun RangeRow(
+    state: ChapterSearchScreen.State,
+    onRangeChange: (from: String, to: String) -> Unit,
+    onSearch: () -> Unit,
+) {
+    val keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Search)
+    val keyboardActions = KeyboardActions(onSearch = { onSearch() })
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.extraSmall),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+    ) {
+        OutlinedTextField(
+            value = state.rangeFrom,
+            onValueChange = { onRangeChange(it, state.rangeTo) },
+            label = { Text(stringResource(TDMR.strings.chapter_search_range_from)) },
+            isError = ChapterSearchScreen.Model.parseRangeBound(state.rangeFrom) == null,
+            singleLine = true,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            modifier = Modifier.weight(1f),
+        )
+        OutlinedTextField(
+            value = state.rangeTo,
+            onValueChange = { onRangeChange(state.rangeFrom, it) },
+            label = { Text(stringResource(TDMR.strings.chapter_search_range_to)) },
+            isError = ChapterSearchScreen.Model.parseRangeBound(state.rangeTo) == null,
+            singleLine = true,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
 private fun SearchResults(
     state: ChapterSearchScreen.State,
     totalChapters: Int,
     contentPadding: PaddingValues,
     onResultClick: (Chapter, ChapterSearchSnippet?) -> Unit,
 ) {
-    val expandedChapters = remember(state.submittedQuery, state.options) { mutableStateMapOf<Long, Boolean>() }
+    val expandedChapters = remember(
+        state.submittedQuery,
+        state.options,
+        state.rangeFrom,
+        state.rangeTo,
+    ) { mutableStateMapOf<Long, Boolean>() }
     FastScrollLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding,

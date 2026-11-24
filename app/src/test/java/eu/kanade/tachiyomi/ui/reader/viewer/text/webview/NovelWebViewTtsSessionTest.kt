@@ -140,6 +140,9 @@ class NovelWebViewTtsSessionTest {
         viewer.setField("pendingTtsAutoStartOnLoad", true)
         assertTrue(viewer.isTtsActive(), "Keep the media service alive while the next document loads")
         viewer.setField("pendingTtsAutoStartOnLoad", false)
+        viewer.setField("resumeTtsAfterRestore", true)
+        assertTrue(viewer.isTtsActive(), "Keep the media service alive across a media-policy reload")
+        viewer.setField("resumeTtsAfterRestore", false)
         every { controller.isTtsAutoPlay } returns true
         assertTrue(viewer.isTtsActive())
         every { controller.isTtsAutoPlay } returns false

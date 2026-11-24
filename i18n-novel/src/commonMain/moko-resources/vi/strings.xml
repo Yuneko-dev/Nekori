@@ -237,6 +237,9 @@
     <string name="duplicate_category_include_or">HOẶC</string>
     <string name="duplicate_category_include_and">VÀ</string>
     <string name="duplicate_dismiss_group">Bỏ nhóm</string>
+    <string name="duplicate_no_shared_category">Không có danh mục phù hợp với loại nội dung của các mục đã chọn</string>
+    <string name="duplicate_categories_failed">Không thể lưu danh mục</string>
+    <string name="duplicate_categories_load_failed">Không thể tải danh mục</string>
     <string name="duplicate_deselect_group">Bỏ chọn nhóm</string>
     <string name="duplicate_match_label">Kiểu so khớp</string>
     <string name="epub_novels_export_count">Sẽ xuất %d tiểu thuyết.</string>
@@ -532,7 +535,8 @@
     <string name="not_set">Chưa đặt</string>
     <string name="no_limit">Không giới hạn</string>
     <string name="no_downloaded_chapters">Không tìm thấy chương đã tải</string>
-    <string name="translation_queued">Đã xếp %d chương vào hàng đợi dịch</string>
+    <string name="translation_nothing_queued">Các chương đã chọn hiện đã nằm trong hàng đợi dịch</string>
+    <string name="translation_disabled">Tính năng dịch đang tắt. Hãy bật trong cài đặt dịch</string>
 
     <!-- Custom Source - Create dialog hint -->
 
@@ -1433,6 +1437,8 @@
     <string name="chapter_search_progress">Đã tìm trong %1$d trên %2$d chương</string>
     <string name="chapter_search_no_chapters">Không có chương đã tải để tìm kiếm</string>
     <string name="chapter_search_empty">Tìm nội dung trong các chương đã tải thuộc bộ lọc hiện tại</string>
+    <string name="chapter_search_range_from">Từ chương</string>
+    <string name="chapter_search_range_to">Đến chương</string>
     <string name="chapter_search_open_match">Đến đoạn khớp</string>
     <string name="action_word_count">Số từ</string>
     <string name="word_count_progress">Đang đếm từ trong %1$d trên %2$d chương…</string>

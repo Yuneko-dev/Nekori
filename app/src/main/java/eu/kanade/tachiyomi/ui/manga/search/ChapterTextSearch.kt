@@ -52,6 +52,8 @@ data class ChapterTextMatches(
 object ChapterTextSearch {
 
     private const val WORD_SEPARATOR = "[^\\p{L}\\p{M}\\p{N}_]"
+    private const val LITERAL_SPAN = 16_384
+    private const val CANCEL_CHECK_MATCHES = 64
 
     /**
      * Builds the regex for [query]. Plain queries are matched literally.
@@ -70,6 +72,47 @@ object ChapterTextSearch {
      * Reduces chapter HTML (or plain text) to whitespace-normalized visible text.
      */
     fun toPlainText(content: String): String = Jsoup.parse(content).body().text()
+
+    /**
+     * Plain query equivalent of [findMatches] without the regex engine, retaining every match as an
+     * offset into the shared [text].
+     */
+    fun findLiteralMatches(
+        text: String,
+        query: String,
+        ignoreCase: Boolean,
+        isActive: () -> Boolean = { true },
+    ): ChapterTextMatches {
+        if (!isActive()) throw CancellationException("Chapter search cancelled")
+        if (text.isEmpty() || query.isEmpty()) return ChapterTextMatches(emptyList())
+        val snippets = mutableListOf<ChapterSearchSnippet>()
+        // Scanned in overlapping spans with cancellation checks between them, so a long scan without
+        // matches still stops and chapters with many matches allocate at most one copy per span.
+        var spanStart = 0
+        var nextFree = 0
+        while (true) {
+            val spanEnd = minOf(text.length, spanStart + LITERAL_SPAN + query.length - 1)
+            val last = spanEnd == text.length
+            val span = if (spanStart == 0 && last) text else text.substring(spanStart, spanEnd)
+            var from = (nextFree - spanStart).coerceAtLeast(0)
+            while (true) {
+                val hit = span.indexOf(query, from, ignoreCase)
+                // A match starting past the span belongs to the next one.
+                if (hit < 0 || (!last && hit >= LITERAL_SPAN)) break
+                val at = spanStart + hit
+                if (snippets.size % CANCEL_CHECK_MATCHES == 0 && !isActive()) {
+                    throw CancellationException("Chapter search cancelled")
+                }
+                snippets += ChapterSearchSnippet(text, at, at + query.length)
+                nextFree = at + query.length
+                from = hit + query.length
+            }
+            if (last) break
+            if (!isActive()) throw CancellationException("Chapter search cancelled")
+            spanStart += LITERAL_SPAN
+        }
+        return ChapterTextMatches(snippets)
+    }
 
     /**
      * Keeps every non-empty match as offsets into one shared chapter string.
