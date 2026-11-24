@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.ChapterContent
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.FilterSuggestion
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -18,8 +19,10 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.novel.PagedNovelSource
 import eu.kanade.tachiyomi.util.lang.normalizeHtmlDescription
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -32,6 +35,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -118,6 +122,7 @@ class JsSource(
     companion object {
         private const val BROWSE_PROBE_TTL_MS = 60_000L
         private const val PLUGIN_CALL_TIMEOUT_MS = 90_000L
+        private const val FILTER_SUGGESTION_TIMEOUT_MS = 5_000L
 
         private val HTML_TAG_REGEX = Regex(
             "<(?:p|div|br|span|h[1-6]|ul|ol|li|a|img|table|blockquote|strong|em|b|i|code)\\b",
@@ -649,6 +654,38 @@ class JsSource(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Error getting filters for ${plugin.name}" }
             FilterList()
+        }
+    }
+
+    /**
+     * Asks the plugin for autocomplete entries for one filter input.
+     *
+     * Plugins opt in by flagging a text-like filter with `autocomplete: true` and implementing
+     * `getFilterSuggestions(filterKey, query)`. A plugin without the method returns an empty list, so
+     * the input stays plain free text.
+     */
+    suspend fun getFilterSuggestions(filterKey: String, query: String): List<FilterSuggestion> {
+        if (filterKey.isBlank() || query.isBlank()) return emptyList()
+        return try {
+            ensureLoadedInHermes()
+            val payload = buildJsonObject {
+                put("id", pluginId)
+                put("key", runtimeKey)
+                put("filterKey", filterKey)
+                put("query", query)
+            }.toString()
+            val result = withTimeout(FILTER_SUGGESTION_TIMEOUT_MS) {
+                hermesRuntime.call("plugin.filterSuggestions", payload)
+            }
+            parseFilterSuggestions(result)
+        } catch (e: TimeoutCancellationException) {
+            logcat(LogPriority.WARN, e) { "[$pluginId] Filter suggestions timed out" }
+            emptyList()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "[$pluginId] Could not load filter suggestions" }
+            emptyList()
         }
     }
 
@@ -1239,6 +1276,23 @@ class JsSource(
         return 0L
     }
 
+    private fun parseFilterSuggestions(jsonResult: String): List<FilterSuggestion> {
+        val element = runCatching { json.parseToJsonElement(jsonResult) }.getOrNull() ?: return emptyList()
+        val suggestions = when (element) {
+            is JsonObject -> element["suggestions"] as? JsonArray
+            is JsonArray -> element
+            else -> null
+        } ?: return emptyList()
+
+        return suggestions.mapNotNull { suggestion ->
+            val obj = suggestion as? JsonObject ?: return@mapNotNull null
+            val value = obj["value"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            val label = obj["label"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: value
+            FilterSuggestion(label = label, value = value)
+        }
+    }
+
     private fun parseFiltersFromJson(jsonResult: String): FilterList {
         if (jsonResult == "null" || jsonResult.isBlank() || jsonResult == "{}" || jsonResult == "[]") {
             return FilterList()
@@ -1327,13 +1381,10 @@ class JsSource(
     /** Text input filter that stores the original JSON key */
     class JsTextFilter(
         name: String,
-        val key: String,
+        override val key: String,
         defaultValue: String = "",
-    ) : Filter.Text(name) {
-        init {
-            state = defaultValue
-        }
-    }
+        autocomplete: Boolean = false,
+    ) : Filter.Text(name, defaultValue, key, autocomplete)
 
     /** Switch filter that stores the original JSON key */
     class JsSwitchFilter(
@@ -1349,7 +1400,8 @@ class JsSource(
         when (type) {
             "Text" -> {
                 val defaultValue = filterObj["value"]?.jsonPrimitive?.content ?: ""
-                filters.add(JsTextFilter(label, key, defaultValue))
+                val autocomplete = filterObj["autocomplete"]?.jsonPrimitive?.booleanOrNull == true
+                filters.add(JsTextFilter(label, key, defaultValue, autocomplete))
             }
 
             "Picker" -> {

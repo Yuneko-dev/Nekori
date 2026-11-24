@@ -617,6 +617,7 @@ data class BrowseSourceScreen(
                     onSavePreset = viewModel::saveFilterPreset,
                     onLoadPreset = viewModel::loadFilterPreset,
                     onDeletePreset = viewModel::deleteFilterPreset,
+                    onFetchFilterSuggestions = viewModel::fetchFilterSuggestions,
                 )
             }
             is BrowseSourceViewModel.Dialog.FilterPresets -> {

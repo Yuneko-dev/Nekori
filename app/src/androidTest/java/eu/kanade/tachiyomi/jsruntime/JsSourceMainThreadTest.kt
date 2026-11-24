@@ -192,6 +192,14 @@ class JsSourceMainThreadTest {
     }
 
     @Test
+    fun exposesAutocompleteOnTextFilters() = runBlocking {
+        val filters = createSource().getFilterListAsync()
+
+        val query = filters.filterIsInstance<JsSource.JsTextFilter>().single { it.key == "query" }
+        assertTrue(query.autocomplete)
+    }
+
+    @Test
     fun exposesSelectAndCheckboxGroupPluginSettings() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
@@ -226,7 +234,7 @@ class JsSourceMainThreadTest {
                       version: '1',
                       site: 'https://example.com',
                       filters: {
-                        query: { type: 'Text', label: 'Query', value: '' },
+                        query: { type: 'Text', label: 'Query', value: '', autocomplete: true },
                         category: {
                           type: 'Picker',
                           label: 'Category',

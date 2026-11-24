@@ -243,6 +243,26 @@ registerHandler('plugin.filters', async args => {
   }
 });
 
+registerHandler('plugin.filterSuggestions', async args => {
+  const { id, key, filterKey, query } = args as {
+    id: string;
+    key?: string;
+    filterKey: string;
+    query: string;
+  };
+  const runtimeKey = key ?? id;
+  try {
+    const plugin = getPlugin(runtimeKey);
+    const suggestions =
+      typeof plugin.getFilterSuggestions === 'function'
+        ? await plugin.getFilterSuggestions(filterKey, query)
+        : [];
+    return { suggestions: suggestions ?? [] };
+  } finally {
+    await flushPluginStorage(runtimeKey);
+  }
+});
+
 registerHandler('plugin.settings', async args => {
   const { id, key } = args as { id: string; key?: string };
   const runtimeKey = key ?? id;

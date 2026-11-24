@@ -1,4 +1,4 @@
-import { Filters, FilterToValues } from './filterTypes';
+import { FilterOption, Filters, FilterToValues } from './filterTypes';
 
 export const NEKORI_API_VERSION = 2;
 
@@ -148,6 +148,10 @@ export interface Plugin extends Omit<PluginItem, 'lang'> {
   parsePage?: (novelPath: string, page: string) => Promise<SourcePage>;
   parseChapter: (chapterPath: string) => Promise<string | ChapterContent>;
   searchNovels: (searchTerm: string, pageNo: number) => Promise<NovelItem[]>;
+  getFilterSuggestions?: (
+    filterKey: string,
+    query: string,
+  ) => Promise<FilterOption[]>;
   resolveUrl?: (path: string, isNovel?: boolean) => string;
   webStorageUtilized?: boolean;
 }
