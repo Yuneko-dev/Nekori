@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.jsplugin.source.JsSource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.isNovelSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.FilterSuggestion
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -321,6 +322,10 @@ class BrowseSourceViewModel(
             it.copy(pendingFilters = filters)
         }
     }
+
+    /** Autocomplete entries for a JS plugin filter; plain sources have none. */
+    suspend fun fetchFilterSuggestions(filterKey: String, query: String): List<FilterSuggestion> =
+        (source as? JsSource)?.getFilterSuggestions(filterKey, query).orEmpty()
 
     /**
      * Open the filter dialog and copy current applied filters to pendingFilters for editing.

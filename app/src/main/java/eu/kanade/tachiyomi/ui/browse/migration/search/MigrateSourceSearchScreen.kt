@@ -144,6 +144,7 @@ data class MigrateSourceSearchScreen(
                     onSavePreset = { _, _ -> },
                     onLoadPreset = { },
                     onDeletePreset = { },
+                    onFetchFilterSuggestions = viewModel::fetchFilterSuggestions,
                 )
             }
             is BrowseSourceViewModel.Dialog.Migrate -> {

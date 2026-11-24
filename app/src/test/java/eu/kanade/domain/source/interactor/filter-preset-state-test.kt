@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 
 class FilterPresetStateTest {
     private fun text(name: String, value: String = "") = object : Filter.Text(name, value) {}
+    private fun multi(name: String, value: List<String> = emptyList()) = object : Filter.MultiText(name, value) {}
     private fun check(name: String, value: Boolean = false) = object : Filter.CheckBox(name, value) {}
     private fun tri(name: String, value: Int = 0) = object : Filter.TriState(name, value) {}
     private fun select(name: String, vararg values: String) = object : Filter.Select<String>(name, arrayOf(*values)) {}
@@ -154,6 +155,17 @@ class FilterPresetStateTest {
         assertEquals(1, current.state)
         restore(FilterList(current), """[{"name":"Status","state":-1,"value":"Option@def"}]""")
         assertEquals(1, current.state)
+    }
+
+    @Test
+    fun `multi text filters retain their chip values and reject other shapes`() {
+        val old = multi("Tags", listOf("a", "b"))
+        val current = multi("Tags")
+        restore(FilterList(current), saved(old))
+        assertEquals(listOf("a", "b"), current.state)
+
+        restore(FilterList(current), """[{"name":"Tags","kind":"multitext","state":"plain"}]""")
+        assertEquals(listOf("a", "b"), current.state)
     }
 
     @Test

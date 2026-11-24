@@ -31,6 +31,7 @@ internal object FilterPresetState {
                         is Filter.CheckBox -> JsonPrimitive(filter.state)
                         is Filter.TriState -> JsonPrimitive(filter.state)
                         is Filter.Text -> JsonPrimitive(filter.state)
+                        is Filter.MultiText -> JsonArray(filter.state.map { JsonPrimitive(it) })
                         is Filter.Select<*> -> JsonPrimitive(filter.state)
                         is Filter.Sort -> buildJsonObject {
                             filter.state?.let {
@@ -86,6 +87,10 @@ internal object FilterPresetState {
             is Filter.CheckBox -> filter.state = state.boolean() ?: return false
             is Filter.TriState -> filter.state = state.integer()?.takeIf { it in 0..2 } ?: return false
             is Filter.Text -> filter.state = state.string() ?: return false
+            is Filter.MultiText -> {
+                val values = state as? JsonArray ?: return false
+                filter.state = values.mapNotNull { (it as? JsonPrimitive)?.takeIf { value -> value.isString }?.content }
+            }
             is Filter.Select<*> -> filter.state = selectIndex(filter, entry, state) ?: return false
             is Filter.Sort -> {
                 val sort = state as? JsonObject ?: return false
@@ -115,6 +120,7 @@ internal object FilterPresetState {
         is Filter.CheckBox -> state.boolean() != null
         is Filter.TriState -> state.integer() in 0..2
         is Filter.Text -> state.string() != null
+        is Filter.MultiText -> state is JsonArray
         is Filter.Select<*> -> state.integer() != null && selectIndex(filter, entry, state) != null
         is Filter.Sort -> state is JsonObject && (
             state.isEmpty() ||
@@ -128,6 +134,7 @@ internal object FilterPresetState {
         is Filter.CheckBox -> "checkbox"
         is Filter.TriState -> "tristate"
         is Filter.Text -> "text"
+        is Filter.MultiText -> "multitext"
         is Filter.Select<*> -> "select"
         is Filter.Sort -> "sort"
         is Filter.Group<*> -> "group"
