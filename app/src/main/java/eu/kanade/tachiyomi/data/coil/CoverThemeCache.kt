@@ -8,7 +8,9 @@ import tachiyomi.domain.manga.model.MangaCover
 
 internal fun isUnavailableCover(url: String?): Boolean {
     val path = url?.toHttpUrlOrNull()?.encodedPath ?: return false
-    return path.endsWith("/static/coverNotAvailable.webp")
+    return path.endsWith("/static/coverNotAvailable.webp") ||
+        path.endsWith("/static/coverNotAvailable.jpg") ||
+        path.endsWith("/icons/src/coverNotAvailable.jpg")
 }
 
 /** Process-local seeds, keyed by cover revision so replacing a cover cannot reuse its old color. */

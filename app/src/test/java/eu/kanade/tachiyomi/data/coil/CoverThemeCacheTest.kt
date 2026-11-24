@@ -20,6 +20,8 @@ class CoverThemeCacheTest {
             "https://example.org/static/coverNotAvailable.webp#cover",
             "https://example.org/static/coverNotAvailable.webp",
             "https://example.org/static/coverNotAvailable.webp?v=2#cover",
+            "https://github.com/LNReader/lnreader-plugins/blob/master/public/static/coverNotAvailable.jpg?raw=true",
+            "https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/icons/src/coverNotAvailable.jpg",
         ).forEach { assertTrue(isUnavailableCover(it), it) }
         listOf(
             "static/coverNotAvailable.webp",

@@ -11,6 +11,7 @@
     "format:check": "prettier --check \"src/**/*.{js,ts}\" \"specs/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "test:chapter": "node --experimental-strip-types --test tests/chapter-content.test.mjs",
+    "test:plugin-error": "node --experimental-transform-types --test tests/plugin-error.test.mjs",
     "check": "pnpm run type-check && pnpm run lint && pnpm run format:check"
   },
   "codegenConfig": {

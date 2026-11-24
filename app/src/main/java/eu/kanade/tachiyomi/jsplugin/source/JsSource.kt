@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.jsplugin.source
 
 import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.data.coil.isUnavailableCover
 import eu.kanade.tachiyomi.jsplugin.model.InstalledJsPlugin
 import eu.kanade.tachiyomi.jsplugin.model.JsPlugin
 import eu.kanade.tachiyomi.jsplugin.resolveJsPluginSite
@@ -984,6 +985,17 @@ class JsSource(
         return stripInvalidChars(org.jsoup.parser.Parser.unescapeEntities(this, true))
     }
 
+    private fun normalizeCoverUrl(raw: String?): String? {
+        val trimmed = raw?.trim()
+        if (trimmed.isNullOrEmpty() || trimmed == "null") return null
+        val resolved = when {
+            trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+            trimmed.startsWith("/") -> baseUrl + trimmed // baseUrl has no trailing slash
+            else -> "$baseUrl/$trimmed"
+        }
+        return resolved.takeUnless(::isUnavailableCover)
+    }
+
     private fun parseMangasPage(jsonResult: String, page: Int): MangasPage {
         if (jsonResult == "null" || jsonResult.isBlank()) {
             return MangasPage(emptyList(), false)
@@ -1012,14 +1024,7 @@ class JsSource(
                     SManga.create().apply {
                         title = obj["name"]?.jsonPrimitive?.content?.decodeEntities() ?: return@mapNotNull null
                         url = obj["path"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                        // Ensure thumbnail_url is a valid URL or null
-                        val coverUrl = obj["cover"]?.jsonPrimitive?.content
-                        thumbnail_url = when {
-                            coverUrl.isNullOrBlank() || coverUrl == "null" -> null
-                            coverUrl.startsWith("http://") || coverUrl.startsWith("https://") -> coverUrl
-                            coverUrl.startsWith("/") -> baseUrl + coverUrl // baseUrl has no trailing slash
-                            else -> "$baseUrl/$coverUrl" // Add slash between baseUrl and relative path
-                        }
+                        thumbnail_url = normalizeCoverUrl(obj["cover"]?.jsonPrimitive?.contentOrNull)
                         author = obj["author"]?.jsonPrimitive?.content?.decodeEntities()
                     }
                 } catch (e: Exception) {
@@ -1097,14 +1102,8 @@ class JsSource(
                         .map { it.trim() }
                         .filter { it.isNotBlank() && it != title }
                 }
-                // Validate cover URL
-                val coverUrl = obj["cover"]?.jsonPrimitive?.content
-                thumbnail_url = when {
-                    coverUrl.isNullOrBlank() || coverUrl == "null" -> existing.thumbnail_url
-                    coverUrl.startsWith("http://") || coverUrl.startsWith("https://") -> coverUrl
-                    coverUrl.startsWith("/") -> baseUrl + coverUrl
-                    else -> "$baseUrl/$coverUrl"
-                }
+                thumbnail_url = normalizeCoverUrl(obj["cover"]?.jsonPrimitive?.contentOrNull)
+                    ?: existing.thumbnail_url
                 status = when (obj["status"]?.jsonPrimitive?.content) {
                     "Ongoing" -> SManga.ONGOING
                     "Completed" -> SManga.COMPLETED

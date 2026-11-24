@@ -6,6 +6,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -16,12 +21,41 @@ import kotlin.coroutines.resumeWithException
 class JsRuntimeException(
     message: String,
     val jsStack: String,
+    val pluginErrorCode: String? = null,
+    val httpStatus: Int? = null,
+    val errorUrl: String? = null,
 ) : RuntimeException(message) {
     override fun toString(): String = buildString {
         append(super.toString())
         if (jsStack.isNotBlank()) {
             append("\nJavaScript stack:\n")
             append(jsStack)
+        }
+    }
+
+    companion object {
+        private const val META_PREFIX = "[NekoriPluginError:"
+
+        internal fun fromRejection(message: String, rawStack: String): JsRuntimeException {
+            if (!rawStack.startsWith(META_PREFIX)) {
+                return JsRuntimeException(message, rawStack)
+            }
+            val newlineIdx = rawStack.indexOf('\n')
+            val header = if (newlineIdx >= 0) rawStack.substring(0, newlineIdx) else rawStack
+            if (!header.endsWith("]")) {
+                return JsRuntimeException(message, rawStack)
+            }
+            val jsonBody = header.substring(META_PREFIX.length, header.length - 1)
+            val meta = runCatching { Json.parseToJsonElement(jsonBody) as? JsonObject }.getOrNull()
+                ?: return JsRuntimeException(message, rawStack)
+            val cleanStack = if (newlineIdx >= 0) rawStack.substring(newlineIdx + 1) else ""
+            return JsRuntimeException(
+                message = message,
+                jsStack = cleanStack,
+                pluginErrorCode = meta["code"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null },
+                httpStatus = meta["status"]?.jsonPrimitive?.intOrNull,
+                errorUrl = meta["url"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null },
+            )
         }
     }
 }
@@ -141,7 +175,7 @@ internal object JsCallDispatcher {
             logcat { "Dropping reject for unknown call id $id" }
             return
         }
-        continuation.resumeWithException(JsRuntimeException(message, stack))
+        continuation.resumeWithException(JsRuntimeException.fromRejection(message, stack))
     }
 
     /** Visible for tests: no call may outlive its answer. */

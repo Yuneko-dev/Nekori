@@ -1010,6 +1010,36 @@ class JsRuntimeBridgeTest {
     }
 
     @Test
+    fun pluginErrorModulePropagatesStructuredMetadataAcrossBridge() = runBlocking {
+        val runtime = createRuntime()
+        val code = """
+            const { PluginError, createPluginError } = require('@libs/pluginError');
+            exports.default = {
+              id: 'plugin-error.test',
+              name: 'PluginError test',
+              version: '1',
+              site: 'https://example.invalid',
+              parseChapter: async () => {
+                throw createPluginError(PluginError.RateLimited, {
+                  status: 429,
+                  url: 'https://example.invalid/ch/1',
+                });
+              },
+            };
+        """.trimIndent()
+
+        runtime.call("plugin.load", """{"id":"plugin-error.test","code":${quote(code)}}""")
+        try {
+            runtime.call("plugin.parseChapter", """{"id":"plugin-error.test","path":"/ch/1"}""")
+            fail("Expected structured PluginError rejection")
+        } catch (e: JsRuntimeException) {
+            assertEquals("Too many requests (429). Please try again later.", e.pluginErrorCode)
+            assertEquals(429, e.httpStatus)
+            assertEquals("https://example.invalid/ch/1", e.errorUrl)
+        }
+    }
+
+    @Test
     fun cancellingACallDrainsItAndIgnoresTheLateAnswer() = runBlocking {
         val runtime = createRuntime()
         runtime.start()

@@ -20,6 +20,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Added
+- Support LNReader's `@libs/pluginError` helper module in the JS plugin runtime, propagate structured plugin error metadata across the bridge, and retry rate-limited (`429`) novel chapter downloads once after backoff.
 - Add chapter-number range filtering and parallel chapter scanning to entry chapter search, while retaining RE2/J regex safety and full match expansion.
 - Allow selecting duplicate entries and updating their categories directly from the possible-duplicates dialog.
 - Add an optional classic TTS notification with paragraph progress, leaving media controls available to music players.
@@ -32,6 +33,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add scrolling to the next unread chapter in the displayed list, with an Appearance setting to place chapter-list scroll actions in the overflow menu; toolbar icons are the default.
 
 ### Fixed
+- Display the default book cover drawable instead of the broken-image error icon when a novel cover is null, missing, or an LNReader/Nekori unavailable-cover placeholder, without extracting placeholder colors for cover-based themes.
 - Follow the system 12/24-hour preference for the novel status bar clock.
 - Treat local novel chapters as already on device during translation, hide inapplicable download/delete actions on local novels, and confirm bulk downloaded-chapter translations with accurate queued counts.
 - Apply multi-entry category updates atomically and report save failures instead of updating the library cache on failed writes.

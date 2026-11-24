@@ -24,6 +24,15 @@ import {
   utf8ToBytes,
 } from './helpers/nobleWrapper';
 import {
+  assertNoChallenge,
+  checkResponse,
+  createPluginError,
+  httpError,
+  isChallengeHtml,
+  isPluginError,
+  PluginError,
+} from './helpers/pluginError';
+import {
   hydratePluginStorage,
   removePluginStorageContext,
   storageModule,
@@ -89,6 +98,15 @@ const packages: Record<string, unknown> = {
   dayjs: dayjs,
   urlencode: { encode, decode },
   '@libs/novelStatus': { NovelStatus },
+  '@libs/pluginError': {
+    PluginError,
+    createPluginError,
+    httpError,
+    checkResponse,
+    isChallengeHtml,
+    assertNoChallenge,
+    isPluginError,
+  },
   '@libs/fetch': { fetchApi, fetchText, fetchProto },
   '@libs/isAbsoluteUrl': { isUrlAbsolute },
   '@libs/filterInputs': { FilterTypes },

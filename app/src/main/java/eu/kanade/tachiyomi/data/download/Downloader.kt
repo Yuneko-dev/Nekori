@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.translation.TranslationJob
 import eu.kanade.tachiyomi.data.translation.TranslationService
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
+import eu.kanade.tachiyomi.jsruntime.JsRuntimeException
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.BackgroundRateLimitGuard
@@ -829,13 +830,33 @@ class Downloader(
     private suspend fun fetchNovelPageText(page: Page, download: Download): Boolean {
         if (page.text == null) {
             logcat { "  -> Fetching novel page text for page ${page.number}" }
-            try {
-                page.chapterContent = download.source.fetchChapterContent(page)
-                logcat { "  -> Fetched text, length=${page.text?.length ?: 0}" }
-            } catch (error: Throwable) {
-                logcat(LogPriority.ERROR, error) { "  -> Error fetching novel page text" }
-                page.status = Page.State.Error(error)
-                return false
+            var attemptedRateLimitRetry = false
+            while (true) {
+                try {
+                    page.chapterContent = download.source.fetchChapterContent(page)
+                    logcat { "  -> Fetched text, length=${page.text?.length ?: 0}" }
+                    break
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    if (!attemptedRateLimitRetry && isRateLimitedNovelDownloadError(error)) {
+                        attemptedRateLimitRetry = true
+                        val cooldownMs = networkHelper.rateLimitInterceptor.downloadCooldownMillis(
+                            download.source.rateLimitHost(),
+                        )
+                        val backoffMs = maxOf(cooldownMs * 2L, MIN_RATE_LIMIT_RETRY_DELAY_MS)
+                        logcat(LogPriority.WARN, error) {
+                            "  -> Rate limited while fetching novel page ${page.number}; retrying once after ${backoffMs}ms"
+                        }
+                        delay(backoffMs)
+                        if (!isRunning) {
+                            throw CancellationException("Downloader stopped during rate-limit retry")
+                        }
+                        continue
+                    }
+                    logcat(LogPriority.ERROR, error) { "  -> Error fetching novel page text" }
+                    page.status = Page.State.Error(error)
+                    return false
+                }
             }
         }
         val content = page.chapterContent
@@ -1158,6 +1179,31 @@ class Downloader(
         private const val DOWNLOADS_QUEUED_WARNING_THRESHOLD = 30
         private const val DEFAULT_MANGA_DOWNLOAD_CONCURRENCY = 5
         private const val DEFAULT_MANGA_PAGE_CONCURRENCY = 5
+        private const val MIN_RATE_LIMIT_RETRY_DELAY_MS = 3_500L
+        private const val RATE_LIMITED_PLUGIN_ERROR_CODE = "Too many requests (429). Please try again later."
+        private val HTTP_429_REGEX = Regex("""\b429\b""")
+
+        internal fun isRateLimitedNovelDownloadError(error: Throwable): Boolean {
+            var current: Throwable? = error
+            var depth = 0
+            while (current != null && depth < 8) {
+                when (current) {
+                    is HttpException -> if (current.code == 429) return true
+                    is JsRuntimeException -> {
+                        if (
+                            current.pluginErrorCode == RATE_LIMITED_PLUGIN_ERROR_CODE ||
+                            current.httpStatus == 429 ||
+                            HTTP_429_REGEX.containsMatchIn(current.message.orEmpty())
+                        ) {
+                            return true
+                        }
+                    }
+                }
+                current = current.cause
+                depth++
+            }
+            return false
+        }
     }
 }
 

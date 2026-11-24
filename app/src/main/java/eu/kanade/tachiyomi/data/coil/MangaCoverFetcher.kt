@@ -1,17 +1,21 @@
 package eu.kanade.tachiyomi.data.coil
 
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import coil3.Extras
 import coil3.ImageLoader
+import coil3.asImage
 import coil3.decode.DataSource
 import coil3.decode.ImageSource
 import coil3.disk.DiskCache
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
+import coil3.fetch.ImageFetchResult
 import coil3.fetch.SourceFetchResult
 import coil3.getOrDefault
 import coil3.request.Options
 import com.hippo.unifile.UniFile
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher.Companion.USE_CUSTOM_COVER_KEY
 import eu.kanade.tachiyomi.jsplugin.source.JsSource
@@ -76,9 +80,16 @@ class MangaCoverFetcher(
         }
 
         // diskCacheKey is thumbnail_url
-        // Return error silently for null/empty URLs - Coil will use the error placeholder
+        // Missing or placeholder covers resolve to the app's default cover drawable;
+        // reserve Coil's error drawable for genuine network or decode failures.
         if (url.isNullOrEmpty() || isUnavailableCover(url)) {
-            throw IOException("No cover URL available")
+            val defaultCover = ContextCompat.getDrawable(options.context, R.drawable.cover_default)
+                ?: throw IOException("Default cover drawable unavailable")
+            return ImageFetchResult(
+                image = defaultCover.asImage(),
+                isSampled = false,
+                dataSource = DataSource.MEMORY,
+            )
         }
         return when (getResourceType(url)) {
             Type.File -> fileLoader(File(url.substringAfter("file://")))

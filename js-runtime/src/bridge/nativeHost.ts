@@ -35,6 +35,32 @@ function nativeHostApi(): Spec {
   return require('../../specs/NativeHostApi').default as Spec;
 }
 
+function encodeRejectionStack(error: unknown): string {
+  const stack = error instanceof Error ? error.stack ?? '' : '';
+  if (!error || typeof error !== 'object') {
+    return stack;
+  }
+  const { code, status, url } = error as {
+    code?: unknown;
+    status?: unknown;
+    url?: unknown;
+  };
+  const hasCode = typeof code === 'string' && code.length > 0;
+  const hasStatus = typeof status === 'number' && Number.isFinite(status);
+  const hasUrl = typeof url === 'string' && url.length > 0;
+  if (!hasCode && !hasStatus && !hasUrl) {
+    return stack;
+  }
+  const meta = JSON.stringify({
+    code: hasCode ? code : undefined,
+    status: hasStatus ? status : undefined,
+    url: hasUrl ? url : undefined,
+  });
+  return stack
+    ? `[NekoriPluginError:${meta}]\n${stack}`
+    : `[NekoriPluginError:${meta}]`;
+}
+
 async function dispatch(api: Spec, command: JsCommand): Promise<void> {
   const { id, method, args } = command;
   inFlight.add(id);
@@ -54,7 +80,7 @@ async function dispatch(api: Spec, command: JsCommand): Promise<void> {
       api.reject(
         id,
         error instanceof Error ? error.message : String(error),
-        error instanceof Error ? error.stack ?? '' : '',
+        encodeRejectionStack(error),
       );
     }
   } finally {

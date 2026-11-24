@@ -71,6 +71,12 @@ class PerHostDynamicRateLimitInterceptor : Interceptor {
         awaitPermit(normalized, policy.specFor(normalized)) { delay(it) }
     }
 
+    /** Current configured pacing interval for [host], or 0 when unthrottled. */
+    fun downloadCooldownMillis(host: String?): Long {
+        if (host.isNullOrBlank()) return 0L
+        return policy.specFor(host.normalizedRateLimitHost()).delayMillis
+    }
+
     private inline fun awaitPermit(host: String, spec: RateLimitSpec, waitFor: (Long) -> Unit) {
         if (spec.delayMillis > 0) {
             val lock = hostLocks.computeIfAbsent(host) { Any() }

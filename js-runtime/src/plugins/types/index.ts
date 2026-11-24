@@ -76,6 +76,8 @@ export enum NovelStatus {
   Inactive = 'Inactive',
 }
 
+export { PluginError } from '../helpers/pluginError';
+
 export enum PluginContentWarning {
   UNSPECIFIED = 0,
   SAFE = 1,

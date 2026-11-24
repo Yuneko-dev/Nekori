@@ -10,6 +10,7 @@ import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import com.materialkolor.ktx.themeColorOrNull
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,12 @@ class CoverThemeInterceptor : Interceptor {
             is MangaCover -> data
             else -> return chain.proceed()
         }
-        if (!Injekt.get<UiPreferences>().themeCoverBased.get() || CoverThemeCache.contains(cover)) {
+        val hasMissingRemoteCover = cover.url.isNullOrEmpty() || isUnavailableCover(cover.url)
+        if (
+            !Injekt.get<UiPreferences>().themeCoverBased.get() ||
+            CoverThemeCache.contains(cover) ||
+            (hasMissingRemoteCover && !Injekt.get<CoverCache>().getCustomCoverFile(cover.mangaId).exists())
+        ) {
             return chain.proceed()
         }
         val request = chain.request.newBuilder().allowHardware(false).build()
