@@ -200,6 +200,15 @@ class JsSourceMainThreadTest {
     }
 
     @Test
+    fun exposesMultiTextFiltersWithTheirChips() = runBlocking {
+        val filters = createSource().getFilterListAsync()
+
+        val multiTags = filters.filterIsInstance<JsSource.JsMultiTextFilter>().single()
+        assertEquals(listOf("isekai"), multiTags.state)
+        assertTrue(multiTags.autocomplete)
+    }
+
+    @Test
     fun exposesSelectAndCheckboxGroupPluginSettings() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
@@ -253,6 +262,12 @@ class JsSourceMainThreadTest {
                           label: 'Tags',
                           value: { include: [], exclude: [] },
                           options: [{ label: 'Fantasy', value: 'fantasy' }],
+                        },
+                        multiTags: {
+                          type: 'MultiText',
+                          label: 'Multi tags',
+                          value: ['isekai'],
+                          autocomplete: true,
                         },
                       },
                       pluginSettings: {

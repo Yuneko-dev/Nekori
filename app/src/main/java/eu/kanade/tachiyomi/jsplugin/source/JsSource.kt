@@ -469,6 +469,7 @@ class JsSource(
                 is JsTriStateGroup -> filter.includedValues().isNotEmpty() || filter.excludedValues().isNotEmpty()
                 is JsSwitchFilter -> filter.state
                 is JsTextFilter -> filter.state.isNotBlank()
+                is Filter.MultiText -> filter.state.isNotEmpty()
                 is Filter.CheckBox -> filter.state
                 is Filter.Text -> filter.state.isNotBlank()
                 else -> false
@@ -569,6 +570,14 @@ class JsSource(
                         mapOf(
                             "type" to JsonPrimitive("Text"),
                             "value" to JsonPrimitive(filter.state),
+                        ),
+                    )
+                }
+                is Filter.MultiText -> {
+                    filterEntries[filter.key ?: filter.name] = JsonObject(
+                        mapOf(
+                            "type" to JsonPrimitive("MultiText"),
+                            "value" to JsonArray(filter.state.map { JsonPrimitive(it) }),
                         ),
                     )
                 }
@@ -1386,6 +1395,14 @@ class JsSource(
         autocomplete: Boolean = false,
     ) : Filter.Text(name, defaultValue, key, autocomplete)
 
+    /** Multi-value free-text filter; each chip is one value the plugin receives unchanged. */
+    class JsMultiTextFilter(
+        name: String,
+        override val key: String,
+        defaultValues: List<String> = emptyList(),
+        autocomplete: Boolean = false,
+    ) : Filter.MultiText(name, defaultValues, key, autocomplete)
+
     /** Switch filter that stores the original JSON key */
     class JsSwitchFilter(
         name: String,
@@ -1402,6 +1419,14 @@ class JsSource(
                 val defaultValue = filterObj["value"]?.jsonPrimitive?.content ?: ""
                 val autocomplete = filterObj["autocomplete"]?.jsonPrimitive?.booleanOrNull == true
                 filters.add(JsTextFilter(label, key, defaultValue, autocomplete))
+            }
+
+            "MultiText" -> {
+                val defaultValues = filterObj["value"]?.jsonArray?.mapNotNull { value ->
+                    (value as? JsonPrimitive)?.contentOrNull
+                }?.filter { it.isNotBlank() } ?: emptyList()
+                val autocomplete = filterObj["autocomplete"]?.jsonPrimitive?.booleanOrNull == true
+                filters.add(JsMultiTextFilter(label, key, defaultValues, autocomplete))
             }
 
             "Picker" -> {

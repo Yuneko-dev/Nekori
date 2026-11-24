@@ -3,8 +3,10 @@ package eu.kanade.tachiyomi.ui.browse.source.browse
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.AlertDialog
@@ -20,6 +26,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +48,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -234,6 +242,14 @@ private fun FilterItem(
                 }
             }
         }
+        is Filter.MultiText -> {
+            MultiTextFilterItem(
+                filter = filter,
+                fetch = onFetchFilterSuggestions,
+                resetVersion = resetVersion,
+                onUpdate = onUpdate,
+            )
+        }
         is Filter.Select<*> -> {
             SelectItem(
                 label = filter.name,
@@ -354,6 +370,142 @@ private fun AutocompleteTextItem(
             anchorBounds = fieldBounds,
         )
     }
+}
+
+@Composable
+private fun MultiTextFilterItem(
+    filter: Filter.MultiText,
+    fetch: FilterSuggestionsFetcher?,
+    resetVersion: Int,
+    onUpdate: () -> Unit,
+) {
+    var input by remember(resetVersion, filter.key ?: filter.name) { mutableStateOf("") }
+    var fieldBounds by remember { mutableStateOf<Rect?>(null) }
+
+    fun commit(rawText: String) {
+        val next = addMultiTextValues(filter.state, rawText.split('\n'))
+        if (next != filter.state) {
+            filter.state = next
+            onUpdate()
+        }
+        input = ""
+    }
+
+    val autocomplete = rememberAutocompleteField(
+        filterKey = filter.key,
+        query = input,
+        enabled = filter.autocomplete,
+        fetch = fetch,
+    ) { suggestion ->
+        commit(suggestion.value)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+    ) {
+        if (filter.state.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(bottom = 4.dp),
+            ) {
+                filter.state.forEach { chip ->
+                    InputChip(
+                        selected = false,
+                        onClick = {
+                            input = chip
+                            filter.state = filter.state - chip
+                            onUpdate()
+                        },
+                        label = {
+                            Text(
+                                text = chip,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(MR.strings.action_remove),
+                                modifier = Modifier
+                                    .clickable {
+                                        filter.state = filter.state - chip
+                                        onUpdate()
+                                    }
+                                    .padding(4.dp),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { fieldBounds = it.boundsInWindow() },
+        ) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { value ->
+                    autocomplete.onEdit()
+                    // A newline only arrives via paste, so split it into chips now.
+                    if ('\n' in value) {
+                        commit(value)
+                    } else {
+                        input = value
+                    }
+                },
+                label = { Text(text = filter.name) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { commit(input) }),
+                trailingIcon = {
+                    IconButton(
+                        onClick = { commit(input) },
+                        enabled = input.isNotBlank(),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(MR.strings.action_add),
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            autocomplete.onFocus()
+                        } else {
+                            autocomplete.onBlur()
+                        }
+                    },
+            )
+        }
+        FilterSuggestionPopup(
+            visible = autocomplete.suggestions.isNotEmpty(),
+            suggestions = autocomplete.suggestions,
+            onSelect = autocomplete.select,
+            onDismiss = autocomplete.dismiss,
+            anchorBounds = fieldBounds,
+        )
+    }
+}
+
+private fun addMultiTextValues(
+    current: List<String>,
+    rawValues: List<String>,
+): List<String> {
+    val next = current.toMutableList()
+    rawValues.forEach { rawValue ->
+        val value = rawValue.trim()
+        if (value.isNotEmpty() && value !in next) {
+            next.add(value)
+        }
+    }
+    return next
 }
 
 @Composable

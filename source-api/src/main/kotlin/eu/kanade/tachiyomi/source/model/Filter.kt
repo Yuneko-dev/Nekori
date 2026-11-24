@@ -13,6 +13,12 @@ sealed class Filter<T>(val name: String, var state: T) {
         open val key: String? = null,
         val autocomplete: Boolean = false,
     ) : Filter<String>(name, state)
+    abstract class MultiText(
+        name: String,
+        state: List<String> = emptyList(),
+        open val key: String? = null,
+        val autocomplete: Boolean = false,
+    ) : Filter<List<String>>(name, state)
     abstract class CheckBox(name: String, state: Boolean = false) : Filter<Boolean>(name, state)
     abstract class TriState(name: String, state: Int = STATE_IGNORE) : Filter<Int>(name, state) {
         fun isIgnored() = state == STATE_IGNORE
