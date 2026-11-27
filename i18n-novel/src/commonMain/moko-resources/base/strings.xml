@@ -548,6 +548,8 @@
     <string name="pref_translation_target_language">Target language</string>
     <string name="pref_translation_auto_download">Auto-download before translating</string>
     <string name="pref_translation_auto_download_summary">Download chapter content if not already available</string>
+    <string name="pref_translation_remove_after_marked_as_read">Delete translations when marked as read</string>
+    <string name="pref_translation_remove_after_marked_as_read_summary">Turn off to keep saved translations when you mark chapters as read from a list.</string>
     <string name="pref_translation_auto_translate">Auto-translate downloads</string>
     <string name="pref_translation_auto_translate_summary">Automatically translate chapters when downloaded</string>
     <string name="pref_translation_replace_after_translation">Apply Find &amp; Replace after translation</string>

@@ -97,6 +97,11 @@ class TranslationPreferences(
         true,
     )
 
+    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean(
+        "translation_remove_after_marked_as_read",
+        true,
+    )
+
     /**
      * Whether to auto-translate downloaded chapters.
      */

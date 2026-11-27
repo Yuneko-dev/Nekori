@@ -33,6 +33,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - Add scrolling to the next unread chapter in the displayed list, with an Appearance setting to place chapter-list scroll actions in the overflow menu; toolbar icons are the default.
 
 ### Fixed
+- Let users keep saved translations when manually marking chapters as read, independently of the setting that removes chapter downloads.
 - Display the default book cover drawable instead of the broken-image error icon when a novel cover is null, missing, or an LNReader/Nekori unavailable-cover placeholder, without extracting placeholder colors for cover-based themes.
 - Follow the system 12/24-hour preference for the novel status bar clock.
 - Treat local novel chapters as already on device during translation, hide inapplicable download/delete actions on local novels, and confirm bulk downloaded-chapter translations with accurate queued counts.

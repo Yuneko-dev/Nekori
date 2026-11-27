@@ -71,13 +71,19 @@ object SettingsTranslationScreen : SearchableSettings {
         val translationService = remember { Injekt.get<TranslationService>() }
         val navigator = LocalNavigator.currentOrThrow
         val enabled by prefs.translationEnabled().collectAsState()
-        if (!enabled) {
-            return listOf(
-                Preference.PreferenceGroup(
-                    title = stringResource(MR.strings.pref_category_general),
-                    preferenceItems = listOf(masterPreference(prefs)),
+        val generalGroup = Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_general),
+            preferenceItems = listOf(
+                masterPreference(prefs),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.removeAfterMarkedAsRead(),
+                    title = stringResource(TDMR.strings.pref_translation_remove_after_marked_as_read),
+                    subtitle = stringResource(TDMR.strings.pref_translation_remove_after_marked_as_read_summary),
                 ),
-            )
+            ),
+        )
+        if (!enabled) {
+            return listOf(generalGroup)
         }
 
         val chapterEngine by prefs.engineId(TranslationPurpose.CHAPTER).collectAsState()
@@ -154,10 +160,7 @@ object SettingsTranslationScreen : SearchableSettings {
         val languageEntries = engines.getSupportedLanguages(TranslationPurpose.CHAPTER).toMap()
 
         return listOf(
-            Preference.PreferenceGroup(
-                title = stringResource(MR.strings.pref_category_general),
-                preferenceItems = listOf(masterPreference(prefs)),
-            ),
+            generalGroup,
             engineGroup(
                 prefs = prefs,
                 engines = engines,

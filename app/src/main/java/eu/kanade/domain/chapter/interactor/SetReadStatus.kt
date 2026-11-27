@@ -14,11 +14,13 @@ import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.model.TranslationLocator
 import tachiyomi.domain.translation.repository.TranslatedChapterRepository
+import tachiyomi.domain.translation.service.TranslationPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class SetReadStatus(
     private val downloadPreferences: NovelDownloadPreferences,
+    private val translationPreferences: TranslationPreferences,
     private val deleteDownload: DeleteDownload,
     private val mangaRepository: MangaRepository,
     private val chapterRepository: ChapterRepository,
@@ -56,8 +58,9 @@ class SetReadStatus(
             return@withNonCancellableContext Result.InternalError(e)
         }
 
-        if (read) {
-            chaptersToUpdate.groupBy { it.mangaId }.forEach { (mangaId, chapters) ->
+        val chaptersByManga = chaptersToUpdate.groupBy { it.mangaId }
+        if (read && translationPreferences.removeAfterMarkedAsRead().get()) {
+            chaptersByManga.forEach { (mangaId, chapters) ->
                 val manga = mangaRepository.getMangaByIdOrNull(mangaId)
                 if (manga == null) {
                     logcat(LogPriority.WARN) { "Skipping translation cleanup: manga $mangaId not found" }
@@ -77,18 +80,16 @@ class SetReadStatus(
         }
 
         if (read && downloadPreferences.removeAfterMarkedAsRead.get()) {
-            chaptersToUpdate
-                .groupBy { it.mangaId }
-                .forEach { (mangaId, chapters) ->
-                    deleteDownload.awaitAll(
-                        manga = mangaRepository.getMangaById(mangaId),
-                        chapters = chapters.toTypedArray(),
-                    )
-                }
+            chaptersByManga.forEach { (mangaId, chapters) ->
+                deleteDownload.awaitAll(
+                    manga = mangaRepository.getMangaById(mangaId),
+                    chapters = chapters.toTypedArray(),
+                )
+            }
         }
 
         try {
-            chaptersToUpdate.groupBy { it.mangaId }.forEach { (mangaId, chapters) ->
+            chaptersByManga.forEach { (mangaId, chapters) ->
                 val manga = mangaRepository.getMangaById(mangaId)
                 if (read) {
                     sourceTrackerDispatcher.notifyChaptersRead(manga, chapters)

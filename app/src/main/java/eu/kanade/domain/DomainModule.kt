@@ -187,7 +187,7 @@ class DomainModule : InjektModule {
         addFactory { GetBookmarkedChaptersByMangaId(get()) }
         addFactory { GetChapterByUrlAndMangaId(get()) }
         addFactory { UpdateChapter(get()) }
-        addFactory { SetReadStatus(get(), get(), get(), get(), get(), get()) }
+        addFactory { SetReadStatus(get(), get(), get(), get(), get(), get(), get()) }
         addFactory { ShouldUpdateDbChapter() }
         addFactory {
             SyncChaptersWithSource(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
@@ -206,7 +206,7 @@ class DomainModule : InjektModule {
         addFactory { GetReadingSessions(get()) }
         addFactory { GetMostReadManga(get()) }
 
-        addFactory { DeleteDownload(get(), get(), get()) }
+        addFactory { DeleteDownload(get(), get()) }
 
         addFactory { GetExtensionsByType(get(), get()) }
         addFactory { GetExtensionSources(get()) }

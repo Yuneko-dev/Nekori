@@ -517,6 +517,8 @@
     <string name="pref_translation_target_language">Ngôn ngữ đích</string>
     <string name="pref_translation_auto_download">Tự tải trước khi dịch</string>
     <string name="pref_translation_auto_download_summary">Tải nội dung chương nếu chưa có</string>
+    <string name="pref_translation_remove_after_marked_as_read">Xóa bản dịch khi đánh dấu đã đọc</string>
+    <string name="pref_translation_remove_after_marked_as_read_summary">Tắt để giữ bản dịch đã lưu khi bạn đánh dấu chương là đã đọc từ danh sách.</string>
     <string name="pref_translation_auto_translate">Tự dịch nội dung tải xuống</string>
     <string name="pref_translation_auto_translate_summary">Tự động dịch chương khi tải xong</string>
     <string name="pref_translation_replace_after_translation">Áp dụng Tìm và thay thế sau khi dịch</string>
